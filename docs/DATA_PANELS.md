@@ -52,7 +52,7 @@ The root adapters' existing EntityInspector remains the selection-aware scene he
 
 Common panel inputs: id, className, style, label (accessible name; defaults to title), title, description, density (comfortable/compact), children, slots, state and freshness. Content state defaults to ready; loading/empty/error use overridable messages. Freshness is independently supplied as a state and visible label. A ready panel may show stale values; there is no automatic freshness clock or empty detection.
 
-Authoritative types and behavior live in [the shared implementation](../packages/ui/src/index.ts). The [website reference](../src/features/docs/panel-content.ts) documents exact inputs, imports, defaults and snippets at /docs/data-panels. No future proposal is presented there as an export.
+Authoritative types and behavior live in [the shared implementation](../packages/ui/src/index.ts). The [website reference](../apps/site/src/features/docs/panel-content.ts) documents exact inputs, imports, defaults and snippets at /docs/data-panels. No future proposal is presented there as an export.
 
 ## Host customization
 
@@ -99,14 +99,14 @@ Zones are host layout, not a library feature, as [ADR 0022](decisions/0022-datac
 - Set pointer-events: none on zone wrappers and auto on the panels, so empty zone space still reaches the scene and panel clicks do not pick objects behind them.
 - Keep the scene mount stable when panels toggle or the size changes.
 - Choose the size per breakpoint in host code. The domain examples use size s on phones.
-- The domain examples share their zones in `src/app/hud.css` and their metric row, size control and zoom bar in `src/features/example-hud.tsx`. Both are example code, not package API.
+- The domain examples share their zones in `apps/site/src/app/hud.css` and their metric row, size control and zoom bar in `apps/site/src/features/example-hud.tsx`. Both are example code, not package API.
 - On narrow layouts, keep panels inside the viewport with internal scrolling.
 
-[The panel page](../src/features/docs/PanelDemos.tsx) runs this composition without WebGL, and [the datacenter viewport](../src/features/datacenter/DatacenterViewport.tsx) runs it over a scene.
+[The panel page](../apps/site/src/features/docs/PanelDemos.tsx) runs this composition without WebGL, and [the datacenter viewport](../apps/site/src/features/datacenter/DatacenterViewport.tsx) runs it over a scene.
 
 ## Zoom control
 
-ZoomControl is a standalone compact control rather than a panel: by default the datacenter viewport bar, or `plain` inside a host toolbar. It shares this package, its presentation tree and its `--panel-*` variables. Options, theming, scene binding and a live configurator are on the [Zoom control page](../src/features/docs/zoom-control-content.ts) at /docs/zoom-control. See [ADR 0038](decisions/0038-zoom-control.md).
+ZoomControl is a standalone compact control rather than a panel: by default the datacenter viewport bar, or `plain` inside a host toolbar. It shares this package, its presentation tree and its `--panel-*` variables. Options, theming, scene binding and a live configurator are on the [Zoom control page](../apps/site/src/features/docs/zoom-control-content.ts) at /docs/zoom-control. See [ADR 0038](decisions/0038-zoom-control.md).
 
 ## Semantics and boundaries
 
@@ -126,17 +126,17 @@ Primitives use native sections/headings, description/ordered/unordered lists, bu
 
 ## Runnable samples and verification
 
-The implemented datacenter recipe now provides a concrete host composition at `/examples/datacenter`: shared panels float over one native scene, with host-owned layout, panel visibility, fixture calculations, room focus and selection. See [the viewport implementation](../src/features/datacenter/DatacenterViewport.tsx) and [recipe](domains/datacenter.md#facility-overview-and-room-focus). The library primitives do not gain datacenter fields or mandatory overlay positioning. The completed panel worktree implementation was integrated into the main checkout on October 16; its standalone documentation and examples are available here as well.
+The implemented datacenter recipe now provides a concrete host composition at `/examples/datacenter`: shared panels float over one native scene, with host-owned layout, panel visibility, fixture calculations, room focus and selection. See [the viewport implementation](../apps/site/src/features/datacenter/DatacenterViewport.tsx) and [recipe](domains/datacenter.md#facility-overview-and-room-focus). The library primitives do not gain datacenter fields or mandatory overlay positioning. The completed panel worktree implementation was integrated into the main checkout on October 16; its standalone documentation and examples are available here as well.
 
 Neutral samples at /examples/panels and /docs/data-panels exercise all blocks, custom native content, controlled values/selection/content states, row reordering and mount/unmount. They are component API samples, not a prescribed dashboard or a domain recipe:
 
-- [React](../examples/panels-react.tsx)
-- [Vue](../examples/panels-vue.ts)
-- [JavaScript](../examples/panels-javascript.ts)
-- [Shared neutral fixture](../examples/panels-fixture.ts)
-- [Documentation samples and generated snippets](../examples/panel-docs-fixture.ts), checked by [the unit tests](../tests/panels.test.ts)
+- [React](../apps/site/examples/panels-react.tsx)
+- [Vue](../apps/site/examples/panels-vue.ts)
+- [JavaScript](../apps/site/examples/panels-javascript.ts)
+- [Shared neutral fixture](../apps/site/examples/panels-fixture.ts)
+- [Documentation samples and generated snippets](../apps/site/examples/panel-docs-fixture.ts), checked by [the unit tests](../tests/panels.test.ts)
 
-[Unit checks](../tests/panels.test.ts) and [zoom checks](../tests/zoom-control.test.ts) cover zero/unknown/overflow semantics, invalid inputs and IDs, disabled/static interaction, supplied process states, independent freshness, extreme finite ranges, safe text and native server rendering without a browser or scene provider. [Browser checks](../tests/e2e/panels.spec.ts) cover native adapter updates/content/selection, numeric and content states, keyboard interaction, JS keyed focus/reordering, teardown/remount and narrow layout.
+[Unit checks](../tests/panels.test.ts) and [zoom checks](../tests/zoom-control.test.ts) cover zero/unknown/overflow semantics, invalid inputs and IDs, disabled/static interaction, supplied process states, independent freshness, extreme finite ranges, safe text and native server rendering without a browser or scene provider. [Browser checks](../apps/site/e2e/panels.spec.ts) cover native adapter updates/content/selection, numeric and content states, keyboard interaction, JS keyed focus/reordering, teardown/remount and narrow layout.
 
 Implementation verification: strict TypeScript, ESLint, all 268 unit tests, the production build and both targeted panel browser tests passed. Browser verification used an isolated production preview on loopback port 3101 because an existing server already owned 3100; normal repository dev/preview commands remain on 3100. These checks do not establish a hardware performance or bundle budget.
 

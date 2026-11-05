@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { createNavGraph, createRouteFollower, createSceneStore, routeDuration, sampleRoute, toNodeRoute, type NavGraphDefinition, type NodeRoute } from '@opsorama/core';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { pickSlots, warehouseNavigation } from '../src/features/ecommerce/scene';
-import { createEcommerceSimulation } from '../src/features/ecommerce/simulation';
+import { pickSlots, warehouseNavigation } from '../apps/site/src/features/ecommerce/scene';
+import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
 // A square floor: the diagonal forklift lane is the shortest way from A to C, but people may not use it.
 const floor: NavGraphDefinition = {
@@ -247,7 +247,7 @@ describe('e-commerce warehouse routes', () => {
 
 describe('rule-based movement example', () => {
   it('runs a seeded shift where pickers share slots, queue at the desk and stay on permitted lanes', async () => {
-    const { agentNodes, breakSteps, checkVehicleLaneProposal, createShift, motionGraph, motionSceneNodes, motionSlots, shiftOverlay } = await import('../examples/motion-data');
+    const { agentNodes, breakSteps, checkVehicleLaneProposal, createShift, motionGraph, motionSceneNodes, motionSlots, shiftOverlay } = await import('../apps/site/examples/motion-data');
     const runner = createShift();
     expect(runner.getAgents().filter(agent => agent.slot?.startsWith('shelf-unit:'))).toHaveLength(2);
     let queued = false;

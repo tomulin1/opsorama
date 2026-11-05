@@ -14,7 +14,7 @@ Every eight instances repeat the same catalog mix: an overview equipment cabinet
 
 All presets use the same miniature model scale (0.32), cell spacing (1.05 scene metres), deterministic IDs, status distribution and route phases. The centred grid grows with the load. Worker routes are closed loops; cabinet activity LEDs, workers and cooling fans use their existing local animators. Scene motion and reduced-motion policy retain authority over animation. Labels and shadows start off, motion starts on, and zoom starts at 1. No automatic quality adjustment is applied. The fixture version is `mixed-catalog-v1`; change it when workload inputs change.
 
-Source: [fixture and throughput calculation](../src/features/performance/model.ts), [host scene and controls](../src/features/performance/PerformanceDashboard.tsx), [diagnostic sampler](../src/features/performance/PerformanceReadout.tsx).
+Source: [fixture and throughput calculation](../apps/site/src/features/performance/model.ts), [host scene and controls](../apps/site/src/features/performance/PerformanceDashboard.tsx), [diagnostic sampler](../apps/site/src/features/performance/PerformanceReadout.tsx).
 
 ## Instancing
 

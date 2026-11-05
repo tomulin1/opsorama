@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSceneStore, interiorAreas, MARKER_ICONS, MARKER_SHAPES, MARKER_SIZES, resolveMarkerTone, validateNode, type MarkerNode } from '@opsorama/core';
 import { MARKER_ICON_ELEMENTS, MARKER_SHAPE_GEOMETRY, markerAccessibleName, resolveMarkerAppearance } from '@opsorama/renderer-three';
-import { defaultFeaturedMarker, markerGallery, markerSceneNodes, markerSnippet } from '../examples/marker-data';
+import { defaultFeaturedMarker, markerGallery, markerSceneNodes, markerSnippet } from '../apps/site/examples/marker-data';
 
 const marker = (extra: Partial<MarkerNode> = {}): MarkerNode => ({ id: 'm', kind: 'marker', label: 'Inlet alert', ...extra });
 

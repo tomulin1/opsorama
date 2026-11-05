@@ -2,7 +2,7 @@
 
 **A clear view of your operations.**
 
-![Opsorama — a clear view of your operations](public/brand/opsorama-lockup.svg)
+![Opsorama — a clear view of your operations](apps/site/public/brand/opsorama-lockup.svg)
 
 Pronounced **ops-oh-RAH-ma**, Opsorama combines *operations* with *panorama*: a clear view of everything happening across a business. Build animated 3D boards for commerce, logistics, HR and other domains. [Brand guide and assets](docs/BRAND.md).
 
@@ -38,20 +38,22 @@ The shared `building` object offers generic, warehouse, distribution-center, wor
 
 ## Toolkit architecture and examples
 
+- `apps/site`: the private Next.js website `@opsorama/site` (documentation, domain examples, object browser); never published. Root scripts delegate to it.
+- `tests/`: workspace-wide unit tests; Playwright specs live in `apps/site/e2e`.
 - `packages/core`: framework-independent types, immutable scene snapshots, validated settings, selection, and subscriptions. No browser or graphics dependencies.
 - `packages/renderer-three`: shared renderer, HTML labels, camera framing, transform interpolation, asset factories, and explicit teardown.
 - `packages/react`: native provider, hooks, scene components, EntityLayer, and headless EntityInspector.
 - `packages/vue`: native components, composables, subscriptions, events, and slots. No React dependency.
 - `packages/ui`: optional generic presentation contracts/builders, DOM mount and scoped CSS; native components via `@opsorama/react/ui` and `@opsorama/vue/ui`. Hosts supply data meanings, content, actions and dashboard layouts. [Panel contract](docs/DATA_PANELS.md).
-- `examples/shared.ts`: one definition with two zones and three objects used by all three adapters.
-- `examples/react-minimal`, `examples/vue-minimal`, `examples/vanilla-minimal`: working examples rendered on the framework comparison page.
-- `examples/react-composition`: compiled declarative quickstart using Ground, Zone, and Asset.
-- `src/features/ecommerce`: shop and fulfilment centre mock snapshots, scene composition with lane-checked routes, and the floating HUD.
-- `src/features/docs`: typed reference content, navigation, copyable snippets, live configuration playground, and adapter comparison.
+- `apps/site/examples/shared.ts`: one definition with two zones and three objects used by all three adapters.
+- `apps/site/examples/react-minimal`, `apps/site/examples/vue-minimal`, `apps/site/examples/vanilla-minimal`: working examples rendered on the framework comparison page.
+- `apps/site/examples/react-composition`: compiled declarative quickstart using Ground, Zone, and Asset.
+- `apps/site/src/features/ecommerce`: shop and fulfilment centre mock snapshots, scene composition with lane-checked routes, and the floating HUD.
+- `apps/site/src/features/docs`: typed reference content, navigation, copyable snippets, live configuration playground, and adapter comparison.
 
 ### E-commerce example
 
-`/examples/ecommerce` shows a shop (shop floor, checkouts, click & collect, parcel lockers) next to the warehouse that fulfils its online orders: receiving, reserve pallet racks, forward picking, sortation with robots and put walls, packing, dispatch and returns. It is a full-viewport React scene with a floating HUD built from the shared `@opsorama/ui` panels. Three mock snapshots (Monday peak, Wednesday afternoon, Sunday night) drive the metrics, order and stock tables, inspectors and the model counts; pickers and vehicles follow routes planned on lane rules. The host owns all records and commands. Source: `src/features/ecommerce`; guide: `/docs/recipes/ecommerce`; [domain notes](docs/domains/ecommerce.md).
+`/examples/ecommerce` shows a shop (shop floor, checkouts, click & collect, parcel lockers) next to the warehouse that fulfils its online orders: receiving, reserve pallet racks, forward picking, sortation with robots and put walls, packing, dispatch and returns. It is a full-viewport React scene with a floating HUD built from the shared `@opsorama/ui` panels. Three mock snapshots (Monday peak, Wednesday afternoon, Sunday night) drive the metrics, order and stock tables, inspectors and the model counts; pickers and vehicles follow routes planned on lane rules. The host owns all records and commands. Source: `apps/site/src/features/ecommerce`; guide: `/docs/recipes/ecommerce`; [domain notes](docs/domains/ecommerce.md).
 
 Shared scene views support left-mouse dragging on the canvas to pan the camera. Short clicks still select objects; dragging preserves selection and domain positions. The Overview control restores the camera target while retaining zoom. With the `wheelZoom` option, the mouse wheel over the scene changes zoom.
 
@@ -64,12 +66,7 @@ Countable models now expose explicit counts: Parcels on base and Pallet with box
 ## Project direction and roadmap
 
 - [Vision, goal, and success criteria](docs/PROJECT_VISION.md)
-- [Reusable object catalog, existing model inventory and implementation order](docs/OBJECT_CATALOG.md)
-- [Milestones, status, and next step](docs/ROADMAP.md)
-- [First public release plan](docs/RELEASE_PLAN.md) and the proposed [repository structure](docs/decisions/0077-public-repository-structure.md)
 - [Architecture and data contracts](docs/ARCHITECTURE.md)
-- [Component catalog and React/Vue composition](docs/COMPONENTS.md)
-- [28 use cases and domain specification template](docs/USE_CASES.md)
 - [Implementation guidelines](AGENTS.md)
 
 ## Preserved logistics objects
@@ -93,7 +90,7 @@ Open http://127.0.0.1:3100 to browse the examples. No API keys, external models,
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm exec playwright install chromium
+pnpm --filter @opsorama/site exec playwright install chromium
 pnpm test:e2e
 pnpm build
 pnpm start

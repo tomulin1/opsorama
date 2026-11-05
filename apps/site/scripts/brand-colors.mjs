@@ -1,4 +1,4 @@
-/** Website palette generation and static project color audit; no browser or package changes. */
+/** Website palette generation and static project color audit; no browser or package changes. Paths are relative to apps/site; toolkit packages are inventoried from the workspace root as ../../packages. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,9 +64,9 @@ const walk = directory => fs.readdirSync(path.join(root, directory), { withFileT
   const file = `${directory}/${entry.name}`;
   return entry.isDirectory() ? walk(file) : /\.(?:css|ts|tsx|svg)$/.test(file) ? [file] : [];
 });
-const inventory = ['src', 'packages', 'examples', 'public'].flatMap(walk).map(file => {
+const inventory = ['src', '../../packages', 'examples', 'public'].flatMap(walk).map(file => {
   const colors = read(file).match(/#[\da-f]{3,8}\b/ig) || [];
-  const scope = file === 'src/app/palette.css' ? 'palette source' : managedFiles.includes(file) ? 'managed website' : file.startsWith('public/brand/') ? 'brand asset' : file.startsWith('packages/ui/') ? 'portable UI defaults' : file.startsWith('packages/') ? 'renderer / core / adapter' : file.endsWith('.css') ? 'host example / preview' : 'host records / examples / documentation';
+  const scope = file === 'src/app/palette.css' ? 'palette source' : managedFiles.includes(file) ? 'managed website' : file.startsWith('public/brand/') ? 'brand asset' : file.startsWith('../../packages/ui/') ? 'portable UI defaults' : file.startsWith('../../packages/') ? 'renderer / core / adapter' : file.endsWith('.css') ? 'host example / preview' : 'host records / examples / documentation';
   return { file, scope, literals: colors.length, uniqueColors: [...new Set(colors.map(c => c.toUpperCase()))].length };
 });
 const report = { palette: palette.name, checks: pairs, managedFiles, limitations: 'Static color inventory and declared solid-color contrast pairs. Not a full rendered-page accessibility audit. Transparent overlays, dynamic model colors and dark-mode samples need separate contextual checks.', inventory };

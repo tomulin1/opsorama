@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, interiorAreas, isInsideBuilding, isWithinInteriorArea, type AssetNode, type SceneNode } from '@opsorama/core';
 import { applyShadowPolicy, basicAssets, SHADOW_CONTAINMENT_TOLERANCE, SHADOW_MIN_WIDTH } from '@opsorama/renderer-three';
-import { AREAS } from '../src/features/ecommerce/model';
-import { createEcommerceSimulation } from '../src/features/ecommerce/simulation';
-import { createRestaurantStore } from '../src/features/restaurant/model';
+import { AREAS } from '../apps/site/src/features/ecommerce/model';
+import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
+import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
 import { Asset, Ground, Zone } from '@opsorama/vue';
-import { createAquaticsStore } from '../src/features/aquatics/model';
+import { createAquaticsStore } from '../apps/site/src/features/aquatics/model';
 
 const box = (group: THREE.Object3D, size: [number, number, number], position: [number, number, number] = [0, 0, 0], name = '') => {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshStandardMaterial()); mesh.name = name;

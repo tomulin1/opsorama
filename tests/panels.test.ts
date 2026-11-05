@@ -5,7 +5,7 @@ import { createSSRApp, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { DataPanel as ReactPanel, MetricCard as ReactMetric } from '@opsorama/react/ui';
 import { DataPanel as VuePanel, MetricCard as VueMetric } from '@opsorama/vue/ui';
-import { defaultMetricConfig, metricOptions, metricSizes, metricSnippet, metricTones, metricVisuals, sampleMetrics, sampleRecords, type PanelFramework } from '../examples/panel-docs-fixture';
+import { defaultMetricConfig, metricOptions, metricSizes, metricSnippet, metricTones, metricVisuals, sampleMetrics, sampleRecords, type PanelFramework } from '../apps/site/examples/panel-docs-fixture';
 import { valueMeter, metricCard, entityInspector, resourceList, processTracker, activityFeed, type PanelNode, type PanelElement } from '@opsorama/ui';
 
 function text<T>(node: PanelNode<T>): string { return node.kind === 'content' ? String(node.value ?? '') : node.children.map(text).join(' '); }

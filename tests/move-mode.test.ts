@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createHandlingState, createMoveMode, type MoveRequest } from '@opsorama/core';
 import { assetHandling, bindMoveMode, createMoveTargetObject, disposeObject, handlingProfiles, highlightMoveTarget, type MoveTargetMarker } from '@opsorama/renderer-three';
-import { createMoveModeSession, moveModeDefinition, moveModeUnits, targetLabel } from '../examples/move-mode-data';
+import { createMoveModeSession, moveModeDefinition, moveModeUnits, targetLabel } from '../apps/site/examples/move-mode-data';
 
 const state = () => {
   const handling = createHandlingState({ handling: assetHandling, profiles: handlingProfiles, instances: [
@@ -149,7 +149,7 @@ describe('move mode (H3)', () => {
 
   it('stays out of domain examples', () => {
     expect(moveModeDefinition.nodes.length).toBeGreaterThan(10);
-    for (const file of ['src/features/ecommerce/scene.ts', 'src/features/office/scene.ts', 'src/features/farm/scene.ts']) expect(readFileSync(file, 'utf8')).not.toMatch(/createMoveMode|bindMoveMode/);
+    for (const file of ['apps/site/src/features/ecommerce/scene.ts', 'apps/site/src/features/office/scene.ts', 'apps/site/src/features/farm/scene.ts']) expect(readFileSync(file, 'utf8')).not.toMatch(/createMoveMode|bindMoveMode/);
     expect([...readFileSync('packages/core/src/move-mode.ts', 'utf8').matchAll(/from '([^']+)'/g)].map(match => match[1])).toEqual(['./handling-state']);
   });
 });

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createSceneStore, type GroundNode, type SceneNode } from '@opsorama/core';
-import { CITY, cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce } from '../src/features/landing/city';
-import { createEcommerceSimulation } from '../src/features/ecommerce/simulation';
-import { SCENARIOS } from '../src/features/ecommerce/model';
-import { farmNodes } from '../src/features/farm/scene';
-import { SCENARIOS as FARM } from '../src/features/farm/model';
+import { CITY, cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce } from '../apps/site/src/features/landing/city';
+import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
+import { SCENARIOS } from '../apps/site/src/features/ecommerce/model';
+import { farmNodes } from '../apps/site/src/features/farm/scene';
+import { SCENARIOS as FARM } from '../apps/site/src/features/farm/model';
 
 const simulation = createEcommerceSimulation('peak'), live = placeEcommerce(simulation.nodes()), nodes: readonly SceneNode[] = [...cityStaticNodes(), ...live];
 const ids = new Set(nodes.map(node => node.id));

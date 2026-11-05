@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSceneStore, type AssetNode, type SceneNode } from '@opsorama/core';
 import { assetHandling, basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { LOCATIONS, SCENARIOS, type EcommerceScenario, type LocationId } from '../src/features/ecommerce/model';
-import { createEcommerceSimulation, type EcommerceSimulation } from '../src/features/ecommerce/simulation';
+import { LOCATIONS, SCENARIOS, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
+import { createEcommerceSimulation, type EcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
 const scenarios = Object.keys(SCENARIOS) as EcommerceScenario[];
 const assets = (nodes: readonly SceneNode[]) => nodes.filter((node): node is AssetNode => node.kind === 'asset');

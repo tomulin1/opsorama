@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { createHandlingState, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type ReceptaclePlacement } from '@opsorama/core';
 import { assetHandling, basicAssets, checkAssetHandling, datacenterProfile, disposeObject, handlingProfiles, laboratoryProfile, logisticsProfile, retailProfile } from '@opsorama/renderer-three';
-import { catalogObjects } from '../src/features/docs/objects';
+import { catalogObjects } from '../apps/site/src/features/docs/objects';
 
 const state = (instances: readonly { id: string; asset: string; variant?: string }[]) => createHandlingState({ handling: assetHandling, profiles: handlingProfiles, instances });
 const cabinet = { container: 'cabinet', receptacle: 'rail' };

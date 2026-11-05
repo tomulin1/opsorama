@@ -4,8 +4,8 @@ import { basicAssets, disposeObject } from '@opsorama/renderer-three';
 import {
   ACTIVE_STATUSES, AREAS, BACKLOG, BOARD_NOTES, EMPLOYEES, FOCUS_PODS, KITCHEN_SEATS, PROJECTS, ROOMS, SCENARIOS, TEAMS,
   boardNotes, currentBooking, currentTicket, inOffice, officeMetrics, peopleAt, projectHealth, projectProgress, stateOf, teamStatus, tickets, type OfficeScenario,
-} from '../src/features/office/model';
-import { ROBOT_ROUTE, applyOfficeSnapshot, createOfficeStore, deskSeat, officeNavigation, officeNodes, personNodeId, personSceneNode, ticketSceneNode } from '../src/features/office/scene';
+} from '../apps/site/src/features/office/model';
+import { ROBOT_ROUTE, applyOfficeSnapshot, createOfficeStore, deskSeat, officeNavigation, officeNodes, personNodeId, personSceneNode, ticketSceneNode } from '../apps/site/src/features/office/scene';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;
 const scenarios = Object.keys(SCENARIOS) as OfficeScenario[];

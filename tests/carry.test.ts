@@ -121,7 +121,7 @@ describe('carrying items', () => {
   });
 
   it('keeps the example parcel flow bounded: picked at the shelf, packed on the bench, shipped by the host', async () => {
-    const { createShift, itemNodes, PACKED_ON_BENCH } = await import('../examples/motion-data');
+    const { createShift, itemNodes, PACKED_ON_BENCH } = await import('../apps/site/examples/motion-data');
     const runner = createShift(), events: BehaviorEvent[] = []; runner.subscribeEvents(event => events.push(event));
     for (let i = 0; i < 3000; i++) {
       runner.advance(.05);

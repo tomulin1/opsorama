@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { fitOrientation, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type Receptacle } from '@opsorama/core';
 import { assetHandling, basicAssets, checkAssetHandling, handlingProfiles, logisticsProfile } from '@opsorama/renderer-three';
-import { catalogObjects } from '../src/features/docs/objects';
-import { compatibleAssets, handlingAssets, handlingFacts, handlingTag } from '../src/features/docs/object-handling';
-import { docs, docsNavigation } from '../src/features/docs/content';
+import { catalogObjects } from '../apps/site/src/features/docs/objects';
+import { compatibleAssets, handlingAssets, handlingFacts, handlingTag } from '../apps/site/src/features/docs/object-handling';
+import { docs, docsNavigation } from '../apps/site/src/features/docs/content';
 
 const failures = (asset: string, handling: AssetHandling) => checkAssetHandling(asset, handling, basicAssets[asset]).checks.filter(check => !check.ok).map(check => check.name);
 const shelfLevel = (level: number) => assetHandling.shelf.receptacles.find(receptacle => receptacle.name === `level-${level}`)!;

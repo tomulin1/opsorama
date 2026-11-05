@@ -4,7 +4,7 @@ import ts from 'typescript';
 import { parse, compileScript, compileTemplate } from 'vue/compiler-sfc';
 import { createSceneStore, validateSurfaceLabel, type AssetNode, type SurfaceLabel } from '@opsorama/core';
 import { assetLabelSurfaces, basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
 const text: SurfaceLabel = { kind: 'text', text: 'North', color: '#243650', background: '#fffaf2' };
 const node: AssetNode = { id: 'parcels', kind: 'asset', asset: 'parcel-base', count: 27, multiplier: 1000, label: '27,000 parcels', surfaceLabel: text };

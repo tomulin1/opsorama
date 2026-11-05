@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
 import { basicAssets, disposeObject, setAssetAnimator } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { createEcommerceSimulation } from '../src/features/ecommerce/simulation';
-import { SCENARIOS } from '../src/features/ecommerce/model';
+import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
+import { SCENARIOS } from '../apps/site/src/features/ecommerce/model';
 
 const worker = (id: string, variant: string): AssetNode => ({ id, kind: 'asset', asset: 'worker', variant, color: '#e59a32' });
 describe('worker assets and animation lifecycle', () => {

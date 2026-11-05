@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FORK_LIMITS, createBehaviorRunner, createNavGraph, createSceneStore, finalForkPose, forkMoveSeconds, forkPoseAt, routeDuration, sampleRoute, validateForkMotion, type AssetNode, type ForkMotion, type NodeRoute, type ResolvedSlot } from '@opsorama/core';
 import { assetDescriptors, assetHandling, basicAssets, checkAssetHandling, disposeObject, hasAssetAnimator } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { RACK_LEVELS, RACK_PLACES, ecommerceSlots } from '../src/features/ecommerce/scene';
+import { RACK_LEVELS, RACK_PLACES, ecommerceSlots } from '../apps/site/src/features/ecommerce/scene';
 
 const build = (asset: string, forks?: ForkMotion, extra: Partial<AssetNode> = {}) => { const object = basicAssets[asset]({ id: asset, kind: 'asset', asset, ...(forks ? { forks } : {}), ...extra }); object.updateMatrixWorld(true); return object; };
 const loadAnchor = (object: THREE.Object3D) => object.getObjectByName('anchor-load')!.getWorldPosition(new THREE.Vector3());

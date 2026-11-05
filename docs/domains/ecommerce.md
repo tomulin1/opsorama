@@ -23,13 +23,13 @@ The scene is an illustrative floor plan, not a measured building. Each process a
 
 ## Data
 
-`src/features/ecommerce/model.ts` defines the host records:
+`apps/site/src/features/ecommerce/model.ts` defines the host records:
 
 - **Orders** with channel (web shop, marketplace, click & collect, shop transfer), stage (released, picking, sorting, packing, ready to ship, ready to collect), lines with ordered and picked quantities, carrier, value and an optional issue. An order is at risk when its carrier cut-off is within 60 minutes and it is not yet staged.
 - **Locations**: occupancy per rack bay, flow rack and shelf, and SKU alerts with the replenishment task.
 - **Docks**, **crew per area**, **robots**, **returns**, the **shop** (browsing shoppers, checkout lanes, click & collect, lockers, sales, facings per department) and **events**.
 
-Three scenarios cover a Monday morning peak, a Wednesday afternoon and a Sunday night shift. Each is the starting point of a seeded mock feed, `src/features/ecommerce/simulation.ts`. The scene, metrics and panels are derived from the same snapshot, and the dashboard itself never changes records.
+Three scenarios cover a Monday morning peak, a Wednesday afternoon and a Sunday night shift. Each is the starting point of a seeded mock feed, `apps/site/src/features/ecommerce/simulation.ts`. The scene, metrics and panels are derived from the same snapshot, and the dashboard itself never changes records.
 
 ## Motion
 

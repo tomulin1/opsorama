@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBehaviorRunner, createHandlingState, createNavGraph, itemNode, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type InteractionSlotSource } from '@opsorama/core';
 import { assetHandling, assetInteractionSlots, handlingProfiles } from '@opsorama/renderer-three';
-import { createShift, PACKED_ON_BENCH } from '../examples/motion-data';
+import { createShift, PACKED_ON_BENCH } from '../apps/site/examples/motion-data';
 
 const objects: AssetNode[] = [
   { id: 'shelf', kind: 'asset', asset: 'shelf', position: [0, 0, -2] },

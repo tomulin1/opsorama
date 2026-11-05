@@ -56,3 +56,7 @@ Desktop.ini
 
 # Vue SFC output compiled by tests/vue-sfc.test.ts
 *.compiled.ts
+
+# Owner-only agent context that imports private material
+CLAUDE.local.md
+AGENTS.local.md

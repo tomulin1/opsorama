@@ -120,7 +120,7 @@ describe('node transfer', () => {
   });
 
   it('times the example parcel hand-over to the picker leaving', async () => {
-    const { createShift, itemNodes } = await import('../examples/motion-data');
+    const { createShift, itemNodes } = await import('../apps/site/examples/motion-data');
     const runner = createShift(), events: BehaviorEvent[] = [];
     runner.subscribeEvents(event => events.push(event));
     runner.advance(60);

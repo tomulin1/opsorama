@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
 import { isInteriorVisible, type AssetNode } from '@opsorama/core';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { datacenterDefinition, datacenterIncidents, datacenterReading, datacenterRecords, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../examples/datacenter-data';
+import { datacenterDefinition, datacenterIncidents, datacenterReading, datacenterRecords, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../apps/site/examples/datacenter-data';
 
 const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const meshes = (model: THREE.Object3D) => { const list: THREE.Mesh[] = []; model.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };

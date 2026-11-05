@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode, SceneStore } from '@opsorama/core';
 import { assetDescriptors, basicAssets } from '@opsorama/renderer-three';
-import { createAquaticsStore } from '../src/features/aquatics/model';
-import { createEcommerceStore } from '../src/features/ecommerce/simulation';
-import { createFarmStore } from '../src/features/farm/scene';
-import { createOfficeStore } from '../src/features/office/scene';
-import { createRestaurantStore } from '../src/features/restaurant/model';
-import { makeDatacenterStore } from '../examples/datacenter-data';
+import { createAquaticsStore } from '../apps/site/src/features/aquatics/model';
+import { createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
+import { createFarmStore } from '../apps/site/src/features/farm/scene';
+import { createOfficeStore } from '../apps/site/src/features/office/scene';
+import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
+import { makeDatacenterStore } from '../apps/site/examples/datacenter-data';
 
 /** The domain examples in their default scenario, read as plain scene data. */
 const stores: readonly (readonly [string, () => SceneStore])[] = [

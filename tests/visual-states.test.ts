@@ -8,8 +8,8 @@ import { Asset as VueAsset, DashboardProvider } from '@opsorama/vue';
 import * as THREE from 'three';
 import { assetDescriptors, assetVisualStates, basicAssets, disposeObject } from '@opsorama/renderer-three';
 import { animateAsset, hasAssetAnimator } from '../packages/renderer-three/src/animation';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
-import { exampleSelectionNodeId } from '../src/features/example-selection';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
+import { exampleSelectionNodeId } from '../apps/site/src/features/example-selection';
 
 const states: readonly VisualState[] = ['normal', 'busy', 'warning', 'critical', 'inactive'];
 const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });

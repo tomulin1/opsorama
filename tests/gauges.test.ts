@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { basicAssets, assetMeasurementDefinitions, disposeObject } from '@opsorama/renderer-three';
 import type { AssetNode } from '@opsorama/core';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
 const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const meshes = (model: THREE.Object3D) => { const list: THREE.Mesh[] = []; model.traverse(part => { if (part instanceof THREE.Mesh) list.push(part); }); return list; };

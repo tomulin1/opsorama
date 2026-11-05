@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { SHIPPING_CONTAINER, basicAssets, disposeObject } from '@opsorama/renderer-three';
 import type { AssetNode, VisualState } from '@opsorama/core';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { makeLogisticsStore, updateLogistics } from '../examples/logistics-data';
+import { makeLogisticsStore, updateLogistics } from '../apps/site/examples/logistics-data';
 
 const keys = ['forklift', 'loading-dock', 'shipping-container'] as const;
 const build = (asset: string, options: Partial<AssetNode> = {}, theme: 'light' | 'midnight' = 'light') => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette: { trim: '#123456' } });

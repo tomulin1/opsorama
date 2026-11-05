@@ -52,7 +52,7 @@ Core validates the serializable content limits and clones/freezes label inputs. 
 
 ## Examples and lifecycle
 
-Try labels directly on [Storefront](http://127.0.0.1:3100/docs/objects/storefront) or [Parcel](http://127.0.0.1:3100/docs/objects/parcel) catalog pages. Their React, Vue and JavaScript snippets reflect the current valid configuration. The [Asset guide](http://127.0.0.1:3100/docs/components/asset) includes a runnable native three-adapter sign example using the existing mount helpers in `examples/counted-react.tsx`, `examples/counted-vue.ts` and `examples/counted-javascript.ts`. The snippets are integration examples; the live examples and source are checked by TypeScript and browser tests.
+Try labels directly on [Storefront](http://127.0.0.1:3100/docs/objects/storefront) or [Parcel](http://127.0.0.1:3100/docs/objects/parcel) catalog pages. Their React, Vue and JavaScript snippets reflect the current valid configuration. The [Asset guide](http://127.0.0.1:3100/docs/components/asset) includes a runnable native three-adapter sign example using the existing mount helpers in `apps/site/examples/counted-react.tsx`, `apps/site/examples/counted-vue.ts` and `apps/site/examples/counted-javascript.ts`. The snippets are integration examples; the live examples and source are checked by TypeScript and browser tests.
 
 ```tsx
 // React: inside DashboardProvider and SceneCanvas

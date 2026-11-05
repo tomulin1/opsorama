@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, validateNode, type AssetNode } from '@opsorama/core';
 import { basicAssets, disposeObject, assetCountDefinitions, assetCountLayoutDefaults } from '@opsorama/renderer-three';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
-import { previewScale } from '../src/features/docs/object-rendering';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
+import { previewScale } from '../apps/site/src/features/docs/object-rendering';
 import { animateAsset } from '../packages/renderer-three/src/animation';
 
 const build = (asset: string, count: number, extra: Partial<AssetNode> = {}) => basicAssets[asset]({ id: 'stock', kind: 'asset', asset, count, ...extra });

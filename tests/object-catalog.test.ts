@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateNode } from '@opsorama/core';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
-import { docs } from '../src/features/docs/content';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
+import { docs } from '../apps/site/src/features/docs/content';
 import { animateAsset } from '../packages/renderer-three/src/animation';
 import { InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 

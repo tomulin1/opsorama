@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { validateNode, validateObjectDescriptor, type AssetNode, type NodeSample } from '@opsorama/core';
 import { assetCountDefinitions, assetDescriptors, assetDisplayDefinitions, assetFootprintDefinitions, assetLabelSurfaces, assetMeasurementDefinitions, basicAssets, checkAssetDescriptor, disposeObject } from '@opsorama/renderer-three';
-import { catalogObjects, objectNode, objectSnippet } from '../src/features/docs/objects';
+import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
 const build = (asset: string, sample: NodeSample = {}) => basicAssets[asset]({ id: 'contract', kind: 'asset', asset, ...sample } as AssetNode);
 

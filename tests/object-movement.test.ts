@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode } from '@opsorama/core';
 import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
-import { motionProfileRows, movementFacts } from '../src/features/docs/object-movement';
-import { catalogObjects, objectNode } from '../src/features/docs/objects';
+import { motionProfileRows, movementFacts } from '../apps/site/src/features/docs/object-movement';
+import { catalogObjects, objectNode } from '../apps/site/src/features/docs/objects';
 
 const asset = (id: string) => objectNode(catalogObjects.find(item => item.asset === id)!, {}) as AssetNode;
 

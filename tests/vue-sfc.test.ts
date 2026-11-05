@@ -4,9 +4,9 @@ import { createSSRApp, h, type Component } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { compileScript, parse } from 'vue/compiler-sfc';
 import { createSceneStore } from '@opsorama/core';
-import { DEFAULT_CONTRACT, contractNodes } from '../examples/object-contract-data';
+import { DEFAULT_CONTRACT, contractNodes } from '../apps/site/examples/object-contract-data';
 
-const SOURCE = 'examples/vue-sfc/ParcelContract.vue', OUTPUT = 'examples/vue-sfc/ParcelContract.compiled.ts';
+const SOURCE = 'apps/site/examples/vue-sfc/ParcelContract.vue', OUTPUT = 'apps/site/examples/vue-sfc/ParcelContract.compiled.ts';
 
 describe('Vue single-file component example', () => {
   it('compiles and registers the same parcel scene as the React and JavaScript examples', async () => {

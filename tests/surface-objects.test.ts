@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createSceneStore, resolveFootprint, validateNode, type AssetNode, type Footprint } from '@opsorama/core';
 import { assetFootprintDefinitions, basicAssets, disposeObject, FLOOR_FINISHES, PARKING_BAY, ROAD_MODULE, ROAD_VARIANTS, SIDEWALK_VARIANTS, SURFACE_LEVELS, TERRAIN_FINISHES } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { makeSurfacesStore, surfacesDefinition, updateSurfaces } from '../examples/surfaces-data';
+import { makeSurfacesStore, surfacesDefinition, updateSurfaces } from '../apps/site/examples/surfaces-data';
 
 type Options = Partial<AssetNode>;
 const build = (asset: string, options: Options = {}, theme: 'light' | 'midnight' = 'light', palette = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette });

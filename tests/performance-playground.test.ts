@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
 import { resolveCountRepresentation, routeDuration, type AssetNode } from '@opsorama/core';
 import { assetCountDefinitions } from '@opsorama/renderer-three';
-import { createPerformanceStore, PERFORMANCE_PRESETS, performanceNodes, summarizeThroughput, type PerformancePreset } from '../src/features/performance/model';
+import { createPerformanceStore, PERFORMANCE_PRESETS, performanceNodes, summarizeThroughput, type PerformancePreset } from '../apps/site/src/features/performance/model';
 
 describe('repeatable performance fixture', () => {
   it.each(Object.keys(PERFORMANCE_PRESETS) as PerformancePreset[])('%s has exact instance totals, valid routes and stable synthetic identities', preset => {

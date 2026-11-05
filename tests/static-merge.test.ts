@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
 import { applyShadowPolicy, assetAnimatedParts, basicAssets, hasAssetAnimator, disposeObject, keepPartsSeparate, mergeStaticParts, MERGED_PART_NAME, setAssetAnimator } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { catalogObjects, objectNode } from '../src/features/docs/objects';
+import { catalogObjects, objectNode } from '../apps/site/src/features/docs/objects';
 
 const box = (parent: THREE.Object3D, color: string, position: readonly [number, number, number], options: { size?: number; roughness?: number; transparent?: boolean } = {}) => {
   const size = options.size ?? .5, material = new THREE.MeshStandardMaterial({ color, roughness: options.roughness ?? .7, transparent: options.transparent ?? false });

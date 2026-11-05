@@ -21,7 +21,7 @@ Shirts take the colour of the project of each person's current ticket; people wi
 
 ## Data
 
-`src/features/office/model.ts` defines the host records:
+`apps/site/src/features/office/model.ts` defines the host records:
 
 - **Roster** (HR system): 26 fictional people with role, team and an assigned or hot desk.
 - **Projects**: five client and internal projects with a colour, due date and owning team.

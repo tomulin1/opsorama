@@ -106,7 +106,7 @@ describe('route progress after a remount', () => {
   });
 
   it('resumes the example routes where the simulation is when a scene mounts again', async () => {
-    const { agentNodes, createShift, palletJackNode } = await import('../examples/motion-data');
+    const { agentNodes, createShift, palletJackNode } = await import('../apps/site/examples/motion-data');
     const runner = createShift(), dt = .02;
     // A continuously mounted scene: one follower per agent, fed after every runner step.
     const live = new Map(runner.getAgents().map(agent => [agent.id, { follower: createRouteFollower(), route: undefined as NodeRoute | undefined }]));

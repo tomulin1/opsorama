@@ -196,7 +196,7 @@ describe('corridor yielding', () => {
   });
 
   it('produces the same events and states regardless of tick size', async () => {
-    const { createShift } = await import('../examples/motion-data');
+    const { createShift } = await import('../apps/site/examples/motion-data');
     const record = (ticks: readonly number[]) => {
       const runner = createShift(), events = collect(runner);
       for (const dt of ticks) runner.advance(dt);
@@ -214,7 +214,7 @@ describe('corridor yielding', () => {
 
 describe('motion example traffic', () => {
   it('keeps people apart on spurs and in the packing queue', async () => {
-    const { breakSteps, createShift, motionGraph } = await import('../examples/motion-data');
+    const { breakSteps, createShift, motionGraph } = await import('../apps/site/examples/motion-data');
     expect(motionGraph.capacity('walk-pack', 'packing-desk:work')).toBe(1);
     expect(motionGraph.capacity('packing-desk:work')).toBe(1);
     const runner = createShift(), events = collect(runner);

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { bindBuildingInterior, BUILDING_PALETTES, BUILDING_TYPES, createSceneStore, isInteriorVisible, setBuildingView, type AssetNode, type SceneNode } from '@opsorama/core';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { buildingContents, buildingDefinition } from '../examples/building-data';
+import { buildingContents, buildingDefinition } from '../apps/site/examples/building-data';
 
 const building: AssetNode = { id: 'building', kind: 'asset', asset: 'building', building: { view: 'closed' } };
 const child: AssetNode = { id: 'desk', kind: 'asset', asset: 'desk-pod', parentId: building.id, position: [1, .12, 0], selectable: true };

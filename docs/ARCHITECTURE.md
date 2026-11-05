@@ -86,7 +86,7 @@ docs/
   decisions/
 ```
 
-This is the target structure. Existing `src/` files remain functional during migration; the first four toolkit packages and minimal examples now exist. Do not create a full tree of empty packages in advance.
+This is the target structure. Existing `apps/site/src/` files remain functional during migration; the first four toolkit packages and minimal examples now exist. Do not create a full tree of empty packages in advance.
 
 ## Model-native status and explicit operation
 

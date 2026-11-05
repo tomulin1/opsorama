@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
 import { createSceneStore, isPersonAsset, PERSON_ASSETS, PERSON_FIGURES, PERSON_HAIR_COLORS, personHairColor } from '@opsorama/core';
-import { restaurantNodes, SCENARIOS as RESTAURANT_SCENARIOS } from '../src/features/restaurant/model';
+import { restaurantNodes, SCENARIOS as RESTAURANT_SCENARIOS } from '../apps/site/src/features/restaurant/model';
 import { assetDescriptors, assetMotionProfiles, basicAssets, checkAssetDescriptor, disposeObject, personDescriptors, WORKER_VARIANTS } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { catalogObjects } from '../src/features/docs/objects';
+import { catalogObjects } from '../apps/site/src/features/docs/objects';
 
 const CHARACTERS = PERSON_ASSETS.filter(asset => asset !== 'worker');
 const person = (asset: string, variant?: string, extra: Partial<AssetNode> = {}): AssetNode => ({ id: `${asset}-1`, kind: 'asset', asset, ...(variant ? { variant } : {}), ...extra });

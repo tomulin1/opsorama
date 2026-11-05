@@ -24,19 +24,20 @@
     ],
     "paths": {
       "@/*": [
-        "./src/*"
+        "./apps/site/src/*"
       ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-dev/types/**/*.ts"
+    "apps/site/.next/types/**/*.ts",
+    "apps/site/next-env.d.ts",
+    "apps/site/.next-dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
+    "**/node_modules",
     "artifacts"
   ]
 }

@@ -71,14 +71,14 @@ The facing-row layout is informed by [Dell's hot/cold aisle guidance](https://i.
 
 ## Runnable examples and lifecycle
 
-- [Shared records, scenario and room updates](../../examples/datacenter-data.ts).
-- [Dimensioned facility composition](../../examples/datacenter-facility.ts).
-- [Host controls, selection and the React scene mount](../../src/features/datacenter/DatacenterDashboard.tsx).
-- [Host viewport and shared panel composition](../../src/features/datacenter/DatacenterViewport.tsx).
+- [Shared records, scenario and room updates](../../apps/site/examples/datacenter-data.ts).
+- [Dimensioned facility composition](../../apps/site/examples/datacenter-facility.ts).
+- [Host controls, selection and the React scene mount](../../apps/site/src/features/datacenter/DatacenterDashboard.tsx).
+- [Host viewport and shared panel composition](../../apps/site/src/features/datacenter/DatacenterViewport.tsx).
 
 Host controls update counts, motion, rooms and mock scenarios through SceneStore. Selection retains fixture entity IDs while geometry changes. Record buttons select/frame equipment and link to isolated model previews; no external writes occur. Leaving the page disposes the renderer before its store, and the host removes its store subscription. Each factory owns geometry/materials; `disposeObject` also releases LED instance buffers and animators. IT/plant models have no textures or independent frame loops; reused reserved-floor signs and the NOC display own static artwork textures under the surface-label lifecycle.
 
-Catalog snippets illustrate integration and are not independently compiled projects. The example files above are typechecked workspace code. [Unit checks](../../tests/datacenter-objects.test.ts) cover geometry, counts, anchors, animation/static state, ownership, palette overrides and recovery without identity/count/selection loss. [Browser checks](../../tests/e2e/datacenter.spec.ts) cover catalog controls, nonblank desktop/mobile canvases, the single React scene without an adapter switcher, marker/incident inspection, recovery/remount and reduced motion. No hardware FPS, memory budget, vendor compatibility or complete C1 compliance is claimed.
+Catalog snippets illustrate integration and are not independently compiled projects. The example files above are typechecked workspace code. [Unit checks](../../tests/datacenter-objects.test.ts) cover geometry, counts, anchors, animation/static state, ownership, palette overrides and recovery without identity/count/selection loss. [Browser checks](../../apps/site/e2e/datacenter.spec.ts) cover catalog controls, nonblank desktop/mobile canvases, the single React scene without an adapter switcher, marker/incident inspection, recovery/remount and reduced motion. No hardware FPS, memory budget, vendor compatibility or complete C1 compliance is claimed.
 
 Measured visible asset geometry, excluding ground/zones, label artwork, renderer rings, material/texture memory and driver overhead:
 
@@ -90,7 +90,7 @@ Measured visible asset geometry, excluding ground/zones, label artwork, renderer
 
 Mesh objects are counted before renderer merging and instancing. These unit measurements are not draw-call, GPU-memory or hardware FPS benchmarks. Browser checks use software WebGL and include native room selection, source totals, pagination, alerts, resize, remount and isolated previews for all new assets. [Facility unit verification](../../tests/datacenter-facility.test.ts) checks bounds, anchors, materials, static behavior, ownership, identity conservation with every room open, and the site plan. [ADR 0020](../decisions/0020-datacenter-facility.md) records this increment; [ADR 0019](../decisions/0019-datacenter-operations-fixture.md) remains the original incident-fixture decision.
 
-[HUD browser verification](../../tests/e2e/datacenter-hud.spec.ts) checks full-window bounds, shared panel usage, desktop/mobile containment, non-interfering widget clicks, expansion/Escape and panel visibility without an extra canvas. Existing native-adapter checks exercise records, controls, recovery, motion and teardown through this host composition. Larger viewport dimensions and CSS compositing have not been hardware-profiled; the geometry table above is unchanged by this UI increment.
+[HUD browser verification](../../apps/site/e2e/datacenter-hud.spec.ts) checks full-window bounds, shared panel usage, desktop/mobile containment, non-interfering widget clicks, expansion/Escape and panel visibility without an extra canvas. Existing native-adapter checks exercise records, controls, recovery, motion and teardown through this host composition. Larger viewport dimensions and CSS compositing have not been hardware-profiled; the geometry table above is unchanged by this UI increment.
 
 ## Next work
 

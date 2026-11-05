@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode, GroundNode, SceneNode } from '@opsorama/core';
 import { TRUCK, basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, LOCATIONS, SCENARIOS, SKUS, cageCounts, cutoffRisk, ecommerceMetrics, orderArea, ordersIn, shoppers, stagedFor, type EcommerceScenario } from '../src/features/ecommerce/model';
-import { APRON_Y, DOCK_Z, FLOOR_Y, ROAD_Z, SITE_EAST_X, SITE_WEST_X, TRUCK_X, YARD_X, ecommerceBase, ecommerceNodes, orderNodeId, warehouseNavigation } from '../src/features/ecommerce/scene';
-import { createEcommerceSimulation, createEcommerceStore } from '../src/features/ecommerce/simulation';
+import { AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, LOCATIONS, SCENARIOS, SKUS, cageCounts, cutoffRisk, ecommerceMetrics, orderArea, ordersIn, shoppers, stagedFor, type EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
+import { APRON_Y, DOCK_Z, FLOOR_Y, ROAD_Z, SITE_EAST_X, SITE_WEST_X, TRUCK_X, YARD_X, ecommerceBase, ecommerceNodes, orderNodeId, warehouseNavigation } from '../apps/site/src/features/ecommerce/scene';
+import { createEcommerceSimulation, createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;
 const scenarios = Object.keys(SCENARIOS) as EcommerceScenario[];

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateNode, type AssetNode, type SceneNode } from '@opsorama/core';
 import { basicAssets } from '@opsorama/renderer-three';
-import { FIELDS, PENS, SCENARIOS, farmMetrics, flagNode, penState, troughState, type FarmScenario } from '../src/features/farm/model';
-import { applyFarmSnapshot, createFarmStore, farmNodes } from '../src/features/farm/scene';
+import { FIELDS, PENS, SCENARIOS, farmMetrics, flagNode, penState, troughState, type FarmScenario } from '../apps/site/src/features/farm/model';
+import { applyFarmSnapshot, createFarmStore, farmNodes } from '../apps/site/src/features/farm/scene';
 
 const assets = (nodes: readonly SceneNode[]) => nodes.filter((node): node is AssetNode => node.kind === 'asset');
 const inside = (rect: readonly [number, number, number, number], x: number, z: number) => x > rect[0] && x < rect[1] && z > rect[2] && z < rect[3];

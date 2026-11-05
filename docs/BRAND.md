@@ -33,7 +33,7 @@ This palette belongs to the **example website**, including its documentation and
 
 Catalog objects retain their designed appearances and asset-specific material roles. A real dashboard can supply its own scene palette, for example a company's colors, plus supported per-object customizations. Each object applies the roles it supports. Website tokens are not an object color contract or a required corporate palette.
 
-The source of truth is [`palette.json`](../src/features/brand/palette.json). Blue, slate and peach each have **11 intensities: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900 and 950**. Success, warning and danger each have five intensities (50, 100, 500, 700 and 900), for **48 swatches** plus white. See `/brand` for the complete live example-website palette and its main roles.
+The source of truth is [`palette.json`](../apps/site/src/features/brand/palette.json). Blue, slate and peach each have **11 intensities: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900 and 950**. Success, warning and danger each have five intensities (50, 100, 500, 700 and 900), for **48 swatches** plus white. See `/brand` for the complete live example-website palette and its main roles.
 
 - 50–200: pale surfaces and supporting fills.
 - 300–400: decoration, supporting graphics and light symbols on dark backgrounds.
@@ -42,16 +42,16 @@ The source of truth is [`palette.json`](../src/features/brand/palette.json). Blu
 
 These are usage guides, not a guarantee that arbitrary pairs pass contrast. Website styles consume `--opsorama-*` role tokens, such as `--opsorama-text`, `--opsorama-link`, `--opsorama-surface-muted` and `--opsorama-border-control`. Roles and shades are website implementation details, not toolkit exports. Existing global `--ink`, `--muted`, `--blue`, `--line` and `--green` variables resolve to those roles.
 
-After editing the JSON, run `pnpm colors:generate` to update the committed [`palette.css`](../src/app/palette.css). Run `pnpm check:colors` to verify generated CSS, monotonically darker intensity scales, token references, SVG color membership and the declared contrast pairs. `pnpm test` runs this check before the unit suite. The check also writes the project color inventory to `artifacts/brand/color-audit.json`. See the [color audit](COLOR_AUDIT.md) for results, boundaries and remaining context-dependent checks.
+After editing the JSON, run `pnpm colors:generate` to update the committed [`palette.css`](../apps/site/src/app/palette.css). Run `pnpm check:colors` to verify generated CSS, monotonically darker intensity scales, token references, SVG color membership and the declared contrast pairs. `pnpm test` runs this check before the unit suite. The check also writes the project color inventory to `artifacts/brand/color-audit.json`. See the [color audit](COLOR_AUDIT.md) for results, boundaries and remaining context-dependent checks.
 
 Use the existing system sans-serif stack (`Inter`, `Segoe UI`, Arial, sans-serif) for the website. No font download is required. Keep the wordmark bold with modestly tightened spacing.
 
 ## Assets and use
 
-- [SVG mark](../public/brand/opsorama-mark.svg): used in the site header and as the favicon. Supporting blue 200 and blue 400 sit on ink; the secondary segment has 4.11:1 contrast against the background. Minimum ordinary display size: 24 × 24 CSS pixels; favicon rendering is the small-size exception.
-- [Standalone SVG symbol](../public/brand/opsorama-symbol.svg): cornflower blue with a shaded fold on a transparent background, intended for light surfaces.
-- [Monochrome SVG symbol](../public/brand/opsorama-monochrome.svg): the same silhouette in `currentColor`. Inline it to inherit the surrounding text color; as an image it defaults to black. Omit the shaded fold in one-color uses.
-- [SVG lockup](../public/brand/opsorama-lockup.svg): mark, wordmark and tagline for the README and other light-background placements. Text uses system fonts; its exact metrics depend on the viewer's installed fonts.
+- [SVG mark](../apps/site/public/brand/opsorama-mark.svg): used in the site header and as the favicon. Supporting blue 200 and blue 400 sit on ink; the secondary segment has 4.11:1 contrast against the background. Minimum ordinary display size: 24 × 24 CSS pixels; favicon rendering is the small-size exception.
+- [Standalone SVG symbol](../apps/site/public/brand/opsorama-symbol.svg): cornflower blue with a shaded fold on a transparent background, intended for light surfaces.
+- [Monochrome SVG symbol](../apps/site/public/brand/opsorama-monochrome.svg): the same silhouette in `currentColor`. Inline it to inherit the surrounding text color; as an image it defaults to black. Omit the shaded fold in one-color uses.
+- [SVG lockup](../apps/site/public/brand/opsorama-lockup.svg): mark, wordmark and tagline for the README and other light-background placements. Text uses system fonts; its exact metrics depend on the viewer's installed fonts.
 - Keep clear space around the mark of at least one quarter of its width. Do not stretch, rotate, animate or recolor individual segments outside the supplied variants.
 - Supply an accessible name when the mark is the only content of a link. When the visible wordmark accompanies it, the mark is decorative.
 
@@ -59,7 +59,7 @@ Use the existing system sans-serif stack (`Inter`, `Segoe UI`, Arial, sans-serif
 
 The root application is `opsorama-workspace`. The private local packages are `@opsorama/core`, `@opsorama/renderer-three`, `@opsorama/react`, `@opsorama/vue` and `@opsorama/ui`. Imports, exports, documentation snippets and workspace dependency declarations use these names together.
 
-The owner is **Tomas Jirsa**; use this spelling without diacritics in attribution. The public contact is [contact@opsorama.dev](mailto:contact@opsorama.dev), and the owner-confirmed project domain is **opsorama.dev**. The canonical repository is [tomulin1/opsorama on GitHub](https://github.com/tomulin1/opsorama). The website header links to the repository; its documentation, examples, home and brand footers include repository and contact links. Shared website values live in `src/features/brand/project.ts`.
+The owner is **Tomas Jirsa**; use this spelling without diacritics in attribution. The public contact is [contact@opsorama.dev](mailto:contact@opsorama.dev), and the owner-confirmed project domain is **opsorama.dev**. The canonical repository is [tomulin1/opsorama on GitHub](https://github.com/tomulin1/opsorama). The website header links to the repository; its documentation, examples, home and brand footers include repository and contact links. Shared website values live in `apps/site/src/features/brand/project.ts`.
 
 The package names remain local workspace identifiers. npm scope ownership, registry availability and trademark clearance have not been checked. The domain and repository do not imply that a public website is deployed or npm packages are published. Those release steps remain in the [roadmap](ROADMAP.md).
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { validateObjectDescriptor, type AssetNode, type ObjectDescriptor } from '@opsorama/core';
 import { assetDescriptors, assetLabelSurfaces, basicAssets, checkAssetDescriptor, parcelDescriptor, parcelBaseDescriptor, setAssetAnimator, shelfDescriptor, stationDescriptor, pavilionDescriptor, bagDescriptor, treeDescriptors, signDescriptor, mapPinDescriptor, officeChairDescriptor, workerDescriptor, type AssetFactory } from '@opsorama/renderer-three';
-import { catalogObjects } from '../src/features/docs/objects';
+import { catalogObjects } from '../apps/site/src/features/docs/objects';
 
 const failures = (descriptor: ObjectDescriptor, factory: AssetFactory) => checkAssetDescriptor(descriptor, factory).checks.filter(check => !check.ok).map(check => check.name);
 

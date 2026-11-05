@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { isInteriorVisible, type AssetNode, type GroundNode } from '@opsorama/core';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
 import { animateAsset } from '../packages/renderer-three/src/animation';
-import { datacenterDefinition, datacenterRecords, datacenterRooms, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../examples/datacenter-data';
-import { HALL_ROW_Z, rackLocalPosition } from '../examples/datacenter-facility';
+import { datacenterDefinition, datacenterRecords, datacenterRooms, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../apps/site/examples/datacenter-data';
+import { HALL_ROW_Z, rackLocalPosition } from '../apps/site/examples/datacenter-facility';
 
 const entries = ['generator-set', 'air-cooled-chiller', 'electrical-switchgear', 'battery-bank', 'aisle-containment'] as const;
 const meshes = (object: THREE.Object3D) => { const result: THREE.Mesh[] = []; object.traverse(part => { if (part instanceof THREE.Mesh) result.push(part); }); return result; };

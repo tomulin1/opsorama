@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode } from '@opsorama/core';
 import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, stationTickets, type RestaurantScenario } from '../src/features/restaurant/model';
+import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, stationTickets, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;
 const scenarios = Object.keys(SCENARIOS) as RestaurantScenario[];

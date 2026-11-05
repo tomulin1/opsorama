@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createSceneStore, DEFAULT_SETTINGS, SETTING_DEFINITIONS, type AssetNode } from '@opsorama/core';
-import { componentReferences, docs, docsNavigation } from '../src/features/docs/content';
+import { componentReferences, docs, docsNavigation } from '../apps/site/src/features/docs/content';
 const parcel: AssetNode = { id: 'order-1', entityId: '1', kind: 'asset', asset: 'parcel', position: [1, 0, 2] };
 describe('framework-independent core', () => {
   it('provides stable immutable snapshots and defensively copies node input', () => { const store = createSceneStore({ schemaVersion: 1, nodes: [parcel] }); const snapshot = store.getSnapshot(); expect(store.getSnapshot()).toBe(snapshot); expect(Object.isFrozen(snapshot.nodes)).toBe(true); expect(snapshot.nodes[0].position).not.toBe(parcel.position); expect(Object.isFrozen(snapshot.nodes[0].position)).toBe(true); store.configure({ grid: true }); expect(store.getSnapshot()).not.toBe(snapshot); });
