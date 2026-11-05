@@ -18,7 +18,7 @@
     "check:boundary": "node scripts/check-public-boundary.mjs --all",
     "measure:bundles": "node scripts/measure-kit-bundles.mjs",
     "check:bundles": "node scripts/measure-kit-bundles.mjs --check",
-    "test": "pnpm check:colors && vitest run",
+    "test": "pnpm check:colors && pnpm check:boundary && vitest run",
     "test:e2e": "pnpm --filter @opsorama/site test:e2e",
     "changeset": "changeset",
     "version-packages": "changeset version"

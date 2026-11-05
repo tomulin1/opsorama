@@ -60,3 +60,6 @@ Desktop.ini
 # Owner-only agent context that imports private material
 CLAUDE.local.md
 AGENTS.local.md
+
+# Temporary output of tests/readme-snippets.test.ts
+tests/.readme-snippets/

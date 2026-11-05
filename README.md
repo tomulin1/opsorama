@@ -4,101 +4,134 @@
 
 ![Opsorama — a clear view of your operations](apps/site/public/brand/opsorama-lockup.svg)
 
-Pronounced **ops-oh-RAH-ma**, Opsorama combines *operations* with *panorama*: a clear view of everything happening across a business. Build animated 3D boards for commerce, logistics, HR and other domains. [Brand guide and assets](docs/BRAND.md).
+Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source toolkit for animated 3D dashboards inside existing admin interfaces: warehouses, shops, offices, datacenters, restaurants and other operational spaces. It has native **React** and **Vue** adapters and works with **plain JavaScript**. Your application keeps its data, rules and commands; Opsorama draws the scene.
 
-Opsorama is a framework-agnostic toolkit for animated 3D dashboards embedded in existing administration interfaces, with native **React and Vue** adapters and plain JavaScript support. Scenes compose documented components, connect to custom data, and support custom models, motion, and HTML UI. All repository content uses English.
+- **160 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
+- **One renderer** for every framework, with selection, labels, markers, camera control, motion, instancing and explicit disposal.
+- **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
+- **Made for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama).
 
-[GitHub repository](https://github.com/tomulin1/opsorama) · [contact@opsorama.dev](mailto:contact@opsorama.dev)
+> **Status: pre-release.** The packages are not published on npm yet, and the API can change before 1.0. See the [roadmap](docs/ROADMAP.md).
 
-The workspace now includes a **shared TypeScript core**, **Three.js renderer**, **React and native Vue adapters**, a complete **e-commerce example**, and a **documentation website**. The original warehouse prototype is retired; its unique logistics models are preserved in the shared catalog. Toolkit packages use the `@opsorama/*` namespace as private local workspace packages; they are not published on npm.
+## Quick start
 
-## Explore the implementation
+```sh
+npm install @opsorama/core @opsorama/three @opsorama/objects @opsorama/react three react
+```
 
-After starting the dev server:
+The renderer ships no models. Pass the kits your scene uses:
 
-| Page | URL | Purpose |
-| --- | --- | --- |
-| Documentation | http://127.0.0.1:3100/docs | Searchable component/API references, configuration, data guide, live playground |
-| Website brand & colors | http://127.0.0.1:3100/brand | Footer-linked palette for the example website; object and real-dashboard palettes are configured separately. [Audit](docs/COLOR_AUDIT.md) |
-| Object catalog | http://127.0.0.1:3100/docs/objects | Shop-style model browser, filters, portable previews and shared logistics models |
-| Home page | http://127.0.0.1:3100/ | City of the domain examples in one scene, composed from their own code, with a capability carousel in the intro panel |
-| Examples catalog | http://127.0.0.1:3100/examples | Domain recipes including e-commerce and open offices, plus toolkit demos |
-| E-commerce example | http://127.0.0.1:3100/examples/ecommerce | Shop and fulfilment centre, full-viewport scene with floating HUD, mock snapshots |
-| Framework comparison | http://127.0.0.1:3100/examples/adapters | The same scene in React, Vue, and plain JavaScript; mount/unmount controls |
-| Generic data panels | http://127.0.0.1:3100/examples/panels | Neutral value/detail/process/list primitives in native React/Vue/JS; API at /docs/data-panels |
-| Building containers | http://127.0.0.1:3100/examples/buildings | Peek/open cutaways, lazy interiors and independent child selection in native JS/React/Vue |
-| Logistics objects | http://127.0.0.1:3100/examples/logistics | Shared forklift, loading dock, container and pallet composition in native JS/React/Vue |
-| Performance playground | http://127.0.0.1:3100/examples/performance | Deterministic 256/1,024/2,048-instance stress scene, live diagnostics and exportable timed FPS recordings; [measurement guide](docs/PERFORMANCE_PLAYGROUND.md) |
+```tsx
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry } from '@opsorama/three';
+import { workItemsKit } from '@opsorama/objects/work-items';
+import { DashboardProvider, SceneCanvas, Ground, Zone, Asset } from '@opsorama/react';
 
-The local documentation site covers the implemented API. The planning documents below also contain proposed future APIs and clearly distinguish them from implementation.
+const assets = createAssetRegistry(workItemsKit);
+const store = createSceneStore();
 
-All 161 registered assets have serializable descriptors in `assetDescriptors`, checked against their factories without WebGL. Catalog detail pages display geometry, supported palette roles, fixed decoration, options, motion, anchors and ownership from that data. Ground, Zone and Path use separate typed primitive contracts. See [the coverage decision](docs/decisions/0057-complete-catalog-descriptors.md).
+export function Dashboard() {
+  return (
+    <DashboardProvider store={store}>
+      <SceneCanvas assets={assets} style={{ height: 420 }}>
+        <Ground id="floor" size={[20, 12]} />
+        <Zone id="packing" size={[7, 7]} color="#e4ecff" label="PACKING" />
+        <Asset id="order-1" entityId="1" asset="parcel" label="#1" position={[0, 0.08, 1]} />
+      </SceneCanvas>
+    </DashboardProvider>
+  );
+}
+```
 
-The shared `building` object offers generic, warehouse, distribution-center, workshop, office, retail and storage-shed exteriors. Type selectors preserve dimensions and ordinary child nodes using building-local `parentId` transforms. Closed interiors allocate no child render resources; optional `bindBuildingInterior` loads host data on demand with cancellation and successful-data caching. Explicit Open/Close controls pin a static cutaway, while opt-in mouse hover provides a temporary peek. See `/docs/buildings`, `/docs/objects/building` and [ADR 0011](docs/decisions/0011-building-containers.md). Placement and data rules remain host-owned.
+<details>
+<summary>Vue</summary>
 
-## Toolkit architecture and examples
+```vue
+<script setup lang="ts">
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry } from '@opsorama/three';
+import { workItemsKit } from '@opsorama/objects/work-items';
+import { DashboardProvider, SceneCanvas, Ground, Zone, Asset } from '@opsorama/vue';
 
-- `apps/site`: the private Next.js website `@opsorama/site` (documentation, domain examples, object browser); never published. Root scripts delegate to it.
-- `tests/`: workspace-wide unit tests; Playwright specs live in `apps/site/e2e`.
-- `examples/`: standalone starters for plain TypeScript, Vite + React, Vite + Vue and Next.js that install the packages like your project would. See [examples/README.md](examples/README.md).
-- `packages/core`: framework-independent types, immutable scene snapshots, validated settings, selection, and subscriptions. No browser or graphics dependencies.
-- `packages/three`: shared renderer, HTML labels, camera framing, transform interpolation, motion playback, instancing and explicit teardown. It ships no models: pass an asset registry.
-- `packages/objects`: the object catalog: procedural model factories, descriptors and definitions, 21 kits importable from subpaths such as `@opsorama/objects/vehicles` (`vehiclesKit`), and `catalogAssets` with every model.
-- `packages/react`: native provider, hooks, scene components, EntityLayer, and headless EntityInspector.
-- `packages/vue`: native components, composables, subscriptions, events, and slots. No React dependency.
-- `packages/ui`: optional generic presentation contracts/builders, DOM mount and scoped CSS; native components via `@opsorama/react/ui` and `@opsorama/vue/ui`. Hosts supply data meanings, content, actions and dashboard layouts. [Panel contract](docs/DATA_PANELS.md).
-- `apps/site/examples/shared.ts`: one definition with two zones and three objects used by all three adapters.
-- `apps/site/examples/react-minimal`, `apps/site/examples/vue-minimal`, `apps/site/examples/vanilla-minimal`: working examples rendered on the framework comparison page.
-- `apps/site/examples/react-composition`: compiled declarative quickstart using Ground, Zone, and Asset.
-- `apps/site/src/features/ecommerce`: shop and fulfilment centre mock snapshots, scene composition with lane-checked routes, and the floating HUD.
-- `apps/site/src/features/docs`: typed reference content, navigation, copyable snippets, live configuration playground, and adapter comparison.
+const assets = createAssetRegistry(workItemsKit);
+const store = createSceneStore();
+</script>
 
-### E-commerce example
+<template>
+  <DashboardProvider :store="store">
+    <SceneCanvas :assets="assets" style="height: 420px">
+      <Ground id="floor" :size="[20, 12]" />
+      <Zone id="packing" :size="[7, 7]" color="#e4ecff" label="PACKING" />
+      <Asset id="order-1" entity-id="1" asset="parcel" label="#1" :position="[0, 0.08, 1]" />
+    </SceneCanvas>
+  </DashboardProvider>
+</template>
+```
 
-`/examples/ecommerce` shows a shop (shop floor, checkouts, click & collect, parcel lockers) next to the warehouse that fulfils its online orders: receiving, reserve pallet racks, forward picking, sortation with robots and put walls, packing, dispatch and returns. It is a full-viewport React scene with a floating HUD built from the shared `@opsorama/ui` panels. Three mock snapshots (Monday peak, Wednesday afternoon, Sunday night) drive the metrics, order and stock tables, inspectors and the model counts; pickers and vehicles follow routes planned on lane rules. The host owns all records and commands. Source: `apps/site/src/features/ecommerce`; guide: `/docs/recipes/ecommerce`; [domain notes](docs/domains/ecommerce.md).
+</details>
 
-Shared scene views support left-mouse dragging on the canvas to pan the camera. Short clicks still select objects; dragging preserves selection and domain positions. The Overview control restores the camera target while retaining zoom. With the `wheelZoom` option, the mouse wheel over the scene changes zoom.
+<details>
+<summary>Plain JavaScript</summary>
 
-Port **3100** is used to avoid existing local services on 3000/3001. Hosting is local; no site or npm package has been publicly published. SceneCanvas handles renderer disposal, while the host owns the store lifecycle. The renderer uses per-instance procedural geometry/material ownership; shared custom resources require an explicit ownership strategy. Quantity browser checks profile bounded views with software WebGL; hardware FPS and all-units capacity remain unverified.
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createSceneRenderer } from '@opsorama/three';
+import { workItemsKit } from '@opsorama/objects/work-items';
 
-### Countable models
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'floor', kind: 'ground', size: [20, 12] },
+  { id: 'packing', kind: 'zone', size: [7, 7], color: '#e4ecff', label: 'PACKING' },
+  { id: 'order-1', entityId: '1', kind: 'asset', asset: 'parcel', label: '#1', position: [0, 0.08, 1] },
+] });
+const renderer = createSceneRenderer(document.querySelector<HTMLElement>('#scene')!, store, { assets: workItemsKit });
 
-Countable models now expose explicit counts: Parcels on base and Pallet with boxes 0–27 (the single parcel is one carton) and shelf contents 0–12. A multiplier changes the disclosed symbolic quantity without adding geometry. Try `/docs/objects/parcel-base`; the general Scale slider is removed. Implementers choose and calculate the mapping from visible parts to source quantities in their own application. Source-backed unit detail is a separate optional API.
+// When the view goes away:
+renderer.dispose();
+store.dispose();
+```
 
-## Project direction and roadmap
+</details>
 
-- [Vision, goal, and success criteria](docs/PROJECT_VISION.md)
-- [Architecture and data contracts](docs/ARCHITECTURE.md)
-- [Implementation guidelines](AGENTS.md)
+Complete projects for plain TypeScript, Vite + React, Vite + Vue and Next.js are in [`examples/`](examples).
 
-## Preserved logistics objects
+## Packages
 
-The warehouse recipe, its operations UI and deterministic congestion simulation were removed at the user's request. The unique forklift, loading dock and shipping container are now shared static factories with palette inheritance, instance materials, state marks, local anchors/bounds and owned resources. Existing building, pallet, truck, tree and shelf objects cover the other useful models. Ground, Zone, Path and wall segments cover future layouts. See [the preservation audit](docs/decisions/0015-warehouse-retirement.md).
+| Package | Purpose |
+| --- | --- |
+| `@opsorama/core` | Framework-free scene model: nodes, settings, selection, subscriptions, movement and handling rules. No DOM or graphics. |
+| `@opsorama/three` | The Three.js renderer: camera, selection, labels, markers, motion playback, instancing and disposal. Ships no models. |
+| `@opsorama/objects` | The object catalog: 21 kits on subpaths such as `@opsorama/objects/vehicles`, `catalogAssets` with every model, descriptors and `catalog.json`. |
+| `@opsorama/react` | Native React adapter: `DashboardProvider`, `SceneCanvas`, hooks and scene components. `@opsorama/react/ui` adds panels. |
+| `@opsorama/vue` | Native Vue adapter with the same contract (no React runtime). `@opsorama/vue/ui` adds panels. |
+| `@opsorama/ui` | Optional framework-neutral panel builders, a DOM mount and scoped CSS. |
 
-`/examples/logistics` mounts the same composition through React, native Vue and JavaScript. The dock supports static closed/open poses. Cargo, movement, lifting, reservations and source quantities remain host-owned. Catalog previews and usage snippets are available for all three objects.
+All packages are ESM-only, ship TypeScript declarations and declare `"sideEffects": false` (the UI stylesheet excepted). `three` is a peer dependency.
 
-## Run
+## Documentation
 
-Requires Node.js 22+ and pnpm 11+. Dependencies are pinned by `pnpm-lock.yaml`.
+- The documentation website (run `pnpm dev`, then open http://127.0.0.1:3100/docs) has the API reference, guides, a live playground and the object browser at `/docs/objects`, where each object page shows its kit, options and usage snippets.
+- [Architecture](docs/ARCHITECTURE.md), [project vision](docs/PROJECT_VISION.md) and [roadmap](docs/ROADMAP.md).
+- Guides: [panels](docs/DATA_PANELS.md), [indicators](docs/INDICATORS.md), [object labels](docs/OBJECT_LABELS.md), [object composition](docs/OBJECT_COMPOSITION.md), [bounded counts](docs/QUANTITY_SCALING.md), [handling units](docs/CONTAINMENT.md), [performance playground](docs/PERFORMANCE_PLAYGROUND.md), [brand](docs/BRAND.md).
+- Domain notes: [e-commerce](docs/domains/ecommerce.md), [office](docs/domains/office.md), [datacenter](docs/domains/datacenter.md).
+
+## Browser support
+
+Opsorama needs WebGL. It is developed and tested in Chromium-based browsers (including Playwright with software WebGL). Firefox and Safari have not been verified yet; reports are welcome.
+
+## Development
+
+Requires Node.js 22+ and pnpm 11+.
 
 ```sh
 pnpm install
-pnpm dev
-```
-
-Open http://127.0.0.1:3100 to browse the examples. No API keys, external models, downloaded textures, or backend services are required.
-
-```sh
+pnpm dev          # website at http://127.0.0.1:3100
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm --filter @opsorama/site exec playwright install chromium
-pnpm test:e2e
 pnpm build
-pnpm start
 ```
 
-Publishable package builds and their checks:
+Package builds and their checks:
 
 ```sh
 pnpm build:packages
@@ -107,8 +140,10 @@ pnpm check:bundles
 pnpm smoke:starters
 ```
 
+End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`. Contribution rules for people and AI agents are in [AGENTS.md](AGENTS.md); catalog objects follow [the object guide](docs/CONTRIBUTING_OBJECTS.md).
+
 ## License
 
-Opsorama is licensed under the [MIT License](LICENSE), copyright 2026 Tomas Jirsa. Unless identified otherwise, this covers the project's original source code, procedural models, documentation and supplied SVG assets. Third-party material retains its own licenses and notices.
+[MIT](LICENSE), copyright 2026 Tomas Jirsa. This covers the source code, procedural models, documentation and supplied SVG assets unless identified otherwise; third-party material keeps its own license. A "Powered by Opsorama" credit is welcome but optional.
 
-An on-screen logo, project link or “Powered by Opsorama” credit is welcome but optional. Redistribution must retain the copyright and permission notice as specified in the license.
+Contact: [contact@opsorama.dev](mailto:contact@opsorama.dev) · [GitHub](https://github.com/tomulin1/opsorama)
