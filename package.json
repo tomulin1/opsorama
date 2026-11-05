@@ -12,6 +12,7 @@
     "check:colors": "pnpm --filter @opsorama/site check:colors",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "check:boundary": "node scripts/check-public-boundary.mjs --all",
     "test": "pnpm check:colors && vitest run",
     "test:e2e": "pnpm --filter @opsorama/site test:e2e"
   },

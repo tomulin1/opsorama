@@ -67,6 +67,11 @@ The roadmap, object catalog plan, use cases, release plan and decision records a
 - Update roadmap status and the concrete next step at the end of a milestone. Record adopted architectural decisions in `docs/decisions/` when they become real decisions.
 - Do not invent a final project name, publish npm packages or assign an open-source license merely because they appear in the roadmap.
 
+## Public boundary
+
+- This repository contains only public material. `scripts/check-public-boundary.mjs` rejects references to non-public material: `--staged` runs from the versioned pre-commit hook (enable once per clone with `git config core.hooksPath .githooks`), `--hook` can run as a Claude Code `PreToolUse` hook on writes, and `pnpm check:boundary` checks the whole tree. Extra local patterns can be supplied with `git config opsorama.privatePatterns <file>`.
+- Fix a reported line instead of bypassing the check with `--no-verify`. Existing references in the tree are being removed before the first release, so `pnpm check:boundary` does not pass yet.
+
 ## Git workflow
 
 - Keep the project in Git and commit completed changes incrementally in coherent, reviewable groups.

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Rejects references to non-public material in the lines a commit adds. Enable once per clone:
+#   git config core.hooksPath .githooks
+exec node scripts/check-public-boundary.mjs --staged
