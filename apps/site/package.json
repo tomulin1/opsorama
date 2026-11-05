@@ -14,8 +14,9 @@
   },
   "dependencies": {
     "@opsorama/core": "workspace:*",
+    "@opsorama/objects": "workspace:*",
     "@opsorama/react": "workspace:*",
-    "@opsorama/renderer-three": "workspace:*",
+    "@opsorama/three": "workspace:*",
     "@opsorama/ui": "workspace:*",
     "@opsorama/vue": "workspace:*",
     "lucide-react": "^0.545.0",

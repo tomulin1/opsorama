@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { SHIPPING_CONTAINER, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { SHIPPING_CONTAINER, catalogAssets } from '@opsorama/objects';
 import type { AssetNode, VisualState } from '@opsorama/core';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 import { makeLogisticsStore, updateLogistics } from '../apps/site/examples/logistics-data';
 
 const keys = ['forklift', 'loading-dock', 'shipping-container'] as const;
-const build = (asset: string, options: Partial<AssetNode> = {}, theme: 'light' | 'midnight' = 'light') => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette: { trim: '#123456' } });
+const build = (asset: string, options: Partial<AssetNode> = {}, theme: 'light' | 'midnight' = 'light') => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette: { trim: '#123456' } });
 const resources = (object: THREE.Object3D) => { const result = new Set<THREE.BufferGeometry | THREE.Material>(); object.traverse(child => { if (child instanceof THREE.Mesh) { result.add(child.geometry); for (const material of Array.isArray(child.material) ? child.material : [child.material]) result.add(material); } }); return result; };
 const color = (object: THREE.Object3D, name: string) => ((object.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString();
 

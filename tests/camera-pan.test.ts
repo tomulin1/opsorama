@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OrthographicCamera, Vector3 } from 'three';
-import { bindCameraPan } from '../packages/renderer-three/src/camera-pan';
+import { bindCameraPan } from '../packages/three/src/camera-pan';
 
 class TestCanvas extends EventTarget {
   style = { cursor: '' };

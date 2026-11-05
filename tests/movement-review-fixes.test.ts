@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBehaviorRunner, createNavGraph, createRouteFollower, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorEvent, type BehaviorRunner, type NavGraphDefinition, type NodeRoute, type Vec3 } from '@opsorama/core';
-import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
+import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 
 // Regression tests for the movement review of October 27, 2026 (ADR 0053).
 

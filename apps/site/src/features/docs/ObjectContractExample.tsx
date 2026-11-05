@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { SceneNode, SceneStore, VisualState } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { CONTRACT_PALETTES, DEFAULT_CONTRACT, contractNodes, type ContractPalette, type ContractSettings } from '../../../examples/object-contract-data';
 
 type Session = { update(nodes: readonly SceneNode[]): void; store: SceneStore; dispose(): void };

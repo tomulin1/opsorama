@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sampleRendererFps } from '@opsorama/renderer-three';
+import { sampleRendererFps } from '@opsorama/three';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createSSRApp, h } from 'vue';

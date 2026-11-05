@@ -1,5 +1,5 @@
 import { createNavGraph, createSceneStore, resolveSceneSlots, toNodeRoute, type AssetNode, type NodeRoute, type ResolvedSlot, type SceneNode, type SceneStore, type Vec3, type WaypointStop } from '@opsorama/core';
-import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
+import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 import {
   AREAS, EMPLOYEES, FOCUS_PODS, HOT_DESKS, KITCHEN_SEATS, ROOMS, SCENARIOS, TEAMS, TEAM_DESKS,
   areaStatus, boardNotes, currentBooking, currentTicket, employee, hotDeskUser, inOffice, nextBooking, peopleAt, podOccupant, presence, project, projectColor, stateOf,

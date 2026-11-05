@@ -23,13 +23,14 @@ The renderer resolves names as `anchor-${name}` and reports a missing anchor. Do
 
 Parcel supports static `closed` (compatible default) and `open` variants; open cartons have flap pivots and contents/top/front anchors. Shopping-cart has handle/contents anchors. Worker has cart/hand anchors plus pushing, finite picking and finite placing poses. The static initial pose remains useful with motion disabled. `localMotion: false` disables built-in animation; host root movement remains independent. `true` inherits scene permission and cannot override scene motion-off, pause or reduced motion. Pose changes never confirm business work.
 
-Parcel/cart/worker inherit applicable semantic roles using theme → scene palette → compatibility `color` → instance `materials`. Product line colors remain explicit host data. `describeComposition(node)` from renderer-three constructs/disposes a temporary model and returns local bounds before instance transforms, base-origin pivot, anchors, palette roles, animation classification and instance ownership. Other assets return null until migrated. Factories and the renderer own no business source subscriptions.
+Parcel/cart/worker inherit applicable semantic roles using theme → scene palette → compatibility `color` → instance `materials`. Product line colors remain explicit host data. `describeComposition(node)` from `@opsorama/objects` constructs/disposes a temporary model and returns local bounds before instance transforms, base-origin pivot, anchors, palette roles, animation classification and instance ownership. Other assets return null until migrated. Factories and the renderer own no business source subscriptions.
 
 ## Implemented usage
 
 ```ts
 import { createSceneStore } from '@opsorama/core';
-import { createSceneRenderer } from '@opsorama/renderer-three';
+import { createSceneRenderer } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 
 const store = createSceneStore({ schemaVersion: 1, nodes: [
   { id: 'person', kind: 'asset', asset: 'worker', variant: 'pushing' },
@@ -37,7 +38,7 @@ const store = createSceneStore({ schemaVersion: 1, nodes: [
     attachment: { nodeId: 'person', anchor: 'cart' },
     contents: { lines: [{ id: 'line-1', title: 'Goods', quantity: 9 }] } },
 ] });
-const view = createSceneRenderer(container, store);
+const view = createSceneRenderer(container, store, { assets: catalogAssets });
 // On teardown: view.dispose(); store.dispose();
 ```
 

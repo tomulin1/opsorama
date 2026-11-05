@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { bindBuildingInterior, isPersonAsset, PERSON_FIGURES, PERSON_HAIR_COLORS, resolveFootprint, type PersonFigure, type PersonHairColor, type Footprint, BUILDING_SIZE, BUILDING_TYPE_LABELS, createSceneStore, type DisplayReading, type BuildingType, type BuildingOptions, type Vec3, type SceneStore, type SurfaceLabel, type Measurement, type VisualState, type CountLayout } from '@opsorama/core';
-import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces, type SceneRenderer } from '@opsorama/renderer-three';
+import { type SceneRenderer } from '@opsorama/three';
+import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces } from '@opsorama/objects';
 import { ArrowLeft, ArrowRight, ArrowUpRight, RotateCcw } from 'lucide-react';
 import { ZoomControl } from '@opsorama/react/ui';
 import '@opsorama/ui/styles.css';
@@ -52,7 +53,7 @@ export function ObjectDetails({ item }: { item: CatalogObject }) {
     setError(null); setSelected(false);
     void import('./object-rendering').then(async ({ catalogAssets, previewScale }) => {
       if (abort.signal.aborted || !canvas.current) return;
-      const { createSceneRenderer } = await import('@opsorama/renderer-three');
+      const { createSceneRenderer } = await import('@opsorama/three');
       if (abort.signal.aborted || !canvas.current) return;
       fit.current = (count, variant, measurement, countLayout, building, footprint) => previewScale(item, { count, variant, measurement, countLayout, building, footprint });
       const value = latest.current;

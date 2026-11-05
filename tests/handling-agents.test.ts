@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBehaviorRunner, createHandlingState, createNavGraph, itemNode, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type InteractionSlotSource } from '@opsorama/core';
-import { assetHandling, assetInteractionSlots, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, assetInteractionSlots, handlingProfiles } from '@opsorama/objects';
 import { createShift, PACKED_ON_BENCH } from '../apps/site/examples/motion-data';
 
 const objects: AssetNode[] = [

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { createSceneStore, type SceneDefinition, type SceneNode, type SceneStore, type SelectionStyle } from '@opsorama/core';
-import { createSceneRenderer } from '@opsorama/renderer-three';
+import { createSceneRenderer } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 
 const object = (id: string, label: string, asset: string, position: readonly [number, number, number], extra: Partial<Extract<SceneNode, { kind: 'asset' }>> = {}): SceneNode => ({ id, kind: 'asset', asset, label, labelMode: 'active', position, selectable: true, ...extra });
 const parcels = Array.from({ length: 6 }, (_, i) => object(`parcel-${i + 1}`, `Parcel ${i + 1}`, 'parcel', [1.8 + (i % 3) * 1.5, 0, 3 + Math.floor(i / 3) * 1.6]));
@@ -30,7 +31,7 @@ export function SelectionStylesExample() {
   useEffect(() => {
     if (!container.current) return;
     const scene = createSceneStore(definition, { zoom: 1.5 });
-    const view = createSceneRenderer(container.current, scene, { onSelect: selection => setSelected(selection?.nodeId ?? null), onError: failure => setError(failure.message) });
+    const view = createSceneRenderer(container.current, scene, { assets: catalogAssets, onSelect: selection => setSelected(selection?.nodeId ?? null), onError: failure => setError(failure.message) });
     store.current = scene; scene.select('forklift', 'api');
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { scene.select(null, 'keyboard'); setSelected(null); } };
     window.addEventListener('keydown', onKey);

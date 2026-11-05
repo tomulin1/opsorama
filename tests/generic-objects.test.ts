@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { TRUCK, assetHandling, basicAssets, checkAssetHandling, disposeObject } from '@opsorama/renderer-three';
-import { PALLET } from '../packages/renderer-three/src/parcels';
+import { disposeObject } from '@opsorama/three';
+import { TRUCK, assetHandling, catalogAssets, checkAssetHandling } from '@opsorama/objects';
+import { PALLET } from '../packages/objects/src/parcels';
 import type { AssetNode, VisualState } from '@opsorama/core';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 
-const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
+const build = (asset: string, options: Partial<AssetNode> = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const meshes = (object: THREE.Object3D) => { const list: THREE.Mesh[] = []; object.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };
 const named = (object: THREE.Object3D, name: string) => object.getObjectByName(name) as THREE.Mesh;
 const hex = (mesh: THREE.Mesh) => (mesh.material as THREE.MeshStandardMaterial).color.getHexString();
@@ -248,7 +249,7 @@ describe('delivery truck', () => {
     expect(meshes(truck).filter(mesh => mesh.name === 'truck-cab' || mesh.name === 'truck-band').every(mesh => hex(mesh) === '123456')).toBe(true);
     expect(hex(named(truck, 'truck-body'))).not.toBe('123456');
     animateAsset(truck, { time: 2, delta: 1 }); expect(transforms(truck)).toEqual(before); disposeObject(truck);
-    expect(checkAssetHandling('truck', assetHandling.truck, basicAssets.truck).ok).toBe(true);
+    expect(checkAssetHandling('truck', assetHandling.truck, catalogAssets.truck).ok).toBe(true);
   });
 });
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createBehaviorRunner, createNavGraph, createSceneStore, itemNode, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep } from '@opsorama/core';
-import { assetInteractionSlots, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetInteractionSlots, catalogAssets } from '@opsorama/objects';
 
 const objects: AssetNode[] = [
   { id: 'shelf', kind: 'asset', asset: 'shelf', position: [0, 0, -2] },
@@ -160,11 +161,11 @@ describe('carrying items', () => {
 
   it('gives the worker a holding pose with a carry anchor and no built-in box', () => {
     const meshes = (object: THREE.Object3D) => { let count = 0; object.traverse(child => { if (child instanceof THREE.Mesh) count++; }); return count; };
-    const holding = basicAssets.worker({ id: 'w', kind: 'asset', asset: 'worker', variant: 'holding' }), carrying = basicAssets.worker({ id: 'c', kind: 'asset', asset: 'worker', variant: 'carrying' });
+    const holding = catalogAssets.worker({ id: 'w', kind: 'asset', asset: 'worker', variant: 'holding' }), carrying = catalogAssets.worker({ id: 'c', kind: 'asset', asset: 'worker', variant: 'carrying' });
     expect(holding.getObjectByName('anchor-carry')).toBeDefined();
     expect(meshes(carrying) - meshes(holding)).toBe(2);
     expect(holding.getObjectByName('worker-right-arm')!.rotation.x).toBe(carrying.getObjectByName('worker-right-arm')!.rotation.x);
-    expect(basicAssets['pallet-jack']({ id: 'j', kind: 'asset', asset: 'pallet-jack' }).getObjectByName('anchor-load')).toBeDefined();
+    expect(catalogAssets['pallet-jack']({ id: 'j', kind: 'asset', asset: 'pallet-jack' }).getObjectByName('anchor-load')).toBeDefined();
     disposeObject(holding); disposeObject(carrying);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { behaviorNode, createBehaviorRunner, createNavGraph, createSceneStore, resolveSceneSlots, sampleRoute, slotNavPoints, type AssetNode, type BehaviorAgent } from '@opsorama/core';
-import { assetInteractionSlots } from '@opsorama/renderer-three';
+import { assetInteractionSlots } from '@opsorama/objects';
 
 const objects: AssetNode[] = [
   { id: 'shelf', kind: 'asset', asset: 'shelf', position: [0, 0, -2] },

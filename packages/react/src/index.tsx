@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode } from '@opsorama/core';
-import { createSceneRenderer, sampleRendererFps, type RendererOptions, type SceneRenderer } from '@opsorama/renderer-three';
+import { createSceneRenderer, sampleRendererFps, type RendererOptions, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
 export function DashboardProvider({ store, children }: { store: SceneStore; children: ReactNode }) { return <Context.Provider value={store}>{children}</Context.Provider>; }

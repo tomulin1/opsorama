@@ -4,7 +4,7 @@ Updated November 2, 2026. Preview: `/examples/datacenter`, listed as Domain 12 i
 
 ## Definitions and customization
 
-All ten models below are built into `basicAssets` in `@opsorama/renderer-three` and use the typed `AssetNode` contract from `@opsorama/core`. React and native Vue consume the same factories. Exported variants are `RackServerVariant` (`1u`/`2u`), `EquipmentCabinetVariant` (`detailed`/`overview`) and `AisleContainmentVariant` (`portal`/`roof`); unsupported variants throw. Color/material/count/variant changes rebuild owned geometry; transform-only changes preserve it. Theme and scene palette changes rebuild all ten models.
+All ten models below are part of `catalogAssets` in `@opsorama/objects` and use the typed `AssetNode` contract from `@opsorama/core`. React and native Vue consume the same factories. Exported variants are `RackServerVariant` (`1u`/`2u`), `EquipmentCabinetVariant` (`detailed`/`overview`) and `AisleContainmentVariant` (`portal`/`roof`); unsupported variants throw. Color/material/count/variant changes rebuild owned geometry; transform-only changes preserve it. Theme and scene palette changes rebuild all ten models.
 
 | Asset | Size (width × height × depth, metres) | Customization | Anchors |
 | --- | --- | --- | --- |

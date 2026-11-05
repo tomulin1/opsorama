@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: **the target architecture, with an initial implementation now available**. Core, renderer-three, React, and Vue exist as private workspace packages. [ADR 0001](decisions/0001-shared-renderer.md) records the implemented subset; the broader packages and contracts below remain proposals. Validation begins in M1 of the [roadmap](ROADMAP.md). The `@opsorama/*` names identify the private local Opsorama workspace packages. Proposed packages below remain proposals; npm scope ownership and publication are unverified.
+Status: **the target architecture, with an initial implementation now available**. Core, the Three.js renderer (`@opsorama/three`), the object catalog (`@opsorama/objects`), React, and Vue exist as private workspace packages. [ADR 0001](decisions/0001-shared-renderer.md) records the implemented subset; the broader packages and contracts below remain proposals. Validation begins in M1 of the [roadmap](ROADMAP.md). The `@opsorama/*` names identify the private local Opsorama workspace packages. Proposed packages below remain proposals; npm scope ownership and publication are unverified.
 
 ## Layer boundaries
 
@@ -55,14 +55,13 @@ Domain models are opt-in. Warehouse assets belong in the warehouse package; gene
 | Package | Responsibility | Required framework dependencies |
 | --- | --- | --- |
 | `@opsorama/core` | Schemas, scene model, selection, updates | None |
-| `@opsorama/renderer-three` | Three.js rendering, camera, picking, resource lifecycle | None; Three.js only |
+| `@opsorama/three` | Three.js rendering, camera, picking, motion playback, instancing, resource lifecycle; no built-in models | None; Three.js only |
+| `@opsorama/objects` | Catalog model factories, descriptors and definitions, and the `catalogAssets` registry | None; Three.js and `@opsorama/three` |
 | `@opsorama/react` | Component adapter and hooks | React as a peer dependency |
 | `@opsorama/vue` | Component adapter and composables | Vue as a peer dependency |
 | `@opsorama/ui` | Optional HTML presentation contracts/builders, separate DOM mount and scoped CSS | None |
-| `@opsorama/assets-basic` | Generic procedural assets and definitions | None |
-| `@opsorama/assets-warehouse` | Buildings, pallets, vehicles, warehouse assets | None |
 
-Motion starts as a small renderer module; generic data sources start as core contracts and examples. Separate `motion`, `data`, or `ui-*` packages should be introduced only when independent distribution becomes useful. Core, renderer-three, React, Vue and the optional UI package are implemented. Asset factories currently live in renderer-three; separate asset and connector packages remain planned.
+Motion starts as a small renderer module; generic data sources start as core contracts and examples. Separate `motion`, `data`, or `ui-*` packages should be introduced only when independent distribution becomes useful. Core, three, objects, React, Vue and the optional UI package are implemented. The renderer has no built-in models: a host passes an asset registry such as `catalogAssets` from `@opsorama/objects`, its own factories, or both merged with `createAssetRegistry`. Per-kit subpath exports of the catalog and connector packages remain planned.
 
 ```text
 apps/
@@ -70,11 +69,11 @@ apps/
   logistics-*/              # implemented shared object fixture; warehouse prototype retired
 packages/
   core/
-  renderer-three/
+  three/
+  objects/
   react/
   vue/
-  assets-basic/
-  assets-warehouse/
+  ui/
 examples/
   vanilla-minimal/
   react-minimal/

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createNavGraph, navGraphOverlay, OVERLAY_COLORS, resolveSceneSlots, slotNavPoints, validateOverlay, type AssetNode } from '@opsorama/core';
-import { assetInteractionSlots, createOverlayObject, disposeObject } from '@opsorama/renderer-three';
+import { createOverlayObject, disposeObject } from '@opsorama/three';
+import { assetInteractionSlots } from '@opsorama/objects';
 
 const desk: AssetNode = { id: 'desk', kind: 'asset', asset: 'station', position: [4, 0, -2] };
 const slots = resolveSceneSlots([desk], assetInteractionSlots);

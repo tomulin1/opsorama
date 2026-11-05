@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createBehaviorRunner, createNavGraph, createSceneStore, resolveSceneSlots, slotNavPoints, validateCarryRule, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorRunner, type BehaviorStep, type CarryRule, type ItemRest } from '@opsorama/core';
-import { assetInteractionSlots } from '@opsorama/renderer-three';
-import { advanceTransfer, startTransfer } from '../packages/renderer-three/src/transfer';
+import { assetInteractionSlots } from '@opsorama/objects';
+import { advanceTransfer, startTransfer } from '../packages/three/src/transfer';
 
 const objects: AssetNode[] = [{ id: 'shelf', kind: 'asset', asset: 'shelf', position: [0, 0, -2] }, { id: 'desk', kind: 'asset', asset: 'station', position: [6, 0, -2] }];
 const slots = resolveSceneSlots(objects, assetInteractionSlots);

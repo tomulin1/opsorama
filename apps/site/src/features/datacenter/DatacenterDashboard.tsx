@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DashboardProvider, SceneCanvas } from '@opsorama/react';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { datacenterRecords, datacenterRoomForNode, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter, type DatacenterScenario } from '../../../examples/datacenter-data';
 import { DatacenterViewport } from './DatacenterViewport';
+import { catalogAssets } from '@opsorama/objects';
 
 const DEFAULT_ZOOM = 1.05;
 
@@ -65,7 +66,7 @@ export function DatacenterDashboard() {
     if (target) setRackPage(Math.floor(datacenterRecords.filter(record => record.roomId === target.roomId).findIndex(record => record.id === id) / 8));
     session.current?.select(id, 'keyboard'); renderer.current?.frame(id);
   };
-  const scene = store ? <DashboardProvider store={store}><SceneCanvas className="datacenter-canvas" wheelZoom onReady={onReady} onError={onError} /></DashboardProvider> : null;
+  const scene = store ? <DashboardProvider store={store}><SceneCanvas assets={catalogAssets} className="datacenter-canvas" wheelZoom onReady={onReady} onError={onError} /></DashboardProvider> : null;
   return <main className="hud-page datacenter-page"><SiteHeader /><DatacenterViewport
     scene={scene} ports={ports} modules={modules} motion={motion} zoom={zoom}
     scenario={scenario} room={room} rackPage={rackPage} selected={selected} error={error} rendererRef={renderer}

@@ -4,7 +4,7 @@ import { Activity, Briefcase, Crosshair, DoorOpen, Eye, EyeOff, Info, KanbanSqua
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { EMPLOYEES, SCENARIOS, currentTicket, officeMetrics, project, team, ticket, tickets, type AreaId, type FocusPodId, type OfficeScenario, type ProjectId, type RoomId, type TeamId } from './model';
@@ -14,6 +14,7 @@ import {
   ProjectInspector, ProjectLegend, ProjectPanel, ReceptionInspector, RoomInspector, SpacesPanel, StatusLegend, TeamInspector, TeamList, TicketInspector, TicketTable, VisitorInspector, officeHudMetrics,
 } from './components';
 import '@opsorama/ui/styles.css';
+import { catalogAssets } from '@opsorama/objects';
 
 const SCENARIO_LABELS: Readonly<Record<OfficeScenario, string>> = { planning: 'Monday sprint planning', release: 'Wednesday release day', hybrid: 'Friday hybrid day' };
 const SCENARIO_NOTES: Readonly<Record<OfficeScenario, string>> = {
@@ -94,7 +95,7 @@ function OfficeViewport() {
 
   return <section className="of-viewport hud-viewport" aria-label="Open-plan office" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
-    <div className="hud-scene-surface"><SceneCanvas className="hud-canvas" wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" wheelZoom onReady={onReady} /></div>
 
     {panelsVisible && <div className="hud-top">
       <DataPanel className="hud-navigation" label="Office navigation" density="compact" slots={{ header: <div className="hud-navigation-heading"><span className="hud-symbol dp-tone" data-tone="info"><Building2 size={24} /></span><div className="hud-navigation-title"><span className="hud-eyebrow">DOMAIN 09 / OPEN OFFICE</span><h1>Fernhill Studio office</h1></div><button type="button" className="hud-icon-button" aria-label={expanded ? 'Exit expanded view' : 'Expand viewport'} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div> }}>

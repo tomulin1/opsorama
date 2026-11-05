@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBehaviorRunner, createNavGraph, createRouteFollower, resolveSceneSlots, routeTimes, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorRunner, type NavGraphDefinition, type NodeRoute, type Vec3 } from '@opsorama/core';
-import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
+import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 
 const flat = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[2] - a[2]);
 

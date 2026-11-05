@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { objectNode, type CatalogObject } from './objects';
 import type { Measurement, CountLayout, BuildingOptions, Footprint } from '@opsorama/core';
 
-export const catalogAssets = basicAssets;
+export { catalogAssets };
 export function modelFor(item: CatalogObject, options: { building?: BuildingOptions; count?: number; countLayout?: CountLayout; variant?: string; measurement?: Measurement | false; footprint?: Footprint } = {}): THREE.Object3D {
-  if (item.asset) return catalogAssets[item.asset](objectNode(item, options) as Parameters<typeof basicAssets[string]>[0]);
+  if (item.asset) return catalogAssets[item.asset](objectNode(item, options) as Parameters<typeof catalogAssets[string]>[0]);
   const group = new THREE.Group();
   if (item.primitive === 'path') {
     const points = [[-3, 0, 1], [0, 0, 1], [2, 0, -2]];

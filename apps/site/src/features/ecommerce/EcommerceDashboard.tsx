@@ -4,7 +4,7 @@ import { Activity, Boxes, ClipboardList, Crosshair, Eye, EyeOff, Info, LayoutGri
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { AREAS, area, orderArea, type AreaId, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type LocationId, type PackStationId, type PutWallId } from './model';
@@ -16,6 +16,7 @@ import {
   LocationInspector, OrderInspector, OrderTable, PackInspector, PutWallInspector, ReturnsInspector, StageLegend, StockPanel, TaskList, UnitInspector,
 } from './components';
 import '@opsorama/ui/styles.css';
+import { catalogAssets } from '@opsorama/objects';
 
 const SCENARIO_LABELS: Readonly<Record<EcommerceScenario, string>> = { peak: 'Monday morning peak', steady: 'Wednesday afternoon', night: 'Sunday night shift' };
 const SCENARIO_NOTES: Readonly<Record<EcommerceScenario, string>> = {
@@ -91,7 +92,7 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
 
   return <section className="ec-viewport hud-viewport" aria-label="Online shop and fulfilment centre" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
-    <div className="hud-scene-surface"><SceneCanvas className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
 
     {panelsVisible && <div className="hud-top">
       <DataPanel className="hud-navigation" label="Shop and warehouse navigation" density="compact" slots={{ header: <div className="hud-navigation-heading"><span className="hud-symbol dp-tone" data-tone="info"><Store size={24} /></span><div className="hud-navigation-title"><span className="hud-eyebrow">DOMAIN 01 / E-COMMERCE</span><h1>Online shop &amp; fulfilment centre</h1></div><button type="button" className="hud-icon-button" aria-label={expanded ? 'Exit expanded view' : 'Expand viewport'} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div> }}>

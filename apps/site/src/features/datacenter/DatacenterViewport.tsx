@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { Activity, AlertTriangle, ArrowUpRight, Box, Building2, CheckCircle2, CircleAlert, Eye, EyeOff, Info, List, Maximize2, Minimize2, Network, Server, Settings2, Thermometer, X, Zap } from 'lucide-react';
 import { DataPanel, EntityInspector, FieldList, ResourceList, StatusBadge, ValueMeter, ZoomControl } from '@opsorama/react/ui';
 import { useRendererFps } from '@opsorama/react';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { datacenterDefinition, datacenterIncidents, datacenterInletLimit, datacenterRackLoadHistory, datacenterReading, datacenterRecords, datacenterRooms, datacenterState, type DatacenterScenario } from '../../../examples/datacenter-data';
 import { HudMetrics, MetricSizeControl, useHudMetricSize, type HudMetric } from '../example-hud';
 import '@opsorama/ui/styles.css';

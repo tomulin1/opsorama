@@ -41,7 +41,8 @@ The shared `building` object offers generic, warehouse, distribution-center, wor
 - `apps/site`: the private Next.js website `@opsorama/site` (documentation, domain examples, object browser); never published. Root scripts delegate to it.
 - `tests/`: workspace-wide unit tests; Playwright specs live in `apps/site/e2e`.
 - `packages/core`: framework-independent types, immutable scene snapshots, validated settings, selection, and subscriptions. No browser or graphics dependencies.
-- `packages/renderer-three`: shared renderer, HTML labels, camera framing, transform interpolation, asset factories, and explicit teardown.
+- `packages/three`: shared renderer, HTML labels, camera framing, transform interpolation, motion playback, instancing and explicit teardown. It ships no models: pass an asset registry.
+- `packages/objects`: the object catalog: procedural model factories, descriptors and definitions, and the `catalogAssets` registry for the renderer.
 - `packages/react`: native provider, hooks, scene components, EntityLayer, and headless EntityInspector.
 - `packages/vue`: native components, composables, subscriptions, events, and slots. No React dependency.
 - `packages/ui`: optional generic presentation contracts/builders, DOM mount and scoped CSS; native components via `@opsorama/react/ui` and `@opsorama/vue/ui`. Hosts supply data meanings, content, actions and dashboard layouts. [Panel contract](docs/DATA_PANELS.md).

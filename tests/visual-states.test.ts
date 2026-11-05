@@ -6,13 +6,15 @@ import { createSceneStore, validateNode, type AssetNode, type VisualState } from
 import { Asset as ReactAsset } from '@opsorama/react';
 import { Asset as VueAsset, DashboardProvider } from '@opsorama/vue';
 import * as THREE from 'three';
-import { assetDescriptors, assetVisualStates, basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { animateAsset, hasAssetAnimator } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { assetVisualStates } from '@opsorama/objects';
+import { assetDescriptors, catalogAssets } from '@opsorama/objects';
+import { animateAsset, hasAssetAnimator } from '../packages/three/src/animation';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 import { exampleSelectionNodeId } from '../apps/site/src/features/example-selection';
 
 const states: readonly VisualState[] = ['normal', 'busy', 'warning', 'critical', 'inactive'];
-const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
+const build = (asset: string, options: Partial<AssetNode> = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const contentsPart = (object: THREE.Object3D, name: string) => { let found: THREE.Mesh | undefined; object.traverse(part => { if (part instanceof THREE.Mesh && part.name === name) found = part; }); return found; };
 const signature = (object: THREE.Object3D) => {
   animateAsset(object, { time: 7, delta: .1 });
@@ -40,8 +42,8 @@ describe('model-native status and explicit operation', () => {
       expect(item.states, item.slug).toBeUndefined();
       for (const variant of item.variants ?? [undefined]) {
         const sample = objectNode(item, { variant }) as AssetNode;
-        const normal = signature(basicAssets[item.asset](sample));
-        for (const state of states) expect(signature(basicAssets[item.asset]({ ...sample, state })), `${item.slug}/${variant}/${state}`).toBe(normal);
+        const normal = signature(catalogAssets[item.asset](sample));
+        for (const state of states) expect(signature(catalogAssets[item.asset]({ ...sample, state })), `${item.slug}/${variant}/${state}`).toBe(normal);
       }
       const descriptor = assetDescriptors[item.asset];
       if (descriptor) expect(descriptor.customization.some(option => option.field === 'state'), item.slug).toBe(false);
@@ -85,11 +87,11 @@ describe('model-native status and explicit operation', () => {
   it('rejects wrong model properties and invalid values in both stores and factories', () => {
     for (const [asset, field, invalid] of [['espresso-machine', 'heatEnabled', 0], ['pizza-oven', 'heatEnabled', 'false'], ['heated-pass', 'heatEnabled', 0], ['deck-shower', 'waterRunning', 'false'], ['trough', 'fillLevel', -.1], ['trough', 'fillLevel', 1.1], ['trough', 'fillLevel', NaN], ['trough', 'fillLevel', Infinity]] as const) {
       const node = { id: asset, kind: 'asset', asset, [field]: invalid } as AssetNode;
-      expect(() => validateNode(node)).toThrow(field); expect(() => basicAssets[asset](node)).toThrow(field);
+      expect(() => validateNode(node)).toThrow(field); expect(() => catalogAssets[asset](node)).toThrow(field);
     }
     for (const field of ['heatEnabled', 'waterRunning', 'fillLevel']) {
       const node = { id: 'wrong', kind: 'asset', asset: 'parcel', [field]: field === 'fillLevel' ? .5 : false } as AssetNode;
-      expect(() => validateNode(node)).toThrow('supported only'); expect(() => basicAssets.parcel(node)).toThrow('supported only');
+      expect(() => validateNode(node)).toThrow('supported only'); expect(() => catalogAssets.parcel(node)).toThrow('supported only');
     }
   });
 

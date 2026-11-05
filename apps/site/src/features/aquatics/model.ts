@@ -1,5 +1,5 @@
 import { personHairColor, createSceneStore, type AssetNode, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
-import { LAP_POOL, lapPoolLaneZ } from '@opsorama/renderer-three';
+import { LAP_POOL, lapPoolLaneZ } from '@opsorama/objects';
 
 /** What a lane is booked for, as reported by the host's booking or timetable source. */
 export type LaneUse = 'public' | 'club' | 'lessons' | 'closed';

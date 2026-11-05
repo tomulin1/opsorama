@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { BUILDING_TYPES, BUILDING_TYPE_LABELS, isBuilding, isInteriorVisible, setBuildingView, type BuildingType, type BuildingLoadState, type SceneSnapshot } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import type { BuildingSession, BuildingStateCallback } from '../../../examples/building-data';
 
 export function BuildingExample() {

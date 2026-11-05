@@ -1,5 +1,6 @@
 import { createHandlingState, createMoveMode, createSceneStore, type AssetNode, type HandlingMove, type HandlingState, type MoveMode, type MoveRequest, type ResolvedTarget, type SceneDefinition, type SceneStore } from '@opsorama/core';
-import { assetHandling, bindMoveMode, handlingProfiles, type SceneRenderer } from '@opsorama/renderer-three';
+import { bindMoveMode, type SceneRenderer } from '@opsorama/three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 
 /** Move mode fixture: objects are illustrative and no stock or order records are inferred. */
 const unit = (id: string, asset: string, label: string): AssetNode => ({ id, kind: 'asset', asset, label, labelMode: 'active', selectable: true });

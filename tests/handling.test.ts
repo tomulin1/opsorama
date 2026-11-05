@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { fitOrientation, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type Receptacle } from '@opsorama/core';
-import { assetHandling, basicAssets, checkAssetHandling, handlingProfiles, logisticsProfile } from '@opsorama/renderer-three';
+import { assetHandling, catalogAssets, checkAssetHandling, handlingProfiles, logisticsProfile } from '@opsorama/objects';
 import { catalogObjects } from '../apps/site/src/features/docs/objects';
 import { compatibleAssets, handlingAssets, handlingFacts, handlingTag } from '../apps/site/src/features/docs/object-handling';
 import { docs, docsNavigation } from '../apps/site/src/features/docs/content';
 
-const failures = (asset: string, handling: AssetHandling) => checkAssetHandling(asset, handling, basicAssets[asset]).checks.filter(check => !check.ok).map(check => check.name);
+const failures = (asset: string, handling: AssetHandling) => checkAssetHandling(asset, handling, catalogAssets[asset]).checks.filter(check => !check.ok).map(check => check.name);
 const shelfLevel = (level: number) => assetHandling.shelf.receptacles.find(receptacle => receptacle.name === `level-${level}`)!;
 
 describe('handling declarations (H0)', () => {
@@ -13,14 +13,14 @@ describe('handling declarations (H0)', () => {
     expect(() => validateHandlingProfile(logisticsProfile)).not.toThrow();
     expect(Object.keys(assetHandling)).toEqual(expect.arrayContaining(['pallet', 'pallet-jack', 'pallet-rack', 'parcel', 'shelf', 'station', 'tote', 'worker']));
     for (const [asset, handling] of Object.entries(assetHandling)) {
-      const report = checkAssetHandling(asset, handling, basicAssets[asset]);
+      const report = checkAssetHandling(asset, handling, catalogAssets[asset]);
       expect(report.checks.filter(check => !check.ok), asset).toEqual([]);
       expect(report.ok).toBe(true);
     }
-    expect(checkAssetHandling('shelf', assetHandling.shelf, basicAssets.shelf).checks.map(check => check.name)).toEqual(expect.arrayContaining(['receptacle level-0 anchor slot-0 exists once', 'receptacle level-2 envelopes are clear of model parts', 'receptacle level-1 slots do not overlap', 'receptacle level-0 is reached from slot group pick']));
+    expect(checkAssetHandling('shelf', assetHandling.shelf, catalogAssets.shelf).checks.map(check => check.name)).toEqual(expect.arrayContaining(['receptacle level-0 anchor slot-0 exists once', 'receptacle level-2 envelopes are clear of model parts', 'receptacle level-1 slots do not overlap', 'receptacle level-0 is reached from slot group pick']));
     // The pallet is measured empty, like the shelf and tote; count 0 is a valid pallet configuration.
     expect(assetHandling.pallet.empty).toEqual({ count: 0 });
-    expect(checkAssetHandling('pallet', assetHandling.pallet, basicAssets.pallet).checks.map(check => check.name)).toEqual(expect.arrayContaining(['unit footprint matches logistics/industrial-pallet', 'unit height matches logistics/industrial-pallet at the deck top']));
+    expect(checkAssetHandling('pallet', assetHandling.pallet, catalogAssets.pallet).checks.map(check => check.name)).toEqual(expect.arrayContaining(['unit footprint matches logistics/industrial-pallet', 'unit height matches logistics/industrial-pallet at the deck top']));
   });
 
   it('the model check catches a wrong scale, a too-tall slot, a missing anchor and an unknown slot group', () => {

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { type AssetNode, formatMeasurement } from '@opsorama/core';
-import { assetMeasurementDefinitions, type SceneRenderer } from '@opsorama/renderer-three';
+import { type SceneRenderer } from '@opsorama/three';
+import { assetMeasurementDefinitions } from '@opsorama/objects';
 
 export function IndicatorExample() {
   const [adapter, setAdapter] = useState<'React' | 'Vue' | 'JavaScript'>('React'), [mounted, setMounted] = useState(true);

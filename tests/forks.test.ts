@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { FORK_LIMITS, createBehaviorRunner, createNavGraph, createSceneStore, finalForkPose, forkMoveSeconds, forkPoseAt, routeDuration, sampleRoute, validateForkMotion, type AssetNode, type ForkMotion, type NodeRoute, type ResolvedSlot } from '@opsorama/core';
-import { assetDescriptors, assetHandling, basicAssets, checkAssetHandling, disposeObject, hasAssetAnimator } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject, hasAssetAnimator } from '@opsorama/three';
+import { assetDescriptors, assetHandling, catalogAssets, checkAssetHandling } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 import { RACK_LEVELS, RACK_PLACES, ecommerceSlots } from '../apps/site/src/features/ecommerce/scene';
 
-const build = (asset: string, forks?: ForkMotion, extra: Partial<AssetNode> = {}) => { const object = basicAssets[asset]({ id: asset, kind: 'asset', asset, ...(forks ? { forks } : {}), ...extra }); object.updateMatrixWorld(true); return object; };
+const build = (asset: string, forks?: ForkMotion, extra: Partial<AssetNode> = {}) => { const object = catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...(forks ? { forks } : {}), ...extra }); object.updateMatrixWorld(true); return object; };
 const loadAnchor = (object: THREE.Object3D) => object.getObjectByName('anchor-load')!.getWorldPosition(new THREE.Vector3());
 
 describe('fork motion', () => {
@@ -62,7 +63,7 @@ describe('fork motion', () => {
 
   it('keeps the handling contract and the unanimated catalog class of both trucks', () => {
     for (const asset of ['forklift', 'reach-truck']) {
-      expect(checkAssetHandling(asset, assetHandling[asset], basicAssets[asset]).ok, asset).toBe(true);
+      expect(checkAssetHandling(asset, assetHandling[asset], catalogAssets[asset]).ok, asset).toBe(true);
       expect(assetDescriptors[asset].motion.animation).toBe('none');
     }
   });

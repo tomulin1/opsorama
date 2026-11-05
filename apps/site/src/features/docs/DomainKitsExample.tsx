@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { domainKitsDefinition, updateDomainKits, type DomainKitsOptions, type DomainKitsSession } from '../../../examples/domain-kits-data';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 
 export function DomainKitsExample() {
   const [adapter, setAdapter] = useState<'React' | 'Vue' | 'JavaScript'>('React'), [mounted, setMounted] = useState(true);

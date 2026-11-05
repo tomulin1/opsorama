@@ -1,5 +1,5 @@
 import type { AssetNode, NavAgentRule, Vec3 } from '@opsorama/core';
-import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
+import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 
 /** One interaction slot as shown on an object page: local metres (x, z), heading in degrees (0° faces +z). */
 export interface SlotFact { name: string; group: string; pose: string; heading: string; position: string; approach: string; agents: string }

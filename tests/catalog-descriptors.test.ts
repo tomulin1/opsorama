@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { validateNode, validateObjectDescriptor, type AssetNode, type NodeSample } from '@opsorama/core';
-import { assetCountDefinitions, assetDescriptors, assetDisplayDefinitions, assetFootprintDefinitions, assetLabelSurfaces, assetMeasurementDefinitions, basicAssets, checkAssetDescriptor, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetCountDefinitions, assetDescriptors, assetDisplayDefinitions, assetFootprintDefinitions, assetLabelSurfaces, assetMeasurementDefinitions, catalogAssets, checkAssetDescriptor } from '@opsorama/objects';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
-const build = (asset: string, sample: NodeSample = {}) => basicAssets[asset]({ id: 'contract', kind: 'asset', asset, ...sample } as AssetNode);
+const build = (asset: string, sample: NodeSample = {}) => catalogAssets[asset]({ id: 'contract', kind: 'asset', asset, ...sample } as AssetNode);
 
 describe('complete catalog descriptors', () => {
   it('requires one serializable contract for every factory and every portable catalog page', () => {
-    expect(Object.keys(assetDescriptors).sort()).toEqual(Object.keys(basicAssets).sort());
+    expect(Object.keys(assetDescriptors).sort()).toEqual(Object.keys(catalogAssets).sort());
     expect(Object.keys(assetDescriptors).sort()).toEqual(catalogObjects.flatMap(item => item.asset ? [item.asset] : []).sort());
     for (const [asset, descriptor] of Object.entries(assetDescriptors)) {
       expect(descriptor.asset).toBe(asset);
@@ -43,7 +44,7 @@ describe('complete catalog descriptors', () => {
     for (const asset of ['forklift', 'security-camera', 'terrain']) expect(assetDescriptors[asset].geometry.pivot).toBe('model-origin');
     const descriptor = assetDescriptors.forklift;
     expect(() => validateObjectDescriptor({ ...descriptor, geometry: { ...descriptor.geometry, note: '' } })).toThrow('model-origin needs a note');
-    const offsetRoot = (node: AssetNode) => { const object = basicAssets.forklift(node); object.position.y = 1; return object; };
+    const offsetRoot = (node: AssetNode) => { const object = catalogAssets.forklift(node); object.position.y = 1; return object; };
     expect(checkAssetDescriptor(descriptor, offsetRoot).checks.filter(check => !check.ok).map(check => check.name)).toContain('pivot preserves the model origin');
   });
 

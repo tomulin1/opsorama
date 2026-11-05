@@ -1,5 +1,5 @@
 import { HANDLING_FAMILIES, HANDLING_FAMILY_LABELS } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import type { DocArticle } from './content';
 import { assetName, sizeText } from './object-handling';
 
@@ -14,10 +14,10 @@ export const handlingArticle: DocArticle = {
       'H3 adds optional move mode for viewers. Nothing stops a host from setting an incompatible attachment directly.',
     ] },
     { id: 'families', title: 'Unit families', paragraphs: ['HANDLING_FAMILIES (core) is a closed list. Receptacles accept families, optionally narrowed to classes, never asset keys, so a new asset with a known class fits every existing receptacle.'], headers: ['Family', 'Name', 'Examples'], rows: HANDLING_FAMILIES.map(family => [family, HANDLING_FAMILY_LABELS[family], FAMILY_EXAMPLES[family]]) },
-    { id: 'profile', title: 'Domain profiles', paragraphs: ['A HandlingProfile is the vocabulary of one domain: classes with nominal real sizes, stacking rules and whether a unit may be turned 90°, plus named load patterns for decks. handlingProfiles (renderer-three) lists logisticsProfile, retailProfile, datacenterProfile and laboratoryProfile. A profile only adds classes and patterns, inside the fixed families.'], headers: ['Class', 'Name', 'Family', 'Nominal size', 'Stacking', 'Turnable'], rows: handlingProfiles.flatMap(profile => profile.classes).map(entry => [entry.id, entry.name, entry.family, sizeText(entry.size), entry.stacking.maxAbove ? `${entry.stacking.maxAbove} × ${entry.stacking.families.join(', ')}` : 'none', entry.turnable ? 'yes' : 'no']) },
+    { id: 'profile', title: 'Domain profiles', paragraphs: ['A HandlingProfile is the vocabulary of one domain: classes with nominal real sizes, stacking rules and whether a unit may be turned 90°, plus named load patterns for decks. handlingProfiles (@opsorama/objects) lists logisticsProfile, retailProfile, datacenterProfile and laboratoryProfile. A profile only adds classes and patterns, inside the fixed families.'], headers: ['Class', 'Name', 'Family', 'Nominal size', 'Stacking', 'Turnable'], rows: handlingProfiles.flatMap(profile => profile.classes).map(entry => [entry.id, entry.name, entry.family, sizeText(entry.size), entry.stacking.maxAbove ? `${entry.stacking.maxAbove} × ${entry.stacking.families.join(', ')}` : 'none', entry.turnable ? 'yes' : 'no']) },
     { id: 'patterns', title: 'Load patterns', paragraphs: ['A load pattern is a declared layout of one class on a deck, one layer high, with an [x, z] offset from the deck origin and a yaw of 0 or 90 per position. A mixed pallet uses one pattern per layer; the toolkit does not search for packings. validateHandlingProfile rejects overlapping positions, and validateAssetHandling rejects a pattern that reaches outside its deck.'], headers: ['Pattern', 'Name', 'Class', 'Units per layer'], rows: handlingProfiles.flatMap(profile => profile.patterns).map(pattern => [pattern.id, pattern.name, pattern.class, String(pattern.positions.length)]) },
     { id: 'declarations', title: 'Declaring units and receptacles', paragraphs: [
-      'assetHandling (renderer-three) maps an asset key to an AssetHandling: an optional unit (class and the uniform node scale at which the model has the class size), receptacles, and an optional empty configuration without decorative contents. A pallet is both: a unit load with a deck.',
+      'assetHandling (@opsorama/objects) maps an asset key to an AssetHandling: an optional unit (class and the uniform node scale at which the model has the class size), receptacles, and an optional empty configuration without decorative contents. A pallet is both: a unit load with a deck.',
       'Receptacles sit at existing model anchors. slot holds one unit per anchor and any unit can be taken; stack is a pile of up to capacity units at one anchor with only the top one reachable; deck is a load surface whose layers use the listed load patterns, limited by the envelope height. rail has integer positions of a pitch along an axis, and a unit spans as many as its length needs, such as a 2U server on a 42-unit cabinet rail. bulk has no positions: the host describes contents as ContainerContents lines, so units are not placed there. The envelope is the clear space in model metres, centred on the anchor plus offset; reachedFrom names the interaction-slot group agents use.',
       `Declared today: ${Object.keys(assetHandling).map(assetName).join(', ')}.`,
     ], code: `import type { AssetHandling } from '@opsorama/core';
@@ -32,12 +32,12 @@ const pallet: AssetHandling = {
     patterns: ['logistics/carton-m-3x2', 'logistics/tote-2x2'],
   }],
 };`, language: 'typescript' },
-    { id: 'check', title: 'Checking a declaration', paragraphs: ['checkAssetHandling(asset, handling, factory) builds the empty configuration and returns a ContractReport: the declaration is structurally valid, each receptacle anchor exists once, the unit footprint and height match the class within 3 cm at the unit scale (a unit with a deck measures to its deck top), slot and deck envelopes lie within the model footprint plus 0.1 m overhang, slot envelopes are clear of non-decorative model triangles and of each other, and reachedFrom names an existing slot group. Use it in tests for your own declarations.'], code: `import { assetHandling, basicAssets, checkAssetHandling } from '@opsorama/renderer-three';
+    { id: 'check', title: 'Checking a declaration', paragraphs: ['checkAssetHandling(asset, handling, factory) builds the empty configuration and returns a ContractReport: the declaration is structurally valid, each receptacle anchor exists once, the unit footprint and height match the class within 3 cm at the unit scale (a unit with a deck measures to its deck top), slot and deck envelopes lie within the model footprint plus 0.1 m overhang, slot envelopes are clear of non-decorative model triangles and of each other, and reachedFrom names an existing slot group. Use it in tests for your own declarations.'], code: `import { assetHandling, catalogAssets, checkAssetHandling } from '@opsorama/objects';
 
-const report = checkAssetHandling('shelf', assetHandling.shelf, basicAssets.shelf);
+const report = checkAssetHandling('shelf', assetHandling.shelf, catalogAssets.shelf);
 expect(report.checks.filter(check => !check.ok)).toEqual([]);`, language: 'typescript' },
     { id: 'fits', title: 'Deriving compatibility', paragraphs: ['handlingFits(handling, profiles) (core) lists every receptacle that accepts each unit by family and class, with verdict fits or too-large, whether the unit is turned, the matching load patterns and, for a unit with its own deck, the highest load that still fits when the receptacle limits it. Receptacles that do not accept the family are omitted. The object pages and the matrix below use this result directly, so they cannot disagree with the declarations.'], code: `import { handlingFits } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 
 const fits = handlingFits(assetHandling, handlingProfiles);
 fits.filter(fit => fit.unit === 'tote' && fit.verdict === 'fits')
@@ -48,7 +48,7 @@ fits.filter(fit => fit.unit === 'tote' && fit.verdict === 'fits')
       'On a deck each layer keeps the pattern of its first unit, so a unit of another pattern starts the next layer, and free: [x, z] places a unit by metres from the deck origin. A layer rests on the tallest unit below it, and at least 60 % of a unit\'s footprint must lie on units that reach that height (MIN_DECK_SUPPORT). Only the top of a stack or deck can be taken or loaded. A load is checked against its deck and every outer container, so a pallet in a rack bay cannot be loaded above the bay.',
       'The state moves nothing by itself. nodePatches() returns attachment, position, rotation and scale to spread over your scene nodes; units inside a moved container follow through their attachment. A check on floor placements only tests that the unit can be taken. Patches assume containers sit at their handling scale.',
     ], code: `import { createHandlingState } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 
 const handling = createHandlingState({
   handling: assetHandling, profiles: handlingProfiles,
@@ -100,7 +100,7 @@ if (nearest.length) handling.move([{ unit: 'carton-1', to: nearest[0].target }])
       'bindMoveMode(renderer, mode) (renderer) draws a translucent box for each target and turns a click on one into mode.request; it returns a function that stops and clears them. It uses setMoveTargets(targets, onPick) on the renderer, which React and Vue hosts reach through onReady or @ready. Markers sit where the anchors are at that moment, and they are static, so they need no motion setting.',
       'Offer the same targets in HTML, so the choice works with a keyboard and a screen reader, and use refusals(unit) to explain why other places are not offered. See the runnable sample for a complete list, a cancel button and Escape.',
     ], code: `import { createMoveMode } from '@opsorama/core';
-import { bindMoveMode } from '@opsorama/renderer-three';
+import { bindMoveMode } from '@opsorama/three';
 
 const mode = createMoveMode({
   handling,

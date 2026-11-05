@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { resolveInteractionSlots, type AssetNode } from '@opsorama/core';
-import { assetCountDefinitions, assetInteractionSlots, assetLabelSurfaces, basicAssets, disposeObject, SOLAR_ARRAY } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { assetCountDefinitions, assetInteractionSlots, assetLabelSurfaces, catalogAssets, SOLAR_ARRAY } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 
-const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof basicAssets[string]>[1]) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
+const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof catalogAssets[string]>[1]) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
 const meshes = (object: THREE.Object3D) => { const list: THREE.Mesh[] = []; object.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };
 const hex = (mesh: THREE.Mesh) => (mesh.material as THREE.MeshStandardMaterial).color.getHexString();
 const parts = (object: THREE.Object3D) => { const list: THREE.Object3D[] = []; object.traverse(child => { if (child.name.startsWith('count-part-')) list.push(child); }); return list; };

@@ -2,7 +2,7 @@
 import { useCallback, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { useRendererFps, useSceneZoom } from '@opsorama/react';
 import { MetricCard, ZoomControl, type MetricCardProps, type MetricSize } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 
 /** A short panel of a domain HUD. The host owns tone, visual and action; size comes from the shared size control. */
 export type HudMetric = Omit<MetricCardProps<ReactNode>, 'size' | 'slots'> & { id: string; icon: ReactNode };

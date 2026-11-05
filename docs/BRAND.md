@@ -57,7 +57,7 @@ Use the existing system sans-serif stack (`Inter`, `Segoe UI`, Arial, sans-serif
 
 ## Repository identifiers and publication
 
-The root application is `opsorama-workspace`. The private local packages are `@opsorama/core`, `@opsorama/renderer-three`, `@opsorama/react`, `@opsorama/vue` and `@opsorama/ui`. Imports, exports, documentation snippets and workspace dependency declarations use these names together.
+The root application is `opsorama-workspace`. The private local packages are `@opsorama/core`, `@opsorama/three`, `@opsorama/objects`, `@opsorama/react`, `@opsorama/vue` and `@opsorama/ui`. Imports, exports, documentation snippets and workspace dependency declarations use these names together.
 
 The owner is **Tomas Jirsa**; use this spelling without diacritics in attribution. The public contact is [contact@opsorama.dev](mailto:contact@opsorama.dev), and the owner-confirmed project domain is **opsorama.dev**. The canonical repository is [tomulin1/opsorama on GitHub](https://github.com/tomulin1/opsorama). The website header links to the repository; its documentation, examples, home and brand footers include repository and contact links. Shared website values live in `apps/site/src/features/brand/project.ts`.
 

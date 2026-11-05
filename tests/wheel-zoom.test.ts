@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ZOOM_RANGE, createSceneStore } from '@opsorama/core';
-import { bindWheelZoom, wheelZoomValue } from '../packages/renderer-three/src/wheel-zoom';
+import { bindWheelZoom, wheelZoomValue } from '../packages/three/src/wheel-zoom';
 
 function wheel(target: EventTarget, props: Partial<WheelEvent> = {}) {
   const event = Object.assign(new Event('wheel', { cancelable: true }), { deltaY: -100, deltaMode: 0, ctrlKey: false }, props);

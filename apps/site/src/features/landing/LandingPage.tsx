@@ -5,7 +5,7 @@ import { ArrowUpRight, Boxes, ChevronLeft, ChevronRight, Code2, Crosshair, Layer
 import { createSceneStore, type SceneNode, type SceneStore } from '@opsorama/core';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel, StatusBadge } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
 import { HudZoom } from '../example-hud';
@@ -14,6 +14,7 @@ import { ecommerceControllers } from '../ecommerce/scene';
 import { createEcommerceSimulation, type EcommerceSimulation } from '../ecommerce/simulation';
 import { cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce, type DistrictId } from './city';
 import '@opsorama/ui/styles.css';
+import { catalogAssets } from '@opsorama/objects';
 
 /** Default city zoom: four zoom-button steps (0.2 each) above the fitted 1.05, so buildings and people are readable on the first screen. */
 const CITY_ZOOM = 1.85;
@@ -79,7 +80,7 @@ function CityViewport({ city, simulation }: { city: readonly SceneNode[]; simula
   const [records, setRecords] = useState(() => simulation.snapshot()), district = useDistrict(renderer);
   useEffect(() => runFeedLoop({ feed: () => simulation, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace([...city, ...placeEcommerce(nodes)]), onRecords: setRecords }), [store, city, simulation]);
   return <>
-    <div className="hud-scene-surface"><SceneCanvas className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
     <nav className="landing-districts" aria-label="City districts">
       {DISTRICTS.map(item => <button type="button" key={item.id} aria-pressed={district?.id === item.id} onClick={() => store.select(district?.id === item.id ? null : districtPinId(item.id), 'api')}><MapPin size={13} />{item.name}</button>)}
     </nav>

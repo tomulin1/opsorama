@@ -58,7 +58,7 @@ export function zoomSnippet(config: ZoomConfig, framework: 'react' | 'vue' | 'ja
     return `<script setup lang="ts">\n${script}\n</script>\n\n<template>\n  <ZoomControl :options="{\n    ${body}\n  }"${close}\n</template>`;
   }
   const body = ['value: zoom', 'onChange: value => { zoom = value; view.update(zoomControl(options())); }', ...(fps ? ['fps'] : []), ...options, ...(config.extra ? ['children: hostContent'] : [])].join(',\n  ');
-  const imports = `${fps ? "import { sampleRendererFps } from '@opsorama/renderer-three';\n" : ''}import { zoomControl } from '@opsorama/ui';\nimport { mountPanel } from '@opsorama/ui/dom';\nimport '@opsorama/ui/styles.css';`;
+  const imports = `${fps ? "import { sampleRendererFps } from '@opsorama/three';\n" : ''}import { zoomControl } from '@opsorama/ui';\nimport { mountPanel } from '@opsorama/ui/dom';\nimport '@opsorama/ui/styles.css';`;
   const sampler = fps ? '\n// renderer comes from createSceneRenderer(); call stopFps() on teardown.\nconst stopFps = sampleRendererFps(() => renderer, value => { fps = value; view.update(zoomControl(options())); });' : '';
   return `${imports}\n\nlet zoom = 1${fps ? ', fps = null' : ''};\nconst options = () => ({\n  ${body},\n});\nconst view = mountPanel(container, zoomControl(options()));${sampler}\n// view.dispose() removes the control and its listeners.`;
 }

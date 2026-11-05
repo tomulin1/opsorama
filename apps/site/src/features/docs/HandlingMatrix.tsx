@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { assetName, catalogEntryForAsset, catalogFits, fitConditions, handlingAssets } from './object-handling';
 
 /** Units of one domain profile as rows, the receptacles that accept any of them as columns; every cell is text. */

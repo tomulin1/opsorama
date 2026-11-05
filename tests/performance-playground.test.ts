@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { resolveCountRepresentation, routeDuration, type AssetNode } from '@opsorama/core';
-import { assetCountDefinitions } from '@opsorama/renderer-three';
+import { assetCountDefinitions } from '@opsorama/objects';
 import { createPerformanceStore, PERFORMANCE_PRESETS, performanceNodes, summarizeThroughput, type PerformancePreset } from '../apps/site/src/features/performance/model';
 
 describe('repeatable performance fixture', () => {
@@ -32,7 +33,7 @@ describe('repeatable performance fixture', () => {
 
   it('all workload models build with the actual options and have finite bounds and owned cleanup', () => {
     for (const node of performanceNodes('mega').slice(1, 9) as AssetNode[]) {
-      const object = basicAssets[node.asset](node), bounds = new THREE.Box3().setFromObject(object);
+      const object = catalogAssets[node.asset](node), bounds = new THREE.Box3().setFromObject(object);
       expect(bounds.isEmpty()).toBe(false);
       expect([...bounds.min.toArray(), ...bounds.max.toArray()].every(Number.isFinite)).toBe(true);
       let meshCount = 0; const disposed = new Set<THREE.BufferGeometry>();

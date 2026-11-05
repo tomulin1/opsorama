@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { AssetNode, SurfaceLabel } from '@opsorama/core';
-import { assetLabelSurfaces, type SceneRenderer } from '@opsorama/renderer-three';
+import { type SceneRenderer } from '@opsorama/three';
+import { assetLabelSurfaces } from '@opsorama/objects';
 import { ObjectLabelControls } from './ObjectLabelControls';
 
 type Adapter = 'React' | 'Vue' | 'JavaScript';

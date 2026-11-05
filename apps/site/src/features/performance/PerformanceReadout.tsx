@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { DataPanel, FieldList, MetricCard } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { PERFORMANCE_FIXTURE_VERSION, summarizeThroughput, type ThroughputSample } from './model';
 
 type Diagnostics = ReturnType<SceneRenderer['getDiagnostics']>;

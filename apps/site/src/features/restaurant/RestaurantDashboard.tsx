@@ -5,12 +5,13 @@ import { Activity, ChefHat, ClipboardList, Crosshair, Eye, EyeOff, Info, Maximiz
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, stationTickets, type RestaurantScenario, type StationId } from './model';
 import { CoolerInspector, EmptyInspector, RestaurantLibrary, restaurantHudMetrics, StationInspector, StationStrip, TableChips, TableInspector, TableLegend, TicketTable } from './components';
 import '@opsorama/ui/styles.css';
+import { catalogAssets } from '@opsorama/objects';
 
 const SCENARIO_LABELS: Readonly<Record<RestaurantScenario, string>> = { rush: 'Friday dinner rush', quiet: 'Quiet afternoon', closed: 'After close' };
 const SCENARIO_NOTES: Readonly<Record<RestaurantScenario, string>> = { rush: 'One late grill ticket and a warm walk-in reading.', quiet: 'A few tables and a short ticket queue.', closed: 'Stations idle, oven cold.' };
@@ -63,7 +64,7 @@ function RestaurantViewport() {
 
   return <section className="rs-viewport hud-viewport" aria-label="Restaurant operations" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
-    <div className="hud-scene-surface"><SceneCanvas className="hud-canvas" wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" wheelZoom onReady={onReady} /></div>
 
     {panelsVisible && <div className="hud-top">
       <DataPanel className="hud-navigation" label="Restaurant navigation" density="compact" slots={{ header: <div className="hud-navigation-heading"><span className="hud-symbol dp-tone" data-tone="info"><UtensilsCrossed size={24} /></span><div className="hud-navigation-title"><span className="hud-eyebrow">DOMAIN 22 / RESTAURANT</span><h1>Restaurant floor &amp; kitchen</h1></div><button type="button" className="hud-icon-button" aria-label={expanded ? 'Exit expanded view' : 'Expand viewport'} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div> }}>

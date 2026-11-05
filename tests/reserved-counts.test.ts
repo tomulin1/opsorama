@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, validateNode, type AssetNode } from '@opsorama/core';
-import { basicAssets, disposeObject, assetCountDefinitions, assetCountLayoutDefaults } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets, assetCountDefinitions, assetCountLayoutDefaults } from '@opsorama/objects';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 import { previewScale } from '../apps/site/src/features/docs/object-rendering';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 
-const build = (asset: string, count: number, extra: Partial<AssetNode> = {}) => basicAssets[asset]({ id: 'stock', kind: 'asset', asset, count, ...extra });
+const build = (asset: string, count: number, extra: Partial<AssetNode> = {}) => catalogAssets[asset]({ id: 'stock', kind: 'asset', asset, count, ...extra });
 function parts(model: THREE.Object3D) { const result: THREE.Object3D[] = []; model.traverse(part => { if (part.name.startsWith('count-part-')) result.push(part); }); return result; }
 function counts(asset: string) { const definition = assetCountDefinitions[asset]; return definition.kind === 'variants' ? [...definition.values] : Array.from({ length: (definition.max - definition.min) / definition.step + 1 }, (_, index) => definition.min + index * definition.step); }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, DEFAULT_SETTINGS } from '@opsorama/core';
-import { advanceCornerMarker, createCornerMarker, createGlowHighlight, createInstanceBatcher, INSTANCING_MIN_COUNT, selectionColor, showCornerMarker } from '@opsorama/renderer-three';
+import { advanceCornerMarker, createCornerMarker, createGlowHighlight, createInstanceBatcher, INSTANCING_MIN_COUNT, selectionColor, showCornerMarker } from '@opsorama/three';
 
 const box = (color = '#ff0000', transparent = false) => new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color, transparent }));
 const nodeObject = (scene: THREE.Object3D, id: string, x = 0) => { const root = new THREE.Group(); root.add(box()); root.position.set(x, 0, 0); root.traverse(child => { child.userData.nodeId = id; }); scene.add(root); return root; };

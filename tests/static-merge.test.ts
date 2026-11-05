@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
-import { applyShadowPolicy, assetAnimatedParts, basicAssets, hasAssetAnimator, disposeObject, keepPartsSeparate, mergeStaticParts, MERGED_PART_NAME, setAssetAnimator } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { applyShadowPolicy, assetAnimatedParts, hasAssetAnimator, disposeObject, keepPartsSeparate, mergeStaticParts, MERGED_PART_NAME, setAssetAnimator } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 import { catalogObjects, objectNode } from '../apps/site/src/features/docs/objects';
 
 const box = (parent: THREE.Object3D, color: string, position: readonly [number, number, number], options: { size?: number; roughness?: number; transparent?: boolean } = {}) => {
@@ -52,7 +53,7 @@ describe('static part merging', () => {
   it('renders real assets identically: same hit distances and base colors before and after merging', () => {
     const cases: AssetNode[] = [node('pallet', { count: 27 }), node('parcel-base', { count: 5 }), node('worker', { variant: 'carrying' }), node('forklift', { variant: 'operated' }), node('store-shelving'), node('pallet-rack', { count: 4 }), node('lap-pool', { variant: 'open' }), node('pizza-oven'), node('conveyor')];
     for (const item of cases) {
-      const reference = basicAssets[item.asset](item), subject = basicAssets[item.asset](item);
+      const reference = catalogAssets[item.asset](item), subject = catalogAssets[item.asset](item);
       const report = mergeStaticParts(subject);
       expect(report.meshesAfter, item.asset).toBeLessThan(report.meshesBefore);
       expect(probe(subject), item.asset).toEqual(probe(reference));
@@ -105,7 +106,7 @@ describe('static part merging', () => {
   it('leaves an opted-out asset and a second call unchanged', () => {
     const optedOut = new THREE.Group(); box(optedOut, '#111111', [0, 0, 0]); box(optedOut, '#222222', [1, 0, 0]); keepPartsSeparate(optedOut);
     expect(mergeStaticParts(optedOut)).toEqual({ meshesBefore: 2, meshesAfter: 2 });
-    const pallet = basicAssets.pallet(node('pallet', { count: 27 })), first = mergeStaticParts(pallet), second = mergeStaticParts(pallet);
+    const pallet = catalogAssets.pallet(node('pallet', { count: 27 })), first = mergeStaticParts(pallet), second = mergeStaticParts(pallet);
     expect(second).toEqual({ meshesBefore: first.meshesAfter, meshesAfter: first.meshesAfter });
     // 290 meshes become a few color-merged groups plus the 27 translucent parcel seams, which stay separate.
     expect(first).toEqual({ meshesBefore: 290, meshesAfter: expect.any(Number) }); expect(first.meshesAfter).toBeLessThanOrEqual(34);
@@ -163,10 +164,10 @@ describe('static part merging', () => {
     const frames = [{ time: .37, delta: .37 }, { time: 1.91, delta: 1.54 }, { time: 2.6, delta: .7, locomotion: { moving: true } }];
     const checked: string[] = [];
     for (const item of catalogObjects.filter(entry => entry.asset)) for (const variant of item.variants ?? [undefined]) for (const state of item.states ?? [undefined]) {
-      const sceneNode = objectNode(item, { variant, state }); if (sceneNode.kind !== 'asset' || !basicAssets[sceneNode.asset]) continue;
-      const reference = basicAssets[sceneNode.asset](sceneNode);
+      const sceneNode = objectNode(item, { variant, state }); if (sceneNode.kind !== 'asset' || !catalogAssets[sceneNode.asset]) continue;
+      const reference = catalogAssets[sceneNode.asset](sceneNode);
       if (!hasAssetAnimator(reference)) { disposeObject(reference); continue; }
-      const subject = basicAssets[sceneNode.asset](sceneNode); mergeStaticParts(subject);
+      const subject = catalogAssets[sceneNode.asset](sceneNode); mergeStaticParts(subject);
       for (const frame of frames) { animateAsset(reference, frame); animateAsset(subject, frame); expect(probe(subject, 8), `${sceneNode.asset} ${variant ?? ''} ${state ?? ''} at ${frame.time}`).toEqual(probe(reference, 8)); }
       checked.push(sceneNode.asset); disposeObject(reference); disposeObject(subject);
     }
@@ -188,15 +189,15 @@ describe('static part merging', () => {
     };
     let animated = 0;
     for (const item of catalogObjects.filter(entry => entry.asset && entry.animation === 'local')) for (const variant of item.variants ?? [undefined]) for (const state of item.states ?? [undefined]) {
-      const sceneNode = objectNode(item, { variant, state }); if (sceneNode.kind !== 'asset' || !basicAssets[sceneNode.asset]) continue;
-      const model = basicAssets[sceneNode.asset](sceneNode), declared = new Set(assetAnimatedParts(model)), before = snapshot(model);
+      const sceneNode = objectNode(item, { variant, state }); if (sceneNode.kind !== 'asset' || !catalogAssets[sceneNode.asset]) continue;
+      const model = catalogAssets[sceneNode.asset](sceneNode), declared = new Set(assetAnimatedParts(model)), before = snapshot(model);
       for (const frame of frames) {
         animateAsset(model, frame);
         for (const [part, value] of snapshot(model)) if (part !== model && before.get(part) !== value) expect(declared.has(part), `${sceneNode.asset} ${variant ?? ''} ${state ?? ''}: ${part.name || part.type} changes but is not an animated part`).toBe(true);
       }
       if (declared.size) animated++;
       // The merged model keeps every declared part attached and animates without errors.
-      const subject = basicAssets[sceneNode.asset](sceneNode); mergeStaticParts(subject);
+      const subject = catalogAssets[sceneNode.asset](sceneNode); mergeStaticParts(subject);
       for (const part of assetAnimatedParts(subject)) { let current: THREE.Object3D | null = part; while (current && current !== subject) current = current.parent; expect(current, `${sceneNode.asset}: ${part.name}`).toBe(subject); }
       for (const frame of frames) expect(() => animateAsset(subject, frame)).not.toThrow();
       disposeObject(model); disposeObject(subject);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSceneStore, type AssetNode, type SceneNode } from '@opsorama/core';
-import { assetHandling, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetHandling, catalogAssets } from '@opsorama/objects';
 import { LOCATIONS, SCENARIOS, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation, type EcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
@@ -174,7 +175,7 @@ describe('e-commerce mock feed', () => {
     const simulation = createEcommerceSimulation('peak'); run(simulation, 200);
     for (const original of assets(simulation.nodes())) {
       if (/^(pallet|tote|carton|parcel|bag):/.test(original.id)) expect(assetHandling[original.asset], original.id).toBeDefined();
-      const object = basicAssets[original.asset]({ ...original, surfaceLabel: undefined, attachment: undefined, route: undefined, controller: undefined });
+      const object = catalogAssets[original.asset]({ ...original, surfaceLabel: undefined, attachment: undefined, route: undefined, controller: undefined });
       expect(object, original.id).toBeDefined(); disposeObject(object);
     }
     const store = createSceneStore({ schemaVersion: 1, nodes: simulation.nodes() });

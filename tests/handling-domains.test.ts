@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { createHandlingState, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type ReceptaclePlacement } from '@opsorama/core';
-import { assetHandling, basicAssets, checkAssetHandling, datacenterProfile, disposeObject, handlingProfiles, laboratoryProfile, logisticsProfile, retailProfile } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetHandling, catalogAssets, checkAssetHandling, datacenterProfile, handlingProfiles, laboratoryProfile, logisticsProfile, retailProfile } from '@opsorama/objects';
 import { catalogObjects } from '../apps/site/src/features/docs/objects';
 
 const state = (instances: readonly { id: string; asset: string; variant?: string }[]) => createHandlingState({ handling: assetHandling, profiles: handlingProfiles, instances });
@@ -13,7 +14,7 @@ describe('domain profiles and rails (H4)', () => {
     expect(handlingProfiles.map(profile => profile.id)).toEqual(['logistics', 'retail', 'datacenter', 'laboratory']);
     for (const profile of [logisticsProfile, retailProfile, datacenterProfile, laboratoryProfile]) expect(() => validateHandlingProfile(profile)).not.toThrow();
     for (const [asset, handling] of Object.entries(assetHandling)) {
-      expect(checkAssetHandling(asset, handling, basicAssets[asset]).checks.filter(check => !check.ok), asset).toEqual([]);
+      expect(checkAssetHandling(asset, handling, catalogAssets[asset]).checks.filter(check => !check.ok), asset).toEqual([]);
       expect(catalogObjects.some(item => item.asset === asset), asset).toBe(true);
     }
   });
@@ -46,7 +47,7 @@ describe('domain profiles and rails (H4)', () => {
   });
 
   it('places a server exactly where the cabinet model says', () => {
-    const handling = state(rack), model = basicAssets['equipment-cabinet']({ id: 'cabinet', kind: 'asset', asset: 'equipment-cabinet', count: 0 } as never);
+    const handling = state(rack), model = catalogAssets['equipment-cabinet']({ id: 'cabinet', kind: 'asset', asset: 'equipment-cabinet', count: 0 } as never);
     handling.move([{ unit: 's2', to: cabinet }, { unit: 's1', to: cabinet }]);
     model.updateMatrixWorld(true);
     const anchor = model.getObjectByName('anchor-rail')!.getWorldPosition(new THREE.Vector3()), [, patch] = handling.nodePatches();
@@ -112,7 +113,7 @@ describe('domain profiles and rails (H4)', () => {
     const badVariant: AssetHandling = { unit: { class: 'datacenter/server-2u', scale: 1, variants: { '9u': 'datacenter/server-9u' } }, receptacles: [] };
     expect(() => validateAssetHandling('x', badVariant, handlingProfiles)).toThrow(/unknown class datacenter\/server-9u/);
     const wrong: HandlingProfile = { ...datacenterProfile, classes: datacenterProfile.classes.map(entry => entry.id === 'datacenter/server-1u' ? { ...entry, size: { ...entry.size, height: .3 } } : entry) };
-    const report = checkAssetHandling('rack-server', assetHandling['rack-server'], basicAssets['rack-server'], [logisticsProfile, retailProfile, wrong, laboratoryProfile]);
+    const report = checkAssetHandling('rack-server', assetHandling['rack-server'], catalogAssets['rack-server'], [logisticsProfile, retailProfile, wrong, laboratoryProfile]);
     expect(report.checks.filter(check => !check.ok).map(check => check.name)).toEqual(['variant 1u matches datacenter/server-1u']);
   });
 });

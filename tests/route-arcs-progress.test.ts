@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { behaviorNode, createBehaviorRunner, createNavGraph, createRouteFollower, motionProfileOf, routeDuration, routeTimes, sampleRoute, validateNodeRoute, type NodeRoute, type Vec3 } from '@opsorama/core';
-import { assetMotionProfiles } from '@opsorama/renderer-three';
+import { assetMotionProfiles } from '@opsorama/objects';
 
 const gap = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
 const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));

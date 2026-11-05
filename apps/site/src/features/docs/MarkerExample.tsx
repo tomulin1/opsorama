@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { MARKER_ICONS, MARKER_SHAPES, MARKER_SIZES, MARKER_TONES, validateNode, type MarkerIconName, type MarkerNode, type MarkerShape, type MarkerSize, type MarkerTone } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { defaultFeaturedMarker, markerSnippet } from '../../../examples/marker-data';
 import { CodeBlock } from './CodeBlock';
 

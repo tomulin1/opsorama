@@ -18,8 +18,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@opsorama/core": "workspace:*",
+    "@opsorama/objects": "workspace:*",
     "@opsorama/react": "workspace:*",
-    "@opsorama/renderer-three": "workspace:*",
+    "@opsorama/three": "workspace:*",
     "@opsorama/ui": "workspace:*",
     "@opsorama/vue": "workspace:*",
     "@types/node": "^22.18.0",

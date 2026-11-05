@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, stationTickets, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;
@@ -56,7 +57,7 @@ describe('restaurant dashboard model', () => {
     const nodes = restaurantNodes(SCENARIOS.closed);
     for (const station of STATIONS) expect(asset(nodes, `station:${station.id}`).state, station.id).toBe('inactive');
     expect(nodes.some(node => node.id.startsWith('guest:') || node.id.startsWith('bar-guest:'))).toBe(false);
-    const oven = basicAssets['pizza-oven'](asset(nodes, 'station:pizza')); let fire = 0; oven.traverse(child => { if (child.name === 'oven-fire') fire++; }); expect(fire).toBe(0); disposeObject(oven);
+    const oven = catalogAssets['pizza-oven'](asset(nodes, 'station:pizza')); let fire = 0; oven.traverse(child => { if (child.name === 'oven-fire') fire++; }); expect(fire).toBe(0); disposeObject(oven);
     expect(restaurantMetrics(SCENARIOS.closed)).toMatchObject({ guests: 0, occupied: 0, tickets: 0 });
   });
 });

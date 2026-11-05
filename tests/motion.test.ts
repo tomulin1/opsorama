@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createNavGraph, createRouteFollower, createSceneStore, routeDuration, sampleRoute, toNodeRoute, type NavGraphDefinition, type NodeRoute } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 import { pickSlots, warehouseNavigation } from '../apps/site/src/features/ecommerce/scene';
 import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
@@ -202,7 +203,7 @@ describe('route follower', () => {
 
 describe('route-driven worker pose', () => {
   it('walks in place while moving and stands at stops without moving the root', () => {
-    const worker = basicAssets.worker({ id: 'w', kind: 'asset', asset: 'worker', variant: 'walking' });
+    const worker = catalogAssets.worker({ id: 'w', kind: 'asset', asset: 'worker', variant: 'walking' });
     const rig = worker.getObjectByName('worker-rig')!, leg = worker.getObjectByName('worker-left-leg')!;
     animateAsset(worker, { time: 1.1, delta: .016, locomotion: { moving: true } });
     expect(rig.position.z).toBe(0);

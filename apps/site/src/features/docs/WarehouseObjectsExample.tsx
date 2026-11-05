@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { warehouseObjectsDefinition, updateWarehouseObjects, type WarehouseObjectsOptions, type WarehouseObjectsSession } from '../../../examples/warehouse-objects-data';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 
 export function WarehouseObjectsExample() {
   const [adapter, setAdapter] = useState<'React' | 'Vue' | 'JavaScript'>('React'), [mounted, setMounted] = useState(true);

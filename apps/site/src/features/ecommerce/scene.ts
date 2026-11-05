@@ -1,5 +1,5 @@
 import { createNavGraph, personHairColor, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
-import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles } from '@opsorama/renderer-three';
+import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 import {
   AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
   areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,

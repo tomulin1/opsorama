@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { validateSurfaceLabel, type SurfaceLabel } from '@opsorama/core';
-import { validateLabelSvg, type LabelSurface } from '@opsorama/renderer-three';
+import { validateLabelSvg, type LabelSurface } from '@opsorama/objects';
 
 export const SAMPLE_LABEL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60"><rect x="4" y="4" width="52" height="52" rx="12" fill="#497bec"/><path d="M16 30h28M30 16v28" stroke="#ffffff" stroke-width="6"/><text x="70" y="40" font-family="sans-serif" font-size="30" font-weight="600" fill="#243650">NORTH</text></svg>';
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode, GroundNode, SceneNode } from '@opsorama/core';
-import { TRUCK, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { TRUCK, catalogAssets } from '@opsorama/objects';
 import { AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, LOCATIONS, SCENARIOS, SKUS, cageCounts, cutoffRisk, ecommerceMetrics, orderArea, ordersIn, shoppers, stagedFor, type EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
 import { APRON_Y, DOCK_Z, FLOOR_Y, ROAD_Z, SITE_EAST_X, SITE_WEST_X, TRUCK_X, YARD_X, ecommerceBase, ecommerceNodes, orderNodeId, warehouseNavigation } from '../apps/site/src/features/ecommerce/scene';
 import { createEcommerceSimulation, createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
@@ -13,7 +14,7 @@ const startNodes = (scenario: EcommerceScenario) => { const simulation = createE
 
 describe('e-commerce truck yard', () => {
   const footprint = (asset: string, position: readonly number[], rotation = 0) => {
-    const model = basicAssets[asset]({ id: asset, kind: 'asset', asset }); model.position.set(position[0], position[1], position[2]); model.rotation.y = rotation; model.updateMatrixWorld(true);
+    const model = catalogAssets[asset]({ id: asset, kind: 'asset', asset }); model.position.set(position[0], position[1], position[2]); model.rotation.y = rotation; model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(model); disposeObject(model); return box;
   };
   /** Docked and arriving trucks along x, between the dock and the point past the site edge. */
@@ -55,7 +56,7 @@ describe('e-commerce street', () => {
   it('keeps every tree off the road', () => {
     for (const node of ecommerceBase as readonly SceneNode[]) {
       if (!node.id.startsWith('tree-')) continue;
-      const object = basicAssets[(node as AssetNode).asset](node as AssetNode); object.position.set(...node.position as [number, number, number]); object.updateMatrixWorld(true);
+      const object = catalogAssets[(node as AssetNode).asset](node as AssetNode); object.position.set(...node.position as [number, number, number]); object.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(object); disposeObject(object);
       expect(box.max.z < ROAD_Z - 3 || box.min.z > ROAD_Z + 3, node.id).toBe(true);
     }
@@ -140,7 +141,7 @@ describe('e-commerce dashboard model', () => {
     for (const original of startNodes('peak')) {
       if (original.kind !== 'asset') continue;
       const node: AssetNode = { ...original, surfaceLabel: undefined, attachment: undefined };
-      const object = basicAssets[node.asset](node);
+      const object = catalogAssets[node.asset](node);
       expect(object, node.id).toBeDefined(); disposeObject(object);
     }
   });

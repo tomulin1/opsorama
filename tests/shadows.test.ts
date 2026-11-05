@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, interiorAreas, isInsideBuilding, isWithinInteriorArea, type AssetNode, type SceneNode } from '@opsorama/core';
-import { applyShadowPolicy, basicAssets, SHADOW_CONTAINMENT_TOLERANCE, SHADOW_MIN_WIDTH } from '@opsorama/renderer-three';
+import { applyShadowPolicy, SHADOW_CONTAINMENT_TOLERANCE, SHADOW_MIN_WIDTH } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { AREAS } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
@@ -76,24 +77,24 @@ describe('shadow casting policy', () => {
   });
 
   it('turns casting and receiving off for every interior mesh', () => {
-    const object = basicAssets.pallet({ id: 'pallet', kind: 'asset', asset: 'pallet', count: 9 });
+    const object = catalogAssets.pallet({ id: 'pallet', kind: 'asset', asset: 'pallet', count: 9 });
     applyShadowPolicy(object, indoor);
     expect(meshes(object).length).toBeGreaterThan(0);
     expect(meshes(object).every(mesh => !mesh.castShadow && !mesh.receiveShadow)).toBe(true);
   });
 
   it('narrows catalog details: a parcel keeps its body and drops tape, seam, sticker and barcode', () => {
-    const parcel = basicAssets.parcel({ id: 'parcel', kind: 'asset', asset: 'parcel' });
+    const parcel = catalogAssets.parcel({ id: 'parcel', kind: 'asset', asset: 'parcel' });
     applyShadowPolicy(parcel, outdoor);
     expect(byName(parcel, 'parcel-body').every(mesh => mesh.castShadow)).toBe(true);
     for (const name of ['parcel-tape', 'parcel-seam', 'parcel-sticker', 'parcel-barcode']) expect(byName(parcel, name).some(mesh => mesh.castShadow), name).toBe(false);
-    const pallet = basicAssets.pallet({ id: 'pallet', kind: 'asset', asset: 'pallet', count: 27 }), before = meshes(pallet).filter(mesh => mesh.castShadow).length;
+    const pallet = catalogAssets.pallet({ id: 'pallet', kind: 'asset', asset: 'pallet', count: 27 }), before = meshes(pallet).filter(mesh => mesh.castShadow).length;
     applyShadowPolicy(pallet, outdoor);
     expect(meshes(pallet).filter(mesh => mesh.castShadow).length).toBeLessThan(before / 3);
   });
 
   it('does not let a building shell darken its floor', () => {
-    const building = basicAssets.building({ id: 'b', kind: 'asset', asset: 'building', building: { view: 'open' } });
+    const building = catalogAssets.building({ id: 'b', kind: 'asset', asset: 'building', building: { view: 'open' } });
     expect(byName(building, 'building-floor').every(mesh => !mesh.receiveShadow)).toBe(true);
     applyShadowPolicy(building, outdoor);
     expect(byName(building, 'building-wall').some(mesh => mesh.castShadow)).toBe(true);

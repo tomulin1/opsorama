@@ -5,12 +5,13 @@ import { Activity, Crosshair, Droplets, Eye, EyeOff, Info, LifeBuoy, Maximize2, 
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, applyAquaticsSnapshot, createAquaticsStore, laneNumber, type AquaticsScenario, type PoolId } from './model';
 import { AquaticsLibrary, aquaticsHudMetrics, EmptyInspector, LaneChips, LaneInspector, LaneLegend, PlantInspector, PostInspector, PostStrip, WaterInspector, WaterTable } from './components';
 import '@opsorama/ui/styles.css';
+import { catalogAssets } from '@opsorama/objects';
 
 const SCENARIO_LABELS: Readonly<Record<AquaticsScenario, string>> = { morning: 'Early lane swim', afternoon: 'Afternoon family session', closed: 'After close' };
 const DEFAULT_ZOOM = 1.15;
@@ -63,7 +64,7 @@ function AquaticsViewport() {
 
   return <section className="aq-viewport hud-viewport" aria-label="Aquatic centre" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
-    <div className="hud-scene-surface"><SceneCanvas className="hud-canvas" wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" wheelZoom onReady={onReady} /></div>
 
     {panelsVisible && <div className="hud-top">
       <DataPanel className="hud-navigation" label="Aquatic centre navigation" density="compact" slots={{ header: <div className="hud-navigation-heading"><span className="hud-symbol dp-tone" data-tone="info"><Waves size={24} /></span><div className="hud-navigation-title"><span className="hud-eyebrow">DOMAIN 29 / AQUATIC CENTRE</span><h1>Pool deck &amp; plant room</h1></div><button type="button" className="hud-icon-button" aria-label={expanded ? 'Exit expanded view' : 'Expand viewport'} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div> }}>

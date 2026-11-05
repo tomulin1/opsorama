@@ -1,5 +1,5 @@
 import { behaviorNode, createBehaviorRunner, createHandlingState, createSceneStore, finalForkPose, forkMoveSeconds, itemNode, personHairColor, type AgentState, type AssetHandling, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type FloorPlacement, type ForkMotion, type ForkMove, type ForkPose, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import {
   CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, stagedFor,
   type ActivityEvent, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,

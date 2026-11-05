@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
-import { CROP_FIELD, CROP_STAGES, PADDOCK_FENCE, basicAssets, checkAssetDescriptor, disposeObject, farmDescriptors } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { CROP_FIELD, CROP_STAGES, PADDOCK_FENCE, catalogAssets, checkAssetDescriptor, farmDescriptors } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 
-const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof basicAssets[string]>[1]) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
+const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof catalogAssets[string]>[1]) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
 const meshes = (object: THREE.Object3D) => { const list: THREE.Mesh[] = []; object.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };
 const hex = (mesh: THREE.Mesh) => (mesh.material as THREE.MeshStandardMaterial).color.getHexString();
 const colored = (object: THREE.Object3D, value: string) => new Set(meshes(object).filter(mesh => hex(mesh) === value).map(mesh => mesh.name));
@@ -35,7 +36,7 @@ describe('farm objects', () => {
   it('passes the common object contract for every definition', () => {
     expect(Object.keys(farmDescriptors).sort()).toEqual(Object.keys(VARIANTS).sort());
     for (const [asset, descriptor] of Object.entries(farmDescriptors)) {
-      const report = checkAssetDescriptor(descriptor, basicAssets[asset]);
+      const report = checkAssetDescriptor(descriptor, catalogAssets[asset]);
       expect(report.checks.filter(check => !check.ok), asset).toEqual([]);
       expect(descriptor.category).toBe('Farm');
     }

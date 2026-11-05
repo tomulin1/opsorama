@@ -1,5 +1,5 @@
 import type { VisualState } from '@opsorama/core';
-import type { CropStage } from '@opsorama/renderer-three';
+import type { CropStage } from '@opsorama/objects';
 
 /** Mock data for the farm example. A host would load herd records, sensor levels, field records and tasks from its own systems. */
 export type Species = 'cow' | 'horse' | 'sheep' | 'pig' | 'chicken';

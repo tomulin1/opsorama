@@ -1,6 +1,6 @@
 import { computed, defineComponent, h, inject, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType } from 'vue';
 import type { MarkerIcon, MarkerShape, MarkerSize, MarkerTone, ContainerContents, Attachment, SceneNode, SceneStore, SceneSnapshot, Selection, DisplayReading, SurfaceLabel, Measurement, NodeRoute, CountLayout, BuildingOptions, PersonOptions, MaterialOverrides, Footprint, NodeController, NodeTransfer, ForkMotion, ControllerRegistry } from '@opsorama/core';
-import { createSceneRenderer, sampleRendererFps, type AssetRegistry, type SceneRenderer } from '@opsorama/renderer-three';
+import { createSceneRenderer, sampleRendererFps, type AssetRegistry, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const storeKey: InjectionKey<SceneStore> = Symbol('dashboard-store');
 export const DashboardProvider = defineComponent({ name: 'DashboardProvider', props: { store: { type: Object as PropType<SceneStore>, required: true } }, setup(props, { slots }) { provide(storeKey, props.store); return () => slots.default?.(); } });
@@ -20,7 +20,7 @@ export function useRendererFps(renderer: MaybeRefOrGetter<SceneRenderer | null |
   return fps;
 }
 export const SceneCanvas = defineComponent({
-  name: 'SceneCanvas', inheritAttrs: false, props: { assets: Object as PropType<AssetRegistry>, controllers: Object as PropType<ControllerRegistry>, instancing: { type: Boolean, default: true }, wheelZoom: { type: Boolean, default: false } }, emits: { select: (selection: Selection | null) => selection === null || typeof selection.nodeId === 'string', ready: (renderer: SceneRenderer) => typeof renderer.dispose === 'function', error: (error: Error) => error instanceof Error },
+  name: 'SceneCanvas', inheritAttrs: false, props: { assets: { type: Object as PropType<AssetRegistry>, required: true }, controllers: Object as PropType<ControllerRegistry>, instancing: { type: Boolean, default: true }, wheelZoom: { type: Boolean, default: false } }, emits: { select: (selection: Selection | null) => selection === null || typeof selection.nodeId === 'string', ready: (renderer: SceneRenderer) => typeof renderer.dispose === 'function', error: (error: Error) => error instanceof Error },
   setup(props, { slots, attrs, emit }) {
     const store = useSceneStore(), container = ref<HTMLDivElement>(), error = ref<string | null>(null); let renderer: SceneRenderer | undefined;
     const mount = () => { if (!container.value) return; error.value = null; try { renderer = createSceneRenderer(container.value, store, { assets: props.assets, controllers: props.controllers, instancing: props.instancing, wheelZoom: props.wheelZoom, onSelect: selection => emit('select', selection), onError: err => { error.value = err.message; emit('error', err); } }); emit('ready', renderer); } catch (err) { const failure = err instanceof Error ? err : new Error(String(err)); error.value = failure.message; emit('error', failure); } };

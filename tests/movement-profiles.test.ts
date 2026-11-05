@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { commandSteps, createBehaviorRunner, createNavGraph, createRouteFollower, createSceneStore, resolveSceneSlots, routeDuration, sampleRoute, slotNavPoints, toNodeRoute, type AssetNode, type BehaviorEvent, type NodeRoute, type Vec3 } from '@opsorama/core';
-import { assetInteractionSlots, assetMotionProfiles, basicAssets } from '@opsorama/renderer-three';
+import { assetInteractionSlots, assetMotionProfiles, catalogAssets } from '@opsorama/objects';
 
 const straight: NodeRoute = { points: [[0, 0, 0], [0, 0, 4]], speed: 1, profile: { acceleration: 1 } };
 const corner: Vec3[] = [[0, 0, 0], [0, 0, 2], [2, 0, 2]];
@@ -95,7 +95,7 @@ describe('motion profiles', () => {
 
   it('declares valid profiles for registered mobile models', () => {
     for (const [asset, rule] of Object.entries(assetMotionProfiles)) {
-      expect(basicAssets[asset], asset).toBeDefined();
+      expect(catalogAssets[asset], asset).toBeDefined();
       expect(() => createNavGraph({ points: [], edges: [], agents: { [asset]: rule } })).not.toThrow();
     }
   });

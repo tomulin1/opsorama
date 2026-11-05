@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { validateNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 import { docs } from '../apps/site/src/features/docs/content';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 import { InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 
 describe('object catalog integration', () => {
@@ -31,7 +32,7 @@ describe('object catalog integration', () => {
     expect(catalogObjects.find(item => item.asset === 'tree')!.states).toBeUndefined();
   });
   it('animation labels match actual local behavior, independently of transform updates', () => {
-    const assets = basicAssets;
+    const assets = catalogAssets;
     for (const item of catalogObjects.filter(item => item.asset)) {
       const node = objectNode(item, { state: 'busy' }); if (node.kind !== 'asset') continue;
       const model = assets[node.asset](node);
@@ -48,13 +49,13 @@ describe('object catalog integration', () => {
   });
   it('accounts for every existing registry factory and resolves all detail and guide routes', () => {
     const keys = catalogObjects.flatMap(item => item.asset ? [item.asset] : []);
-    expect(keys.sort()).toEqual(Object.keys(basicAssets).sort());
+    expect(keys.sort()).toEqual(Object.keys(catalogAssets).sort());
     expect(new Set(catalogObjects.map(item => item.slug)).size).toBe(catalogObjects.length);
     const routes = new Set(docs.map(article => `/docs/${article.slug}`));
     for (const item of catalogObjects) { expect(routes.has(`/docs/objects/${item.slug}`)).toBe(true); expect(routes.has(item.guide.split('#')[0])).toBe(true); }
   });
   it('produces valid nodes and real owned models for all portable entries and variants', () => {
-    const assets = basicAssets;
+    const assets = catalogAssets;
     for (const item of catalogObjects) for (const variant of item.variants ?? [undefined]) {
       const node = objectNode(item, { variant, state: 'busy', color: '#123456', scale: .8 });
       expect(() => validateNode(node)).not.toThrow();
@@ -64,7 +65,7 @@ describe('object catalog integration', () => {
   it('keeps usage definitions independent from viewer normalization and uses the built-in registry', () => {
     const item = catalogObjects.find(item => item.asset === 'lab-workstation')!;
     const node = objectNode(item, { variant: 'empty', scale: 1.2 });
-    expect(objectSnippet(node, 'JavaScript')).toContain("@opsorama/renderer-three");
+    expect(objectSnippet(node, 'JavaScript')).toContain("@opsorama/three");
     expect(objectSnippet(node, 'React')).toContain('scale={[1.2,1.2,1.2]}');
     expect(objectSnippet(node, 'Vue')).toContain(':scale="[1.2,1.2,1.2]"');
     expect(objectSnippet(node, 'Vue')).toContain('<script setup lang="ts">');

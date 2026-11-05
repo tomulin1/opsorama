@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { AgentState, AssetNode, BehaviorEvent, RouteViolation, SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { agentNodes, breakCommand, itemNodes, palletJackNode, robotNodes, ROBOT_SPOTS, checkVehicleLaneProposal, createShift, motionPeople, shiftOverlay, shiftSteps } from '../../../examples/motion-data';
 
 type Session = { update(nodes: readonly AssetNode[]): void; store: SceneStore; dispose(): void };

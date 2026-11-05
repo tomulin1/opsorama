@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { isInteriorVisible, type AssetNode, type GroundNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 import { datacenterDefinition, datacenterRecords, datacenterRooms, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../apps/site/examples/datacenter-data';
 import { HALL_ROW_Z, rackLocalPosition } from '../apps/site/examples/datacenter-facility';
 
@@ -11,7 +12,7 @@ const meshes = (object: THREE.Object3D) => { const result: THREE.Mesh[] = []; ob
 describe('facility catalog kit', () => {
   it.each(entries)('%s declares finite grounded bounds, inherits palettes and releases owned resources', asset => {
     const node: AssetNode = { id: asset, kind: 'asset', asset, state: 'warning', materials: { trim: '#abcdef' } };
-    const first = basicAssets[asset](node, { theme: 'midnight', palette: { surface: '#123456', warning: '#fedcba' } }), second = basicAssets[asset](node);
+    const first = catalogAssets[asset](node, { theme: 'midnight', palette: { surface: '#123456', warning: '#fedcba' } }), second = catalogAssets[asset](node);
     const bounds = new THREE.Box3().setFromObject(first); expect(bounds.min.y).toBeCloseTo(0, 5);
     expect(first.userData.facilityBounds.equals(bounds)).toBe(true);
     const materials = meshes(first).map(mesh => mesh.material as THREE.MeshStandardMaterial);
@@ -24,17 +25,17 @@ describe('facility catalog kit', () => {
     const spies = [...resources].map(resource => vi.spyOn(resource, 'dispose')); disposeObject(first); spies.forEach(spy => expect(spy).toHaveBeenCalledTimes(1)); disposeObject(second);
   });
   it('containment modules join at declared anchors without scaling aisle width', () => {
-    const portal = basicAssets['aisle-containment']({ id: 'portal', kind: 'asset', asset: 'aisle-containment' });
-    const roof = basicAssets['aisle-containment']({ id: 'roof', kind: 'asset', asset: 'aisle-containment', variant: 'roof' });
+    const portal = catalogAssets['aisle-containment']({ id: 'portal', kind: 'asset', asset: 'aisle-containment' });
+    const roof = catalogAssets['aisle-containment']({ id: 'roof', kind: 'asset', asset: 'aisle-containment', variant: 'roof' });
     expect(portal.getObjectByName('anchor-entry')).toBeDefined(); expect(portal.getObjectByName('anchor-roof')?.position.y).toBeCloseTo(2.67);
     expect(roof.getObjectByName('anchor-end')!.position.x - roof.getObjectByName('anchor-start')!.position.x).toBe(2.4);
-    expect(() => basicAssets['aisle-containment']({ id: 'bad', kind: 'asset', asset: 'aisle-containment', variant: 'automatic' })).toThrow();
+    expect(() => catalogAssets['aisle-containment']({ id: 'bad', kind: 'asset', asset: 'aisle-containment', variant: 'automatic' })).toThrow();
     disposeObject(portal); disposeObject(roof);
   });
   it('overview racks preserve counts, envelope, anchors and LED meanings with fewer meshes', () => {
     for (const count of [0, 8, 12]) {
       const node: AssetNode = { id: 'cabinet', kind: 'asset', asset: 'equipment-cabinet', count };
-      const detailed = basicAssets['equipment-cabinet'](node), overview = basicAssets['equipment-cabinet']({ ...node, variant: 'overview' });
+      const detailed = catalogAssets['equipment-cabinet'](node), overview = catalogAssets['equipment-cabinet']({ ...node, variant: 'overview' });
       expect(overview.children.filter(child => child.name.startsWith('count-part-'))).toHaveLength(count);
       const detailedBounds = new THREE.Box3().setFromObject(detailed), overviewBounds = new THREE.Box3().setFromObject(overview);
       expect(overviewBounds.min.distanceTo(detailedBounds.min)).toBeLessThan(.001); expect(overviewBounds.max.distanceTo(detailedBounds.max)).toBeLessThan(.001);

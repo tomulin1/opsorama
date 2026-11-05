@@ -3,12 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel, FieldList, StatusBadge, ZoomControl } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
-import type { SceneRenderer } from '@opsorama/renderer-three';
+import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { createPerformanceStore, DEFAULT_PERFORMANCE_PRESET, PERFORMANCE_FIXTURE_VERSION, PERFORMANCE_PRESETS, PERFORMANCE_ZOOM, performanceNodes, type PerformancePreset } from './model';
 import { PerformanceReadout } from './PerformanceReadout';
 import '@opsorama/ui/styles.css';
 import './performance.css';
+import { catalogAssets } from '@opsorama/objects';
 
 /** One stable adapter mount. Panels and diagnostics are host-owned and never enter the shared renderer. */
 function PerformanceViewport({ initialPreset, initialInstancing }: { initialPreset: PerformancePreset; initialInstancing: boolean }) {
@@ -30,7 +31,7 @@ function PerformanceViewport({ initialPreset, initialInstancing }: { initialPres
   const selected = snapshot.nodes.find(node => node.id === snapshot.selection?.nodeId);
   return <section className="perf-viewport" aria-label="Performance stress scene" data-expanded={expanded}>
     <div className="perf-scene" ref={surface} onPointerDownCapture={invalidate} onWheelCapture={invalidate}>
-      {mounted ? <SceneCanvas instancing={instancing} wheelZoom onReady={onReady} onError={onError} /> : <div className="perf-placeholder">Scene unmounted · controls and the last recording remain available</div>}
+      {mounted ? <SceneCanvas assets={catalogAssets} instancing={instancing} wheelZoom onReady={onReady} onError={onError} /> : <div className="perf-placeholder">Scene unmounted · controls and the last recording remain available</div>}
     </div>
     <div className="perf-toolbar"><button type="button" aria-pressed={panels} onClick={() => setPanels(value => !value)}>{panels ? 'Hide panels' : 'Show panels'}</button><button type="button" aria-pressed={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Exit expanded view' : 'Expand scene'}</button></div>
     <div className="perf-hud" hidden={!panels} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>

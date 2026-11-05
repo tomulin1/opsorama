@@ -1,5 +1,6 @@
 import { BUILDING_TYPES, isPersonAsset, resolveCountRepresentation, type PersonOptions, type MaterialOverrides, type Footprint, type FootprintDefinition, type DisplayReading, type BuildingType, type AssetCountDefinition, type SceneNode, type VisualState, type SurfaceLabel, type Measurement, type Vec3, type CountLayout, type BuildingOptions } from '@opsorama/core';
-import { assetVisualStates, assetDisplayDefinitions, assetCountDefinitions, assetLabelSurfaces, assetMeasurementDefinitions, assetCountLayoutDefaults, assetFootprintDefinitions, surfaceVariantTones, WORKER_VARIANTS, ROAD_VARIANTS, SIDEWALK_VARIANTS, FLOOR_FINISHES, TERRAIN_FINISHES } from '@opsorama/renderer-three';
+import { assetVisualStates } from '@opsorama/objects';
+import { assetDisplayDefinitions, assetCountDefinitions, assetLabelSurfaces, assetMeasurementDefinitions, assetCountLayoutDefaults, assetFootprintDefinitions, surfaceVariantTones, WORKER_VARIANTS, ROAD_VARIANTS, SIDEWALK_VARIANTS, FLOOR_FINISHES, TERRAIN_FINISHES } from '@opsorama/objects';
 
 export interface CatalogObject {
   slug: string;
@@ -212,7 +213,7 @@ export function objectNode(item: CatalogObject, options: { localMotion?: boolean
 
 export function objectSnippet(node: SceneNode, framework: 'React' | 'Vue' | 'JavaScript'): string {
   const { id, kind, ...props } = node;
-  if (framework === 'JavaScript') return `import { createSceneStore } from '@opsorama/core';\nimport { createSceneRenderer } from '@opsorama/renderer-three';\n\nconst store = createSceneStore({ schemaVersion: 1, nodes: [\n  ${JSON.stringify(node, null, 2).replace(/\n/g, '\n  ')}\n] });\nconst view = createSceneRenderer(container, store);\n// On unmount: view.dispose(); store.dispose();`;
+  if (framework === 'JavaScript') return `import { createSceneStore } from '@opsorama/core';\nimport { createSceneRenderer } from '@opsorama/three';\nimport { catalogAssets } from '@opsorama/objects';\n\nconst store = createSceneStore({ schemaVersion: 1, nodes: [\n  ${JSON.stringify(node, null, 2).replace(/\n/g, '\n  ')}\n] });\nconst view = createSceneRenderer(container, store, { assets: catalogAssets });\n// On unmount: view.dispose(); store.dispose();`;
   const component = kind[0].toUpperCase() + kind.slice(1);
   const escapeAttribute = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const attributes = Object.entries(props).filter(([, value]) => value !== undefined).map(([key, value]) => framework === 'React' ? `${key}=${typeof value === 'string' && !/["\\\n]/.test(value) ? JSON.stringify(value) : `{${JSON.stringify(value)}}`}` : key === 'surfaceLabel' ? ':surfaceLabel="surfaceLabel"' : `${typeof value === 'string' ? key : `:${key}`}="${escapeAttribute(typeof value === 'string' ? value : JSON.stringify(value))}"`).join('\n  ');

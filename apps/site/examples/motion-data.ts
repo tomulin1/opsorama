@@ -1,5 +1,5 @@
 import { behaviorNode, commandSteps, createBehaviorRunner, createHandlingState, itemNode, createNavGraph, navGraphOverlay, resolveSceneSlots, slotNavPoints, toNodeRoute, type AgentCommand, type AgentState, type AssetNode, type CarryRule, type ControllerFactory, type ControllerRegistry, type BehaviorStep, type RouteViolation, type SceneNode, type SceneOverlay, type Vec3 } from '@opsorama/core';
-import { assetHandling, assetInteractionSlots, assetMotionProfiles, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, assetInteractionSlots, assetMotionProfiles, handlingProfiles } from '@opsorama/objects';
 
 /** Walkway tiles are 9.5 cm tall; agents and graph points stand on top of them. */
 const Y = .1;

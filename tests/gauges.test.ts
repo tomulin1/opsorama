@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { basicAssets, assetMeasurementDefinitions, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets, assetMeasurementDefinitions } from '@opsorama/objects';
 import type { AssetNode } from '@opsorama/core';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
-const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
+const build = (asset: string, options: Partial<AssetNode> = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const meshes = (model: THREE.Object3D) => { const list: THREE.Mesh[] = []; model.traverse(part => { if (part instanceof THREE.Mesh) list.push(part); }); return list; };
 const pose = (model: THREE.Object3D) => { const list: unknown[] = []; model.traverse(part => list.push([part.position.toArray(), part.rotation.toArray(), part.scale.toArray()])); return list; };
 

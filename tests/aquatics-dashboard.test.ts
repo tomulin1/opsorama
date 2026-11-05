@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode } from '@opsorama/core';
-import { LAP_POOL } from '@opsorama/renderer-three';
+import { LAP_POOL } from '@opsorama/objects';
 import { LANE_IDS, LANE_VISIBLE, SCENARIOS, TEACHING_VISIBLE, aquaticsMetrics, aquaticsNodes, applyAquaticsSnapshot, createAquaticsStore, laneLoop, laneState, postState, waterState, type AquaticsScenario } from '../apps/site/src/features/aquatics/model';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;

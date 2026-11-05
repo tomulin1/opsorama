@@ -65,7 +65,7 @@ At the shared API level, JavaScript passes `{ staticInstancing: true }` to `crea
 - Root transform changes update instance matrices and batch bounds before the draw. Changes that replace eligible source roots rebuild batches. Hover and selection preserve root references and avoid a rebuild. Retained proxy graphs still consume CPU memory and matrix-update work; this implementation is not a general memory-elimination layer.
 - Whole-scene batches can submit offscreen instances whenever any part of the batch is visible. Frequent geometry/state replacements rebuild all eligible batches. This experiment targets static layouts; spatial partitioning, animated-part instancing and incremental batch updates are separate follow-ups.
 
-The implementation and adopted boundary are in [ADR 0045](decisions/0045-experimental-static-instancing.md) and [static-instancing.ts](../packages/renderer-three/src/static-instancing.ts). The website documents the option in SceneCanvas and Renderer API references.
+The implementation and adopted boundary are in [ADR 0045](decisions/0045-experimental-static-instancing.md) and [static-instancing.ts](../packages/three/src/static-instancing.ts). The website documents the option in SceneCanvas and Renderer API references.
 
 ## Verification and evidence
 

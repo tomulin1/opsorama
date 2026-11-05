@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { resolveInteractionSlots, type AssetNode } from '@opsorama/core';
-import { LAP_POOL, aquaticsDescriptors, assetInteractionSlots, assetLabelSurfaces, basicAssets, checkAssetDescriptor, disposeObject, lapPoolLaneZ } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { LAP_POOL, aquaticsDescriptors, assetInteractionSlots, assetLabelSurfaces, catalogAssets, checkAssetDescriptor, lapPoolLaneZ } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 
-const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof basicAssets[string]>[1]) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
+const build = (asset: string, options: Partial<AssetNode> = {}, context?: Parameters<typeof catalogAssets[string]>[1]) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, context);
 const meshes = (object: THREE.Object3D) => { const list: THREE.Mesh[] = []; object.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };
 const hex = (mesh: THREE.Mesh) => (mesh.material as THREE.MeshStandardMaterial).color.getHexString();
 const transforms = (object: THREE.Object3D) => { const values: unknown[] = []; object.traverse(child => { values.push([child.position.toArray(), child.rotation.toArray(), child.scale.toArray()]); if (child instanceof THREE.Mesh) values.push((child.material as THREE.MeshStandardMaterial).opacity); }); return values; };
@@ -40,7 +41,7 @@ describe('aquatics objects', () => {
   it('passes the common object contract for every definition', () => {
     expect(Object.keys(aquaticsDescriptors).sort()).toEqual(Object.keys(VARIANTS).sort());
     for (const [asset, descriptor] of Object.entries(aquaticsDescriptors)) {
-      const report = checkAssetDescriptor(descriptor, basicAssets[asset]);
+      const report = checkAssetDescriptor(descriptor, catalogAssets[asset]);
       expect(report.checks.filter(check => !check.ok), asset).toEqual([]);
       expect(descriptor.category).toBe('Aquatics');
     }

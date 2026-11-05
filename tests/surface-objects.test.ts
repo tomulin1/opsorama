@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { createSceneStore, resolveFootprint, validateNode, type AssetNode, type Footprint } from '@opsorama/core';
-import { assetFootprintDefinitions, basicAssets, disposeObject, FLOOR_FINISHES, PARKING_BAY, ROAD_MODULE, ROAD_VARIANTS, SIDEWALK_VARIANTS, SURFACE_LEVELS, TERRAIN_FINISHES } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { assetFootprintDefinitions, catalogAssets, FLOOR_FINISHES, PARKING_BAY, ROAD_MODULE, ROAD_VARIANTS, SIDEWALK_VARIANTS, SURFACE_LEVELS, TERRAIN_FINISHES } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 import { makeSurfacesStore, surfacesDefinition, updateSurfaces } from '../apps/site/examples/surfaces-data';
 
 type Options = Partial<AssetNode>;
-const build = (asset: string, options: Options = {}, theme: 'light' | 'midnight' = 'light', palette = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette });
+const build = (asset: string, options: Options = {}, theme: 'light' | 'midnight' = 'light', palette = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme, palette });
 const resources = (object: THREE.Object3D) => { const result = new Set<THREE.BufferGeometry | THREE.Material>(); object.traverse(child => { if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) { result.add(child.geometry); result.add(child.material as THREE.Material); } }); return result; };
 const named = (object: THREE.Object3D, name: string) => { const list: (THREE.Mesh | THREE.LineSegments)[] = []; object.traverse(child => { if (child.name === name && (child instanceof THREE.Mesh || child instanceof THREE.LineSegments)) list.push(child); }); return list; };
 const color = (object: THREE.Object3D, name: string) => (named(object, name)[0].material as THREE.MeshStandardMaterial).color.getHexString();
@@ -131,7 +132,7 @@ describe('ground surfaces', () => {
   it('the street fixture composes valid nodes, switches the floor finish and keeps the theme', () => {
     for (const node of surfacesDefinition.nodes) {
       expect(() => validateNode(node)).not.toThrow();
-      if (node.kind === 'asset') { const model = basicAssets[node.asset](node); expect(model.children.length).toBeGreaterThan(0); disposeObject(model); }
+      if (node.kind === 'asset') { const model = catalogAssets[node.asset](node); expect(model.children.length).toBeGreaterThan(0); disposeObject(model); }
     }
     const store = makeSurfacesStore(); updateSurfaces(store, 'wood', true);
     const terrace = store.getSnapshot().nodes.find(node => node.id === 'terrace');

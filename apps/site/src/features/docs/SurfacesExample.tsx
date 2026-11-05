@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { surfacesDefinition, updateSurfaces, type SurfacesSession } from '../../../examples/surfaces-data';
-import { FLOOR_FINISHES, type FloorFinish, type SceneRenderer } from '@opsorama/renderer-three';
+import { type SceneRenderer } from '@opsorama/three';
+import { FLOOR_FINISHES, type FloorFinish } from '@opsorama/objects';
 
 export function SurfacesExample() {
   const [adapter, setAdapter] = useState<'React' | 'Vue' | 'JavaScript'>('React'), [mounted, setMounted] = useState(true);

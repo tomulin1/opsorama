@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createHandlingState, createMoveMode, type MoveRequest } from '@opsorama/core';
-import { assetHandling, bindMoveMode, createMoveTargetObject, disposeObject, handlingProfiles, highlightMoveTarget, type MoveTargetMarker } from '@opsorama/renderer-three';
+import { bindMoveMode, createMoveTargetObject, disposeObject, highlightMoveTarget, type MoveTargetMarker } from '@opsorama/three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { createMoveModeSession, moveModeDefinition, moveModeUnits, targetLabel } from '../apps/site/examples/move-mode-data';
 
 const state = () => {

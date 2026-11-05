@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createNavGraph, nodeToWorld, nodeYawToWorld, resolveInteractionSlots, resolveSceneSlots, slotNavPoints, validateInteractionSlots, type AssetNode, type InteractionSlot } from '@opsorama/core';
-import { assetInteractionSlots, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetInteractionSlots, catalogAssets } from '@opsorama/objects';
 
 const node = (asset: string, extra: Partial<AssetNode> = {}): AssetNode => ({ id: asset, kind: 'asset', asset, ...extra });
 
@@ -49,7 +50,7 @@ describe('model interaction slots', () => {
   const seatCases: [string, number[]][] = [['desk-pod', [1, 2, 4, 6, 8]], ['meeting-table', [2, 6, 12]], ['bench', [0]], ['focus-pod', [0]]];
   it('keeps every seat slot on its model anchor and facing', () => {
     for (const [asset, counts] of seatCases) for (const count of counts) {
-      const input = node(asset, count ? { count } : {}), object = basicAssets[asset](input), slots = assetInteractionSlots[asset](input);
+      const input = node(asset, count ? { count } : {}), object = catalogAssets[asset](input), slots = assetInteractionSlots[asset](input);
       const anchors = object.children.filter(child => child.name.startsWith('anchor-seat-'));
       expect(slots, `${asset}/${count}`).toHaveLength(anchors.length);
       for (const slot of slots) {
@@ -66,7 +67,7 @@ describe('model interaction slots', () => {
 
   it('places working slots in front of the model, facing it', () => {
     for (const asset of ['shelf', 'station', 'parcel-locker', 'whiteboard']) {
-      const object = basicAssets[asset](node(asset)), bounds = new THREE.Box3().setFromObject(object);
+      const object = catalogAssets[asset](node(asset)), bounds = new THREE.Box3().setFromObject(object);
       for (const slot of assetInteractionSlots[asset](node(asset))) {
         expect(slot.position[2], `${asset}/${slot.name}`).toBeGreaterThan(bounds.max.z);
         expect(slot.approach[2]).toBeGreaterThan(slot.position[2]);
@@ -78,7 +79,7 @@ describe('model interaction slots', () => {
 
   it('declares only valid slots for every registered source', () => {
     for (const [asset, source] of Object.entries(assetInteractionSlots)) {
-      expect(basicAssets[asset], asset).toBeTypeOf('function');
+      expect(catalogAssets[asset], asset).toBeTypeOf('function');
       expect(() => validateInteractionSlots(source(node(asset)))).not.toThrow();
     }
   });

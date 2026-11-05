@@ -1,5 +1,5 @@
 import { HANDLING_FAMILY_LABELS, handlingFits, handlingVocabulary, receptacleAnchors, type HandlingAccepts, type HandlingFit, type HandlingSize, type Receptacle } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/renderer-three';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { catalogObjects, type CatalogObject } from './objects';
 
 /**

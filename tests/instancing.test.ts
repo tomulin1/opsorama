@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
-import { applyShadowPolicy, basicAssets, createInstanceBatcher, disposeObject, INSTANCED_BATCH_NAME, INSTANCING_MIN_COUNT, keepPartsSeparate, mergeStaticParts, setAssetAnimator } from '@opsorama/renderer-three';
+import { applyShadowPolicy, createInstanceBatcher, disposeObject, INSTANCED_BATCH_NAME, INSTANCING_MIN_COUNT, keepPartsSeparate, mergeStaticParts, setAssetAnimator } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 
 const box = (parent: THREE.Object3D, color = '#ff0000', options: { roughness?: number; transparent?: boolean; size?: number } = {}) => {
   const size = options.size ?? .5, mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color, roughness: options.roughness ?? .7, transparent: options.transparent ?? false }));
@@ -113,7 +114,7 @@ describe('instance batching', () => {
     const scene = new THREE.Scene(), batcher = createInstanceBatcher(scene), objects: THREE.Object3D[] = [];
     const nodes: AssetNode[] = [...Array.from({ length: 6 }, (_, i): AssetNode => ({ id: `cabinet${i}`, kind: 'asset', asset: 'equipment-cabinet', position: [i * 1.2, 0, 0] })), ...Array.from({ length: 5 }, (_, i): AssetNode => ({ id: `worker${i}`, kind: 'asset', asset: 'worker', position: [i * 2, 0, 4] }))];
     for (const node of nodes) {
-      const object = basicAssets[node.asset](node); applyShadowPolicy(object, { interior: false }); mergeStaticParts(object);
+      const object = catalogAssets[node.asset](node); applyShadowPolicy(object, { interior: false }); mergeStaticParts(object);
       object.position.set(...node.position!); object.traverse(child => { child.userData.nodeId = node.id; }); scene.add(object); objects.push(object);
     }
     scene.updateMatrixWorld(true); objects.forEach(object => batcher.add(object)); batcher.update();

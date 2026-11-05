@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { routeDuration, type AssetNode, type SceneNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import {
   ACTIVE_STATUSES, AREAS, BACKLOG, BOARD_NOTES, EMPLOYEES, FOCUS_PODS, KITCHEN_SEATS, PROJECTS, ROOMS, SCENARIOS, TEAMS,
   boardNotes, currentBooking, currentTicket, inOffice, officeMetrics, peopleAt, projectHealth, projectProgress, stateOf, teamStatus, tickets, type OfficeScenario,
@@ -101,7 +102,7 @@ describe('open office dashboard model', () => {
       if (original.kind !== 'asset' || built.has(original.id)) continue;
       built.add(original.id);
       const node: AssetNode = { ...original, surfaceLabel: undefined, attachment: undefined };
-      const object = basicAssets[node.asset](node);
+      const object = catalogAssets[node.asset](node);
       expect(object, node.id).toBeDefined(); disposeObject(object);
     }
   });

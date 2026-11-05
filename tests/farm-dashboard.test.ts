@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateNode, type AssetNode, type SceneNode } from '@opsorama/core';
-import { basicAssets } from '@opsorama/renderer-three';
+import { catalogAssets } from '@opsorama/objects';
 import { FIELDS, PENS, SCENARIOS, farmMetrics, flagNode, penState, troughState, type FarmScenario } from '../apps/site/src/features/farm/model';
 import { applyFarmSnapshot, createFarmStore, farmNodes } from '../apps/site/src/features/farm/scene';
 
@@ -12,7 +12,7 @@ describe('farm dashboard', () => {
     const nodes = farmNodes(SCENARIOS[scenario]);
     expect(new Set(nodes.map(node => node.id)).size).toBe(nodes.length);
     for (const node of nodes) expect(() => validateNode(node), node.id).not.toThrow();
-    for (const node of assets(nodes)) expect(basicAssets[node.asset], node.asset).toBeTypeOf('function');
+    for (const node of assets(nodes)) expect(catalogAssets[node.asset], node.asset).toBeTypeOf('function');
     // Every task and alert points at a node that exists in this snapshot.
     const ids = new Set(nodes.map(node => node.id));
     for (const task of SCENARIOS[scenario].tasks) expect(ids.has(task.node), task.node).toBe(true);

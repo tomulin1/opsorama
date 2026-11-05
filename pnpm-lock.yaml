@@ -14,12 +14,15 @@ importers:
       '@opsorama/core':
         specifier: workspace:*
         version: link:packages/core
+      '@opsorama/objects':
+        specifier: workspace:*
+        version: link:packages/objects
       '@opsorama/react':
         specifier: workspace:*
         version: link:packages/react
-      '@opsorama/renderer-three':
+      '@opsorama/three':
         specifier: workspace:*
-        version: link:packages/renderer-three
+        version: link:packages/three
       '@opsorama/ui':
         specifier: workspace:*
         version: link:packages/ui
@@ -68,12 +71,15 @@ importers:
       '@opsorama/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@opsorama/objects':
+        specifier: workspace:*
+        version: link:../../packages/objects
       '@opsorama/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@opsorama/renderer-three':
+      '@opsorama/three':
         specifier: workspace:*
-        version: link:../../packages/renderer-three
+        version: link:../../packages/three
       '@opsorama/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -126,14 +132,26 @@ importers:
 
   packages/core: {}
 
+  packages/objects:
+    dependencies:
+      '@opsorama/core':
+        specifier: workspace:*
+        version: link:../core
+      '@opsorama/three':
+        specifier: workspace:*
+        version: link:../three
+      three:
+        specifier: ^0.180.0
+        version: 0.180.0
+
   packages/react:
     dependencies:
       '@opsorama/core':
         specifier: workspace:*
         version: link:../core
-      '@opsorama/renderer-three':
+      '@opsorama/three':
         specifier: workspace:*
-        version: link:../renderer-three
+        version: link:../three
       '@opsorama/ui':
         specifier: workspace:*
         version: link:../ui
@@ -141,7 +159,7 @@ importers:
         specifier: ^19.0.0
         version: 19.3.0
 
-  packages/renderer-three:
+  packages/three:
     dependencies:
       '@opsorama/core':
         specifier: workspace:*
@@ -157,9 +175,9 @@ importers:
       '@opsorama/core':
         specifier: workspace:*
         version: link:../core
-      '@opsorama/renderer-three':
+      '@opsorama/three':
         specifier: workspace:*
-        version: link:../renderer-three
+        version: link:../three
       '@opsorama/ui':
         specifier: workspace:*
         version: link:../ui

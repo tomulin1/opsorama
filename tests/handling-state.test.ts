@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createHandlingState, createSceneStore, type AssetHandling, type AssetNode, type HandlingEvent, type HandlingProfile, type HandlingTarget, type HandlingViolationCode, type ReceptaclePlacement } from '@opsorama/core';
-import { assetHandling, basicAssets, disposeObject, handlingProfiles, logisticsProfile } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetHandling, catalogAssets, handlingProfiles, logisticsProfile } from '@opsorama/objects';
 
 const instances = [
   ...['p1', 'p2'].map(id => ({ id, asset: 'pallet' })),
@@ -292,7 +293,7 @@ describe('handling state (H1)', () => {
   });
 
   it('patches agree with the models and the scene store', () => {
-    const state = create(), pallet = basicAssets.pallet({ id: 'p1', kind: 'asset', asset: 'pallet', count: 0 } as AssetNode), rack = basicAssets['pallet-rack']({ id: 'rack', kind: 'asset', asset: 'pallet-rack', count: 0 } as AssetNode);
+    const state = create(), pallet = catalogAssets.pallet({ id: 'p1', kind: 'asset', asset: 'pallet', count: 0 } as AssetNode), rack = catalogAssets['pallet-rack']({ id: 'rack', kind: 'asset', asset: 'pallet-rack', count: 0 } as AssetNode);
     state.move([{ unit: 'p2', to: { container: 'rack', receptacle: 'level-1', position: 1 } }, ...[0, 1, 2, 3, 4, 5, 6].map(i => ({ unit: `c${i}`, to: deck('p1') })), { unit: 'c7', to: { position: [2, 0, 3], yaw: Math.PI / 2 } }]);
     const patches = new Map(state.nodePatches().map(patch => [patch.id, patch]));
     const world = (root: THREE.Object3D, anchor: string, local: readonly [number, number, number]) => root.getObjectByName(`anchor-${anchor}`)!.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(...local));

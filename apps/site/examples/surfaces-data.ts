@@ -1,5 +1,5 @@
 import { createSceneStore, type SceneDefinition, type SceneStore } from '@opsorama/core';
-import { SURFACE_LEVELS, type FloorFinish } from '@opsorama/renderer-three';
+import { SURFACE_LEVELS, type FloorFinish } from '@opsorama/objects';
 
 const quarter = Math.PI / 2, sidewalk = SURFACE_LEVELS.sidewalk;
 /**

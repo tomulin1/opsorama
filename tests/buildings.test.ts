@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { bindBuildingInterior, BUILDING_PALETTES, BUILDING_TYPES, createSceneStore, isInteriorVisible, setBuildingView, type AssetNode, type SceneNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { buildingContents, buildingDefinition } from '../apps/site/examples/building-data';
 
 const building: AssetNode = { id: 'building', kind: 'asset', asset: 'building', building: { view: 'closed' } };
@@ -99,7 +100,7 @@ describe('shared building geometry', () => {
     const store = makeStore(), snapshot = store.getSnapshot();
     expect(() => store.upsert({ ...building, building: { type: 'castle' } } as unknown as AssetNode)).toThrow('Unknown building type'); expect(store.getSnapshot()).toBe(snapshot);
     for (const type of BUILDING_TYPES) for (const size of [[2, 2, 2], [8, 3.6, 6], [100, 100, 100]] as const) {
-      const closed = basicAssets.building({ ...building, building: { type, size } }), open = basicAssets.building({ ...building, building: { type, size, view: 'open' } });
+      const closed = catalogAssets.building({ ...building, building: { type, size } }), open = catalogAssets.building({ ...building, building: { type, size, view: 'open' } });
       const bounds = new THREE.Box3().setFromObject(closed);
       expect(bounds.min.y, type).toBeCloseTo(0); expect(bounds.max.y, type).toBeLessThanOrEqual(size[1] + .3);
       expect(bounds.min.x, type).toBeGreaterThanOrEqual(-size[0] / 2 - .12); expect(bounds.max.x, type).toBeLessThanOrEqual(size[0] / 2 + .12);
@@ -116,7 +117,7 @@ describe('shared building geometry', () => {
     const details = { generic: 'building-roof-seam', warehouse: 'building-shutter-slat', 'distribution-center': 'building-dock-door', workshop: 'building-gable', office: 'building-parapet', retail: 'building-awning', 'storage-shed': 'building-ridge' };
     for (const type of BUILDING_TYPES) {
       const node: AssetNode = { ...building, building: { type, colors: { roof: '#123456' } } };
-      const closed = basicAssets.building(node, { theme: 'midnight' }), open = basicAssets.building({ ...node, building: { ...node.building, view: 'open' } });
+      const closed = catalogAssets.building(node, { theme: 'midnight' }), open = catalogAssets.building({ ...node, building: { ...node.building, view: 'open' } });
       expect(closed.getObjectByName(details[type]), type).toBeDefined(); expect(open.getObjectByName(details[type]), type).toBeUndefined();
       for (const name of ['interior', 'entrance', 'roof']) expect(closed.getObjectByName(`anchor-${name}`)?.position.toArray()).toEqual(open.getObjectByName(`anchor-${name}`)?.position.toArray());
       const wall = closed.getObjectByName('building-wall') as THREE.Mesh; expect((wall.material as THREE.MeshStandardMaterial).color.getHexString()).toBe(BUILDING_PALETTES.midnight.wall.slice(1));
@@ -128,7 +129,7 @@ describe('shared building geometry', () => {
     }
   });
   it('declares grounded bounds and anchors, and provides a static accessible cutaway', () => {
-    const closed = basicAssets.building(building), open = basicAssets.building({ ...building, building: { view: 'open' } });
+    const closed = catalogAssets.building(building), open = catalogAssets.building({ ...building, building: { view: 'open' } });
     const bounds = new THREE.Box3().setFromObject(closed); expect(bounds.min.y).toBeCloseTo(0); expect(bounds.max.y).toBeCloseTo(3.7825);
     expect(closed.getObjectByName('anchor-interior')?.position.toArray()).toEqual([0, .12, 0]); expect(closed.getObjectByName('anchor-entrance')?.position.z).toBeGreaterThan(3);
     expect(closed.getObjectByName('building-roof')).toBeDefined(); expect(open.getObjectByName('building-roof')).toBeUndefined();
@@ -136,8 +137,8 @@ describe('shared building geometry', () => {
     disposeObject(closed); disposeObject(open);
   });
   it('inherits both scene palettes with partial overrides and instance-owned disposal', () => {
-    const first = basicAssets.building({ ...building, building: { colors: { roof: '#123456' } } }, { theme: 'midnight' });
-    const second = basicAssets.building(building, { theme: 'light' });
+    const first = catalogAssets.building({ ...building, building: { colors: { roof: '#123456' } } }, { theme: 'midnight' });
+    const second = catalogAssets.building(building, { theme: 'light' });
     const color = (model: THREE.Object3D, name: string) => ((model.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString();
     expect(color(first, 'building-wall')).toBe(BUILDING_PALETTES.midnight.wall.slice(1)); expect(color(first, 'building-roof')).toBe('123456'); expect(color(second, 'building-wall')).toBe(BUILDING_PALETTES.light.wall.slice(1));
     const materials = new Set<THREE.Material>(), geometries = new Set<THREE.BufferGeometry>(); first.traverse(part => { if (part instanceof THREE.Mesh) { geometries.add(part.geometry); materials.add(part.material as THREE.Material); } });
@@ -148,10 +149,10 @@ describe('shared building geometry', () => {
     const store = createSceneStore(buildingDefinition);
     for (const id of ['workshop', 'office'] as const) {
       const node = store.getSnapshot().nodes.find(candidate => candidate.id === id) as AssetNode;
-      const parent = basicAssets.building(node); parent.position.set(...node.position!); parent.rotation.set(...node.rotation!); parent.scale.set(2, 2, 2);
+      const parent = catalogAssets.building(node); parent.position.set(...node.position!); parent.rotation.set(...node.rotation!); parent.scale.set(2, 2, 2);
       for (const child of buildingContents(id)) {
         if (child.kind !== 'asset') continue;
-        const object = basicAssets[child.asset](child); object.position.set(...child.position!); parent.add(object); parent.updateMatrixWorld(true);
+        const object = catalogAssets[child.asset](child); object.position.set(...child.position!); parent.add(object); parent.updateMatrixWorld(true);
         const expected = new THREE.Vector3(...child.position!).applyMatrix4(parent.matrixWorld); expect(object.getWorldPosition(new THREE.Vector3()).distanceTo(expected)).toBeLessThan(1e-10);
         object.removeFromParent(); disposeObject(object);
       }

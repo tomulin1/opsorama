@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+import { animateAsset } from '../packages/three/src/animation';
 
 const VEHICLES = [
   // The operator must stay below the roof or overhead guard (bottom face heights).
   { asset: 'forklift', roof: 'forklift-roof' },
   { asset: 'reach-truck', roof: 'reach-guard' },
 ] as const;
-const build = (asset: string, options: Partial<AssetNode> = {}, palette: Record<string, string> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme: 'light', palette });
+const build = (asset: string, options: Partial<AssetNode> = {}, palette: Record<string, string> = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options }, { theme: 'light', palette });
 const anchors = (object: THREE.Object3D) => { const names: string[] = []; object.traverse(child => { if (child.name.startsWith('anchor-')) names.push(child.name); }); return names.sort(); };
 const shirt = (object: THREE.Object3D) => {
   // The torso is the first mesh of the worker rig inside the operator group.

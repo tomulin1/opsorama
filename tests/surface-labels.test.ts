@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import ts from 'typescript';
 import { parse, compileScript, compileTemplate } from 'vue/compiler-sfc';
 import { createSceneStore, validateSurfaceLabel, type AssetNode, type SurfaceLabel } from '@opsorama/core';
-import { assetLabelSurfaces, basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { assetLabelSurfaces, catalogAssets } from '@opsorama/objects';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
 const text: SurfaceLabel = { kind: 'text', text: 'North', color: '#243650', background: '#fffaf2' };
@@ -36,7 +37,7 @@ describe('static surface labels', () => {
   });
 
   it('repeats parcel artwork without identities and disposes the shared owned texture once', () => {
-    const context = mockCanvas(), object = basicAssets['parcel-base'](node), labels = stickers(object);
+    const context = mockCanvas(), object = catalogAssets['parcel-base'](node), labels = stickers(object);
     expect(labels).toHaveLength(27); expect(new Set(labels.map(label => label.material.map)).size).toBe(1);
     expect(context.fillText).toHaveBeenCalledWith('North', 512, expect.any(Number));
     const texture = labels[0].material.map!; expect(texture.colorSpace).toBe(THREE.SRGBColorSpace);
@@ -53,7 +54,7 @@ describe('static surface labels', () => {
       const item = catalogObjects.find(item => item.asset === key)!;
       expect(item.asset).toBeDefined(); expect(surface.size.every(value => value > 0)).toBe(true);
       const definition = objectNode(item, { surfaceLabel: text }) as AssetNode;
-      const a = basicAssets[key](definition), b = basicAssets[key](definition);
+      const a = catalogAssets[key](definition), b = catalogAssets[key](definition);
       const label = stickers(a)[0], other = stickers(b)[0]; expect(label).toBeDefined();
       expect(label.material.map).not.toBe(other.material.map); expect(label.position.toArray()).toEqual([...surface.position]);
       expect(label.geometry.parameters).toMatchObject({ width: surface.size[0], height: surface.size[1] });
@@ -61,7 +62,7 @@ describe('static surface labels', () => {
       expect(Math.max(label.material.map!.image.width, label.material.map!.image.height)).toBe(surface.resolution ?? 1024);
       disposeObject(a); disposeObject(b);
     }
-    expect(() => basicAssets['tree-pine']({ ...node, asset: 'tree-pine' })).toThrow('no surface label configuration');
+    expect(() => catalogAssets['tree-pine']({ ...node, asset: 'tree-pine' })).toThrow('no surface label configuration');
   });
 
   it('renders bounded multiline monitor text at 2048 pixels and releases its texture', () => {
@@ -69,7 +70,7 @@ describe('static surface labels', () => {
     const label: SurfaceLabel = { kind: 'text', layout: 'multiline', text: 'TEST\n2 workflow attempts\n1 failed | 1 cancelled' };
     expect(() => validateSurfaceLabel(label)).not.toThrow();
     for (const value of [{ ...label, text: 'x'.repeat(81) }, { ...label, text: Array(7).fill('row').join('\n') }, { ...label, text: 'x'.repeat(481) }, { ...label, layout: 'invalid' }]) expect(() => validateSurfaceLabel(value as SurfaceLabel)).toThrow();
-    const object = basicAssets.monitor({ id: 'screen', kind: 'asset', asset: 'monitor', surfaceLabel: label });
+    const object = catalogAssets.monitor({ id: 'screen', kind: 'asset', asset: 'monitor', surfaceLabel: label });
     const texture = stickers(object)[0].material.map!;
     expect(texture.image.width).toBe(2048); expect(texture.image.height).toBe(Math.round(2048 * 1.2 / 2.2));
     expect(texture.anisotropy).toBe(8); expect(texture.magFilter).toBe(THREE.LinearFilter); expect(texture.minFilter).toBe(THREE.LinearMipmapLinearFilter);
@@ -105,7 +106,7 @@ describe('static surface labels', () => {
     const pending: { onload: (() => void) | null; onerror: (() => void) | null; src: string }[] = [];
     vi.stubGlobal('Image', class { onload: (() => void) | null = null; onerror: (() => void) | null = null; src = ''; constructor() { pending.push(this); } });
     const revoke = vi.fn(); vi.stubGlobal('URL', { createObjectURL: () => 'blob:label', revokeObjectURL: revoke });
-    const make = () => basicAssets.storefront({ ...node, asset: 'storefront', surfaceLabel: { kind: 'svg', svg: '<svg/>', alt: 'North logo' } });
+    const make = () => catalogAssets.storefront({ ...node, asset: 'storefront', count: undefined, multiplier: undefined, surfaceLabel: { kind: 'svg', svg: '<svg/>', alt: 'North logo' } });
     const a = make(), texture = stickers(a)[0].material.map!, release = vi.spyOn(texture, 'dispose'), lateLoad = pending[0].onload!;
     expect(root.setAttribute).toHaveBeenCalledWith('width', '1024'); expect(root.setAttribute).toHaveBeenCalledWith('height', '256');
     disposeObject(a); expect(release).toHaveBeenCalledTimes(1); expect(revoke).toHaveBeenCalledTimes(1);

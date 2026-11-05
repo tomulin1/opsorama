@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { isInteriorVisible, type AssetNode } from '@opsorama/core';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 import { datacenterDefinition, datacenterIncidents, datacenterReading, datacenterRecords, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../apps/site/examples/datacenter-data';
 
-const build = (asset: string, options: Partial<AssetNode> = {}) => basicAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
+const build = (asset: string, options: Partial<AssetNode> = {}) => catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...options });
 const meshes = (model: THREE.Object3D) => { const list: THREE.Mesh[] = []; model.traverse(child => { if (child instanceof THREE.Mesh) list.push(child); }); return list; };
 const counted = (model: THREE.Object3D) => model.children.filter(child => child.name.startsWith('count-part-'));
 const pose = (model: THREE.Object3D) => { const values: unknown[] = []; model.traverse(child => values.push([child.position.toArray(), child.rotation.toArray()])); return values; };
@@ -80,7 +81,7 @@ describe('datacenter object kit', () => {
   });
   it.each(['rack-server', 'equipment-cabinet'])('%s blinks activity independently while geometry and ownership remain stable', asset => {
     const node = { id: 'activity-a', kind: 'asset' as const, asset, state: 'critical' as const };
-    const model = basicAssets[asset](node), second = basicAssets[asset](node);
+    const model = catalogAssets[asset](node), second = catalogAssets[asset](node);
     const snapshot = (object: THREE.Object3D) => meshes(object).filter((mesh): mesh is THREE.InstancedMesh => mesh instanceof THREE.InstancedMesh).flatMap(mesh => [...mesh.instanceColor!.array]);
     const bank = meshes(model).find((mesh): mesh is THREE.InstancedMesh => mesh instanceof THREE.InstancedMesh)!;
     expect(bank.count).toBe(asset === 'rack-server' ? 12 : 8 * 12);
@@ -100,7 +101,7 @@ describe('datacenter object kit', () => {
     disposeObject(model); expect(release).toHaveBeenCalledTimes(1); const disposed = snapshot(model); animateAsset(model, { time: 3, delta: 1 }); expect(snapshot(model)).toEqual(disposed);
     disposeObject(second);
     for (const options of [{ localMotion: false }]) {
-      const staticModel = basicAssets[asset]({ ...node, ...options }), before = snapshot(staticModel);
+      const staticModel = catalogAssets[asset]({ ...node, ...options }), before = snapshot(staticModel);
       animateAsset(staticModel, { time: 1, delta: 1 }); expect(snapshot(staticModel)).toEqual(before); disposeObject(staticModel);
     }
   });
@@ -148,9 +149,9 @@ describe('datacenter object kit', () => {
     expect(store.getSnapshot().selection).toBeNull(); store.dispose();
   });
   it.each(['equipment-cabinet', 'rack-server', 'network-switch', 'cooling-unit', 'ups-unit'])('%s inherits semantic materials, allows partial overrides and keeps host health outside geometry', asset => {
-    const normal = basicAssets[asset]({ id: asset, kind: 'asset', asset }, { theme: 'light', palette: { structure: '#123456', critical: '#fedcba' } });
+    const normal = catalogAssets[asset]({ id: asset, kind: 'asset', asset }, { theme: 'light', palette: { structure: '#123456', critical: '#fedcba' } });
     expect(meshes(normal).some(mesh => (mesh.material as THREE.MeshStandardMaterial).color.getHexString() === '123456')).toBe(true);
-    const critical = basicAssets[asset]({ id: asset, kind: 'asset', asset, state: 'critical', materials: { trim: '#abcdef' } }, { theme: 'midnight', palette: { critical: '#fedcba' } });
+    const critical = catalogAssets[asset]({ id: asset, kind: 'asset', asset, state: 'critical', materials: { trim: '#abcdef' } }, { theme: 'midnight', palette: { critical: '#fedcba' } });
     const colors = meshes(critical).map(mesh => (mesh.material as THREE.MeshStandardMaterial).color.getHexString());
     expect(colors).not.toContain('fedcba'); expect(colors).toContain('abcdef');
     disposeObject(normal); disposeObject(critical);

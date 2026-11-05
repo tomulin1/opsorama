@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode, SceneStore } from '@opsorama/core';
-import { assetDescriptors, basicAssets } from '@opsorama/renderer-three';
+import { assetDescriptors, catalogAssets } from '@opsorama/objects';
 import { createAquaticsStore } from '../apps/site/src/features/aquatics/model';
 import { createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
 import { createFarmStore } from '../apps/site/src/features/farm/scene';
@@ -19,7 +19,7 @@ describe('recipe reuse (C4)', () => {
   it('every domain scene is built from the shared catalog, with no recipe-only models', () => {
     for (const { name, nodes } of scenes) {
       for (const node of assetsOf(nodes)) {
-        expect(basicAssets[node.asset], `${name}: ${node.id} uses ${node.asset}`).toBeDefined();
+        expect(catalogAssets[node.asset], `${name}: ${node.id} uses ${node.asset}`).toBeDefined();
         expect(assetDescriptors[node.asset], `${name}: ${node.asset}`).toBeDefined();
       }
     }

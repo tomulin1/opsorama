@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { basicAssets, disposeObject } from '@opsorama/renderer-three';
+import { disposeObject } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import type { AssetNode } from '@opsorama/core';
-import { animateAsset } from '../packages/renderer-three/src/animation';
+import { animateAsset } from '../packages/three/src/animation';
 
 describe('static tree assets', () => {
   for (const asset of ['tree-pine', 'tree-palm']) it(`${asset} has independent resources, foliage customization and a ground pivot`, () => {
     const node: AssetNode = { id: 'tree', kind: 'asset', asset, color: '#336699' };
-    const first = basicAssets[asset](node), second = basicAssets[asset](node);
+    const first = catalogAssets[asset](node), second = catalogAssets[asset](node);
     const meshes: THREE.Mesh[] = []; first.traverse(child => { if (child instanceof THREE.Mesh) meshes.push(child); });
     const foliage = meshes.filter(part => part.name.startsWith('foliage-') || part.name === 'crown');
     expect(foliage.length).toBe(asset === 'tree-pine' ? 3 : 8);
