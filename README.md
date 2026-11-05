@@ -42,7 +42,7 @@ The shared `building` object offers generic, warehouse, distribution-center, wor
 - `tests/`: workspace-wide unit tests; Playwright specs live in `apps/site/e2e`.
 - `packages/core`: framework-independent types, immutable scene snapshots, validated settings, selection, and subscriptions. No browser or graphics dependencies.
 - `packages/three`: shared renderer, HTML labels, camera framing, transform interpolation, motion playback, instancing and explicit teardown. It ships no models: pass an asset registry.
-- `packages/objects`: the object catalog: procedural model factories, descriptors and definitions, and the `catalogAssets` registry for the renderer.
+- `packages/objects`: the object catalog: procedural model factories, descriptors and definitions, 21 kits importable from subpaths such as `@opsorama/objects/vehicles` (`vehiclesKit`), and `catalogAssets` with every model.
 - `packages/react`: native provider, hooks, scene components, EntityLayer, and headless EntityInspector.
 - `packages/vue`: native components, composables, subscriptions, events, and slots. No React dependency.
 - `packages/ui`: optional generic presentation contracts/builders, DOM mount and scoped CSS; native components via `@opsorama/react/ui` and `@opsorama/vue/ui`. Hosts supply data meanings, content, actions and dashboard layouts. [Panel contract](docs/DATA_PANELS.md).

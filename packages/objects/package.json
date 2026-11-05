@@ -1,1 +1,48 @@
-{"name":"@opsorama/objects","version":"0.0.1","license":"MIT","private":true,"type":"module","description":"Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, and the catalogAssets registry for @opsorama/three.","exports":{".":"./src/index.ts"},"dependencies":{"@opsorama/core":"workspace:*","@opsorama/three":"workspace:*"},"peerDependencies":{"three":"^0.180.0"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/objects"}}
+{
+  "name": "@opsorama/objects",
+  "version": "0.0.1",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, and the catalogAssets registry for @opsorama/three.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./datacenter": "./src/kits/datacenter.ts",
+    "./displays": "./src/kits/displays.ts",
+    "./buildings": "./src/kits/buildings.ts",
+    "./indicators": "./src/kits/indicators.ts",
+    "./work-items": "./src/kits/work-items.ts",
+    "./people": "./src/kits/people.ts",
+    "./furniture": "./src/kits/furniture.ts",
+    "./equipment": "./src/kits/equipment.ts",
+    "./office": "./src/kits/office.ts",
+    "./retail": "./src/kits/retail.ts",
+    "./fulfillment": "./src/kits/fulfillment.ts",
+    "./vehicles": "./src/kits/vehicles.ts",
+    "./environment": "./src/kits/environment.ts",
+    "./surfaces": "./src/kits/surfaces.ts",
+    "./energy": "./src/kits/energy.ts",
+    "./events": "./src/kits/events.ts",
+    "./restaurant": "./src/kits/restaurant.ts",
+    "./aquatics": "./src/kits/aquatics.ts",
+    "./animals": "./src/kits/animals.ts",
+    "./farm": "./src/kits/farm.ts",
+    "./laboratory": "./src/kits/laboratory.ts"
+  },
+  "dependencies": {
+    "@opsorama/core": "workspace:*",
+    "@opsorama/three": "workspace:*"
+  },
+  "peerDependencies": {
+    "three": "^0.180.0"
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/objects"
+  }
+}

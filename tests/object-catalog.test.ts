@@ -62,10 +62,14 @@ describe('object catalog integration', () => {
       if (node.kind === 'asset') { const model = assets[node.asset](node); expect(model.children.length).toBeGreaterThan(0); disposeObject(model); }
     }
   });
-  it('keeps usage definitions independent from viewer normalization and uses the built-in registry', () => {
+  it('keeps usage definitions independent from viewer normalization and imports the kit of the object', () => {
     const item = catalogObjects.find(item => item.asset === 'lab-workstation')!;
     const node = objectNode(item, { variant: 'empty', scale: 1.2 });
     expect(objectSnippet(node, 'JavaScript')).toContain("@opsorama/three");
+    expect(objectSnippet(node, 'JavaScript')).toContain("import { laboratoryKit } from '@opsorama/objects/laboratory';");
+    expect(objectSnippet(node, 'JavaScript')).toContain('{ assets: laboratoryKit }');
+    expect(objectSnippet(node, 'React')).toContain('<SceneCanvas assets={laboratoryKit}>');
+    expect(objectSnippet(node, 'Vue')).toContain('<SceneCanvas :assets="laboratoryKit">');
     expect(objectSnippet(node, 'React')).toContain('scale={[1.2,1.2,1.2]}');
     expect(objectSnippet(node, 'Vue')).toContain(':scale="[1.2,1.2,1.2]"');
     expect(objectSnippet(node, 'Vue')).toContain('<script setup lang="ts">');
