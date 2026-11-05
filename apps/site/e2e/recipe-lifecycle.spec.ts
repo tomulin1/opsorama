@@ -8,10 +8,11 @@ import { expect, test, type Page } from '@playwright/test';
  */
 declare global { interface Window { __gl: GlProbe; } }
 interface GlCounters { buffers: number; textures: number; programs: number; vaos: number; framebuffers: number; draws: number; lost: boolean; }
-interface GlProbe { contexts: GlCounters[]; frames: number; }
+/** `refs` holds weak references: a disposed renderer's detached canvas may be garbage-collected before its webglcontextlost event arrives. */
+interface GlProbe { contexts: GlCounters[]; frames: number; refs: WeakRef<WebGLRenderingContext>[]; }
 
 const instrument = () => {
-  const probe: GlProbe = { contexts: [], frames: 0 };
+  const probe: GlProbe = { contexts: [], frames: 0, refs: [] };
   window.__gl = probe;
   const tick = () => { probe.frames++; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
@@ -21,7 +22,7 @@ const instrument = () => {
     if (!gl || !type.startsWith('webgl') || seen.has(gl)) return gl;
     seen.add(gl);
     const counters: GlCounters = { buffers: 0, textures: 0, programs: 0, vaos: 0, framebuffers: 0, draws: 0, lost: false };
-    probe.contexts.push(counters);
+    probe.contexts.push(counters); probe.refs.push(new WeakRef(gl));
     this.addEventListener('webglcontextlost', () => { counters.lost = true; });
     const wrap = (name: string, effect: (result: unknown) => void) => {
       const method = gl[name] as ((...args: unknown[]) => unknown) | undefined;
@@ -73,21 +74,34 @@ test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ pa
   const cycles: { cycle: number; mountedBuffers: number; mountedTextures: number; mountedPrograms: number; afterBuffers: number; afterTextures: number; afterPrograms: number; lost: boolean; unmountedHeapMb: number }[] = [];
   for (let cycle = 1; cycle <= 8; cycle++) {
     const mounted = await lastContext(page);
-    await page.getByRole('button', { name: 'Unmount scene', exact: true }).click();
-    await expect(page.locator('canvas')).toHaveCount(0);
+    // Domain examples keep their scene mounted while panels change, so the test unmounts it the way a host app does:
+    // client-side navigation away (same document, so the WebGL probe survives) and back.
+    await page.getByRole('navigation', { name: 'Toolkit navigation' }).getByRole('link', { name: 'Examples', exact: true }).click();
+    // The development server may compile the catalog page on the first visit.
+    await expect(page).toHaveURL(/\/examples$/, { timeout: 30_000 });
+    await expect(page.locator('canvas')).toHaveCount(0, { timeout: 30_000 });
     await page.waitForTimeout(300);
     const released = await lastContext(page), unmountedHeap = await heap();
-    await page.getByRole('button', { name: 'Mount scene', exact: true }).click();
-    await expect(page.locator('canvas')).toHaveCount(1);
-    await page.waitForTimeout(1200);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/examples\/ecommerce$/, { timeout: 30_000 });
+    await expect(page.locator('canvas')).toHaveCount(1, { timeout: 30_000 });
+    // Same settle time as after the first load: the seeded mock feed advances with time, so equal times give equal scenes.
+    await page.waitForTimeout(2500);
     cycles.push({ cycle, mountedBuffers: mounted!.buffers, mountedTextures: mounted!.textures, mountedPrograms: mounted!.programs, afterBuffers: released!.buffers, afterTextures: released!.textures, afterPrograms: released!.programs, lost: released!.lost, unmountedHeapMb: unmountedHeap });
   }
-  const contexts = await page.evaluate(() => window.__gl.contexts.map(({ draws, lost }) => ({ draws, lost })));
+  // A context counts as released when it reported webglcontextlost, reports isContextLost(), or was garbage-collected with its
+  // detached canvas (forced collections in heap() can collect it before the asynchronous lost event arrives).
+  const live = () => page.evaluate(() => window.__gl.contexts.filter((context, index) => { const gl = window.__gl.refs[index].deref(); return !context.lost && !!gl && !gl.isContextLost(); }).length);
+  await expect.poll(live, { timeout: 15_000 }).toBe(1);
+  const contexts = await page.evaluate(() => window.__gl.contexts.map(({ draws, lost }, index) => ({ draws, lost, collected: !window.__gl.refs[index].deref() })));
   console.log(`LIFECYCLE contexts=${JSON.stringify(contexts)} ${JSON.stringify(cycles)}`);
   expect(errors).toEqual([]);
   // Only the mounted scene keeps a context; React strict mode mounts twice in development, so the count itself is not asserted.
-  expect(contexts.filter(context => !context.lost)).toHaveLength(1);
-  expect(new Set(cycles.map(cycle => `${cycle.mountedBuffers}/${cycle.mountedTextures}/${cycle.mountedPrograms}`)).size).toBe(1);
+  // Every remount builds exactly the same resources. The first measurement follows the initial page load, whose mock feed can be a
+  // few objects ahead or behind, so it only has to be within 1% (16 of about 4,700 buffers were observed).
+  const remounts = cycles.slice(1);
+  expect(new Set(remounts.map(cycle => `${cycle.mountedBuffers}/${cycle.mountedTextures}/${cycle.mountedPrograms}`)).size).toBe(1);
+  expect(Math.abs(cycles[0].mountedBuffers - remounts[0].mountedBuffers)).toBeLessThanOrEqual(remounts[0].mountedBuffers * .01);
   for (const cycle of cycles) { expect(cycle.afterBuffers).toBe(0); expect(cycle.lost).toBe(true); }
   expect(cycles.at(-1)!.unmountedHeapMb / cycles[0].unmountedHeapMb).toBeLessThan(1.25);
 });
