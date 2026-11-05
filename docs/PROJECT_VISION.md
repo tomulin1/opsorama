@@ -27,7 +27,7 @@ Target for the first public release: a developer with basic React or Vue knowled
 ## Principles
 
 - **Lego-style composition:** small components have clear purposes and combine naturally. A complete domain dashboard is a recipe, rather than a mandatory application.
-- **Catalog first:** reusable object definitions form the foundation for dashboards, examples and domain scenes. Reuse existing geometry before expanding models; every object inherits a semantic scene palette, allows documented customization, supports a useful static appearance and declares its interaction capabilities. Follow the [object catalog plan](OBJECT_CATALOG.md).
+- **Catalog first:** reusable object definitions form the foundation for dashboards, examples and domain scenes. Reuse existing geometry before expanding models; every object inherits a semantic scene palette, allows documented customization, supports a useful static appearance and declares its interaction capabilities. Follow the [object catalog plan](CONTRIBUTING_OBJECTS.md).
 - **React and Vue feature parity:** both adapters use the same scene model, renderer, assets, events, and animations.
 - **Framework-independent core:** React, Vue, Next.js, Zustand, and UI libraries are not dependencies of the domain core.
 - **Separate data and geometry:** business records retain their identities; a mapping layer creates their visual representations.
@@ -87,9 +87,9 @@ Native React Three Fiber components are not a portable core. The retired warehou
 
 - [Implementation roadmap and next step](ROADMAP.md)
 - [Architecture, data, and customization](ARCHITECTURE.md)
-- [Component design and composition examples](COMPONENTS.md)
-- [Reusable object inventory and implementation plan](OBJECT_CATALOG.md)
-- [28 application domains](USE_CASES.md)
+- Component design and composition examples
+- [Reusable object inventory and implementation plan](CONTRIBUTING_OBJECTS.md)
+- 28 application domains
 - [Bounded object counts and symbolic quantities](QUANTITY_SCALING.md)
 
 These documents guide the project's future direction. The root README describes the current implementation. Proposed APIs in the documentation are not automatically implemented.

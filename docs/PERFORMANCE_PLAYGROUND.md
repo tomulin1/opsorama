@@ -18,11 +18,11 @@ Source: [fixture and throughput calculation](../apps/site/src/features/performan
 
 ## Instancing
 
-The renderer instances repeated identical meshes by default ([ADR 0051](decisions/0051-repeated-mesh-instancing.md)). The **Instancing** checkbox turns this off for a comparison; open `/examples/performance?load=mega&instancing=off` to start with it disabled. All model counts, geometry detail, animation settings and fixture version remain equal, and the shadow policy ([ADR 0049](decisions/0049-shadow-casting-policy.md)) and static part merging ([ADR 0050](decisions/0050-static-part-merging.md)) apply in both modes. Changing the option recreates the renderer, resets the camera and cancels a recording. Exported JSON includes `configuration.instancing`; do not compare results without recording this flag. `/examples/adapters` runs the same option through native React, Vue and JavaScript.
+The renderer instances repeated identical meshes by default. The **Instancing** checkbox turns this off for a comparison; open `/examples/performance?load=mega&instancing=off` to start with it disabled. All model counts, geometry detail, animation settings and fixture version remain equal, and the shadow policy and static part merging apply in both modes. Changing the option recreates the renderer, resets the camera and cancels a recording. Exported JSON includes `configuration.instancing`; do not compare results without recording this flag. `/examples/adapters` runs the same option through native React, Vue and JavaScript.
 
 Measured October 26, 2026 on the development server (`pnpm dev`) in Playwright headless Chromium with ANGLE D3D11 on an NVIDIA GeForce GTX 1660, 1600 × 900 viewport, DPR 1, Mega load with default settings (motion on, shadows and labels off), 4 s sample after 12 s warm-up: instancing off 16.3 FPS, 11,265 draws and 2,817 program switches per frame, 63.7 ms JavaScript per frame; instancing on 35.8 FPS, 1,836 draws, 21 program switches, 28.2 ms. Draws here count every WebGL draw call, not the main-pass `drawCalls` readout. Compare production builds with the recorder below before treating these numbers as a device result.
 
-The October 22 opt-in experiment that preceded this ([ADR 0045](decisions/0045-experimental-static-instancing.md), superseded) is kept as a [historical measurement](STATIC_INSTANCING.md).
+The October 22 opt-in experiment that preceded this is kept as a [historical measurement](STATIC_INSTANCING.md).
 
 ## Use
 
@@ -42,7 +42,7 @@ The canvas fills the viewport below the site header. The floating HUD scrolls in
 - **Geometry/texture resources:** renderer counters, not byte-accurate memory or VRAM usage.
 - **Environment:** user agent, device DPR, CSS canvas size, actual drawing-buffer dimensions and reduced-motion preference, captured in the exported JSON. The renderer currently caps device DPR at 2. GPU model, camera pose and build mode are not inferred; record the build/hardware manually and reset the view for comparable runs.
 
-This fixture exercises per-object resources, picking, label layout and continuous rendering. Its instancing switch compares one implemented optimization from the [rendering analysis](RENDERING_PERFORMANCE_ANALYSIS.md) against the same build without it. Performance work should compare identical fixture versions rather than claiming a gain by reducing the workload.
+This fixture exercises per-object resources, picking, label layout and continuous rendering. Its instancing switch compares one implemented optimization from the rendering analysis against the same build without it. Performance work should compare identical fixture versions rather than claiming a gain by reducing the workload.
 
 ## Verification and next step
 

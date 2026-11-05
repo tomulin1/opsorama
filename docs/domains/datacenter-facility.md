@@ -2,7 +2,7 @@
 
 Researched October 15, 2026. This is an original, schematic regional colocation/enterprise concept, not a survey of a named operator's building or construction documentation. Sources establish examples and design principles; the dimensions in the proposed layout below are explicit fixture choices. Implementation status is tracked in [the recipe](datacenter.md) and [the roadmap](../ROADMAP.md).
 
-The requested visual implementation is now available at `/examples/datacenter`; [ADR 0020](../decisions/0020-datacenter-facility.md) records adoption of this layout and its limits. The following sections preserve the research/design basis, rather than claiming an engineered as-built facility.
+The visual implementation is available at `/examples/datacenter`. The following sections preserve the research/design basis, rather than claiming an engineered as-built facility.
 
 ## Findings from primary sources
 
@@ -45,7 +45,7 @@ The fictional building spans x = −32…36 m, z = −24…24 m. North is −z. 
 | Battery A / B | 30, 9 / 18 | 12 × 8 each | Dedicated battery-room visual zones; no chemistry, fire-rating or runtime claim |
 | Plant yard | 2, −32 | 64 × 16 | Three generic generator enclosures and three air-cooled chillers in one row, between the ring road and the north wall |
 
-The site around the building is one plan ([ADR 0073](../decisions/0073-datacenter-site-and-room-focus.md)): a ring road with tile centres at x = −40 and 44, z = −43 and 35; a fence at x = −49 and 53, z = −47 and 40, with a 6 m entrance on the axis; and a service apron, entrance path and staff parking between the south wall and the road.
+The site around the building is one plan: a ring road with tile centres at x = −40 and 44, z = −43 and 35; a fence at x = −49 and 53, z = −47 and 40, with a 6 m entrance on the axis; and a service apron, entrance path and staff parking between the south wall and the road.
 
 The diagram is an adjacency concept, not an electrical/piping single-line design:
 
@@ -68,6 +68,6 @@ Reuse `building`, `floor`, `terrain`, `wall-segment`, `equipment-cabinet`, `rack
 
 Concrete missing shared silhouettes: `generator-set`, `air-cooled-chiller`, `electrical-switchgear`, `battery-bank`, and `aisle-containment` (end portal / roof module). These are catalog additions only once implemented, documented and checked. They need semantic palettes, partial materials/color overrides, useful static geometry, host-health indicators, base-center pivots, bounds and connection anchors. None should calculate redundancy, fuel, cooling duty or charge. Fixed decorative fans/modules are not count controls.
 
-The cabinet needs a documented **overview** variant that retains its dimensions, mounted-unit count and LED semantics with fewer structural details. The detailed variant remains compatible. Facility overview shows all room cutaways and compact racks; room focus keeps every room open and uses detailed racks in the selected room ([ADR 0073](../decisions/0073-datacenter-site-and-room-focus.md)). One shared scene/store serves native JS/React/Vue. All source records remain available in a paginated HTML table; focusing changes detail, never totals or identity.
+The cabinet needs a documented **overview** variant that retains its dimensions, mounted-unit count and LED semantics with fewer structural details. The detailed variant remains compatible. Facility overview shows all room cutaways and compact racks; room focus keeps every room open and uses detailed racks in the selected room. One shared scene/store serves native JS/React/Vue. All source records remain available in a paginated HTML table; focusing changes detail, never totals or identity.
 
 Keep compact colored alert icons and hover/focus descriptions. Selection from the queue or table should open the relevant room before framing its equipment. Include explicit facility/room controls for keyboard and touch, and preserve count/motion/scenario controls on remount. Publish software-renderer diagnostics and geometry counts with their exclusions; hardware FPS and maximum capacity remain unmeasured.

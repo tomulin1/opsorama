@@ -1,6 +1,6 @@
 # Bounded object counts and symbolic quantities
 
-Status: **implemented count configurators; common palette/anchor contract remains planned**. Updated October 13, 2026. This replaces the general adaptive-scaling proposal as the primary quantity design. [ADR 0006](decisions/0006-bounded-object-counts.md) records the decision. Configurators: `/docs/objects`. The dedicated Quantities website section was removed on October 13 at the user’s request; implementers calculate symbolic scale and choose any multiplier themselves.
+Status: **implemented count configurators; common palette/anchor contract remains planned**. Updated October 13, 2026. This replaces the general adaptive-scaling proposal as the primary quantity design. Configurators: `/docs/objects`. The dedicated Quantities website section was removed on October 13 at the user’s request; implementers calculate symbolic scale and choose any multiplier themselves.
 
 ## Principle
 
@@ -18,7 +18,7 @@ The implementer determines the multiplier or any other symbolic mapping. The too
 | `pallet` | Every integer 0–27 | 9 | Fixed 1.2 × 1.0 m industrial wood base; three columns × three rows × three layers of smaller boxes; zero leaves the empty pallet |
 | `shelf` | Every integer 0–12 | 12 | Four boxes per shelf × three levels; zero produces an empty rack |
 
-The single `parcel` has no count: it is exactly one carton, and `parcel-base` and `pallet` show counted parcels with the same geometry ([ADR 0059](decisions/0059-one-parcel-type.md), which also removed the `quantity-stack` block proxy and the `quantity-box` unit box).
+The single `parcel` has no count: it is exactly one carton, and `parcel-base` and `pallet` show counted parcels with the same geometry (the former `quantity-stack` block proxy and `quantity-box` unit box are removed).
 
 The core exports `AssetCountDefinition`, `AssetCountInput`, `CountRepresentation`, `resolveCountRepresentation` and `validateCountInput`. `AssetNode` adds optional `count` and `multiplier`. Renderer-three exports `assetCountDefinitions`; each supported factory enforces its declared values. React and native Vue Asset props use the same numbers; Vue does not embed React.
 
@@ -26,11 +26,11 @@ Catalog detail pages show only a visible-count slider or exact-variant select an
 
 ## Reserved space and stacking
 
-[ADR 0010](decisions/0010-reserved-count-layouts.md) adds optional typed AssetNode.countLayout (compact or reserved), now for `parcel-base` only ([ADR 0059](decisions/0059-one-parcel-type.md)). Reserved mode allocates maximum-capacity slots from the first visible part; increasing count keeps existing part positions and dimensions. Parcels fill rows, then layers. The reserved base plate keeps its full footprint, also when empty; an empty compact base keeps the one-parcel plate. Desk pods and meeting tables retain their compact arrangements without a count-layout option. Counts still mean the model-specific unit, not boxes on office furniture.
+Optional typed AssetNode.countLayout (compact or reserved), now for `parcel-base` only. Reserved mode allocates maximum-capacity slots from the first visible part; increasing count keeps existing part positions and dimensions. Parcels fill rows, then layers. The reserved base plate keeps its full footprint, also when empty; an empty compact base keeps the one-parcel plate. Desk pods and meeting tables retain their compact arrangements without a count-layout option. Counts still mean the model-specific unit, not boxes on office furniture.
 
 The catalog defaults these models to Reserve full capacity and exposes Compact layout as an alternative. Host scenes without countLayout retain their existing compact defaults. Shelves, totes, carts, lockers, cabinets and other fixed containers/indicators already use fixed part dimensions/slots and need no new selector. All counted previews now use capacity-based fitting, including zero occupancy. The pallet always uses fixed slots and its wooden base never contracts; it has no compact-layout option. This is optional geometry layout, not a quantity multiplier or source identity change.
 
-The pallet has an isolated catalog preview and appears in `/examples/logistics` through native React, Vue and JavaScript. Pallet geometry reuses the shared parcel geometry (`parcelPart`) and the warehouse prototype's wooden slat/block construction, with a base-centered pivot, load/front anchors, body color/state overrides and repeated optional surface labels. Wood/tape colors are fixed; the full semantic palette and common object descriptor remain C1 work.
+The pallet has an isolated catalog preview and appears in `/examples/logistics` through native React, Vue and JavaScript. Pallet geometry reuses the shared parcel geometry (`parcelPart`) and the warehouse prototype's wooden slat/block construction, with a base-centered pivot, load/front anchors, body color/state overrides and repeated optional surface labels. Wood/tape colors are fixed.
 
 ## Laboratory summaries
 
@@ -75,7 +75,7 @@ All four counts are valid for Parcel; a single Parcel with count 1 and multiplie
 
 ## Source truth and exact units
 
-Counted model geometry and real source membership are separate. The former QuantityLayer exact unit API was removed on November 3, 2026 by [ADR 0076](decisions/0076-remove-exact-unit-api.md): hosts keep source membership and exact totals in their own records and code. The old general scaling roadmap is no longer the primary design.
+Counted model geometry and real source membership are separate. The former QuantityLayer exact unit API was removed on November 3, 2026: hosts keep source membership and exact totals in their own records and code. The old general scaling roadmap is no longer the primary design.
 
 When a node stands for a source group, the host keeps count × multiplier equal to the group quantity; the toolkit no longer checks this. A node for a real unit represents exactly one unit. Source groups remain authoritative, and never select an arbitrary child record. A catalog preview has no stock source and must not claim real inventory.
 

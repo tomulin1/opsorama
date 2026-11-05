@@ -1,10 +1,10 @@
 # Panels
 
-Implemented: **October 15, 2026** as an optional M2/M4 UI slice. The earlier visual proposal led to basic presentation primitives; domain-specific dashboards remain the host's responsibility. Packages are private local workspace packages under the `@opsorama/*` namespace; they are not published on npm.
+Implemented: **October 15, 2026** as optional UI. The earlier visual proposal led to basic presentation primitives; domain-specific dashboards remain the host's responsibility. Packages are private local workspace packages under the `@opsorama/*` namespace; they are not published on npm.
 
 ## Choose by purpose
 
-Panels are grouped by what a reader does with them, not by domain. See [ADR 0065](decisions/0065-hud-panel-system.md).
+Panels are grouped by what a reader does with them, not by domain.
 
 | Family | Purpose | Typical zone |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Panels are grouped by what a reader does with them, not by domain. See [ADR 0065
 | @opsorama/react/ui | Native React components and ReactNode content |
 | @opsorama/vue/ui | Native Vue components, VNode content and named slots |
 
-The root adapters' existing EntityInspector remains the selection-aware scene helper. EntityInspector from /ui is an independent presentation panel. No scene provider, renderer, router, source, timer or application store is required. See [ADR 0021](decisions/0021-generic-data-panels.md).
+The root adapters' existing EntityInspector remains the selection-aware scene helper. EntityInspector from /ui is an independent presentation panel. No scene provider, renderer, router, source, timer or application store is required.
 
 ## Public blocks
 
@@ -92,7 +92,7 @@ Pass action to make a sized card one button that opens the detail behind it: lab
 
 ## Compose a HUD
 
-Zones are host layout, not a library feature, as [ADR 0022](decisions/0022-datacenter-viewport-panels.md) requires. Short panels sit under the top edge, data panels at the bottom or side, and the scene fills the box behind them.
+Zones are host layout, not a library feature. Short panels sit under the top edge, data panels at the bottom or side, and the scene fills the box behind them.
 
 - Start with extra panels closed and open them from a button or a metric card, so the scene is visible first.
 - Position the side panel from the metric height. Sized cards have exact heights, so a CSS variable set per size is enough.
@@ -106,7 +106,7 @@ Zones are host layout, not a library feature, as [ADR 0022](decisions/0022-datac
 
 ## Zoom control
 
-ZoomControl is a standalone compact control rather than a panel: by default the datacenter viewport bar, or `plain` inside a host toolbar. It shares this package, its presentation tree and its `--panel-*` variables. Options, theming, scene binding and a live configurator are on the [Zoom control page](../apps/site/src/features/docs/zoom-control-content.ts) at /docs/zoom-control. See [ADR 0038](decisions/0038-zoom-control.md).
+ZoomControl is a standalone compact control rather than a panel: by default the datacenter viewport bar, or `plain` inside a host toolbar. It shares this package, its presentation tree and its `--panel-*` variables. Options, theming, scene binding and a live configurator are on the [Zoom control page](../apps/site/src/features/docs/zoom-control-content.ts) at /docs/zoom-control.
 
 ## Semantics and boundaries
 
@@ -140,4 +140,4 @@ Neutral samples at /examples/panels and /docs/data-panels exercise all blocks, c
 
 Implementation verification: strict TypeScript, ESLint, all 268 unit tests, the production build and both targeted panel browser tests passed. Browser verification used an isolated production preview on loopback port 3101 because an existing server already owned 3100; normal repository dev/preview commands remain on 3100. These checks do not establish a hardware performance or bundle budget.
 
-This completes the requested basic panel family, not a domain dashboard, all M2/M4 work, or C1. The next UI work should follow an actual host need. The toolkit-wide next foundation task remains [C1](ROADMAP.md#immediate-next-step).
+This is the basic panel family, not a domain dashboard. Further UI work follows actual host needs.

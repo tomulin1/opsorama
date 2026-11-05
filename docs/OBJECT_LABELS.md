@@ -1,6 +1,6 @@
 # Object surface labels
 
-Implemented October 9, 2026 as a focused M2/M4 catalog customization slice. The common palette, descriptor and general anchor API remain C1 work. See [ADR 0007](decisions/0007-object-surface-labels.md).
+Implemented October 9, 2026 as a catalog customization.
 
 `AssetNode.surfaceLabel` attaches static text or self-contained SVG to a model. The existing `label` and `labelMode` retain their projected HTML meaning and quantity disclosure. Surface artwork follows position, rotation and scale, remains visible with motion disabled, and selects the owning node. Scene `settings.labels` controls HTML labels only. Artwork introduces no records, units, commands or animation.
 

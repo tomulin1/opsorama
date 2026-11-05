@@ -1,6 +1,6 @@
 # Domain recipe: online shop and fulfilment centre
 
-Updated: October 31, 2026. Status: working local example at `/examples/ecommerce` (Domain 01); guide at `/docs/recipes/ecommerce`; decision records [ADR 0043](../decisions/0043-ecommerce-shop-and-warehouse.md), [ADR 0067](../decisions/0067-ecommerce-live-material-flow.md) and [ADR 0068](../decisions/0068-handovers-and-fork-motion.md).
+Updated: October 31, 2026. Status: working local example at `/examples/ecommerce` (Domain 01); guide at `/docs/recipes/ecommerce`.
 
 ## User and spatial meaning
 
@@ -13,7 +13,7 @@ The scene is an illustrative floor plan, not a measured building. Each process a
 | Shop floor | Shop | Five rows of gondolas in ten departments with stocked facings; browsing shoppers |
 | Checkouts | Shop | Three lanes; one figure per queued customer; closed lanes are grey |
 | Click & collect | Shop | One parcel per ready order on the counter; parcel lockers outside |
-| Receiving | Warehouse | Inbound docks D1–D2 on a sunken truck apron ([ADR 0069](../decisions/0069-vehicles-at-real-size.md)), trucks that drive in and leave, the staging lane, receiving check, forklift |
+| Receiving | Warehouse | Inbound docks D1–D2 on a sunken truck apron, trucks that drive in and leave, the staging lane, receiving check, forklift |
 | Reserve storage | Warehouse | Pallet racks R01–R14 in two rows on two aisles, one real pallet per occupied position; reach truck |
 | Forward picking | Warehouse | Flow racks F1–F4 (filled lanes) and shelves S1–S2 (occupied bins); pickers with carts; a replenisher behind the faces |
 | Sortation | Warehouse | Conveyor with riding totes, mobile robots, put walls P1–P2 (one cubby per order) |
@@ -33,7 +33,7 @@ Three scenarios cover a Monday morning peak, a Wednesday afternoon and a Sunday 
 
 ## Motion
 
-Objects really move, and a record changes when its object arrives ([ADR 0067](../decisions/0067-ecommerce-live-material-flow.md)). Pallets, totes, parcels, bags and roll cages are units in one handling state, moved by agents in one behavior runner on one movement graph with lanes per agent kind.
+Objects really move, and a record changes when its object arrives. Pallets, totes, parcels, bags and roll cages are units in one handling state, moved by agents in one behavior runner on one movement graph with lanes per agent kind.
 
 - **Inbound and put-away:** a truck reverses onto a dock, the forklift unloads it into the staging lane, and the reach truck lifts each pallet to its rack level, reaches in, sets it down and backs away.
 - **Replenishment:** when a SKU falls below its minimum, the reach truck brings a pallet from reserve to the back of its pick face, the replenisher decants it carton by carton, and the empty pallet goes back to the stack.

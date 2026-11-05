@@ -1,6 +1,6 @@
 # Experimental static instancing
 
-> **Historical record.** This experiment was superseded on October 26, 2026 by automatic instancing ([ADR 0051](decisions/0051-repeated-mesh-instancing.md)). The `staticInstancing` option, the **Static instancing** checkboxes and `instancing=static` no longer exist. Use the renderer option `instancing` (default `true`) and `/examples/performance?instancing=off` for comparisons; current results are in the [performance playground guide](PERFORMANCE_PLAYGROUND.md#instancing). The measurements below describe the October 22 build only.
+> **Historical record.** This experiment was superseded on October 26, 2026 by automatic instancing. The `staticInstancing` option, the **Static instancing** checkboxes and `instancing=static` no longer exist. Use the renderer option `instancing` (default `true`) and `/examples/performance?instancing=off` for comparisons; current results are in the [performance playground guide](PERFORMANCE_PLAYGROUND.md#instancing). The measurements below describe the October 22 build only.
 
 Implemented and measured October 22, 2026. The first opt-in slice approximately doubled completed-frame throughput in the synthetic Mega fixture while reducing main-pass draw calls by 60.3%. It batches compatible opaque parts of built-in pallets, parcels, shelves, totes and pine trees. Default rendering remains available for direct comparison.
 
@@ -65,11 +65,11 @@ At the shared API level, JavaScript passes `{ staticInstancing: true }` to `crea
 - Root transform changes update instance matrices and batch bounds before the draw. Changes that replace eligible source roots rebuild batches. Hover and selection preserve root references and avoid a rebuild. Retained proxy graphs still consume CPU memory and matrix-update work; this implementation is not a general memory-elimination layer.
 - Whole-scene batches can submit offscreen instances whenever any part of the batch is visible. Frequent geometry/state replacements rebuild all eligible batches. This experiment targets static layouts; spatial partitioning, animated-part instancing and incremental batch updates are separate follow-ups.
 
-The implementation and adopted boundary are in [ADR 0045](decisions/0045-experimental-static-instancing.md) and [static-instancing.ts](../packages/three/src/static-instancing.ts). The website documents the option in SceneCanvas and Renderer API references.
+Default instancing in [instancing.ts](../packages/three/src/instancing.ts) has replaced this experiment. The website documents the option in SceneCanvas and Renderer API references.
 
 ## Verification and evidence
 
-Typecheck, lint, all **497 unit tests** and the production build passed. [The new tests](../tests/static-instancing.test.ts) cover draw/triangle/root counts, source picking identity, bounds/anchors, state materials, transparency, rings, attached-child exclusion, world-transform updates, unchanged-matrix work, source replacement and independent/idempotent disposal.
+Typecheck, lint, all **497 unit tests** and the production build passed. The tests of the experiment (removed with it) covered draw/triangle/root counts, source picking identity, bounds/anchors, state materials, transparency, rings, attached-child exclusion, world-transform updates, unchanged-matrix work, source replacement and independent/idempotent disposal.
 
 Manual checks on `/examples/adapters` enabled instancing in each native React, Vue and JavaScript example, moved order #1001 and observed selection 1001 with exactly one canvas. A click on the actual instanced #1002 geometry selected 1002 in the JavaScript example; unmount/remount changed the canvas count from one to zero and back to one. No Playwright spec or e2e suite ran.
 

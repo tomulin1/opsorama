@@ -1,6 +1,6 @@
 # Implemented object composition
 
-Updated: October 13, 2026. This is an implemented subset of the [catalog contract](OBJECT_CATALOG.md), not the full proposed SceneGroup API.
+Updated: October 13, 2026. This is an implemented subset of the [catalog contract](CONTRIBUTING_OBJECTS.md), not the full proposed SceneGroup API.
 
 ## Contents
 
@@ -42,4 +42,4 @@ const view = createSceneRenderer(container, store, { assets: catalogAssets });
 // On teardown: view.dispose(); store.dispose();
 ```
 
-React `Asset` and native Vue `Asset` accept the same `attachment`, `contents` and `localMotion` fields. The original e-commerce recipe that demonstrated `contents` with React/Vue/JavaScript mounts was replaced in [ADR 0043](decisions/0043-ecommerce-shop-and-warehouse.md); the [new example](domains/ecommerce.md) uses `attachment` for carts, baskets and carried pallets. Source-backed update/teardown, bounded geometry, parent rebuild/removal and global motion policies require verification before extending these definitions. Complete catalog descriptors, richer generic handoffs and measured hardware performance remain outstanding.
+React `Asset` and native Vue `Asset` accept the same `attachment`, `contents` and `localMotion` fields. The original e-commerce recipe that demonstrated `contents` with React/Vue/JavaScript mounts was replaced; the [new example](domains/ecommerce.md) uses `attachment` for carts, baskets and carried pallets. Source-backed update/teardown, bounded geometry, parent rebuild/removal and global motion policies require verification before extending these definitions. Complete catalog descriptors, richer generic handoffs and measured hardware performance remain outstanding.

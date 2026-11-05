@@ -1,6 +1,6 @@
 # Opsorama brand
 
-Adopted October 28, 2026, at the user's request. The selected symbol is **Flow** (original concept 3). After comparing palettes against the documentation, the user selected **Cornflower blue** (color proposal 2). This palette supersedes the initial teal and subsequent violet treatments; the Flow silhouette stays the same.
+Adopted October 28, 2026. The symbol is **Flow** and the palette is **Cornflower blue**. This palette supersedes the initial teal and subsequent violet treatments; the Flow silhouette stays the same.
 
 ## Name and message
 
@@ -42,7 +42,7 @@ The source of truth is [`palette.json`](../apps/site/src/features/brand/palette.
 
 These are usage guides, not a guarantee that arbitrary pairs pass contrast. Website styles consume `--opsorama-*` role tokens, such as `--opsorama-text`, `--opsorama-link`, `--opsorama-surface-muted` and `--opsorama-border-control`. Roles and shades are website implementation details, not toolkit exports. Existing global `--ink`, `--muted`, `--blue`, `--line` and `--green` variables resolve to those roles.
 
-After editing the JSON, run `pnpm colors:generate` to update the committed [`palette.css`](../apps/site/src/app/palette.css). Run `pnpm check:colors` to verify generated CSS, monotonically darker intensity scales, token references, SVG color membership and the declared contrast pairs. `pnpm test` runs this check before the unit suite. The check also writes the project color inventory to `artifacts/brand/color-audit.json`. See the [color audit](COLOR_AUDIT.md) for results, boundaries and remaining context-dependent checks.
+After editing the JSON, run `pnpm colors:generate` to update the committed [`palette.css`](../apps/site/src/app/palette.css). Run `pnpm check:colors` to verify generated CSS, monotonically darker intensity scales, token references, SVG color membership and the declared contrast pairs. `pnpm test` runs this check before the unit suite. The check also writes the project color inventory to `artifacts/brand/color-audit.json`. See the color audit for results, boundaries and remaining context-dependent checks.
 
 Use the existing system sans-serif stack (`Inter`, `Segoe UI`, Arial, sans-serif) for the website. No font download is required. Keep the wordmark bold with modestly tightened spacing.
 

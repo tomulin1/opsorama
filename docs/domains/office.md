@@ -1,6 +1,6 @@
 # Domain recipe: open-plan office
 
-Updated: October 21, 2026. Status: working local example at `/examples/office` (Domain 09); guide at `/docs/recipes/office`; decision record [ADR 0046](../decisions/0046-open-office-domain-example.md).
+Updated: October 21, 2026. Status: working local example at `/examples/office` (Domain 09); guide at `/docs/recipes/office`.
 
 ## User and spatial meaning
 
@@ -41,4 +41,4 @@ The example shows assignments and coarse presence only. It draws no movement tra
 
 ## Integration boundary
 
-Replace the mock snapshots with confirmed records from the HR system, issue tracker (for example Jira or Linear), room calendar ([Microsoft 365](../INTEGRATION_CANDIDATES.md#microsoft-365-and-graph)) and desk booking tool, then call `applyOfficeSnapshot`. Assigning tickets, booking rooms and setting status stay in those systems. No connector is implemented, and FPS has not been profiled.
+Replace the mock snapshots with confirmed records from the HR system, issue tracker (for example Jira or Linear), room calendar (Microsoft 365) and desk booking tool, then call `applyOfficeSnapshot`. Assigning tickets, booking rooms and setting status stay in those systems. No connector is implemented, and FPS has not been profiled.

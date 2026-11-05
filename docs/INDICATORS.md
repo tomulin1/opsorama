@@ -1,6 +1,6 @@
 # Measured indicators
 
-Implemented October 10, 2026. Website reference: `/docs/measurements`; native example: `/examples/indicators`. [ADR 0008](decisions/0008-measured-indicators.md) records the adopted distinction between readings and counts.
+Implemented October 10, 2026. Website reference: `/docs/measurements`; native example: `/examples/indicators`. Readings and counts stay distinct.
 
 ## Shared input
 
@@ -38,7 +38,7 @@ All measured variants are static, front +z, Y-up and grounded at a base-center p
 
 The semicircle dial insets its scale above the flat cut. Needle, tick and target endpoints stay within the face at minimum/maximum readings, with marks placed close to the surface to avoid an apparent offset in the isometric view. The 180-degree sweep and source value mapping are preserved.
 
-Color customizes fill or the dial needle. Bands color a secondary scale strip/arc and determine fill color when a reading falls in a band; host state does not override measured capacity, ring or dial color. Only battery-indicator retains native charging/fault/inactive indication. Frame, track, ticks and symbols use fixed tones. Thresholds only visualize host-supplied data. Scene theme changes the environment, not an inherited material palette; C1 palette/descriptor/transformed-anchor work remains incomplete.
+Color customizes fill or the dial needle. Bands color a secondary scale strip/arc and determine fill color when a reading falls in a band; host state does not override measured capacity, ring or dial color. Only battery-indicator retains native charging/fault/inactive indication. Frame, track, ticks and symbols use fixed tones. Thresholds only visualize host-supplied data. Scene theme changes the environment, not an inherited material palette.
 
 ## Controls and lifecycle
 
@@ -65,4 +65,4 @@ Factory geometry inspection on October 10 used value 100, target 100, twelve equ
 
 All thirteen existing countable models retain finite count definitions and catalog configurators; capacity's measured mode hides its count control. Status beacon and map pin still have API state/motion semantics without numerical readings. Network-switch counts connected plugs; UPS counts installed modules; rack-server offers 1U/2U variants; cooling offers decorative fan motion. These do not accept measurement as telemetry. Structured per-port/module contents remain separate future work.
 
-Next: C1's common palette/descriptor contract. Level vessels, status panels, beacon/pin variants and structured per-item contents remain proposals, rather than part of this implemented batch.
+Level vessels, status panels, beacon/pin variants and structured per-item contents remain proposals, rather than part of this implemented batch.

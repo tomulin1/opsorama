@@ -1,6 +1,6 @@
 # Proposed architecture
 
-Status: **the target architecture, with an initial implementation now available**. Core, the Three.js renderer (`@opsorama/three`), the object catalog (`@opsorama/objects`), React, and Vue exist as private workspace packages. [ADR 0001](decisions/0001-shared-renderer.md) records the implemented subset; the broader packages and contracts below remain proposals. Validation begins in M1 of the [roadmap](ROADMAP.md). The `@opsorama/*` names identify the private local Opsorama workspace packages. Proposed packages below remain proposals; npm scope ownership and publication are unverified.
+Status: **the target architecture, with an initial implementation now available**. Core, the Three.js renderer (`@opsorama/three`), the object catalog (`@opsorama/objects`), React, and Vue exist as private workspace packages. The broader packages and contracts below remain proposals. See the [roadmap](ROADMAP.md) for what is implemented and planned. The `@opsorama/*` names identify the private local Opsorama workspace packages. Proposed packages below remain proposals; npm scope ownership and publication are unverified.
 
 ## Layer boundaries
 
@@ -26,11 +26,11 @@ Core uses plain TypeScript and a small subscription interface. Hosts can use Zus
 
 ### 2. Shared renderer
 
-Implemented camera interaction now includes primary-mouse drag panning on the canvas, with a 5-pixel click/drag threshold, pointer capture and explicit cleanup. It preserves domain positions and selection; framing/overview return to their targets. [ADR 0003](decisions/0003-camera-drag-panning.md) records the input and lifecycle behavior. HTML labels/controls remain separate click targets; touch dragging and camera rotation remain outside this slice.
+Implemented camera interaction now includes primary-mouse drag panning on the canvas, with a 5-pixel click/drag threshold, pointer capture and explicit cleanup. It preserves domain positions and selection; framing/overview return to their targets. HTML labels/controls remain separate click targets; touch dragging and camera rotation remain outside this slice.
 
 The Three.js renderer owns the canvas, camera, raycasting, highlighting, renderable asset registry, and frame loop. Renderable objects and asset factories are not React components. In the standard integration, React and Vue register and update nodes in the same renderer.
 
-The renderer instances repeated identical meshes of different nodes automatically. Original meshes remain hidden picking/bounds/anchor proxies, while batches own independent geometry/material clones and instance buffers. The core contract is unchanged, and native JavaScript/React/Vue share one mount-time `instancing` option (default `true`) for comparisons and debugging. Eligibility, lifecycle and measurements are in [ADR 0051](decisions/0051-repeated-mesh-instancing.md), which superseded the opt-in experiment of [ADR 0045](decisions/0045-experimental-static-instancing.md).
+The renderer instances repeated identical meshes of different nodes automatically. Original meshes remain hidden picking/bounds/anchor proxies, while batches own independent geometry/material clones and instance buffers. The core contract is unchanged, and native JavaScript/React/Vue share one mount-time `instancing` option (default `true`) for comparisons and debugging. It replaced an earlier opt-in experiment, described in [static instancing](STATIC_INSTANCING.md).
 
 Native Three.js is the proposed choice for a shared rendering foundation, rather than the only possible approach. Three.js provides a scene, camera, and renderer independently of a frontend framework. [Official introduction](https://threejs.org/manual/pages/creating-a-scene.html).
 
@@ -46,7 +46,7 @@ Vue must not host a hidden React application. Web Components support would be an
 
 HTML UI is optional. The toolkit provides selection, marker projection, and relevant data; hosts can supply their own inspectors, KPIs, dialogs, and tables. Prebuilt UI must not require Tailwind, shadcn, or a particular design system.
 
-The optional generic panel family is now implemented in `@opsorama/ui`, with separate `/dom` and stylesheet exports plus native `@opsorama/react/ui` and `@opsorama/vue/ui` entry points. Shared typed presentation builders contain no framework/DOM/scene dependency. Panels accept host-controlled values, content, statuses and callbacks; layout, data sources and business semantics stay with the host. Existing root scene-selection inspectors remain compatible. See [the panel contract](DATA_PANELS.md) and [ADR 0021](decisions/0021-generic-data-panels.md).
+The optional generic panel family is now implemented in `@opsorama/ui`, with separate `/dom` and stylesheet exports plus native `@opsorama/react/ui` and `@opsorama/vue/ui` entry points. Shared typed presentation builders contain no framework/DOM/scene dependency. Panels accept host-controlled values, content, statuses and callbacks; layout, data sources and business semantics stay with the host. Existing root scene-selection inspectors remain compatible. See [the panel contract](DATA_PANELS.md).
 
 Domain models are opt-in. Warehouse assets belong in the warehouse package; generic zones, objects, paths, and states belong in shared layers. A recipe combining buildings, vehicles, and shipment UI does not change the core domain model.
 
@@ -65,31 +65,25 @@ Motion starts as a small renderer module; generic data sources start as core con
 
 ```text
 apps/
-  docs/                     # catalog and live examples for both frameworks
-  logistics-*/              # implemented shared object fixture; warehouse prototype retired
+  site/                     # documentation website, object browser and domain examples (private, never published)
 packages/
-  core/
-  three/
-  objects/
-  react/
-  vue/
-  ui/
-examples/
-  vanilla-minimal/
-  react-minimal/
-  vue-minimal/
-  custom-data/
-  custom-motion/
-  custom-asset/
-docs/
-  decisions/
+  core/                     # @opsorama/core
+  three/                    # @opsorama/three
+  objects/                  # @opsorama/objects (kits under src/kits/)
+  ui/                       # @opsorama/ui
+  react/                    # @opsorama/react
+  vue/                      # @opsorama/vue
+examples/                   # standalone starters: vanilla, vite-react, vite-vue, next
+tests/                      # workspace-wide unit tests
+scripts/                    # build, package, bundle and boundary checks
+docs/                       # architecture, guides and domain notes
 ```
 
-This is the target structure. Existing `apps/site/src/` files remain functional during migration; the first four toolkit packages and minimal examples now exist. Do not create a full tree of empty packages in advance.
+Do not create empty packages in advance; a new package needs a concrete, independently useful responsibility.
 
 ## Model-native status and explicit operation
 
-[ADR 0055](decisions/0055-model-native-status.md) and its [small-light refinement](decisions/0056-remove-small-status-lights.md) narrow native status to the eight device/indicator keys in renderer `assetVisualStates`. Other models remain neutral while host alert metadata, quantity aggregation and label priority remain available. `heatEnabled` (heated-pass, espresso-machine, pizza-oven), `waterRunning` (deck-shower), `fillLevel` (trough, 0–1), `display.running` and `localMotion` express physical appearance independently. These shared typed node props pass through JavaScript, React and native Vue. Domain recipes compose separate alert markers and HTML UI rather than adding business status parts to generic geometry.
+Native status is limited to the eight device/indicator keys in renderer `assetVisualStates`. Other models remain neutral while host alert metadata, quantity aggregation and label priority remain available. `heatEnabled` (heated-pass, espresso-machine, pizza-oven), `waterRunning` (deck-shower), `fillLevel` (trough, 0–1), `display.running` and `localMotion` express physical appearance independently. These shared typed node props pass through JavaScript, React and native Vue. Domain recipes compose separate alert markers and HTML UI rather than adding business status parts to generic geometry.
 
 ## Model and identity
 
@@ -105,40 +99,40 @@ Scenes initially use metric units, Y-up coordinates, and radians for rotations. 
 
 ## Commerce campus composition
 
-The commerce recipe now binds its visual records to six shared building containers using local parentId transforms, with independent attached carts/payloads. Its translation-only fixture adapter supplies world navigation slots; this is recipe code rather than a new core transform API. A compatible front cutaway and optional renderer fitted framing support inspectable interiors. Controlled presentation preferences and expanded-map UI remain outside business records and the core. See [ADR 0018](decisions/0018-commerce-building-campus.md).
+The commerce recipe now binds its visual records to six shared building containers using local parentId transforms, with independent attached carts/payloads. Its translation-only fixture adapter supplies world navigation slots; this is recipe code rather than a new core transform API. A compatible front cutaway and optional renderer fitted framing support inspectable interiors. Controlled presentation preferences and expanded-map UI remain outside business records and the core.
 
 ## Object catalog foundation
 
-Current status (October 29): all 161 registered assets have checked descriptors; [ADR 0057](decisions/0057-complete-catalog-descriptors.md) supersedes the earlier migration limits in this section. `model-origin` explicitly preserves asymmetric/elevated placement, and `colorRole` can name several roles for legacy multi-part colors. Geometry snapshots and named anchors are declarative data; importing descriptors does not build models. Instance roles override legacy color, with fixed decoration disclosed. Hardware lifecycle profiling and C4 reuse evidence remain incomplete.
+Current status (October 29): all 161 registered assets have checked descriptors; the earlier migration limits in this section no longer apply. `model-origin` explicitly preserves asymmetric/elevated placement, and `colorRole` can name several roles for legacy multi-part colors. Geometry snapshots and named anchors are declarative data; importing descriptors does not build models. Instance roles override legacy color, with fixed decoration disclosed. Hardware lifecycle profiling remains incomplete.
 
-The commerce composition slice adds core `ContainerContents` and `Attachment`, static open/closed cartons, worker/cart coupling, a three-model `describeComposition` descriptor and world anchor queries through `SceneRenderer.getAnchor`. Children retain independent resources/identities; business transitions remain host/recipe-owned. The original recipe ran it through native React, Vue and JavaScript; it was replaced by a single-adapter domain example ([ADR 0043](decisions/0043-ecommerce-shop-and-warehouse.md)). This is a C1/M2/M3/M4 subset; see [ADR 0017](decisions/0017-commerce-composition.md). Hardware profiling remains incomplete.
+The commerce composition slice adds core `ContainerContents` and `Attachment`, static open/closed cartons, worker/cart coupling, a three-model `describeComposition` descriptor and world anchor queries through `SceneRenderer.getAnchor`. Children retain independent resources/identities; business transitions remain host/recipe-owned. The original recipe ran it through native React, Vue and JavaScript; it was replaced by a single-adapter domain example. Hardware profiling remains incomplete.
 
-The display/time subset adds immutable `AssetNode.display` / native adapter inputs, kept separate from quantities, measured gauges and artwork. Monitor/board screens reuse the existing `surfaceLabel` decoder; clocks/timers advance optional relative visual time through the shared renderer clock without owning a scheduler, system clock or source records. All seven definitions have checked descriptors, inherited semantic palette roles, partial instance materials, local anchors/bounds and owned-resource teardown. [ADR 0014](decisions/0014-displays-and-time-readings.md) records the original boundary; `SceneRenderer.getAnchor` resolves transformed anchors.
+The display/time subset adds immutable `AssetNode.display` / native adapter inputs, kept separate from quantities, measured gauges and artwork. Monitor/board screens reuse the existing `surfaceLabel` decoder; clocks/timers advance optional relative visual time through the shared renderer clock without owning a scheduler, system clock or source records. All seven definitions have checked descriptors, inherited semantic palette roles, partial instance materials, local anchors/bounds and owned-resource teardown. `SceneRenderer.getAnchor` resolves transformed anchors.
 
-The laboratory slice adds MaterialOverrides to SceneSettings.palette and AssetNode.materials. Core validates and snapshots maps; renderer passes scene roles to factories. Laboratory models resolve theme -> scene -> compatibility color -> instance overrides and rebuild inherited colors on palette changes. Checked descriptors now cover laboratory and legacy models; nested laboratory anchors have unique namespaces. See [ADR 0013](decisions/0013-laboratory-devops-kit.md) and [ADR 0057](decisions/0057-complete-catalog-descriptors.md).
+The laboratory slice adds MaterialOverrides to SceneSettings.palette and AssetNode.materials. Core validates and snapshots maps; renderer passes scene roles to factories. Laboratory models resolve theme -> scene -> compatibility color -> instance overrides and rebuild inherited colors on palette changes. Checked descriptors now cover laboratory and legacy models; nested laboratory anchors have unique namespaces.
 
 
-The building container slice is implemented in [ADR 0011](decisions/0011-building-containers.md). `AssetNode.building` controls a neutral shell and static cutaway; `SceneNode.parentId` uses building-local transforms. Closed or unresolved interiors are excluded before asset factories run. The optional core `bindBuildingInterior` loads host-mapped children on opening, cancels pending work and caches data separately from disposable render resources. The scene's light/midnight theme supplies building wall/roof/floor/trim roles with partial instance overrides. Native JS/React/Vue examples run at `/examples/buildings`; the implemented reference is `/docs/buildings`. General SceneGroup remains planned.
+The building container is implemented. `AssetNode.building` controls a neutral shell and static cutaway; `SceneNode.parentId` uses building-local transforms. Closed or unresolved interiors are excluded before asset factories run. The optional core `bindBuildingInterior` loads host-mapped children on opening, cancels pending work and caches data separately from disposable render resources. The scene's light/midnight theme supplies building wall/roof/floor/trim roles with partial instance overrides. Native JS/React/Vue examples run at `/examples/buildings`; the implemented reference is `/docs/buildings`. General SceneGroup remains planned.
 
-Adopted direction: prioritize reusable definitions before further recipe-specific geometry. [ADR 0004](decisions/0004-object-catalog-first.md) and the [object catalog plan](OBJECT_CATALOG.md) define the inventory and acceptance criteria. The runtime contract began with the parcel ([ADR 0031](decisions/0031-common-object-contract.md)): core `ObjectDescriptor` data, renderer-side `checkAssetDescriptor` verification against the built model, and catalog pages rendered from the descriptor. Every registered asset now has a passing descriptor; new entries must do the same.
+Adopted direction: prioritize reusable definitions before further recipe-specific geometry. The [object contribution guide](CONTRIBUTING_OBJECTS.md) defines what a complete catalog object needs. The runtime contract began with the parcel: core `ObjectDescriptor` data, renderer-side `checkAssetDescriptor` verification against the built model, and catalog pages rendered from the descriptor. Every registered asset now has a passing descriptor; new entries must do the same.
 
 Core should hold plain typed descriptors, semantic palette references, capabilities and node configuration. Three.js factories, materials, picking, resolved anchors and animation execution belong in the renderer or optional asset modules. React/Vue consume the same definitions. Keep domain mapping, host commands and optional behavior bindings outside geometry; palette inheritance does not require class inheritance.
 
 Every asset declares its supported scene palette roles, fixed decoration, instance overrides, useful static appearance and interaction bounds/anchors. Global motion-off and reduced motion gate local animation. Legacy `color` mappings are explicit; primary parts of older models now inherit scene roles while listed decorative tones remain fixed. Primitive palette support and extracting separate asset packages remain future work.
 
-The catalog presentation is separate from the runtime descriptor. `/docs/objects` uses static thumbnails and one shared-renderer detail preview, with descriptor tables and resource teardown; see [ADR 0005](decisions/0005-documentation-object-catalog.md). Its searchable inventory metadata is not a new core schema or asset package.
+The catalog presentation is separate from the runtime descriptor. `/docs/objects` uses static thumbnails and one shared-renderer detail preview, with descriptor tables and resource teardown. Its searchable inventory metadata is not a new core schema or asset package.
 
 ## Quantity and representation
 
-The primary quantity presentation now uses model-specific finite counts and disclosed symbolic multipliers. Core owns generic AssetCountDefinition/CountRepresentation validation and optional AssetNode.count/multiplier fields. Renderer-three owns concrete count definitions and geometry; React/Vue/JavaScript pass the same inputs. Count changes shape while the multiplier changes its interpretation. [ADR 0006](decisions/0006-bounded-object-counts.md) and the [bounded count design](QUANTITY_SCALING.md) record the implemented slice.
+The primary quantity presentation now uses model-specific finite counts and disclosed symbolic multipliers. Core owns generic AssetCountDefinition/CountRepresentation validation and optional AssetNode.count/multiplier fields. Renderer-three owns concrete count definitions and geometry; React/Vue/JavaScript pass the same inputs. Count changes shape while the multiplier changes its interpretation. The [bounded count design](QUANTITY_SCALING.md) describes the implementation.
 
 Source records, actual totals, unit of measure, identities and the calculation of symbolic scale/multipliers remain host-owned. A counted composition selects one node; visible parts never imply physical identities. Invalid ranges, discrete variants, fractional values and overflow are rejected.
 
-The former exact unit API (QuantityLayer, [ADR 0002](decisions/0002-quantity-layer.md)) was removed by [ADR 0076](decisions/0076-remove-exact-unit-api.md). Hosts that need unit identity map each unit to its own node with an `entityId` and page large sets in their own code.
+The former exact unit API (QuantityLayer) was removed. Hosts that need unit identity map each unit to its own node with an `entityId` and page large sets in their own code.
 
 ## Data sources and updates
 
-Measured indicators now use a separate optional `AssetNode.measurement` input for exact decimal readings, ranges, units, targets and threshold bands. Core validates and snapshots it; the renderer owns gauge geometry and automatic reading labels; native React/Vue pass the same typed input. Counts, multipliers and QuantityTargets cannot be combined with a measurement. [ADR 0008](decisions/0008-measured-indicators.md) and the [indicator reference](INDICATORS.md) record this implemented slice. It does not establish the broader C1 palette/descriptor contract.
+Measured indicators now use a separate optional `AssetNode.measurement` input for exact decimal readings, ranges, units, targets and threshold bands. Core validates and snapshots it; the renderer owns gauge geometry and automatic reading labels; native React/Vue pass the same typed input. Counts, multipliers and QuantityTargets cannot be combined with a measurement. The [indicator reference](INDICATORS.md) records this implemented slice.
 
 Proposed contract, not an existing API:
 
@@ -166,7 +160,7 @@ interface DataSource<T> {
 }
 ```
 
-Each source defines revision meaning and ordering; a timestamp alone does not guarantee order. `afterRevision` must connect the snapshot to subsequent changes. If the upstream system has no replay/cursor, the adapter begins buffering before loading the snapshot and resynchronizes after reconnecting. Document and test both strategies in M3.
+Each source defines revision meaning and ordering; a timestamp alone does not guarantee order. `afterRevision` must connect the snapshot to subsequent changes. If the upstream system has no replay/cursor, the adapter begins buffering before loading the snapshot and resynchronizes after reconnecting. Both strategies still need documentation and tests.
 
 The `entity → node` mapper determines the model, position, state, and path binding. The API does not require every business change to arrive over WebSocket; smaller applications can provide props or periodic HTTP updates.
 
@@ -182,22 +176,22 @@ Core does not implement permissions or a backend. Mapping UI commands to WMS, co
 
 Basic behaviors include transform interpolation, following a path, stopping at a node, waiting in a queue, and visual state transitions. A new target supports interruption, replacement, or queuing; document the default policy in the API.
 
-**Implemented movement slice ([ADR 0009](decisions/0009-rule-based-movement.md)):** movement is split into four layers:
+**Implemented movement slice:** movement is split into four layers:
 
 1. **Movement graph (implemented):** points and edges with lanes, one-way travel, agent/lane allow lists, speed limits and optional capacities. Core plans the cheapest permitted route and checks routes supplied by the host.
-2. **Interaction slots on catalog objects (implemented, [ADR 0012](decisions/0012-interaction-slots-and-behaviors.md)):** approach point, interaction position, heading and pose. One agent per slot; slot groups express capacity.
+2. **Interaction slots on catalog objects (implemented):** approach point, interaction position, heading and pose. One agent per slot; slot groups express capacity.
 3. **Behaviors and reservations (implemented):** a seeded, event-ordered runner for move/interact/wait steps, with slot reservations, first-come queues at queue points, typed blocking and host reassignment. A debug overlay draws the graph, slot occupancy and routes. Custom per-frame controllers are implemented (see motion controllers below); visual interaction effects remain planned.
 4. **Route following (implemented):** `AssetNode.route` carries points, speeds, timed stops, loops and an end heading.
 
-**Motion profiles and goals (implemented, [ADR 0027](decisions/0027-motion-profiles-and-goal-commands.md)):** each agent kind declares acceleration, turn rate, a turn-in-place threshold and a corner speed in its graph rule. The profile travels with the route, so simulation and visual timing stay identical. `assetMotionProfiles` provides catalog defaults for mobile models. Behaviors accept goals: a point, the nearest point to a world position, or an object's slots. They pick the nearest free slot, accept optional `via` points and report typed events. `runner.command` assigns a goal, so hosts state where to go and what to use rather than scripting each step. Steered vehicles round corners with `cornerRadius`; the arc is a path shape only, so timing stays on the polyline ([ADR 0039](decisions/0039-movement-follow-ups.md)).
+**Motion profiles and goals (implemented):** each agent kind declares acceleration, turn rate, a turn-in-place threshold and a corner speed in its graph rule. The profile travels with the route, so simulation and visual timing stay identical. `assetMotionProfiles` provides catalog defaults for mobile models. Behaviors accept goals: a point, the nearest point to a world position, or an object's slots. They pick the nearest free slot, accept optional `via` points and report typed events. `runner.command` assigns a goal, so hosts state where to go and what to use rather than scripting each step. Steered vehicles round corners with `cornerRadius`; the arc is a path shape only, so timing stays on the polyline.
 
-**Carried items (implemented, [ADR 0029](decisions/0029-carried-items.md); checked through handling state with the runner's `handling` option, [ADR 0061](decisions/0061-agents-with-handling-state.md)):** agents with a carry rule pick items up and put them down when an interaction ends. The runner tracks only where each host-owned item is: held at an agent anchor, resting on an object anchor, or in the world. `itemNode` maps placements onto attachments, so every adapter renders them without new runtime code. Host item rules (`onItemEvent`) run at simulation time. `CarryRule.handOverSeconds` exchanges items before an interaction ends, and the renderer animates the change of parent for nodes with an `AssetNode.transfer`; `CarryRule.reach` limits pick-ups by item ID ([ADR 0039](decisions/0039-movement-follow-ups.md)).
+**Carried items (implemented; checked through handling state with the runner's `handling` option):** agents with a carry rule pick items up and put them down when an interaction ends. The runner tracks only where each host-owned item is: held at an agent anchor, resting on an object anchor, or in the world. `itemNode` maps placements onto attachments, so every adapter renders them without new runtime code. Host item rules (`onItemEvent`) run at simulation time. `CarryRule.handOverSeconds` exchanges items before an interaction ends, and the renderer animates the change of parent for nodes with an `AssetNode.transfer`; `CarryRule.reach` limits pick-ups by item ID.
 
-**Capacity and yielding (implemented, [ADR 0028](decisions/0028-capacity-and-corridor-yielding.md)):** points, edges and lanes may limit how many agents they hold at once. The behavior runner converts each planned trip into time-windowed holds on limited points and edges. An agent whose way is held waits where it stands, or detours when that arrives sooner. Holds are claimed in request order, so access is first come, first served. Waits are scheduled runner events rather than renderer pauses, so simulation and visual timing stay identical for any tick size. Unlimited points remain open junctions. There is no physics or steering. Agents that must swap two limited points are reported as deadlocked (`AgentState.deadlock`, `deadlock` event) and wait until the host reassigns one; `runner.getHolds()` and `navGraphOverlay` show the holds ([ADR 0039](decisions/0039-movement-follow-ups.md)). A wait behind an agent that finished, is idle or is blocked is reported as stalled (`AgentState.stalled`, `stalled` event) ([ADR 0053](decisions/0053-movement-review-fixes.md)).
+**Capacity and yielding (implemented):** points, edges and lanes may limit how many agents they hold at once. The behavior runner converts each planned trip into time-windowed holds on limited points and edges. An agent whose way is held waits where it stands, or detours when that arrives sooner. Holds are claimed in request order, so access is first come, first served. Waits are scheduled runner events rather than renderer pauses, so simulation and visual timing stay identical for any tick size. Unlimited points remain open junctions. There is no physics or steering. Agents that must swap two limited points are reported as deadlocked (`AgentState.deadlock`, `deadlock` event) and wait until the host reassigns one; `runner.getHolds()` and `navGraphOverlay` show the holds. A wait behind an agent that finished, is idle or is blocked is reported as stalled (`AgentState.stalled`, `stalled` event).
 
-While a node has a route, the follower owns its root position and heading. Local animators only pose the model, using `locomotion.moving`. Replacement uses the **join** policy: the agent continues to the first upcoming point shared with the new route, so it never leaves permitted lanes or jumps; routes with no shared point are bridged directly. The behavior runner plans a host command during travel from the same join (`routeJoin`, `joinRoutes`), so its holds and arrival times match the visuals ([ADR 0053](decisions/0053-movement-review-fixes.md)). Motion-off and reduced motion take precedence over pause and show the confirmed end of a one-way route. A newly mounted renderer starts a route at its `NodeRoute.elapsed`, which the host derives from its own clock (for behavior agents, `behaviorNode(state, base, { time })`). Business rules stay in the host; the graph expresses only spatial/visual policy.
+While a node has a route, the follower owns its root position and heading. Local animators only pose the model, using `locomotion.moving`. Replacement uses the **join** policy: the agent continues to the first upcoming point shared with the new route, so it never leaves permitted lanes or jumps; routes with no shared point are bridged directly. The behavior runner plans a host command during travel from the same join (`routeJoin`, `joinRoutes`), so its holds and arrival times match the visuals. Motion-off and reduced motion take precedence over pause and show the confirmed end of a one-way route. A newly mounted renderer starts a route at its `NodeRoute.elapsed`, which the host derives from its own clock (for behavior agents, `behaviorNode(state, base, { time })`). Business rules stay in the host; the graph expresses only spatial/visual policy.
 
-**Motion controllers (implemented, [ADR 0030](decisions/0030-motion-controllers.md)):** `AssetNode.controller` names a controller kind with JSON options. The renderer resolves the kind in `basicControllers` (`approach`, `follow`) plus the host's registry.
+**Motion controllers (implemented):** `AssetNode.controller` names a controller kind with JSON options. The renderer resolves the kind in `basicControllers` (`approach`, `follow`) plus the host's registry.
 - Each visual frame, a controller receives the delta, the node's pose and a context: the latest node and other nodes' poses. It returns a root pose; it needs neither React rendering nor Vue reactivity.
 - Lifecycle: the factory starts it, `update` runs on animated frames, `settle` runs while motion is off or reduced, and `cancel(reason)` runs once when the spec changes, the node is removed or the renderer is disposed.
 - A controller and a route are exclusive owners of the root transform.
@@ -211,16 +205,16 @@ Asset factories can return custom `THREE.Object3D` instances. The public rendere
 - One renderer and frame loop per scene; pause unnecessary work while its tab or panel is hidden.
 - DOM mounts, resize observers, listeners, subscriptions, and GPU resources have explicit owners and cleanup.
 - Share or instance repeated objects; removing one object must not dispose a shared material.
-- Apply one shared shadow policy in the renderer instead of per model: narrow or contained details do not cast, and indoor nodes (inside a building container or on a declared `interior` area) neither cast nor receive. See [ADR 0049](decisions/0049-shadow-casting-policy.md).
-- Merge each built node's static parts in the renderer instead of per model: meshes that differ only in base color merge into one mesh per material and shadow-flag group, with the color in vertex colors. Animators declare the parts they change with `setAssetAnimator(object, animator, animatedParts)`; those parts stay separate and merge their own static children. `keepPartsSeparate` opts other parts out. See [ADR 0050](decisions/0050-static-part-merging.md).
-- Instance repeated meshes across nodes in the renderer: at least `INSTANCING_MIN_COUNT` (4) meshes with byte-identical geometry and a material that differs only in base color draw as one `InstancedMesh`, with the color as instance color. The originals stay as hidden proxies for picking, anchors and bounds, and the frame loop copies their world matrices and visibility into the batch. Declared animated meshes, `keepPartsSeparate` parts, transparent and mirrored parts are never instanced. Batches own cloned geometry and material, so removing a node never disposes a shared resource. See [ADR 0051](decisions/0051-repeated-mesh-instancing.md).
-- Bound rendered units, aggregate nodes and labels through bounded model counts and host-side paging ([ADR 0076](decisions/0076-remove-exact-unit-api.md)). Measure costs and keep exact totals and warnings accessible at every detail level.
+- Apply one shared shadow policy in the renderer instead of per model: narrow or contained details do not cast, and indoor nodes (inside a building container or on a declared `interior` area) neither cast nor receive.
+- Merge each built node's static parts in the renderer instead of per model: meshes that differ only in base color merge into one mesh per material and shadow-flag group, with the color in vertex colors. Animators declare the parts they change with `setAssetAnimator(object, animator, animatedParts)`; those parts stay separate and merge their own static children. `keepPartsSeparate` opts other parts out.
+- Instance repeated meshes across nodes in the renderer: at least `INSTANCING_MIN_COUNT` (4) meshes with byte-identical geometry and a material that differs only in base color draw as one `InstancedMesh`, with the color as instance color. The originals stay as hidden proxies for picking, anchors and bounds, and the frame loop copies their world matrices and visibility into the batch. Declared animated meshes, `keepPartsSeparate` parts, transparent and mirrored parts are never instanced. Batches own cloned geometry and material, so removing a node never disposes a shared resource.
+- Bound rendered units, aggregate nodes and labels through bounded model counts and host-side paging. Measure costs and keep exact totals and warnings accessible at every detail level.
 - Avoid business-state updates and unnecessary framework renders at 60 Hz.
 - Support embedding inside a panel as well as a full-screen layout.
 - Initialize rendering on the client during SSR; importing core must not require `window` or `document`.
 - Use scoped CSS and CSS variables instead of global resets. The host controls size, fonts, and overlay layout.
 - Provide an HTML state overview and recovery when WebGL is unavailable or its context is lost.
-- Verify React StrictMode mount/unmount and Vue unmount during M1/M2.
+- Verify React StrictMode mount/unmount and Vue unmount.
 
 ## Package builds
 
