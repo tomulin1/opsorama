@@ -140,10 +140,10 @@ pnpm check:bundles
 pnpm smoke:starters
 ```
 
-End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`. Contribution rules for people and AI agents are in [AGENTS.md](AGENTS.md); catalog objects follow [the object guide](docs/CONTRIBUTING_OBJECTS.md).
+End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [AGENTS.md](AGENTS.md) for the rules every contributor and AI agent follows, and [the object guide](docs/CONTRIBUTING_OBJECTS.md) for catalog objects. Security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE), copyright 2026 Tomas Jirsa. This covers the source code, procedural models, documentation and supplied SVG assets unless identified otherwise; third-party material keeps its own license. A "Powered by Opsorama" credit is welcome but optional.
+[MIT](LICENSE), copyright 2026 Tomas Jirsa. This covers the source code, procedural models, documentation and supplied SVG assets unless identified otherwise; third-party material keeps its own license; see [third-party notices](THIRD_PARTY_NOTICES.md). A "Powered by Opsorama" credit is welcome but optional.
 
 Contact: [contact@opsorama.dev](mailto:contact@opsorama.dev) · [GitHub](https://github.com/tomulin1/opsorama)

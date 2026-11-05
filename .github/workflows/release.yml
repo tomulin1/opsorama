@@ -1,0 +1,41 @@
+# Changesets release flow. On main, pending changesets open or update a "Version packages" pull request; merging it publishes
+# the bumped packages to npm with provenance. Packages stay "private": true until the first release, so publishing skips them
+# until then. Publishing uses npm trusted publishing (OIDC, id-token: write); configure the trusted publisher for each package on npm.
+# Disabled until the repository variable RELEASE_ENABLED is set to true (Settings → Secrets and variables → Actions → Variables).
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'tomulin1/opsorama' && vars.RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          title: Version packages
+          commit: Version packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'

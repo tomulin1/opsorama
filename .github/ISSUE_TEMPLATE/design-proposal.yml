@@ -1,0 +1,32 @@
+name: Design proposal
+description: Propose a public API or architecture change before implementing it.
+labels: [design]
+body:
+  - type: markdown
+    attributes:
+      value: Design proposals are discussed here; the maintainers decide and record the adopted outcome in the public documentation. Read docs/ARCHITECTURE.md and AGENTS.md first.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The problem, who has it and why the current API does not solve it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Types, functions, options and their defaults, lifecycle and limits. Show usage for JavaScript, React and Vue.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries and compatibility
+      description: Which package owns it (core, three, objects, ui, adapters), what stays host-owned, and what breaks for existing users.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

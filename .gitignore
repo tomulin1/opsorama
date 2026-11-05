@@ -63,3 +63,6 @@ AGENTS.local.md
 
 # Temporary output of tests/readme-snippets.test.ts
 tests/.readme-snippets/
+
+# Static export of the website (pnpm build:static)
+apps/site/out/

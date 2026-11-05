@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
+  "packageManager": "pnpm@11.23.0",
+  "engines": {
+    "node": ">=22"
+  },
   "description": "Workspace root of the Opsorama toolkit: packages in packages/*, the website in apps/site, workspace-wide unit tests in tests/.",
   "scripts": {
     "dev": "pnpm --filter @opsorama/site dev",
@@ -10,6 +14,7 @@
     "check:packages": "node scripts/check-packages.mjs",
     "smoke:starters": "node scripts/smoke-starters.mjs",
     "build": "pnpm --filter @opsorama/site build",
+    "build:static": "pnpm --filter @opsorama/site build:static",
     "start": "pnpm --filter @opsorama/site start",
     "colors:generate": "pnpm --filter @opsorama/site colors:generate",
     "check:colors": "pnpm --filter @opsorama/site check:colors",
@@ -21,7 +26,8 @@
     "test": "pnpm check:colors && pnpm check:boundary && vitest run",
     "test:e2e": "pnpm --filter @opsorama/site test:e2e",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "release": "pnpm build:packages && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "2.29.4",

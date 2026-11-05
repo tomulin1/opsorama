@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in a package, starter or the documentation does not work as documented.
+labels: [bug]
+body:
+  - type: input
+    id: packages
+    attributes:
+      label: Packages and versions
+      description: For example `@opsorama/react 0.1.0, @opsorama/objects 0.1.0`, or a commit of this repository.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and version, operating system, framework (React, Vue, Next.js, plain JavaScript) and bundler.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest scene and code that shows the problem. A starter from `examples/` with your change is ideal.
+      render: tsx
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+      description: What you expected, what happened instead, and any console errors.
+    validations:
+      required: true

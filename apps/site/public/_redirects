@@ -1,0 +1,2 @@
+# Cloudflare redirects for the static export; keep in sync with redirects() in next.config.ts.
+/docs/brand /brand 301

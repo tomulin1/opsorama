@@ -1,0 +1,38 @@
+name: Object request
+description: Propose a new catalog object or a new option for an existing one.
+labels: [object]
+body:
+  - type: markdown
+    attributes:
+      value: Catalog objects follow the contract in docs/CONTRIBUTING_OBJECTS.md. Describe the object; the maintainers decide the kit and options.
+  - type: input
+    id: name
+    attributes:
+      label: Object
+      description: What it is, for example "dock leveler" or "a lift-up variant of the parcel locker".
+    validations:
+      required: true
+  - type: dropdown
+    id: kit
+    attributes:
+      label: Kit it belongs to
+      options: [datacenter, displays, buildings, indicators, work-items, people, furniture, equipment, office, retail, fulfillment, vehicles, environment, surfaces, energy, events, restaurant, aquatics, animals, farm, laboratory, new kit, not sure]
+    validations:
+      required: true
+  - type: textarea
+    id: use
+    attributes:
+      label: Dashboard use
+      description: Which dashboard needs it, what it represents and which record it links to.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Options, states, counts and anchors
+      description: Sizes or variants, visual states, a count range if countable, anchors where other objects attach, and whether it needs local animation.
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Photos or drawings with real dimensions. Only attach material you may share.

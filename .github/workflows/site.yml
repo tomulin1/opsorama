@@ -1,0 +1,40 @@
+# Deploys the static documentation website to Cloudflare Pages: main to production (opsorama.dev), pull requests to preview URLs.
+# Requires repository secrets CLOUDFLARE_API_TOKEN (Pages edit permission) and CLOUDFLARE_ACCOUNT_ID, and a Pages project named "opsorama".
+# Pull requests from forks have no access to the secrets and skip the deployment.
+# Disabled until the repository variable SITE_DEPLOY_ENABLED is set to true.
+name: Site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.repository == 'tomulin1/opsorama' && vars.SITE_DEPLOY_ENABLED == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:static
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/site/out --project-name=opsorama --branch=${{ github.head_ref || github.ref_name }}

@@ -1,0 +1,48 @@
+name: Domain example
+description: Propose a full-viewport example of a real operational space (facility, site, floor or process).
+labels: [domain-example]
+body:
+  - type: markdown
+    attributes:
+      value: Domain examples are compositions in the website; they use catalog objects and the floating HUD pattern described in AGENTS.md. Fill in what you know; unknowns are fine.
+  - type: textarea
+    id: user
+    attributes:
+      label: User, task and decision
+      description: Who uses the dashboard, their concrete task and the decision it helps them make.
+    validations:
+      required: true
+  - type: textarea
+    id: space
+    attributes:
+      label: Space and movement
+      description: What zones, positions, distances and movement mean; the physical or process map.
+    validations:
+      required: true
+  - type: textarea
+    id: entities
+    attributes:
+      label: Entities and states
+      description: Entities, identifiers, relationships, states and lifecycle. What is counted (for example boxes versus orders), exact totals and exceptions.
+    validations:
+      required: true
+  - type: textarea
+    id: objects
+    attributes:
+      label: Objects
+      description: Existing catalog objects to reuse and any genuinely new objects (open an object request for each).
+  - type: textarea
+    id: interaction
+    attributes:
+      label: Interaction
+      description: Selection, detail, action and confirmed data update. Which panels and metrics the HUD shows.
+  - type: textarea
+    id: data
+    attributes:
+      label: Mock data and sources
+      description: A repeatable mock dataset with normal and incident scenarios; candidate real sources, fields and update frequency.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for the example to be done, including the fallback when data is missing or disconnected.

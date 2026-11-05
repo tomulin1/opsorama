@@ -11,14 +11,13 @@ Opsorama is pre-release. This page lists what is implemented, what comes before 
 - **UI** (`@opsorama/ui`): optional framework-neutral panels (metric cards, data panels, inspectors, lists, meters) with native React and Vue components.
 - **Website**: documentation, a searchable object browser with live previews and usage snippets, and full-viewport domain examples (e-commerce, office, datacenter, restaurant, farm, aquatics).
 - **Distribution**: package builds with declarations, package checks from packed tarballs, bundle size budgets and four standalone starters (plain TypeScript, Vite + React, Vite + Vue, Next.js).
+- **Documentation for agents**: package READMEs with type-checked examples, an agent skill (`skills/opsorama`) and `llms.txt` / `llms-full.txt` on the website.
+- **Project**: contributor guide, code of conduct, security policy, issue and pull request templates, and GitHub Actions for checks, end-to-end tests, security scanning, site deployment and Changesets releases.
 
 ## Before the first release (0.1)
 
-- Public documentation and agent support: package READMEs, an agent skill and `llms.txt`.
-- Contributor guide, code of conduct, security policy, issue and pull request templates.
-- Continuous integration: checks on every pull request, end-to-end tests, installation smoke tests and a release workflow with npm provenance.
 - Performance measurement on a documented reference machine: load time, frame rate at several object counts and memory after repeated mount and unmount.
-- Publication of the packages on npm and of the documentation at opsorama.dev.
+- Publication of the packages on npm and of the documentation at opsorama.dev (the release and deployment workflows exist and are switched off until then).
 
 ## After the first release
 
