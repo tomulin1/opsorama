@@ -21,7 +21,7 @@
     "@opsorama/ui": "workspace:*",
     "@opsorama/vue": "workspace:*",
     "lucide-react": "^0.545.0",
-    "next": "^15.5.4",
+    "next": "^16.4.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",
