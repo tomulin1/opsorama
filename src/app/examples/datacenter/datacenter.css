@@ -1,0 +1,70 @@
+.datacenter-page { background: #edf2fa; }
+.dc-viewport { --hud-accent: #287f98; --hud-accent-strong: #2a6a85; --hud-accent-soft: #e6f0f5; --hud-focus: #5a9ab7; --hud-scene: #edf2fa; }
+.dc-racks { --hud-panel-width: 720px; }
+.datacenter-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Adapter examples (logistics, surfaces, site and energy) keep the canvas in the page flow; only the datacenter viewport fills its panel. */
+.adapter-example-surface:not(.hud-scene-surface) > .datacenter-canvas { position: relative; inset: auto; height: auto; }
+.dc-alerts-panel .dp-item { flex-wrap: nowrap; align-items: flex-start; padding: 12px 8px; gap: 8px; border-radius: 10px; }
+.dc-alerts-panel .dp-list > li + li { border-top: 0; margin-top: 2px; }
+.dc-alerts-panel .dp-item-main { position: relative; min-height: 44px; padding-inline-start: 54px; }
+.dc-alerts-panel .hud-symbol { position: absolute; top: 0; left: 0; }
+.dc-incident-label { display: block; font-size: 13px; font-weight: 650; line-height: 1.3; color: #354f64; }
+.dc-incident-description { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 11px; color: var(--panel-muted); }
+.hud-side-panel .dp-freshness { font-size: 11px; }
+.dc-scenario { display: flex; gap: 6px; }
+.dc-scenario button { flex: 1; padding: 9px 5px; border-radius: 8px; background: #eef3f7; color: var(--panel-muted); font-size: 11px; }
+.dc-scenario button[aria-pressed="true"] { background: #2b4961; color: #fff; }
+.dc-recovered { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 8px; text-align: center; font-size: 14px; color: #268368; }
+.dc-recovered .hud-symbol { --hud-symbol-size: 72px; border-radius: 14px; }
+.dc-recovered p { font-size: 12px; line-height: 1.6; color: var(--panel-muted); }
+.dc-selection { font-size: 11px; color: var(--panel-muted); margin: 10px 0; }
+.dc-equipment { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.dc-equipment .hud-symbol { --hud-symbol-size: 56px; border-radius: 12px; }
+.dc-equipment-name { font-size: 18px; line-height: 1.2; letter-spacing: -.3px; margin: 0 0 3px; }
+.dc-equipment-context { font-size: 11px; line-height: 1.4; color: var(--panel-muted); }
+.dc-inspector .dp-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dc-inspector .dp-field { flex-direction: column; gap: 2px; padding: 10px 12px; border: 0; border-radius: 10px; background: #f1f6f9; }
+.dc-inspector .dp-field:only-child { grid-column: 1 / -1; }
+.dc-inspector .dp-field dt { font-size: 11px; }
+.dc-inspector .dp-field dd { text-align: start; font-size: 20px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.dc-inspector .dp-meter { margin: 14px 0; font-size: 12px; }
+.dc-inspector .dp-meter-track { height: 8px; border-radius: 4px; }
+.dc-inspector-incident { padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--dp-tone) 9%, transparent); }
+.dc-inspector-incident p { font-size: 12px; line-height: 1.55; color: var(--panel-text); margin-top: 8px; }
+.dc-inspector-incident h3 { margin: 12px 0 0; color: var(--panel-text); font-size: 12px; font-weight: 650; }
+.dc-model-link { display: flex; align-items: center; gap: 6px; color: #3f7088; font-size: 12px; }
+.dc-healthy { display: flex; align-items: center; gap: 10px; color: #268368; font-size: 12px; margin-top: 14px; }
+.dc-healthy .hud-symbol { --hud-symbol-size: 32px; border-radius: 8px; }
+.dc-empty-inspector { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 12px; color: var(--panel-muted); }
+.dc-empty-inspector .hud-symbol { --hud-symbol-size: 72px; border-radius: 14px; margin-bottom: 14px; }.dc-empty-inspector h2 { font-size: 14px; color: var(--panel-text); }.dc-empty-inspector p { font-size: 12px; line-height: 1.6; margin-top: 6px; }
+.dc-racks .dp-footer { padding-top: 10px; margin-top: 10px; }
+.dc-table-scroll { max-height: 280px; overflow: auto; }
+.dc-racks table { white-space: nowrap; }
+.dc-rack-cell { display: flex; align-items: center; gap: 10px; }
+.dc-rack-cell .hud-symbol { --hud-symbol-size: 34px; border-radius: 8px; }
+.dc-racks td button { font-size: 12px; color: #2f5168; text-decoration: none; }
+.dc-racks td small { display: block; font-size: 11px; color: var(--panel-muted); margin-top: 1px; }
+.dc-racks tr[data-selected="true"] td { background: #eaf3f8; }
+.dc-cpu { display: inline-flex; align-items: center; gap: 8px; }
+.dc-cpu-bar { width: 44px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--panel-border); }
+.dc-cpu-bar > span { display: block; height: 100%; background: var(--panel-accent); }
+.dc-pagination { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: var(--panel-muted); font-size: 11px; }
+.dc-pagination button { padding: 7px 10px; border: 1px solid #d9e5ed; border-radius: 8px; color: #4f7186; }
+.dc-controls-panel { --hud-panel-width: 500px; }
+.datacenter-controls { display: grid; gap: 16px; margin: 6px 0 18px; }
+.datacenter-controls label { display: flex; align-items: center; gap: 10px; color: var(--panel-text); font-size: 12px; }
+.datacenter-controls input[type="range"] { flex: 1; min-width: 50px; accent-color: #328f91; }
+.datacenter-controls output { min-width: 42px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.datacenter-records { display: flex; flex-wrap: wrap; gap: 6px; }
+.datacenter-records button { padding: 7px 10px; border: 1px solid #dce6ed; border-radius: 8px; background: #f4f8fa; font-size: 11px; color: #456a81; }
+.datacenter-records button[aria-pressed="true"] { border-color: #63a6ad; background: #e7f3f3; }
+.dc-about { --hud-panel-width: 430px; }
+.dc-about .dp-fields { font-size: 12px; }.hud-concept-note { margin-top: 12px; color: var(--panel-muted); line-height: 1.6; font-size: 11px; }
+.dc-document-links { display: flex; flex-wrap: wrap; gap: 14px; }.dc-document-links a { display: flex; align-items: center; gap: 4px; color: #3f7088; }
+.dc-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.dc-table-scroll { max-height: 280px; }
+.datacenter-canvas .kit-node-label[data-node-id^="hall-"]:not([data-node-id*="cooling"]) { background: #f4f9fcee; border-color: #cedde8; color: #375d75; font-size: 10px; padding: 6px 10px; }
+@media (max-width: 760px) {
+  .dc-racks th, .dc-racks td { padding: 7px 6px; }.dc-rack-cell .hud-symbol, .dc-cpu-bar { display: none; }.dc-racks td small { max-width: 125px; white-space: normal; }
+  .dc-table-scroll { max-height: 185px; }
+}

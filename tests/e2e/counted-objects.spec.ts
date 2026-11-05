@@ -1,0 +1,55 @@
+import { expect, test } from '@playwright/test';
+
+test('catalog exposes bounded visible counts without multiplier controls', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/docs/objects/parcel');
+  await expect(page.locator('canvas')).toHaveCount(1);
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveCount(0);
+  await page.goto('/docs/objects/parcel-base');
+  await expect(page.locator('canvas')).toHaveCount(1);
+  await expect(page.getByLabel('Object scale')).toHaveCount(0);
+  await expect(page.getByLabel('Object state')).toHaveCount(0);
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveAttribute('min', '0');
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveAttribute('max', '27');
+  await page.getByLabel('Object count', { exact: true }).fill('27');
+  await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
+  await expect(page.locator('.object-count-total')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Select 27 parcels', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Vue', exact: true }).click();
+  await expect(page.locator('.docs-code-block pre')).toContainText(':count="27"');
+  await expect(page.locator('.docs-code-block pre')).not.toContainText('multiplier');
+  await expect(page.locator('.docs-code-block pre')).not.toContainText('state=');
+  await page.getByRole('button', { name: 'Reset settings', exact: true }).click();
+  await expect(page.locator('.object-count-controls').getByRole('alert')).toHaveCount(0);
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveValue('1');
+  await page.getByLabel('Object count', { exact: true }).focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveValue('3');
+  await page.screenshot({ path: 'artifacts/counted-parcels.png', fullPage: true });
+  await page.goto('/docs/objects/shelf');
+  await page.getByLabel('Object count', { exact: true }).fill('0');
+  await expect(page.getByRole('button', { name: 'Select 0 boxes', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
+  await page.goto('/docs/objects/parcel-base');
+  await page.getByLabel('Object count', { exact: true }).fill('0');
+  await expect(page.getByRole('button', { name: 'Select 0 parcels', exact: true })).toBeVisible();
+  await page.goto('/docs/objects/tree-pine');
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('retired Quantities section and exact unit API have no route or navigation while model counts remain available', async ({ page }) => {
+  const response = await page.goto('/docs/quantities');
+  expect(response?.status()).toBe(404);
+  await page.goto('/docs/objects/pallet');
+  await expect(page.getByRole('heading', { name: 'Pallet with boxes', exact: true })).toBeVisible();
+  await expect(page.locator('a[href="/docs/quantities"]')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Documentation sections' }).getByRole('link', { name: 'Counted objects', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Object count', { exact: true })).toHaveAttribute('max', '27');
+  await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'See it in a scene', exact: true })).toHaveAttribute('href', '/examples/logistics');
+  await page.goto('/docs/objects/parcel-base');
+  await expect(page.getByRole('link', { name: 'Read the API guide', exact: true })).toHaveAttribute('href', '/docs/components/asset');
+  await expect(page.locator('a[href="/docs/quantities"], a[href="/docs/quantity-layer"]')).toHaveCount(0);
+  expect((await page.goto('/docs/quantity-layer'))?.status()).toBe(404);
+});

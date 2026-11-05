@@ -1,0 +1,3 @@
+.move-mode-heading { margin: 16px 0 6px; font-size: 12px; font-weight: 600; color: var(--opsorama-text-strong); }
+.move-mode-refusals { margin-top: 12px; font-size: 11px; color: var(--opsorama-text); }
+.move-mode-refusals ul, .move-mode-log { margin: 6px 0 0; padding-left: 16px; font-size: 11px; line-height: 1.7; color: var(--opsorama-text); }

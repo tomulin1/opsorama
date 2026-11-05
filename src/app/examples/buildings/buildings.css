@@ -1,0 +1,10 @@
+.building-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.building-controls article { padding: 18px; border: 1px solid var(--opsorama-border); border-radius: 14px; background: var(--opsorama-surface-raised); }
+.building-controls h2 { font-size: 18px; margin: 0 0 8px; }
+.building-controls label { display: grid; gap: 6px; margin: 10px 0; font-size: 12px; }
+.building-controls select { width: 100%; padding: 8px; border: 1px solid var(--opsorama-border-control); border-radius: 7px; background: var(--opsorama-surface-raised); color: inherit; }
+.building-controls button { border: 1px solid var(--opsorama-border); border-radius: 7px; background: var(--opsorama-surface-raised); padding: 8px 12px; cursor: pointer; }
+.building-controls button:disabled { opacity: .5; cursor: default; }
+.building-controls ul { padding-left: 20px; display: grid; gap: 6px; }
+@media (max-width: 640px) { .building-controls { grid-template-columns: 1fr; } }
+.building-canvas { height: 420px; position: relative; }

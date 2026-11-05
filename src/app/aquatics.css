@@ -1,0 +1,57 @@
+/* Aquatic centre: the shared HUD in hud.css, with this example's accents and panel content. */
+.aquatics-page { --a-ink: #26394c; --a-muted: #72859a; --a-line: #dae4ec; --a-accent: #1f6fb8; --a-accent-soft: #e7f1fb; background: #eaf1f7; color: var(--a-ink); }
+.aq-preparing { padding: 40px; color: var(--a-muted); font-size: 13px; }
+.aq-viewport { --hud-accent: #1f6fb8; --hud-accent-strong: #245f8a; --hud-accent-soft: #e6f0f8; --hud-focus: #4f8fc4; --hud-scene: #e4edf4; }
+.aq-about { --hud-panel-width: 460px; }
+
+/* Panel content shared by the inspectors, lane chips and water table. */
+.aquatics-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .6px; color: var(--panel-muted); }
+.aquatics-inspector h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; letter-spacing: -.4px; margin: 10px 0; }
+.aquatics-inspector dl { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; gap: 9px 8px; margin: 16px 0; }
+.aquatics-inspector dt { color: var(--a-muted); }
+.aquatics-inspector dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.aquatics-inspector p { font-size: 11px; line-height: 1.7; color: #687a92; margin: 8px 0 0; }
+.aquatics-inspector small { font-weight: 400; color: var(--a-muted); }
+.aquatics-host-note { background: #eef4f9; border-radius: 8px; padding: 10px; font-size: 11px; line-height: 1.6; color: #5f7489; margin-top: 12px; }
+.aquatics-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0; }
+.aquatics-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.aquatics-status > span { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 5px; font-size: 11px; }
+.aquatics-alert { background: #fdf3f4; border: 1px solid #efb7bd; border-radius: 8px; padding: 9px 11px; color: #b03f50 !important; font-weight: 700; }
+.aquatics-card { border: 1px solid var(--a-line); border-left: 4px solid #5088ec; border-radius: 8px; padding: 9px 11px; margin-top: 10px; font-size: 11px; display: flex; flex-direction: column; gap: 5px; }
+.aquatics-card[data-status=running] { border-left-color: #38a88a; }
+.aquatics-card[data-status=off] { border-left-color: #91a0b5; }
+.aquatics-card > div { display: flex; justify-content: space-between; align-items: center; }
+.aquatics-card small { color: var(--a-muted); }
+
+.aquatics-posts { display: flex; flex-direction: column; gap: 7px; }
+.aquatics-posts button { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; text-align: left; padding: 10px 11px; border: 1px solid var(--a-line); border-radius: 9px; background: #fff; color: #2f6fd6; }
+.aquatics-posts .hud-symbol { --hud-symbol-size: 38px; grid-row: span 2; }
+.aquatics-posts strong { font-size: 12px; color: var(--a-ink); }
+.aquatics-posts button > span:last-child { font-size: 11px; color: var(--a-muted); }
+.aquatics-posts button[data-alert] { border-color: #efb7bd; background: #fdf3f4; }
+.aquatics-posts button[data-alert] > span:last-child { color: #c4495a; font-weight: 700; }
+.aquatics-posts button[aria-pressed=true], .aquatics-lanes button[aria-pressed=true] { background: var(--a-accent-soft); border-color: #9cc3e8; color: var(--a-accent); }
+
+.aquatics-lanes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; }
+.aquatics-lanes button { display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left; padding: 9px 10px; background: #fff; border: 1px solid var(--a-line); border-top: 4px solid; border-radius: 8px; }
+.aquatics-lanes button[data-alert] { border-color: #efb7bd; background: #fdf3f4; }
+.aquatics-lanes strong { font-size: 13px; }
+.aquatics-lanes span { font-size: 11px; color: var(--a-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aquatics-lanes small { font-size: 11px; font-weight: 700; }
+.aquatics-lanes meter { width: 100%; height: 6px; }
+
+.aquatics-table-wrap table { white-space: nowrap; }
+.aquatics-table-wrap tr[data-status=warning], .aquatics-table-wrap tr[data-status=critical] { background: #fdf5f6; }
+.aquatics-table-wrap td.over { color: #c4495a; font-weight: 700; }
+
+.aquatics-library { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e3eaf0; }
+.aquatics-library h3 { display: flex; align-items: center; gap: 7px; font-size: 11px; margin: 0 0 8px; }
+.aquatics-library ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.aquatics-library a { display: inline-block; padding: 5px 8px; border: 1px solid #dce6ed; border-radius: 5px; background: #f4f8fa; color: #2d5f86; font-size: 11px; text-decoration: none; }
+
+@media (max-width: 1150px) {
+  .aquatics-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .aquatics-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -1,0 +1,144 @@
+/*
+ * Shared floating HUD of the full-viewport domain examples (ADR 0022, ADR 0065).
+ * This is example code: zones and breakpoints stay out of the generic packages.
+ * An example sets on its .hud-viewport: --hud-accent, --hud-accent-strong, --hud-accent-soft, --hud-focus and --hud-scene.
+ * Optional: --hud-panel-width on a floating panel, --hud-phone-panel-bottom when its toolbar wraps to more rows on phones.
+ */
+.hud-page { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+.hud-page > .kit-site-header { flex: none; }
+.hud-viewport {
+  --panel-surface: rgb(255 255 255 / .95); --panel-text: #263d51; --panel-muted: #5f7688;
+  --panel-border: #d7e2eb; --panel-radius: 12px; --panel-padding: 12px; --panel-gap: 9px;
+  --panel-font-size: 11px; --panel-value-size: 27px; --panel-accent: var(--hud-accent);
+  --panel-success: #268368; --panel-warning: #9c650d; --panel-critical: #c43650;
+  --panel-shadow: 0 5px 22px #203b5112, 0 1px 4px #203b5108;
+  /* Metric sizes have exact heights, so the side panel follows the top zone. */
+  --hud-metric-height: 84px; --hud-side-top: calc(18px + var(--hud-metric-height) + 14px);
+  --hud-tint: color-mix(in srgb, var(--hud-accent) 7%, #fff); --hud-line: #e0e8ef; --hud-phone-panel-bottom: 166px;
+  position: relative; isolation: isolate; flex: 1; min-height: 0; width: 100%; overflow: hidden;
+}
+.hud-viewport[data-metric-size="s"] { --hud-metric-height: 52px; }
+.hud-viewport[data-expanded="true"] { position: fixed; inset: 0; height: 100dvh; z-index: 60; }
+.hud-scene-surface { position: absolute; inset: 0; min-height: 0; background: var(--hud-scene); }
+.hud-scene-surface > .hud-canvas { position: absolute; inset: 0; }
+.hud-viewport .dp-panel { backdrop-filter: blur(12px); }
+.hud-viewport .dp-header { margin-bottom: 10px; }
+.hud-viewport .dp-badge { font-size: 11px; }
+.hud-viewport button, .hud-viewport select { font: inherit; color: inherit; cursor: pointer; }
+.hud-viewport button:disabled { opacity: .5; cursor: default; }
+.hud-viewport :is(button, select, input, a):focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
+.hud-icon-button { display: inline-grid; place-items: center; min-width: 30px; min-height: 30px; border-radius: 8px; color: var(--panel-muted); }
+.hud-icon-button:hover { background: var(--hud-accent-soft); color: var(--hud-accent-strong); }
+
+/* Tone-tinted symbols and tabular readings tie data panels to the short panels. Text stays at 11 px or more. */
+.hud-symbol { --hud-symbol-size: 44px; display: grid; place-items: center; flex: none; width: var(--hud-symbol-size); height: var(--hud-symbol-size); border-radius: 10px; color: var(--dp-tone); background: color-mix(in srgb, var(--dp-tone) 14%, transparent); }
+.hud-reading { font-variant-numeric: tabular-nums; }
+.hud-reading[data-tone="critical"], .hud-reading[data-tone="warning"] { color: var(--dp-tone); font-weight: 650; }
+
+/* Top zone: navigation and metric cards. */
+.hud-top { position: absolute; top: 18px; left: 20px; right: 20px; z-index: 10; display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 14px; align-items: start; pointer-events: none; }
+.hud-top .dp-panel { pointer-events: auto; }
+.hud-navigation-heading { display: flex; align-items: center; gap: 12px; width: 100%; }
+.hud-navigation-title { flex: 1; min-width: 0; }
+.hud-eyebrow { font-size: 11px; letter-spacing: .6px; color: var(--panel-muted); font-weight: 600; }
+.hud-navigation h1 { margin: 1px 0 0; font-size: 18px; line-height: 1.2; letter-spacing: -.4px; font-weight: 650; }
+.hud-navigation-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.hud-navigation-control label { color: var(--panel-muted); font-size: 12px; }
+.hud-navigation-control select { flex: 1; min-width: 130px; max-width: 220px; padding: 7px 9px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--hud-tint); color: var(--panel-text); font-size: 12px; }
+.hud-navigation-control > button { font-size: 11px; padding: 8px 10px; color: var(--hud-accent-strong); border: 1px solid var(--panel-border); border-radius: 8px; }
+.hud-clock { margin-left: auto; font-size: 11px; color: var(--panel-muted); }
+.hud-clock strong { font-size: 15px; color: var(--panel-text); font-variant-numeric: tabular-nums; }
+.hud-navigation-note { margin-top: 8px; color: var(--panel-muted); font-size: 11px; line-height: 1.4; }
+.hud-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; justify-self: end; width: 100%; max-width: 830px; }
+
+/* Side zone: lists and inspectors under the metric cards. */
+.hud-side-panel { position: absolute; z-index: 15; top: var(--hud-side-top); right: 20px; width: 330px; max-height: calc(100% - var(--hud-side-top) - 147px); overflow: auto; overscroll-behavior: contain; --panel-padding: 14px; }
+.hud-side-panel .dp-header > div { width: 100%; }
+.hud-side-panel .dp-freshness { font-size: 11px; }
+.hud-side-tabs { display: flex; align-items: center; gap: 5px; width: 100%; }
+.hud-side-tabs > button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border-radius: 8px; font-size: 12px; color: var(--panel-muted); }
+.hud-side-tabs > button[aria-pressed="true"] { color: var(--hud-accent-strong); background: var(--hud-accent-soft); font-weight: 650; }
+.hud-side-tabs > .hud-icon-button { margin-left: auto; padding: 0; }
+
+/* Bottom-left zone: floating data panels. */
+.hud-floating-panel { position: absolute; z-index: 20; bottom: 86px; left: 20px; width: min(var(--hud-panel-width, 640px), calc(100% - 380px)); max-height: calc(100% - 290px); overflow: auto; overscroll-behavior: contain; --panel-padding: 14px; }
+.hud-floating-panel .dp-header { gap: 12px; }
+.hud-floating-panel .dp-icon { padding: 10px; border-radius: 10px; }
+.hud-floating-panel .dp-icon svg { display: block; width: 22px; height: 22px; }
+.hud-floating-panel .dp-title { font-size: 14px; }
+.hud-floating-panel .dp-description, .hud-floating-panel .dp-footer { font-size: 11px; }
+.hud-concept-note { color: var(--panel-muted); line-height: 1.6; font-size: 11px; }
+.hud-text-button { padding: 7px 10px; border: 1px solid var(--panel-border); border-radius: 8px; color: var(--hud-accent-strong); font-size: 11px; }
+
+.hud-table { overflow: auto; }
+.hud-table table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.hud-table th { position: sticky; top: 0; z-index: 1; padding: 7px 9px; color: var(--panel-muted); background: var(--hud-tint); font-size: 11px; font-weight: 500; white-space: nowrap; }
+.hud-table th:first-child { border-radius: 8px 0 0 8px; }
+.hud-table th:last-child { border-radius: 0 8px 8px 0; }
+.hud-table td { padding: 8px 9px; border-top: 1px solid var(--hud-line); color: var(--panel-text); vertical-align: top; font-variant-numeric: tabular-nums; }
+.hud-table tbody tr:first-child td { border-top: 0; }
+.hud-table td > button { padding: 0; font-weight: 650; color: var(--hud-accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Bottom bar: zoom and the viewport toolbar. */
+.hud-viewport-controls { position: absolute; z-index: 30; bottom: 16px; left: 20px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.hud-viewport-controls > .dp-panel { pointer-events: auto; --panel-padding: 8px; }
+.hud-viewport-controls > .hud-zoom { pointer-events: auto; }
+.hud-viewport-toolbar { width: 100%; }
+.hud-viewport-toolbar .dp-body { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.hud-toolbar-group { display: flex; align-items: center; gap: 3px; }
+.hud-toolbar-group > button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px; color: var(--panel-muted); font-size: 11px; min-height: 32px; }
+.hud-toolbar-group > button:hover { background: var(--hud-tint); }
+.hud-toolbar-group > button[aria-pressed="true"] { background: var(--hud-accent-soft); color: var(--hud-accent-strong); font-weight: 650; }
+.hud-scene-controls, .hud-metric-sizes { border-left: 1px solid var(--hud-line); padding-left: 10px; }
+.hud-metric-sizes { color: var(--panel-muted); font-size: 11px; }
+.hud-metric-sizes > span { margin-right: 4px; }
+.hud-metric-sizes > button { min-width: 28px; justify-content: center; padding: 8px 6px; }
+.hud-motion { display: flex; align-items: center; gap: 6px; color: var(--panel-muted); font-size: 11px; }
+.hud-motion input { accent-color: var(--hud-accent); }
+.hud-display-controls { margin-left: auto; }
+.hud-display-controls > span { font-size: 11px; color: var(--panel-muted); margin-left: 4px; }
+
+@media (max-width: 1150px) {
+  .hud-top { grid-template-columns: minmax(280px, 350px) minmax(0, 1fr); gap: 10px; }
+  .hud-side-panel { width: 300px; }
+  .hud-floating-panel { width: min(var(--hud-panel-width, 640px), calc(100% - 350px)); }
+  .hud-display-controls > span { display: none; }
+}
+@media (max-width: 1000px) {
+  /* Four cards beside the navigation get too narrow for their context, so they form two rows. */
+  .hud-viewport { --hud-side-top: calc(18px + 2 * var(--hud-metric-height) + 24px); }
+  .hud-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .hud-viewport { --panel-radius: 10px; --panel-padding: 10px; }
+  .hud-top { top: 10px; left: 12px; right: 12px; grid-template-columns: 1fr; gap: 8px; }
+  .hud-navigation h1 { font-size: 16px; }
+  .hud-navigation .dp-header { margin-bottom: 7px; }
+  .hud-navigation .hud-symbol { --hud-symbol-size: 38px; }
+  .hud-navigation-note { display: none; }
+  .hud-navigation-control { gap: 6px; }
+  .hud-navigation-control label { display: none; }
+  .hud-navigation-control select { max-width: none; padding: 6px 8px; }
+  .hud-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-width: none; }
+  .hud-metric-sizes { display: none; }
+  .hud-side-panel, .hud-floating-panel { --panel-padding: 10px; top: auto; bottom: var(--hud-phone-panel-bottom); left: 12px; right: 12px; width: auto; max-height: min(300px, 38%); }
+  .hud-viewport:not([data-left-panel="none"]) .hud-side-panel { visibility: hidden; pointer-events: none; }
+  .hud-floating-panel .dp-header { margin-bottom: 8px; }
+  .hud-viewport-controls { bottom: 10px; left: 12px; right: 12px; }
+  .hud-viewport-controls > .dp-panel { --panel-padding: 7px; }
+  .hud-viewport-toolbar .dp-body { gap: 3px 8px; }
+  .hud-toolbar-group { flex-wrap: wrap; }
+  .hud-toolbar-group > button { padding: 6px 7px; }
+  .hud-toolbar-group > button svg { width: 13px; height: 13px; }
+  .hud-scene-controls { order: 3; border: 0; padding-left: 0; }
+  .hud-motion { margin-left: auto; }
+  .hud-display-controls { margin-left: 0; }
+  .hud-table th, .hud-table td { padding: 7px 6px; }
+}
+@media (max-width: 400px) {
+  /* The toolbar wraps to a third row here, so the floating panels sit higher above the zoom bar. */
+  .hud-viewport { --hud-phone-panel-bottom: 202px; }
+  /* The zoom bar with its FPS readout is wider than a 320 px viewport; the buttons keep their accessible names. */
+  .hud-zoom .zc-caption { display: none; }
+  .hud-toolbar-group > button { padding: 6px 5px; }
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Opsorama Flow symbol</title>
+  <g transform="translate(8 6)">
+    <path d="M36 9C39 7 42 8 45 10L63 20Q70 24 70 32V49Q70 56 64 60L36 76Q30 79 30 72V62Q30 58 34 56L49 47Q53 45 53 41V33L34 22Q29 19 31 14Q32 11 36 9Z" fill="#4C70A6"/>
+    <path d="M53 33L64 39Q70 43 70 49Q70 56 64 60L53 66V33Z" fill="#263C59" fill-opacity=".35"/>
+    <path d="M23 25L11 32Q7 34 7 40V58Q7 64 12 67L24 74V27Q24 25 23 25Z" fill="#4C70A6"/>
+  </g>
+</svg>

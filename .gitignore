@@ -1,0 +1,58 @@
+# Dependencies and package-manager caches
+node_modules/
+.pnpm-store/
+
+# Generated builds and tool caches
+.next/
+.next-dev/
+next-env.d.ts
+dist/
+/build/
+/out/
+.turbo/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# Verification output, logs, profiles and packed npm artifacts
+playwright-report/
+test-results/
+artifacts/
+coverage/
+*.log
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+*.tgz
+
+# Local environments; sanitized setup examples can be committed
+.env*
+!.env.example
+/.vercel/
+/.netlify/
+
+# Local agent state; shared instructions, skills and settings stay eligible
+/.claude/worktrees/
+/.claude/launch.json
+/.claude/settings.local.json
+/.claude/sessions/
+/.claude/cache/
+/.codex/worktrees/
+/.codex/sessions/
+/.codex/log/
+/.codex/tmp/
+/.codex/auth.json
+/.codex/history.jsonl
+/.codex/config.local.toml
+
+# Operating-system files and editor/merge backups
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+*.orig
+
+# Vue SFC output compiled by tests/vue-sfc.test.ts
+*.compiled.ts

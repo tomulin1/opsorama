@@ -1,0 +1,35 @@
+.perf-page { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; background: #edf2fa; }
+.perf-page > .kit-site-header { flex: none; }
+.perf-viewport { position: relative; isolation: isolate; flex: 1; min-height: 0; color: #263d51; --panel-padding: 13px; --panel-font-size: 12px; --panel-radius: 12px; --panel-surface: rgb(255 255 255 / .96); --panel-value-size: 29px; --panel-shadow: 0 5px 24px #203b5118; }
+.perf-viewport[data-expanded="true"] { position: fixed; inset: 0; z-index: 100; }
+.perf-scene { position: absolute; inset: 0; }
+.perf-placeholder { display: grid; place-items: center; height: 100%; padding: 24px; color: #5f7489; text-align: center; }
+.perf-toolbar { position: absolute; top: 14px; right: 14px; z-index: 3; display: flex; gap: 8px; }
+.perf-viewport button:not(.kit-node-label):not(.zc-button), .perf-load select { border: 1px solid #cbd9e3; border-radius: 7px; padding: 8px 11px; background: #fff; font: inherit; color: #294c68; cursor: pointer; }
+.perf-viewport button:not(.kit-node-label):not(.zc-button):hover { background: #edf5fb; }
+.perf-viewport button:disabled { opacity: .5; cursor: default; }
+.perf-viewport :is(button, select, input, a):focus-visible { outline: 2px solid #4677e6; outline-offset: 2px; }
+.perf-hud { position: absolute; top: 14px; left: 14px; bottom: 42px; width: min(360px, calc(100% - 28px)); z-index: 2; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.perf-hud > * { flex: none; pointer-events: auto; }
+.perf-hud[hidden] { display: none; }
+.perf-heading { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-bottom: 12px; }
+.perf-heading > span:last-child { font-size: 10px; color: #718698; }
+.perf-load { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.perf-load select { flex: 1; min-width: 0; }
+.perf-note { color: #6d8296; font-size: 10px; line-height: 1.6; margin: 10px 0; }
+.perf-toggles { display: flex; flex-wrap: wrap; gap: 13px; margin: 14px 0; }
+.perf-toggles label { display: flex; align-items: center; gap: 5px; }
+.perf-toggles input { accent-color: #4677e6; }
+.perf-instancing { display: flex; align-items: center; gap: 6px; margin: 10px 0; }
+.perf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.perf-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.perf-metrics .dp-panel { --panel-padding: 9px; --panel-shadow: none; }
+.perf-diagnostics a { color: #396add; text-decoration: underline; }
+.perf-diagnostics p { margin: 9px 0; }
+.perf-caption { position: absolute; left: 14px; right: 14px; bottom: 10px; color: #61778d; font-size: 10px; pointer-events: none; text-shadow: 0 1px 3px #fff; }
+@media (max-width: 760px) {
+  .perf-toolbar { top: 10px; right: 10px; left: 10px; justify-content: flex-end; }
+  .perf-toolbar button { font-size: 11px; padding: 7px 9px; }
+  .perf-hud { top: 52px; left: 10px; bottom: 56px; width: min(340px, calc(100% - 20px)); max-height: calc(100% - 108px); }
+  .perf-caption { left: 10px; right: 10px; font-size: 9px; }
+}

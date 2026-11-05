@@ -1,0 +1,26 @@
+.examples-page { min-height: 100vh; background: var(--opsorama-surface-raised); color: var(--opsorama-text-strong); }
+.examples-container { max-width: 1300px; margin: auto; padding: 44px 32px; }
+.examples-heading { margin-bottom: 34px; }
+.examples-heading h1 { margin: 12px 0; font-size: 34px; font-weight: 650; letter-spacing: -1px; }
+.examples-heading p { color: var(--opsorama-text); font-size: 14px; line-height: 1.7; }
+.examples-container section { margin-bottom: 30px; }
+.examples-container h2 { margin-bottom: 15px; font-size: 17px; font-weight: 600; }
+.examples-recipe-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.examples-foundation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.examples-card { display: flex; flex-direction: column; align-items: flex-start; padding: 26px; border: 1px solid var(--opsorama-border); border-radius: 13px; background: var(--opsorama-surface-raised); }
+.examples-card svg { color: var(--opsorama-text); }
+.examples-card-top { display: flex; gap: 16px; align-items: center; }
+.examples-card-top span { font-size: 9px; letter-spacing: 1px; color: var(--opsorama-text); }
+.examples-card h3 { margin: 20px 0 12px; font-size: 21px; font-weight: 650; letter-spacing: -.4px; }
+.examples-card p { margin-bottom: 18px; color: var(--opsorama-text); font-size: 13px; line-height: 1.8; }
+.examples-card small { margin-bottom: 22px; color: var(--opsorama-text); font-size: 10px; line-height: 1.6; }
+.examples-card a { display: flex; align-items: center; gap: 8px; margin-top: auto; color: var(--opsorama-link); font-size: 12px; font-weight: 600; }
+.examples-container footer { display: flex; gap: 20px; justify-content: space-between; padding-top: 6px; font-size: 11px; line-height: 1.7; color: var(--opsorama-text); }
+.examples-container footer a { color: var(--opsorama-link); flex-shrink: 0; }
+@media (max-width: 1000px) { .examples-recipe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .examples-container { padding: 28px 16px; }
+  .examples-heading h1 { font-size: 28px; }
+  .examples-recipe-grid, .examples-foundation-grid { grid-template-columns: 1fr; }
+  .examples-container footer { flex-direction: column; gap: 12px; }
+}

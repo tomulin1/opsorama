@@ -1,0 +1,29 @@
+.object-measurement-controls { display: grid; gap: 14px; min-width: 0; grid-column: 1 / -1; }
+.object-measurement-controls label { display: grid; gap: 6px; min-width: 0; font-size: 11px; line-height: 1.4; color: var(--opsorama-text); }
+.object-measurement-controls .object-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.object-measurement-controls input:not([type="checkbox"]):not([type="range"]) { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px; border: 1px solid var(--opsorama-border-control); border-radius: 4px; background: var(--opsorama-surface-raised); color: var(--opsorama-text-strong); font-size: 12px; }
+.object-measurement-controls input[type="range"] { width: 100%; min-width: 0; accent-color: var(--opsorama-success-100); }
+.measurement-value-control { display: grid; gap: 6px; }
+.measurement-value-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.measurement-value-heading output { max-width: 75%; text-align: right; }
+.measurement-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.measurement-bands { display: grid; gap: 8px; font-size: 12px; }
+.measurement-band { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; align-items: center; }
+.measurement-band select { width: 100%; min-width: 0; }
+.measurement-band button { width: 30px; height: 30px; }
+.measurement-bands button { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 5px; border: 1px solid var(--opsorama-border); border-radius: 4px; color: var(--opsorama-text-strong); background: var(--opsorama-surface-raised); }
+.object-measurement-controls output { font-size: 13px; color: var(--opsorama-success-text); overflow-wrap: anywhere; }
+.object-measurement-controls [role="alert"] { font-size: 12px; color: var(--opsorama-danger-text); overflow-wrap: anywhere; }
+.indicator-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px; }
+.indicator-controls label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.indicator-controls select, .indicator-controls input[type="number"] { max-width: 180px; padding: 6px; border: 1px solid var(--opsorama-border-control); border-radius: 4px; background: var(--opsorama-surface-raised); }
+.indicator-controls input[type="range"] { width: 140px; accent-color: var(--opsorama-success-100); }
+.object-display-controls { display: grid; gap: 12px; min-width: 0; grid-column: 1 / -1; margin: 12px 0; }
+.object-display-controls label { display: grid; gap: 6px; min-width: 0; font-size: 11px; line-height: 1.5; color: var(--opsorama-text); }
+.object-display-controls input[type="number"], .object-display-controls select { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px; border: 1px solid var(--opsorama-border-control); border-radius: 6px; background: var(--opsorama-surface-raised); color: var(--opsorama-text-strong); }
+.object-display-controls input[type="checkbox"] { justify-self: start; accent-color: var(--opsorama-primary); }
+.object-display-controls small { font-size: 10px; line-height: 1.6; color: var(--opsorama-text); }
+.object-display-controls p { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--opsorama-text); }
+.indicator-controls textarea { max-width: 100%; width: 220px; min-height: 80px; padding: 8px; border: 1px solid var(--opsorama-border-control); border-radius: 6px; }
+.indicator-example .adapter-example-tabs { flex-wrap: wrap; }
+.indicator-example > [role="status"] { padding: 0 16px 16px; font-size: 13px; }

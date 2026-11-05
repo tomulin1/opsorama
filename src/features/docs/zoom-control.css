@@ -1,0 +1,25 @@
+.zoom-configurator { display: grid; gap: 14px; margin: 28px 0 8px; min-width: 0; }
+.zoom-config-stage { position: relative; height: 240px; border: 1px solid light-dark(var(--opsorama-border), var(--opsorama-slate-500)); border-radius: 12px; overflow: hidden; color: light-dark(var(--opsorama-text), var(--opsorama-blue-200));
+  background: light-dark(var(--opsorama-surface-soft), var(--opsorama-slate-950)) radial-gradient(circle, light-dark(var(--opsorama-blue-200), var(--opsorama-blue-800)) 1px, transparent 1.4px) 0 0 / 18px 18px; }
+.zoom-stage-note { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 12px; letter-spacing: .3px; white-space: nowrap; }
+.zoom-config-slot { position: absolute; display: flex; }
+.zoom-config-stage[data-placement="top-left"] .zoom-config-slot { top: 16px; left: 16px; }
+.zoom-config-stage[data-placement="top-right"] .zoom-config-slot { top: 16px; right: 16px; }
+.zoom-config-stage[data-placement="bottom-left"] .zoom-config-slot { bottom: 16px; left: 16px; }
+.zoom-config-stage[data-placement="bottom-right"] .zoom-config-slot { bottom: 16px; right: 16px; }
+.zoom-config-stage[data-placement="center"] .zoom-config-slot { top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 34px)); }
+.zoom-config-stage .zoom-host-content { color: light-dark(var(--opsorama-link), var(--opsorama-blue-200)); font-weight: 600; padding-inline: 4px; white-space: nowrap; }
+.zoom-config-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.zoom-config-bar button { font: inherit; font-size: 13px; border: 1px solid var(--opsorama-border-control); border-radius: 6px; background: var(--opsorama-surface-raised); color: var(--opsorama-ink); padding: 6px 11px; }
+.zoom-config-bar button[aria-pressed="true"] { border-color: var(--opsorama-primary); color: var(--opsorama-link); background: var(--opsorama-surface-muted); }
+.zoom-config-bar button:last-child { margin-inline-start: auto; }
+.zoom-config-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.zoom-config-form fieldset { display: grid; align-content: start; gap: 9px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--opsorama-border); border-radius: 10px; }
+.zoom-config-form legend { padding: 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--opsorama-text); }
+.zoom-config-form label { display: grid; gap: 4px; font-size: 13px; color: var(--opsorama-text); min-width: 0; }
+.zoom-config-form select, .zoom-config-form input:not([type="checkbox"]) { font: inherit; font-size: 13px; width: 100%; min-width: 0; border: 1px solid var(--opsorama-border-control); border-radius: 6px; background: var(--opsorama-surface-raised); color: var(--opsorama-ink); padding: 5px 8px; }
+.zoom-config-form .zoom-config-toggle { display: flex; align-items: center; gap: 7px; }
+.zoom-config-error { margin: 0; padding: 9px 12px; border-radius: 8px; background: var(--opsorama-danger-surface); color: var(--opsorama-danger-text); font-size: 13px; }
+.zoom-config-hint { margin: 0; font-size: 13px; color: var(--opsorama-text); }
+@media (max-width: 960px) { .zoom-config-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .zoom-config-form { grid-template-columns: minmax(0, 1fr); } .zoom-config-stage { height: 280px; } .zoom-config-bar button:last-child { margin-inline-start: 0; } }

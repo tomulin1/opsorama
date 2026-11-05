@@ -1,0 +1,4 @@
+import { SiteHeader } from '@/components/toolkit/SiteHeader';
+import { MotionExample } from '@/features/docs/MotionExample';
+export const metadata = { title: 'Rule-based movement · Opsorama' };
+export default function MotionPage() { return <main className="adapter-page"><SiteHeader /><div><h1>Rule-based movement</h1><p>Three pickers carry order parcels from two shelf pick faces to one packing desk, so a queue forms at the desk; an office worker alternates between a desk seat and a bench. A pallet jack loops on its one-way lane, and motion controllers drive a delivery robot, a towed cart and a shuttle robot. Everyone stays on permitted lanes. A seeded behavior runner in the framework-free core drives the shift, and the same scene runs in React, Vue and plain JavaScript.</p><MotionExample /></div></main>; }

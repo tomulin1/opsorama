@@ -1,0 +1,1 @@
+{"name":"@opsorama/core","version":"0.0.1","license":"MIT","private":true,"type":"module","exports":{".":"./src/index.ts"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/core"}}
