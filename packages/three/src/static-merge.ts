@@ -6,8 +6,8 @@ export const MERGED_PART_NAME = 'merged-static-parts';
 
 const separate = new WeakSet<Object3D>();
 /**
- * Exclude a part and all of its descendants from `mergeStaticParts` and from the renderer's instancing
- * (ADR 0051), so the part keeps its own mesh, material and visibility. Use it for parts that code other
+ * Exclude a part and all of its descendants from `mergeStaticParts` and from the renderer's instancing,
+ * so the part keeps its own mesh, material and visibility. Use it for parts that code other
  * than the registered animator changes after the factory returns, e.g. a host that keeps a reference
  * to recolor a mesh. Animated parts are declared with `setAssetAnimator` instead. Called on the root
  * object, it keeps the whole asset as built. Call it inside the factory, before the object is returned.

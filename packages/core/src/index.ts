@@ -65,7 +65,7 @@ export const SETTING_DEFINITIONS = {
   theme: { type: "'light' | 'midnight'", description: 'Canvas palette and environment lighting.' },
   labels: { type: 'boolean', description: 'Show selectable HTML labels projected onto the scene.' },
   grid: { type: 'boolean', description: 'Show a ground grid in world units.' },
-  shadows: { type: 'boolean', description: 'Enable the directional-light shadow pass. Narrow or contained parts do not cast, and indoor nodes (inside a building or on an interior area) neither cast nor receive (ADR 0049).' },
+  shadows: { type: 'boolean', description: 'Enable the directional-light shadow pass. Narrow or contained parts do not cast, and indoor nodes (inside a building or on an interior area) neither cast nor receive.' },
   motion: { type: 'boolean', description: 'Interpolate target positions and run asset animations. Disabled for reduced motion.' },
   paused: { type: 'boolean', description: 'Freeze interpolation and asset animation without discarding target updates.' },
   speed: { type: 'number (0.25–3)', description: 'Multiplier for interpolation and asset animation; does not change business-event time.' },

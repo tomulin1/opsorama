@@ -1,7 +1,7 @@
 import { MARKER_SIZES, resolveMarkerTone, type MarkerIcon, type MarkerIconName, type MarkerNode, type MarkerShape, type MarkerTone, type MaterialOverrides } from '@opsorama/core';
 
 /**
- * Scene markers (ADR 0075): projected HTML buttons drawn as inline SVG. The renderer builds them in
+ * Scene markers: projected HTML buttons drawn as inline SVG. The renderer builds them in
  * its label layer and adds the stylesheet below once per label layer, so a host needs no CSS import.
  * Every rule has the specificity of one class; a host overrides it with a more specific selector.
  */

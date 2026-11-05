@@ -22,7 +22,7 @@ runner.assign('reach-truck', [
   { kind: 'interact', node: 'rack:R03', slot: 'load-0', seconds: 3, putDown: 'all', putOn: { receptacle: 'level-1', position: 0 } },
 ]);`, language: 'typescript' },
     { id: 'hud', title: 'Full-viewport scene with a floating HUD', paragraphs: [
-      'The page follows ADR 0022: one SceneCanvas fills the window, the navigation panel and four MetricCards float at the top, Areas/Inspector on the right, Orders, Stock, Docks and Info on the left, and the ZoomControl and toolbar at the bottom, where Pause stops the scene and the feed together. Expanded view covers the site header and Escape leaves it; hiding panels keeps the same canvas.',
+      'The page follows the full-viewport pattern of the domain examples: one SceneCanvas fills the window, the navigation panel and four MetricCards float at the top, Areas/Inspector on the right, Orders, Stock, Docks and Info on the left, and the ZoomControl and toolbar at the bottom, where Pause stops the scene and the feed together. Expanded view covers the site header and Escape leaves it; hiding panels keeps the same canvas.',
       'The HUD uses the shared DataPanel, MetricCard, ResourceList, ActivityFeed, ProcessTracker, FieldList, StatusBadge and ValueMeter components. Domain fields stay in the example; the generic UI package has no e-commerce fields.',
     ] },
     { id: 'scope', title: 'Sources and current boundaries', paragraphs: [

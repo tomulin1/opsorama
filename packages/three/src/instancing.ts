@@ -3,7 +3,7 @@ import { assetAnimatedParts } from './animation';
 import { isKeptSeparate, isPlainOpaqueMesh, materialRenderKey } from './static-merge';
 
 /**
- * Minimum number of identical meshes before they render as one `InstancedMesh` (ADR 0051).
+ * Minimum number of identical meshes before they render as one `InstancedMesh`.
  * A batch of n meshes saves n − 1 draw calls but adds an instanced shader variant per material and a
  * per-frame matrix check per member, so groups of two or three (one or two saved draws) render as built.
  * A tuning constant, not a measured optimum.

@@ -1,5 +1,5 @@
 /*
- * Shared floating HUD of the full-viewport domain examples (ADR 0022, ADR 0065).
+ * Shared floating HUD of the full-viewport domain examples.
  * This is example code: zones and breakpoints stay out of the generic packages.
  * An example sets on its .hud-viewport: --hud-accent, --hud-accent-strong, --hud-accent-soft, --hud-focus and --hud-scene.
  * Optional: --hud-panel-width on a floating panel, --hud-phone-panel-bottom when its toolbar wraps to more rows on phones.

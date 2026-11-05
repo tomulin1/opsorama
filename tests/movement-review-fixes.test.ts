@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBehaviorRunner, createNavGraph, createRouteFollower, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorEvent, type BehaviorRunner, type NavGraphDefinition, type NodeRoute, type Vec3 } from '@opsorama/core';
 import { assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
 
-// Regression tests for the movement review of October 27, 2026 (ADR 0053).
+// Regression tests for the movement review of October 27, 2026.
 
 function collect(runner: BehaviorRunner) { const events: BehaviorEvent[] = []; runner.subscribeEvents(event => events.push(event)); return events; }
 const near = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) < 1e-6;

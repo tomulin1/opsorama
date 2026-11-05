@@ -12,7 +12,7 @@ import { catalogDescriptors } from './catalog-descriptors';
 
 const contentsSample: NodeSample = { variant: 'open', contents: { lines: [{ id: 'mug', title: 'Mug', quantity: 2 }] } };
 
-/** The first definition with the complete common contract (C1): exactly one carton, the one package type (ADR 0059). */
+/** The first definition with the complete common contract (C1): exactly one carton, the one package type. */
 export const parcelDescriptor: ObjectDescriptor = Object.freeze({
   asset: 'parcel', name: 'Parcel / Box', category: 'Work items', version: 1,
   purpose: 'The one package type: a single taped carton for orders, shipments and work items, closed or open with real contents. Counted parcels use parcel-base or pallet.',
@@ -70,7 +70,7 @@ export const parcelDescriptor: ObjectDescriptor = Object.freeze({
   },
 } satisfies ObjectDescriptor);
 
-/** Parcels on the grey base: the counted presentation of the parcel on the ground (ADR 0059). */
+/** Parcels on the grey base: the counted presentation of the parcel on the ground. */
 export const parcelBaseDescriptor: ObjectDescriptor = Object.freeze({
   asset: 'parcel-base', name: 'Parcels on base', category: 'Work items', version: 1,
   purpose: 'Zero to twenty-seven closed parcels on a grey base plate under one selectable node, for counted stock and staging areas.',

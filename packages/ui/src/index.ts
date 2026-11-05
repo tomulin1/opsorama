@@ -10,7 +10,7 @@ export interface DataPanelProps<T> {
   freshness?: { label: string; state: 'fresh' | 'stale' | 'offline' | 'unknown' };
 }
 /**
- * Purpose of a short panel, not a scale; see docs/decisions/0065-hud-panel-system.md.
+ * Purpose of a short panel, not a scale.
  * s (signal, 52 px): title, value, one graphic. m (reading, 84 px): adds one context, delta before comparison.
  * Context a size hides stays readable by assistive technology.
  */
