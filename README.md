@@ -40,6 +40,7 @@ The shared `building` object offers generic, warehouse, distribution-center, wor
 
 - `apps/site`: the private Next.js website `@opsorama/site` (documentation, domain examples, object browser); never published. Root scripts delegate to it.
 - `tests/`: workspace-wide unit tests; Playwright specs live in `apps/site/e2e`.
+- `examples/`: standalone starters for plain TypeScript, Vite + React, Vite + Vue and Next.js that install the packages like your project would. See [examples/README.md](examples/README.md).
 - `packages/core`: framework-independent types, immutable scene snapshots, validated settings, selection, and subscriptions. No browser or graphics dependencies.
 - `packages/three`: shared renderer, HTML labels, camera framing, transform interpolation, motion playback, instancing and explicit teardown. It ships no models: pass an asset registry.
 - `packages/objects`: the object catalog: procedural model factories, descriptors and definitions, 21 kits importable from subpaths such as `@opsorama/objects/vehicles` (`vehiclesKit`), and `catalogAssets` with every model.
@@ -103,6 +104,7 @@ Publishable package builds and their checks:
 pnpm build:packages
 pnpm check:packages
 pnpm check:bundles
+pnpm smoke:starters
 ```
 
 ## License

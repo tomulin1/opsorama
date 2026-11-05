@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @opsorama/site dev",
     "build:packages": "node scripts/build-packages.mjs",
     "check:packages": "node scripts/check-packages.mjs",
+    "smoke:starters": "node scripts/smoke-starters.mjs",
     "build": "pnpm --filter @opsorama/site build",
     "start": "pnpm --filter @opsorama/site start",
     "colors:generate": "pnpm --filter @opsorama/site colors:generate",

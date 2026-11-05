@@ -14,29 +14,20 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { packPackages, PACKAGES, root, run } from './lib/packages.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PACKAGES = ['core', 'three', 'objects', 'ui', 'react', 'vue'];
 /** Peer and type packages the consumer project borrows from this workspace. */
 const LINKED = ['three', '@types/three', 'react', 'react-dom', '@types/react', '@types/react-dom', 'vue'];
 const bin = name => path.join(root, 'node_modules/.bin', process.platform === 'win32' ? `${name}.cmd` : name);
-/** Windows needs a shell for .cmd shims (pnpm, publint); node itself runs without one, so paths with spaces stay intact. */
-const run = (command, args, cwd, shell = process.platform === 'win32') => { try { return { ok: true, output: execFileSync(command, args, { cwd, encoding: 'utf8', shell, stdio: ['ignore', 'pipe', 'pipe'] }) }; } catch (error) { return { ok: false, output: `${error.stdout ?? ''}${error.stderr ?? ''}` }; } };
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'opsorama-packages-'));
-const packs = path.join(temp, 'packs'), consumer = path.join(temp, 'consumer'), modules = path.join(consumer, 'node_modules');
-fs.mkdirSync(packs); fs.mkdirSync(path.join(modules, '@opsorama'), { recursive: true }); fs.mkdirSync(path.join(modules, '@types'), { recursive: true });
+const consumer = path.join(temp, 'consumer'), modules = path.join(consumer, 'node_modules');
+fs.mkdirSync(path.join(modules, '@opsorama'), { recursive: true }); fs.mkdirSync(path.join(modules, '@types'), { recursive: true });
+const tarballs = packPackages(path.join(temp, 'packs'));
 let failed = false;
 const imports = [];
 for (const name of PACKAGES) {
-  const dir = path.join(root, 'packages', name);
-  if (!fs.existsSync(path.join(dir, 'dist'))) { console.error(`@opsorama/${name}: dist/ is missing. Run pnpm build:packages first.`); failed = true; continue; }
-  const before = new Set(fs.readdirSync(packs));
-  const pack = run('pnpm', ['pack', '--pack-destination', packs], dir);
-  const tarball = fs.readdirSync(packs).find(file => !before.has(file) && file.endsWith('.tgz'));
-  if (!pack.ok || !tarball) { console.error(`@opsorama/${name}: pnpm pack failed.\n${pack.output}`); failed = true; continue; }
-  const file = path.join(packs, tarball);
+  const file = tarballs[name];
   const publint = run(bin('publint'), [file, '--strict'], root);
   console.log(`@opsorama/${name} (${(fs.statSync(file).size / 1024).toFixed(1)} KiB packed): publint ${publint.ok ? 'ok' : 'FAILED'}`);
   if (!publint.ok) { console.log(publint.output.trim()); failed = true; }
@@ -62,7 +53,7 @@ fs.writeFileSync(path.join(consumer, 'index.ts'), [
 for (const resolution of ['bundler', 'node16']) {
   const options = { strict: true, noEmit: true, skipLibCheck: false, types: [], lib: ['dom', 'esnext'], target: 'es2022', jsx: 'react-jsx', module: resolution === 'bundler' ? 'esnext' : 'node16', moduleResolution: resolution };
   fs.writeFileSync(path.join(consumer, 'tsconfig.json'), JSON.stringify({ compilerOptions: options, files: ['index.ts'] }));
-  const result = run(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '-p', consumer], consumer, false);
+  const result = run(process.execPath, [path.join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], consumer, { shell: false });
   // Only errors in the packed packages or the consumer file count; third-party declarations (for example @types/three
   // expecting WebGPU types) are reported as a count but are not this repository's to fix.
   const lines = result.output.trim().split('\n').filter(Boolean);
@@ -73,7 +64,7 @@ for (const resolution of ['bundler', 'node16']) {
 }
 // Runtime: every JavaScript entry point must load in Node from the packed files alone (no DOM is touched at import time).
 const loader = imports.map(specifier => `await import(${JSON.stringify(specifier)});`).join(' ');
-const runtime = run(process.execPath, ['--input-type=module', '-e', loader], consumer, false);
+const runtime = run(process.execPath, ["--input-type=module", "-e", loader], consumer, { shell: false });
 console.log(`runtime imports (node, ${imports.length} entry points): ${runtime.ok ? 'ok' : 'FAILED'}`);
 if (!runtime.ok) { console.log(runtime.output.trim().split('\n').slice(0, 20).join('\n')); failed = true; }
 fs.rmSync(temp, { recursive: true, force: true });

@@ -229,4 +229,5 @@ Workspace consumers import package sources through each package's `exports` (`sr
 - `pnpm build:packages` builds every package with tsup into ESM JavaScript with source maps and bundled `.d.ts` declarations, one output per `exports` entry; `@opsorama/objects` also gets `dist/catalog.json`, a machine-readable index of every kit and asset descriptor.
 - All packages are ESM-only and declare `"sideEffects": false` (`@opsorama/ui` keeps its CSS as a side effect).
 - `pnpm check:packages` packs each package with pnpm, runs publint, type-checks an import of every entry point from a clean project with `bundler` and `node16` resolution, and imports every entry point in Node.
+- `pnpm smoke:starters` copies each starter in `examples/` to a temporary folder, installs it from the packed packages (pnpm overrides point every `@opsorama/*` dependency at a tarball) and runs its type check and production build.
 - Versions use Changesets with one shared version for all `@opsorama/*` packages; see `.changeset/README.md`. Nothing is published yet.
