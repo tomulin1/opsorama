@@ -1,1 +1,45 @@
-{"name":"@opsorama/react","version":"0.0.1","license":"MIT","private":true,"type":"module","exports":{".":"./src/index.tsx","./ui":"./src/ui.tsx"},"dependencies":{"@opsorama/core":"workspace:*","@opsorama/three":"workspace:*","@opsorama/ui":"workspace:*"},"peerDependencies":{"react":"^19.0.0"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/react"}}
+{
+  "name": "@opsorama/react",
+  "version": "0.0.1",
+  "description": "Opsorama React adapter: provider, hooks, SceneCanvas and scene components over @opsorama/three.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.tsx",
+    "./ui": "./src/ui.tsx"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./ui": {
+        "types": "./dist/ui.d.ts",
+        "import": "./dist/ui.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@opsorama/core": "workspace:*",
+    "@opsorama/three": "workspace:*",
+    "@opsorama/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/react"
+  }
+}

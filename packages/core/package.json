@@ -1,1 +1,32 @@
-{"name":"@opsorama/core","version":"0.0.1","license":"MIT","private":true,"type":"module","exports":{".":"./src/index.ts"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/core"}}
+{
+  "name": "@opsorama/core",
+  "version": "0.0.1",
+  "description": "Opsorama core: framework-free scene model, validated settings, selection, subscriptions, movement and handling rules. No browser or graphics dependencies.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/core"
+  }
+}

@@ -6,6 +6,8 @@
   "description": "Workspace root of the Opsorama toolkit: packages in packages/*, the website in apps/site, workspace-wide unit tests in tests/.",
   "scripts": {
     "dev": "pnpm --filter @opsorama/site dev",
+    "build:packages": "node scripts/build-packages.mjs",
+    "check:packages": "node scripts/check-packages.mjs",
     "build": "pnpm --filter @opsorama/site build",
     "start": "pnpm --filter @opsorama/site start",
     "colors:generate": "pnpm --filter @opsorama/site colors:generate",
@@ -14,10 +16,14 @@
     "typecheck": "tsc --noEmit",
     "check:boundary": "node scripts/check-public-boundary.mjs --all",
     "measure:bundles": "node scripts/measure-kit-bundles.mjs",
+    "check:bundles": "node scripts/measure-kit-bundles.mjs --check",
     "test": "pnpm check:colors && vitest run",
-    "test:e2e": "pnpm --filter @opsorama/site test:e2e"
+    "test:e2e": "pnpm --filter @opsorama/site test:e2e",
+    "changeset": "changeset",
+    "version-packages": "changeset version"
   },
   "devDependencies": {
+    "@changesets/cli": "2.29.4",
     "@eslint/eslintrc": "^3.3.1",
     "@opsorama/core": "workspace:*",
     "@opsorama/objects": "workspace:*",
@@ -32,9 +38,11 @@
     "esbuild": "0.28.2",
     "eslint": "^9.37.0",
     "eslint-config-next": "^15.5.4",
+    "publint": "0.3.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0",
+    "tsup": "8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "vue": "^3.5.22"

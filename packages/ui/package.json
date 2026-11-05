@@ -1,1 +1,41 @@
-{"name":"@opsorama/ui","version":"0.0.1","license":"MIT","private":true,"type":"module","exports":{".":"./src/index.ts","./dom":"./src/dom.ts","./styles.css":"./src/styles.css"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/ui"}}
+{
+  "name": "@opsorama/ui",
+  "version": "0.0.1",
+  "description": "Opsorama UI: optional framework-neutral panel contracts and builders, a DOM mount and scoped CSS.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./dom": "./src/dom.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./dom": {
+        "types": "./dist/dom.d.ts",
+        "import": "./dist/dom.js"
+      },
+      "./styles.css": "./dist/styles.css"
+    }
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/ui"
+  }
+}

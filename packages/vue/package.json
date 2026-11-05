@@ -1,1 +1,45 @@
-{"name":"@opsorama/vue","version":"0.0.1","license":"MIT","private":true,"type":"module","exports":{".":"./src/index.ts","./ui":"./src/ui.ts"},"dependencies":{"@opsorama/core":"workspace:*","@opsorama/three":"workspace:*","@opsorama/ui":"workspace:*"},"peerDependencies":{"vue":"^3.5.0"},"author":{"name":"Tomas Jirsa","email":"contact@opsorama.dev"},"repository":{"type":"git","url":"git+https://github.com/tomulin1/opsorama.git","directory":"packages/vue"}}
+{
+  "name": "@opsorama/vue",
+  "version": "0.0.1",
+  "description": "Opsorama Vue adapter: native components, composables and events over @opsorama/three.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./ui": {
+        "types": "./dist/ui.d.ts",
+        "import": "./dist/ui.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@opsorama/core": "workspace:*",
+    "@opsorama/three": "workspace:*",
+    "@opsorama/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/vue"
+  }
+}

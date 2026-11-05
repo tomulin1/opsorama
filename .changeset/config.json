@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [["@opsorama/core", "@opsorama/three", "@opsorama/objects", "@opsorama/ui", "@opsorama/react", "@opsorama/vue"]],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@opsorama/site"],
+  "privatePackages": { "version": true, "tag": false }
+}

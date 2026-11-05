@@ -61,7 +61,7 @@ Domain models are opt-in. Warehouse assets belong in the warehouse package; gene
 | `@opsorama/vue` | Component adapter and composables | Vue as a peer dependency |
 | `@opsorama/ui` | Optional HTML presentation contracts/builders, separate DOM mount and scoped CSS | None |
 
-Motion starts as a small renderer module; generic data sources start as core contracts and examples. Separate `motion`, `data`, or `ui-*` packages should be introduced only when independent distribution becomes useful. Core, three, objects, React, Vue and the optional UI package are implemented. The renderer has no built-in models: a host passes an asset registry such as `catalogAssets` from `@opsorama/objects`, its own factories, or both merged with `createAssetRegistry`. The catalog is split into 21 kits that mirror the object browser categories; each has its own subpath (for example `@opsorama/objects/vehicles` exports `vehiclesKit`), `catalogAssets` merges all of them, and `CATALOG_KITS` lists the kit names. `pnpm measure:bundles` bundles typical imports with esbuild (minified, `three` external). On November 5, 2026 it reported 60.0 KiB for the renderer alone, 606.9 KiB with `catalogAssets`, and 114–117 KiB with the renderer and one or two kits. Connector packages remain planned.
+Motion starts as a small renderer module; generic data sources start as core contracts and examples. Separate `motion`, `data`, or `ui-*` packages should be introduced only when independent distribution becomes useful. Core, three, objects, React, Vue and the optional UI package are implemented. The renderer has no built-in models: a host passes an asset registry such as `catalogAssets` from `@opsorama/objects`, its own factories, or both merged with `createAssetRegistry`. The catalog is split into 21 kits that mirror the object browser categories; each has its own subpath (for example `@opsorama/objects/vehicles` exports `vehiclesKit`), `catalogAssets` merges all of them, and `CATALOG_KITS` lists the kit names. `pnpm measure:bundles` bundles typical imports with esbuild (minified, `three` external); `pnpm check:bundles` also enforces size budgets. On November 5, 2026 it reported 59.6 KiB for the renderer alone, 308.1 KiB with `catalogAssets`, and 87–116 KiB with the renderer and one kit. Other bundlers have not been measured. Connector packages remain planned.
 
 ```text
 apps/
@@ -221,3 +221,12 @@ Asset factories can return custom `THREE.Object3D` instances. The public rendere
 - Use scoped CSS and CSS variables instead of global resets. The host controls size, fonts, and overlay layout.
 - Provide an HTML state overview and recovery when WebGL is unavailable or its context is lost.
 - Verify React StrictMode mount/unmount and Vue unmount during M1/M2.
+
+## Package builds
+
+Workspace consumers import package sources through each package's `exports` (`src/`). Published tarballs use `publishConfig.exports` instead, which point to `dist/`:
+
+- `pnpm build:packages` builds every package with tsup into ESM JavaScript with source maps and bundled `.d.ts` declarations, one output per `exports` entry; `@opsorama/objects` also gets `dist/catalog.json`, a machine-readable index of every kit and asset descriptor.
+- All packages are ESM-only and declare `"sideEffects": false` (`@opsorama/ui` keeps its CSS as a side effect).
+- `pnpm check:packages` packs each package with pnpm, runs publint, type-checks an import of every entry point from a clean project with `bundler` and `node16` resolution, and imports every entry point in Node.
+- Versions use Changesets with one shared version for all `@opsorama/*` packages; see `.changeset/README.md`. Nothing is published yet.

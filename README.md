@@ -97,6 +97,14 @@ pnpm build
 pnpm start
 ```
 
+Publishable package builds and their checks:
+
+```sh
+pnpm build:packages
+pnpm check:packages
+pnpm check:bundles
+```
+
 ## License
 
 Opsorama is licensed under the [MIT License](LICENSE), copyright 2026 Tomas Jirsa. Unless identified otherwise, this covers the project's original source code, procedural models, documentation and supplied SVG assets. Third-party material retains its own licenses and notices.

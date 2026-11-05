@@ -1,10 +1,11 @@
 {
   "name": "@opsorama/objects",
   "version": "0.0.1",
+  "description": "Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, and the catalogAssets registry for @opsorama/three.",
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, and the catalogAssets registry for @opsorama/three.",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./datacenter": "./src/kits/datacenter.ts",
@@ -28,6 +29,102 @@
     "./animals": "./src/kits/animals.ts",
     "./farm": "./src/kits/farm.ts",
     "./laboratory": "./src/kits/laboratory.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./datacenter": {
+        "types": "./dist/kits/datacenter.d.ts",
+        "import": "./dist/kits/datacenter.js"
+      },
+      "./displays": {
+        "types": "./dist/kits/displays.d.ts",
+        "import": "./dist/kits/displays.js"
+      },
+      "./buildings": {
+        "types": "./dist/kits/buildings.d.ts",
+        "import": "./dist/kits/buildings.js"
+      },
+      "./indicators": {
+        "types": "./dist/kits/indicators.d.ts",
+        "import": "./dist/kits/indicators.js"
+      },
+      "./work-items": {
+        "types": "./dist/kits/work-items.d.ts",
+        "import": "./dist/kits/work-items.js"
+      },
+      "./people": {
+        "types": "./dist/kits/people.d.ts",
+        "import": "./dist/kits/people.js"
+      },
+      "./furniture": {
+        "types": "./dist/kits/furniture.d.ts",
+        "import": "./dist/kits/furniture.js"
+      },
+      "./equipment": {
+        "types": "./dist/kits/equipment.d.ts",
+        "import": "./dist/kits/equipment.js"
+      },
+      "./office": {
+        "types": "./dist/kits/office.d.ts",
+        "import": "./dist/kits/office.js"
+      },
+      "./retail": {
+        "types": "./dist/kits/retail.d.ts",
+        "import": "./dist/kits/retail.js"
+      },
+      "./fulfillment": {
+        "types": "./dist/kits/fulfillment.d.ts",
+        "import": "./dist/kits/fulfillment.js"
+      },
+      "./vehicles": {
+        "types": "./dist/kits/vehicles.d.ts",
+        "import": "./dist/kits/vehicles.js"
+      },
+      "./environment": {
+        "types": "./dist/kits/environment.d.ts",
+        "import": "./dist/kits/environment.js"
+      },
+      "./surfaces": {
+        "types": "./dist/kits/surfaces.d.ts",
+        "import": "./dist/kits/surfaces.js"
+      },
+      "./energy": {
+        "types": "./dist/kits/energy.d.ts",
+        "import": "./dist/kits/energy.js"
+      },
+      "./events": {
+        "types": "./dist/kits/events.d.ts",
+        "import": "./dist/kits/events.js"
+      },
+      "./restaurant": {
+        "types": "./dist/kits/restaurant.d.ts",
+        "import": "./dist/kits/restaurant.js"
+      },
+      "./aquatics": {
+        "types": "./dist/kits/aquatics.d.ts",
+        "import": "./dist/kits/aquatics.js"
+      },
+      "./animals": {
+        "types": "./dist/kits/animals.d.ts",
+        "import": "./dist/kits/animals.js"
+      },
+      "./farm": {
+        "types": "./dist/kits/farm.d.ts",
+        "import": "./dist/kits/farm.js"
+      },
+      "./laboratory": {
+        "types": "./dist/kits/laboratory.d.ts",
+        "import": "./dist/kits/laboratory.js"
+      },
+      "./catalog.json": "./dist/catalog.json"
+    }
   },
   "dependencies": {
     "@opsorama/core": "workspace:*",
