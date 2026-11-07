@@ -4,7 +4,9 @@ test('home shows the city and opens a district from its list', async ({ page }) 
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
-  await expect(page.locator('.landing-hero canvas')).toBeVisible();
+  // The city (six examples in one scene) is built after hydration; with software WebGL in a development build that takes
+  // several seconds, so the default 5-second expectation timeout is too short.
+  await expect(page.locator('.landing-hero canvas')).toBeVisible({ timeout: 30_000 });
   // Header, city and footer fill exactly one screen.
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   await page.getByRole('navigation', { name: 'City districts' }).getByRole('button', { name: 'Farm' }).click();
