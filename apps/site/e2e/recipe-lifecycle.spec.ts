@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './fixtures';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 /**
  * C4 measurements: live WebGL resources, draw calls and remount behavior of the domain scenes,
@@ -47,7 +47,7 @@ async function sample(page: Page, seconds = 3) {
 }
 
 test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(ciScaled(240_000));
   await page.addInitScript(instrument);
   const results: Record<string, unknown> = {};
   for (const scene of ['ecommerce', 'office', 'restaurant', 'farm', 'aquatics', 'datacenter']) {
@@ -61,7 +61,7 @@ test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
 });
 
 test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(ciScaled(240_000));
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(instrument);

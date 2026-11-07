@@ -1,9 +1,9 @@
-import { expect, test, type Page } from './fixtures';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 const readX = async (page: Page) => Number(await page.getByLabel('Rendered x').textContent());
 
 test('the parcel contract holds in React, Vue and JavaScript', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(ciScaled(180_000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/object-contract');
   const canvas = page.locator('.adapter-example-surface canvas'), selection = page.getByLabel('Selection', { exact: true });

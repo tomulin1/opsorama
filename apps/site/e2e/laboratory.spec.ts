@@ -1,7 +1,7 @@
-import { expect, test } from './fixtures';
+import { ciScaled, expect, test } from './fixtures';
 
 test('laboratory catalog exposes bounded trays and static desks', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(ciScaled(60000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/docs/objects'); await page.getByRole('button', { name: 'Laboratory', exact: true }).click();
   await expect(page.getByRole('link', { name: /^Explore / })).toHaveCount(3);

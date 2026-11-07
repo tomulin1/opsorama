@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './fixtures';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 /**
  * Distinct colors in a 160 × 100 copy of the canvas, read right after a rendered frame; a blank WebGL canvas has one color.
@@ -82,7 +82,7 @@ for (const asset of ['rack-server', 'equipment-cabinet']) test(`${asset} activit
 });
 
 test('facility assets expose static isolated catalog previews and typed containment variants', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(ciScaled(60000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const asset of ['generator-set', 'air-cooled-chiller', 'electrical-switchgear', 'battery-bank', 'aisle-containment']) {
     await page.goto(`/docs/objects/${asset}`);
@@ -97,7 +97,7 @@ test('facility assets expose static isolated catalog previews and typed containm
 });
 
 test('datacenter domain example updates, selects, recovers and resizes its React scene', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/datacenter');
   // One React scene; domain examples show no adapter switcher.

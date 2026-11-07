@@ -1,10 +1,10 @@
-import { expect, test, type Page } from './fixtures';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 const ANIMALS = ['cow', 'horse', 'sheep', 'pig', 'chicken', 'dog', 'cat', 'bird'];
 const FARM_OBJECTS = ['barn', 'paddock-fence', 'hay-bale', 'trough', 'chicken-coop', 'crop-field'];
 
 test('animal and farm models have live previews, contracts and usage snippets', async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(ciScaled(180000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const slug of [...ANIMALS, ...FARM_OBJECTS]) {
     await page.goto(`/docs/objects/${slug}`); await expect(page.locator('canvas'), slug).toHaveCount(1);
@@ -34,7 +34,7 @@ async function expectPanelsInsideViewport(page: Page) {
 }
 
 test('farm fills the viewport with a floating HUD and inspects pens, animals, troughs and fields', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/farm', { waitUntil: 'domcontentloaded' });
   const viewport = page.locator('.fm-viewport');

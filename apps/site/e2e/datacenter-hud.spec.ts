@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './fixtures';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 async function expectPanelsInsideViewport(page: Page) {
   const outside = await page.locator('.dc-viewport').evaluate(stage => {
@@ -12,7 +12,7 @@ async function expectPanelsInsideViewport(page: Page) {
 }
 
 test('datacenter uses shared panels inside a full-size interactive viewport on desktop and mobile', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/datacenter');
   const viewport = page.locator('.dc-viewport');
@@ -69,7 +69,7 @@ test('datacenter uses shared panels inside a full-size interactive viewport on d
 });
 
 test('extra panels start closed and metric cards open their details', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   await page.goto('/examples/datacenter');
   const viewport = page.locator('.dc-viewport');
   await expect(viewport.locator('.hud-summary .dp-panel')).toHaveCount(4);
@@ -87,7 +87,7 @@ test('extra panels start closed and metric cards open their details', async ({ p
 });
 
 test('scene FPS is measured with panels hidden and motion off', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/datacenter');
   const fps = page.getByLabel('Scene FPS', { exact: true });
@@ -104,7 +104,7 @@ test('scene FPS is measured with panels hidden and motion off', async ({ page })
 });
 
 test('datacenter zoom changes camera magnification and keeps working across room focus', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   await page.goto('/examples/datacenter');
   const zoomIn = page.getByRole('button', { name: 'Zoom in', exact: true });
   const zoomOut = page.getByRole('button', { name: 'Zoom out', exact: true });

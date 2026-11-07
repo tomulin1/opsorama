@@ -1,7 +1,7 @@
-import { expect, test } from './fixtures';
+import { ciScaled, expect, test } from './fixtures';
 
 test('scene markers render every shape, restyle live in each adapter and keep the last valid marker', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/markers');
   const featured = page.locator('.kit-marker[data-node-id="featured"]');
