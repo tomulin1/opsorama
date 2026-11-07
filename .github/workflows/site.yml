@@ -1,5 +1,5 @@
 # Deploys the static documentation website to Cloudflare Pages: main to production (opsorama.dev), pull requests to preview URLs.
-# Requires repository secrets CLOUDFLARE_API_TOKEN (Pages edit permission) and CLOUDFLARE_ACCOUNT_ID, and a Pages project named "opsorama".
+# Requires repository secrets CLOUDFLARE_API_TOKEN (Pages edit permission) and CLOUDFLARE_ACCOUNT_ID, and a Pages project named "opsorama-website".
 # Pull requests from forks have no access to the secrets and skip the deployment.
 # Disabled until the repository variable SITE_DEPLOY_ENABLED is set to true.
 name: Site
@@ -35,7 +35,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: '1'
       # Wrangler runs through pnpm dlx at a pinned version: it is not a workspace dependency, so other jobs and contributors
       # do not install it. (cloudflare/wrangler-action cannot install Wrangler into a pnpm workspace root.)
-      - run: pnpm dlx wrangler@4.158.0 pages deploy apps/site/out --project-name=opsorama --branch="$DEPLOY_BRANCH"
+      - run: pnpm dlx wrangler@4.158.0 pages deploy apps/site/out --project-name=opsorama-website --branch="$DEPLOY_BRANCH"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
