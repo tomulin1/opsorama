@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 async function expectPanelsInsideViewport(page: Page) {
   const outside = await page.locator('.ec-viewport').evaluate(stage => {
@@ -13,7 +13,7 @@ async function expectPanelsInsideViewport(page: Page) {
 }
 
 test('e-commerce fills the viewport with a floating HUD and inspects orders, areas, stock and docks', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/ecommerce', { waitUntil: 'domcontentloaded' });
   const viewport = page.locator('.ec-viewport');

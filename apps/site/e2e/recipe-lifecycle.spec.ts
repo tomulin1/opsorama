@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 /**
  * C4 measurements: live WebGL resources, draw calls and remount behavior of the domain scenes,
@@ -47,7 +47,7 @@ async function sample(page: Page, seconds = 3) {
 }
 
 test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(ciScaled(240_000));
   await page.addInitScript(instrument);
   const results: Record<string, unknown> = {};
   for (const scene of ['ecommerce', 'office', 'restaurant', 'farm', 'aquatics', 'datacenter']) {
@@ -61,7 +61,7 @@ test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
 });
 
 test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(ciScaled(240_000));
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(instrument);
@@ -85,7 +85,7 @@ test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ pa
     await page.goBack();
     await expect(page).toHaveURL(/\/examples\/ecommerce$/, { timeout: 30_000 });
     await expect(page.locator('canvas')).toHaveCount(1, { timeout: 30_000 });
-    // Same settle time as after the first load: the seeded mock feed advances with time, so equal times give equal scenes.
+    // Same settle time as after the first load, so every measurement sees the seeded mock feed at a similar state.
     await page.waitForTimeout(2500);
     cycles.push({ cycle, mountedBuffers: mounted!.buffers, mountedTextures: mounted!.textures, mountedPrograms: mounted!.programs, afterBuffers: released!.buffers, afterTextures: released!.textures, afterPrograms: released!.programs, lost: released!.lost, unmountedHeapMb: unmountedHeap });
   }
@@ -97,11 +97,13 @@ test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ pa
   console.log(`LIFECYCLE contexts=${JSON.stringify(contexts)} ${JSON.stringify(cycles)}`);
   expect(errors).toEqual([]);
   // Only the mounted scene keeps a context; React strict mode mounts twice in development, so the count itself is not asserted.
-  // Every remount builds exactly the same resources. The first measurement follows the initial page load, whose mock feed can be a
-  // few objects ahead or behind, so it only has to be within 1% (16 of about 4,700 buffers were observed).
-  const remounts = cycles.slice(1);
-  expect(new Set(remounts.map(cycle => `${cycle.mountedBuffers}/${cycle.mountedTextures}/${cycle.mountedPrograms}`)).size).toBe(1);
-  expect(Math.abs(cycles[0].mountedBuffers - remounts[0].mountedBuffers)).toBeLessThanOrEqual(remounts[0].mountedBuffers * .01);
+  // The seeded mock feed advances with wall-clock time, so a slower machine mounts the scene at slightly different feed states
+  // (4,608–4,700 buffers were observed on GitHub Actions; identical counts on a fast desktop). Remounts therefore use the same
+  // textures and programs and stay within 3% of the first remount's buffers. A leak shows as growth beyond that and as buffers
+  // left after unmount, which the next line checks exactly.
+  const remounts = cycles.slice(1), reference = remounts[0].mountedBuffers;
+  expect(new Set(remounts.map(cycle => `${cycle.mountedTextures}/${cycle.mountedPrograms}`)).size).toBe(1);
+  for (const cycle of cycles) expect(Math.abs(cycle.mountedBuffers - reference)).toBeLessThanOrEqual(reference * .03);
   for (const cycle of cycles) { expect(cycle.afterBuffers).toBe(0); expect(cycle.lost).toBe(true); }
   expect(cycles.at(-1)!.unmountedHeapMb / cycles[0].unmountedHeapMb).toBeLessThan(1.25);
 });

@@ -8,6 +8,8 @@ import type { NextConfig } from 'next';
 const staticExport = process.env.OPSORAMA_STATIC_EXPORT === '1';
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // The repository's AGENTS.md is the single source of agent rules; `next dev` must not write its own apps/site/AGENTS.md.
+  agentRules: false,
   allowedDevOrigins: ['127.0.0.1'],
   transpilePackages: ['@opsorama/core', '@opsorama/three', '@opsorama/objects', '@opsorama/react', '@opsorama/vue', '@opsorama/ui'],
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',

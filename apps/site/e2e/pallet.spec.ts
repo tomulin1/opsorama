@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('pallet catalog entry exposes 0–27 fixed boxes, labels, selection, snippets and teardown', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

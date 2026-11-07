@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { ciScaled, test, expect } from './fixtures';
 
 test('zoom control configurator drives the real component through all native adapters', async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(ciScaled(90000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/docs/zoom-control');
   await expect(page.getByRole('heading', { name: 'Zoom control', exact: true })).toBeVisible();

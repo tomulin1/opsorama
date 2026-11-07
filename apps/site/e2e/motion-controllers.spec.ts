@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { ciScaled, expect, test } from './fixtures';
 
 test('controller-driven robots run in every adapter and follow host targets', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(ciScaled(120_000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const consoleErrors: string[] = []; page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.goto('/examples/motion');

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 async function beaconImage(page: Page) {
   return page.locator('canvas').evaluate(canvas => new Promise<string>(resolve => requestAnimationFrame(() => {

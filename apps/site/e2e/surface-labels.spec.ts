@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 const logo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60"><rect width="240" height="60" fill="#497bec"/><text x="120" y="42" text-anchor="middle" font-family="sans-serif" font-size="40" fill="#ffffff">NORTH</text></svg>';
 

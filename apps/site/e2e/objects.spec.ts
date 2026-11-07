@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('tree collection has static previews and animation controls appear only for animated models', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

@@ -59,7 +59,7 @@ describe('static part merging', () => {
       expect(probe(subject), item.asset).toEqual(probe(reference));
       disposeObject(reference); disposeObject(subject);
     }
-  });
+  }, 30000);
 
   it('keeps every part an animator declares and merges static meshes within that part', () => {
     const root = new THREE.Group(), arm = new THREE.Group(); arm.name = 'arm'; root.add(arm);

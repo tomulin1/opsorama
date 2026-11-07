@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('catalog exposes bounded visible counts without multiplier controls', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

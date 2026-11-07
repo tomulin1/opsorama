@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 async function expectPanelsInsideViewport(page: Page) {
   const outside = await page.locator('.rs-viewport').evaluate(stage => {
@@ -14,7 +14,7 @@ async function expectPanelsInsideViewport(page: Page) {
 const NEW_OBJECTS = ['dining-table', 'booth-seating', 'bar-counter', 'bar-stool', 'espresso-machine', 'pizza-oven', 'walk-in-cooler', 'heated-pass', 'pickup-shelf', 'host-stand', 'menu-board', 'dish-machine', 'patio-umbrella'];
 
 test('restaurant models have live previews and usage snippets', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const slug of NEW_OBJECTS) {
     await page.goto(`/docs/objects/${slug}`); await expect(page.locator('canvas'), slug).toHaveCount(1);
@@ -29,7 +29,7 @@ test('restaurant models have live previews and usage snippets', async ({ page })
 });
 
 test('restaurant fills the viewport with a floating HUD and inspects tables, stations and tickets', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/restaurant', { waitUntil: 'domcontentloaded' });
   const viewport = page.locator('.rs-viewport');

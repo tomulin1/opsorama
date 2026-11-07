@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { projectIdentity } from '@/features/brand/project';
+import { HydrationMarker } from './hydration-marker';
 import './palette.css';
 import './globals.css';
 import './toolkit.css';
@@ -23,4 +24,4 @@ export const metadata: Metadata = {
   description: 'Opsorama brings operations into view with animated 3D dashboards for commerce, logistics, HR and other domains. Built for React, Vue and JavaScript.',
   icons: { icon: '/brand/opsorama-mark.svg', shortcut: '/brand/opsorama-mark.svg' },
 };
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body>{children}</body></html>; }
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body>{children}<HydrationMarker /></body></html>; }

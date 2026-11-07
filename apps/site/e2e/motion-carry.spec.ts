@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { ciScaled, expect, test } from './fixtures';
 
 test('pickers carry order parcels from the shelf to the packing bench in every adapter', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(ciScaled(120_000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/motion');
   await expect(page.locator('.adapter-example-surface canvas')).toHaveCount(1);

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 async function expectPanelsInsideViewport(page: Page) {
   const outside = await page.locator('.of-viewport').evaluate(stage => {
@@ -13,7 +13,7 @@ async function expectPanelsInsideViewport(page: Page) {
 }
 
 test('open office fills the viewport with a floating HUD and inspects people, tickets, projects and rooms', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/office', { waitUntil: 'domcontentloaded' });
   const viewport = page.locator('.of-viewport');

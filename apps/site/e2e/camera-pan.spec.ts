@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 async function dragCanvas(page: Page, dx: number, dy: number) {
   // Start on the first canvas point that no floating panel or label covers, scanning from the top-left corner.

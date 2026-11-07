@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('generic panels support native content, controlled updates and teardown across adapters', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

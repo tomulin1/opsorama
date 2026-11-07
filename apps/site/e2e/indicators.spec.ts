@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 async function canvasColors(page: Page) {
   return page.locator('canvas').evaluate(canvas => new Promise<number>(resolve => requestAnimationFrame(() => {

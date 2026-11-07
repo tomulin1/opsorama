@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('building types have distinct exteriors and preserve dimensions, cutaway, snippets and remount state', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

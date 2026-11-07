@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('surface previews expose footprint and finish controls with snippets that keep the finish tone', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

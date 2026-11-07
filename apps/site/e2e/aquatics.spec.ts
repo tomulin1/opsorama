@@ -1,10 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { ciScaled, expect, test, type Page } from './fixtures';
 
 const NEW_OBJECTS = ['lap-pool', 'wading-pool', 'swimmer', 'starting-block', 'lifeguard-chair', 'pool-ladder', 'sun-lounger', 'deck-shower', 'life-ring-post', 'dosing-station', 'sand-filter'];
 const ANIMATED = ['lap-pool', 'wading-pool', 'swimmer', 'deck-shower'];
 
 test('aquatics models have live previews, contracts and usage snippets', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const slug of NEW_OBJECTS) {
     await page.goto(`/docs/objects/${slug}`); await expect(page.locator('canvas'), slug).toHaveCount(1);
@@ -33,7 +33,7 @@ async function expectPanelsInsideViewport(page: Page) {
 }
 
 test('aquatic centre fills the viewport with a floating HUD and inspects lanes, posts and water', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/aquatics', { waitUntil: 'domcontentloaded' });
   const viewport = page.locator('.aq-viewport');
