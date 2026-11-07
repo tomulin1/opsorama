@@ -1,14 +1,10 @@
-# Playwright end-to-end tests. They are slow, so they run on main, nightly, on demand, and on pull requests labelled "run-e2e".
+# Playwright end-to-end tests. They run on every push to a pull request (opened, new commits, reopened) and on demand
+# (Actions → E2E → Run workflow); there is no scheduled run and no run after merging to main.
 name: E2E
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: '30 2 * * *'
-  workflow_dispatch:
   pull_request:
-    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,7 +15,6 @@ concurrency:
 
 jobs:
   e2e:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
