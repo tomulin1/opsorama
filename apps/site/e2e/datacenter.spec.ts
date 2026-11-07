@@ -1,6 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
-// Read immediately after a rendered frame; blank WebGL canvases have only one color.
+/**
+ * Distinct colors in a 160 × 100 copy of the canvas, read right after a rendered frame; a blank WebGL canvas has one color.
+ * Polls get 20 seconds because software WebGL on GitHub Actions renders the full datacenter at about 5 FPS.
+ */
 async function canvasPixels(page: Page) {
   return page.locator('canvas').evaluate(canvas => new Promise<number>(resolve => requestAnimationFrame(() => {
     const copy = document.createElement('canvas'); copy.width = 160; copy.height = 100;
@@ -25,7 +28,7 @@ async function fanFrameChanges(page: Page) {
 
 test('cooling remains visible and static under scene motion-off and reduced motion', async ({ page }) => {
   await page.goto('/docs/objects/cooling-unit'); await expect(page.locator('canvas')).toHaveCount(1);
-  await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
   await expect.poll(() => fanFrameChanges(page)).toBeGreaterThan(1);
   await page.getByLabel('Object animation').uncheck();
   await expect.poll(() => fanFrameChanges(page)).toBe(1);
@@ -33,7 +36,7 @@ test('cooling remains visible and static under scene motion-off and reduced moti
   await expect.poll(() => fanFrameChanges(page)).toBeGreaterThan(1);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect.poll(() => fanFrameChanges(page)).toBe(1);
-  await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
 });
 
 test('datacenter catalog exposes variants, bounded counts and declared animation controls', async ({ page }) => {
@@ -46,7 +49,7 @@ test('datacenter catalog exposes variants, bounded counts and declared animation
   await page.screenshot({ path: 'artifacts/datacenter-catalog.png', fullPage: true });
   for (const asset of ['rack-server', 'network-switch', 'cooling-unit', 'ups-unit']) {
     await page.goto(`/docs/objects/${asset}`); await expect(page.locator('canvas')).toHaveCount(1);
-    await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+    await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
     await expect(page.getByLabel('Object animation')).toHaveCount(asset === 'cooling-unit' || asset === 'rack-server' ? 1 : 0);
     if (asset === 'rack-server') await page.getByLabel('Object variant').selectOption('1u');
     if (asset === 'network-switch' || asset === 'ups-unit') {
@@ -61,7 +64,7 @@ test('datacenter catalog exposes variants, bounded counts and declared animation
   }
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
   await page.screenshot({ path: 'artifacts/datacenter-ups-mobile.png', fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -83,10 +86,10 @@ test('facility assets expose static isolated catalog previews and typed containm
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const asset of ['generator-set', 'air-cooled-chiller', 'electrical-switchgear', 'battery-bank', 'aisle-containment']) {
     await page.goto(`/docs/objects/${asset}`);
-    await expect(page.locator('canvas')).toHaveCount(1); await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+    await expect(page.locator('canvas')).toHaveCount(1); await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
     await expect(page.getByLabel('Object animation')).toHaveCount(0); await expect(page.getByLabel('Object count', { exact: true })).toHaveCount(0);
     await page.getByLabel('Object color').fill('#537d86'); await expect(page.locator('.docs-code-block pre')).toContainText('#537d86');
-    if (asset === 'aisle-containment') { await page.getByLabel('Object variant').selectOption('roof'); await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30); }
+    if (asset === 'aisle-containment') { await page.getByLabel('Object variant').selectOption('roof'); await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30); }
     await page.getByRole('button', { name: 'Select object', exact: true }).click(); await expect(page.getByRole('status')).toHaveText('Object selected');
     await page.screenshot({ path: `artifacts/facility-${asset}.png`, fullPage: true });
   }
@@ -99,7 +102,7 @@ test('datacenter domain example updates, selects, recovers and resizes its React
   await page.goto('/examples/datacenter');
   // One React scene; domain examples show no adapter switcher.
   for (const adapter of ['React', 'Vue', 'JavaScript']) await expect(page.getByRole('button', { name: adapter, exact: true })).toHaveCount(0);
-  await expect(page.locator('canvas')).toHaveCount(1); await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect(page.locator('canvas')).toHaveCount(1); await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
   await expect(page.getByLabel('Focus room')).toHaveValue('overview');
   for (const id of ['thermal', 'network', 'power']) await expect(page.locator(`[data-node-id="alert-${id}"]`)).toBeVisible();
   await page.getByLabel('Focus room').selectOption('hall-02');
@@ -117,7 +120,7 @@ test('datacenter domain example updates, selects, recovers and resizes its React
   await expect(page.getByRole('status').filter({ hasText: 'Selected:' })).toHaveText('Selected: Hall 03 · 32 racks');
   await expect(page.getByLabel('Focus room')).toHaveValue('noc');
   await page.getByLabel('Focus room').selectOption('plant-yard');
-  await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
   await page.getByRole('button', { name: 'Controls', exact: true }).click();
   await page.getByLabel('Connected ports').fill('24'); await page.getByLabel('Battery modules').fill('6');
   await page.getByLabel('Equipment motion').uncheck();
@@ -156,7 +159,7 @@ test('datacenter domain example updates, selects, recovers and resizes its React
   await page.screenshot({ path: 'artifacts/datacenter-scene-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await expect.poll(() => canvasPixels(page)).toBeGreaterThan(30);
+  await expect.poll(() => canvasPixels(page), { timeout: 20_000 }).toBeGreaterThan(30);
   await page.screenshot({ path: 'artifacts/datacenter-scene-mobile.png', fullPage: true });
   await page.getByRole('region', { name: 'Incident queue' }).getByRole('button', { name: /PSU redundancy lost/ }).click();
   await expect(page.getByRole('region', { name: 'Equipment inspector' })).toContainText('device fault, not a UPS outage');

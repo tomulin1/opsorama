@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const NEW_OBJECTS = ['lap-pool', 'wading-pool', 'swimmer', 'starting-block', 'lifeguard-chair', 'pool-ladder', 'sun-lounger', 'deck-shower', 'life-ring-post', 'dosing-station', 'sand-filter'];
 const ANIMATED = ['lap-pool', 'wading-pool', 'swimmer', 'deck-shower'];

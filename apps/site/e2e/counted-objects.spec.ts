@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('catalog exposes bounded visible counts without multiplier controls', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
@@ -25,14 +25,11 @@ test('catalog exposes bounded visible counts without multiplier controls', async
   await page.getByLabel('Object count', { exact: true }).focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
   await expect(page.getByLabel('Object count', { exact: true })).toHaveValue('3');
   await page.screenshot({ path: 'artifacts/counted-parcels.png', fullPage: true });
-  // The live preview's canvas exists only after hydration; filling the server-rendered input earlier is discarded by React.
   await page.goto('/docs/objects/shelf');
-  await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByLabel('Object count', { exact: true }).fill('0');
   await expect(page.getByRole('button', { name: 'Select 0 boxes', exact: true })).toBeVisible();
   await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
   await page.goto('/docs/objects/parcel-base');
-  await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByLabel('Object count', { exact: true }).fill('0');
   await expect(page.getByRole('button', { name: 'Select 0 parcels', exact: true })).toBeVisible();
   await page.goto('/docs/objects/tree-pine');

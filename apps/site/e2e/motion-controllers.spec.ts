@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('controller-driven robots run in every adapter and follow host targets', async ({ page }) => {
   test.setTimeout(120_000);

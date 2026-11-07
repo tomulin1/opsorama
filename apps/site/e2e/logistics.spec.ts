@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('the example catalog has no warehouse example after its retirement', async ({ page }) => {
   await page.goto('/examples');

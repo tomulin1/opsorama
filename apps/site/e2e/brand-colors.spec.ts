@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // Solid-color text in actual rendered website surfaces, including inherited backgrounds.
 // Scene canvas pixels, palette swatches, gradients, and disabled controls are outside this check.

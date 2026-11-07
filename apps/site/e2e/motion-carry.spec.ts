@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('pickers carry order parcels from the shelf to the packing bench in every adapter', async ({ page }) => {
   test.setTimeout(120_000);

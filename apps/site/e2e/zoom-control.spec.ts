@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('zoom control configurator drives the real component through all native adapters', async ({ page }) => {
   test.setTimeout(90000);

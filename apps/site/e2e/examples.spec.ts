@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('Examples navigation exposes the current recipes and toolkit demos', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

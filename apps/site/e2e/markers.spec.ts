@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('scene markers render every shape, restyle live in each adapter and keep the last valid marker', async ({ page }) => {
   test.setTimeout(90000);

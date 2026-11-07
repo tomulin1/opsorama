@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 const ANIMALS = ['cow', 'horse', 'sheep', 'pig', 'chicken', 'dog', 'cat', 'bird'];
 const FARM_OBJECTS = ['barn', 'paddock-fence', 'hay-bale', 'trough', 'chicken-coop', 'crop-field'];

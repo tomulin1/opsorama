@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('laboratory catalog exposes bounded trays and static desks', async ({ page }) => {
   test.setTimeout(60000);

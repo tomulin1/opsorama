@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test('home shows the city and opens a district from its list', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

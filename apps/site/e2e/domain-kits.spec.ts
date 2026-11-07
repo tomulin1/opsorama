@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 const NEW_OBJECTS = ['valve', 'tower-crane', 'gantry-crane', 'aircraft', 'baggage-cart', 'hospital-bed', 'service-cart', 'kitchen-station', 'tractor', 'grain-silo', 'event-stage', 'exhibition-booth'];
 

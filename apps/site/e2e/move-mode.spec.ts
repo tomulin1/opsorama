@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('move mode', () => {
   for (const adapter of ['React', 'Vue', 'JavaScript']) {
