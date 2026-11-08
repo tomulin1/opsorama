@@ -160,7 +160,8 @@ export const warehouseBase: readonly SceneNode[] = [
   fixture('camera-gate', 'security-camera', g(43.4, 45.6), { variant: 'pole', rotation: yaw(BACK) }),
   ...[[-63, -39], [-56, -39], [-49, -39], [-63, -30], [-63, 32], [-63, 40], [61, -39], [61, 14], [61, 26], [61, 38]].map(([x, z], i) => fixture(`tree-${i}`, i % 2 ? 'tree' : 'tree-pine', g(x, z))),
   ...fence('fence-front-west', [-66, 46.8], [31, 46.8]), ...fence('fence-front-east', [43, 46.8], [64, 46.8]),
-  ...fence('fence-west', [-66, -42], [-66, 45]), ...fence('fence-east', [64, -42], [64, 45]), ...fence('fence-back', [-66, -42], [64, -42]),
+  // The fence closes the yard side of the site; its mesh panels are transparent, so the back and the sides behind the hall have none.
+  ...fence('fence-west', [-66, 12], [-66, 45]), ...fence('fence-east', [64, 12], [64, 45]),
 ];
 
 /* ── Motion ─────────────────────────────────────────────────────────────── */

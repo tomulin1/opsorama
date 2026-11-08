@@ -48,4 +48,4 @@ Working vehicles, pickers and robots follow fixed demonstration loops: forklifts
 
 - Rack bays are 4.5 m selective racking with three beam levels; the example does not model very narrow aisle high-bay racking, a mezzanine or an automated storage system.
 - Trucks are the catalog's rigid box truck; the yard has no articulated trucks, detached trailers or yard tractors.
-- Frame rate on a GPU has not been measured for this scene; it is the largest domain example by node count.
+- It is the largest domain example by node count (about 740 nodes). Measured with the `@measure` scene test in headless Chromium with ANGLE Direct3D 11 on an NVIDIA GeForce GTX 1660, 1600 × 900, in the afternoon snapshot: 852 draws per frame at the 60 FPS cap. That needs opaque parcel seams and stretch film (otherwise each one is a separate transparent draw: 3,278 draws, 26 FPS) and a fence only on the yard side, because the transparent fence mesh never merges.

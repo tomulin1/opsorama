@@ -60,7 +60,7 @@ test('distribution centre fills the viewport with a floating HUD and inspects do
   await page.getByLabel('Mock snapshot').selectOption('night');
   await expect(page.getByRole('region', { name: 'Distribution centre metrics' })).toContainText('0 waiting in the yard');
   await toolbar.getByRole('button', { name: 'Loads', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Loads' })).toContainText('Night trunk');
+  await expect(page.getByRole('region', { name: 'Loads', exact: true })).toContainText('Night trunk');
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobile = (await viewport.boundingBox())!;
