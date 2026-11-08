@@ -113,7 +113,7 @@ All packages are ESM-only, ship TypeScript declarations and declare `"sideEffect
 - [Architecture](docs/ARCHITECTURE.md), [project vision](docs/PROJECT_VISION.md) and [roadmap](docs/ROADMAP.md).
 - [Performance measurements](docs/PERFORMANCE.md) on a documented reference machine.
 - Guides: [panels](docs/DATA_PANELS.md), [indicators](docs/INDICATORS.md), [object labels](docs/OBJECT_LABELS.md), [object composition](docs/OBJECT_COMPOSITION.md), [bounded counts](docs/QUANTITY_SCALING.md), [handling units](docs/CONTAINMENT.md), [performance playground](docs/PERFORMANCE_PLAYGROUND.md), [brand](docs/BRAND.md).
-- Domain notes: [e-commerce](docs/domains/ecommerce.md), [office](docs/domains/office.md), [datacenter](docs/domains/datacenter.md).
+- Domain notes: [e-commerce](docs/domains/ecommerce.md), [distribution centre](docs/domains/warehouse.md), [office](docs/domains/office.md), [datacenter](docs/domains/datacenter.md).
 
 ## Browser support
 
