@@ -11,7 +11,8 @@
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "colors:generate": "node scripts/brand-colors.mjs --write",
     "check:colors": "node scripts/brand-colors.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "next build && playwright test",
+    "test:e2e:measure": "next build && playwright test --config playwright.measure.config.ts"
   },
   "dependencies": {
     "@opsorama/core": "workspace:*",

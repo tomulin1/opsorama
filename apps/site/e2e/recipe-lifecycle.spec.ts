@@ -1,10 +1,10 @@
 import { ciScaled, expect, test, type Page } from './fixtures';
 
 /**
- * C4 measurements: live WebGL resources, draw calls and remount behavior of the domain scenes,
- * counted from the page's WebGL calls so the application needs no measuring code. They run on
- * this machine's WebGL backend through the dev server: resource counts are exact, frame rates are
- * not a performance claim, and none is asserted.
+ * Measurements tagged `@measure`: live WebGL resources, draw calls and remount behavior of the domain scenes, counted
+ * from the page's WebGL calls so the application needs no measuring code. They run against the production build on
+ * this machine's WebGL backend: resource counts are exact, frame rates are not a performance claim, and none is
+ * asserted. Regular runs and CI skip them; run them with `pnpm test:e2e:measure`.
  */
 declare global { interface Window { __gl: GlProbe; } }
 interface GlCounters { buffers: number; textures: number; programs: number; vaos: number; framebuffers: number; draws: number; lost: boolean; }
@@ -46,7 +46,7 @@ async function sample(page: Page, seconds = 3) {
   return { framesPerSecond: Math.round(frames / seconds), drawsPerFrame: frames ? Math.round((after.draws - before.draws) / frames) : 0 };
 }
 
-test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
+test('domain scenes: live WebGL resources and draw calls', { tag: '@measure' }, async ({ page }) => {
   test.setTimeout(ciScaled(240_000));
   await page.addInitScript(instrument);
   const results: Record<string, unknown> = {};
@@ -60,7 +60,7 @@ test('domain scenes: live WebGL resources and draw calls', async ({ page }) => {
   console.log(`SCENES ${JSON.stringify(results)}`);
 });
 
-test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ page }) => {
+test('e-commerce: repeated unmount and mount leaves nothing behind', { tag: '@measure' }, async ({ page }) => {
   test.setTimeout(ciScaled(240_000));
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -77,7 +77,6 @@ test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ pa
     // Domain examples keep their scene mounted while panels change, so the test unmounts it the way a host app does:
     // client-side navigation away (same document, so the WebGL probe survives) and back.
     await page.getByRole('navigation', { name: 'Toolkit navigation' }).getByRole('link', { name: 'Examples', exact: true }).click();
-    // The development server may compile the catalog page on the first visit.
     await expect(page).toHaveURL(/\/examples$/, { timeout: 30_000 });
     await expect(page.locator('canvas')).toHaveCount(0, { timeout: 30_000 });
     await page.waitForTimeout(300);
@@ -96,7 +95,7 @@ test('e-commerce: repeated unmount and mount leaves nothing behind', async ({ pa
   const contexts = await page.evaluate(() => window.__gl.contexts.map(({ draws, lost }, index) => ({ draws, lost, collected: !window.__gl.refs[index].deref() })));
   console.log(`LIFECYCLE contexts=${JSON.stringify(contexts)} ${JSON.stringify(cycles)}`);
   expect(errors).toEqual([]);
-  // Only the mounted scene keeps a context; React strict mode mounts twice in development, so the count itself is not asserted.
+  // Only the mounted scene keeps a context.
   // The seeded mock feed advances with wall-clock time, so a slower machine mounts the scene at slightly different feed states
   // (4,608–4,700 buffers were observed on GitHub Actions; identical counts on a fast desktop). Remounts therefore use the same
   // textures and programs and stay within 3% of the first remount's buffers. A leak shows as growth beyond that and as buffers

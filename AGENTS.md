@@ -80,6 +80,6 @@ This repository contains only public material. `scripts/check-public-boundary.mj
 
 ## Commands
 
-- Website and checks: `pnpm dev` (http://127.0.0.1:3100), `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` (slow), `pnpm build`, `pnpm check:boundary`.
+- Website and checks: `pnpm dev` (http://127.0.0.1:3100), `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` (slow; builds the website and tests the production build), `pnpm test:e2e:measure` (measurements only), `pnpm build`, `pnpm check:boundary`.
 - Packages: `pnpm build:packages` (builds `dist/` and `catalog.json`), `pnpm check:packages` (publint, clean-consumer type check with `bundler` and `node16`, Node imports), `pnpm check:bundles` (size budgets; `pnpm measure:bundles` only prints), `pnpm smoke:starters` (installs and builds every starter from the packed packages). Run them after `build:packages` when a change touches entry points, exports, dependencies or build configuration.
 - Versions: `pnpm changeset`, `pnpm version-packages`.

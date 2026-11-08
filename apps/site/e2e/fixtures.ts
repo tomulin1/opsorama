@@ -4,8 +4,8 @@ export { expect };
 export type { Locator, Page } from '@playwright/test';
 
 /**
- * Scales a per-test time budget in milliseconds for CI, where every route compiles on its first visit and WebGL is
- * software-rendered: 4× on CI (the same factor as the 120-second default in playwright.config.ts), unchanged locally.
+ * Scales a per-test time budget in milliseconds for CI, where software-rendered WebGL draws the scenes at a few frames
+ * per second: 4× on CI (the same factor as the 120-second default in playwright.config.ts), unchanged locally.
  * Use it as `test.setTimeout(ciScaled(90_000))`.
  */
 export const ciScaled = (milliseconds: number) => process.env.CI ? milliseconds * 4 : milliseconds;

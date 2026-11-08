@@ -30,7 +30,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @opsorama/site exec playwright install --with-deps chromium
-      # The Playwright config starts the dev server; WebGL runs through software rendering (SwiftShader).
+      # Tests run against the production build: the Playwright config starts `next start` on port 3101 and excludes the
+      # `@measure` tests. WebGL runs through software rendering (SwiftShader).
+      - run: pnpm --filter @opsorama/site build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
       - run: pnpm --filter @opsorama/site exec playwright test --shard=${{ matrix.shard }}/4
         env:
           NEXT_TELEMETRY_DISABLED: '1'
