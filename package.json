@@ -31,7 +31,7 @@
     "release": "pnpm build:packages && changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "2.29.4",
+    "@changesets/cli": "3.0.3",
     "@eslint/eslintrc": "^3.3.1",
     "@opsorama/core": "workspace:*",
     "@opsorama/objects": "workspace:*",
