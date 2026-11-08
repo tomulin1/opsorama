@@ -50,7 +50,7 @@ test('domain scenes: live WebGL resources and draw calls', { tag: '@measure' }, 
   test.setTimeout(ciScaled(240_000));
   await page.addInitScript(instrument);
   const results: Record<string, unknown> = {};
-  for (const scene of ['ecommerce', 'office', 'restaurant', 'farm', 'aquatics', 'datacenter']) {
+  for (const scene of ['ecommerce', 'office', 'restaurant', 'farm', 'aquatics', 'datacenter', 'warehouse']) {
     await page.goto(`/examples/${scene}`);
     await expect(page.locator('canvas').first()).toBeVisible({ timeout: 30_000 });
     const timing = await sample(page), counters = await lastContext(page);

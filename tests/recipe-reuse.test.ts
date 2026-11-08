@@ -6,11 +6,12 @@ import { createEcommerceStore } from '../apps/site/src/features/ecommerce/simula
 import { createFarmStore } from '../apps/site/src/features/farm/scene';
 import { createOfficeStore } from '../apps/site/src/features/office/scene';
 import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
+import { createWarehouseStore } from '../apps/site/src/features/warehouse/scene';
 import { makeDatacenterStore } from '../apps/site/examples/datacenter-data';
 
 /** The domain examples in their default scenario, read as plain scene data. */
 const stores: readonly (readonly [string, () => SceneStore])[] = [
-  ['ecommerce', () => createEcommerceStore()], ['office', createOfficeStore], ['restaurant', createRestaurantStore], ['farm', createFarmStore], ['aquatics', createAquaticsStore], ['datacenter', makeDatacenterStore],
+  ['ecommerce', () => createEcommerceStore()], ['office', createOfficeStore], ['restaurant', createRestaurantStore], ['farm', createFarmStore], ['aquatics', createAquaticsStore], ['datacenter', makeDatacenterStore], ['warehouse', () => createWarehouseStore()],
 ];
 const scenes = stores.map(([name, create]) => { const store = create(), nodes = store.getSnapshot().nodes; store.dispose(); return { name, nodes }; });
 const assetsOf = (nodes: readonly SceneNode[]) => nodes.filter((node): node is AssetNode => node.kind === 'asset');
