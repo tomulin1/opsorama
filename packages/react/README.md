@@ -33,6 +33,8 @@ export function Dashboard() {
 
 `SceneCanvas` creates the renderer on mount and disposes it on unmount; the store belongs to your component. Pass a stable `assets` registry: replacing it remounts the renderer.
 
+Until the first frame `SceneCanvas` shows a loading indicator, also in server-rendered HTML. Replace its content with `loading={state => ...}` or turn it off with `loading={false}`; `onLoad` reports progress.
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.
