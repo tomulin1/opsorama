@@ -141,7 +141,7 @@ pnpm check:bundles
 pnpm smoke:starters
 ```
 
-End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [AGENTS.md](AGENTS.md) for the rules every contributor and AI agent follows, and [the object guide](docs/CONTRIBUTING_OBJECTS.md) for catalog objects. Security reports: [SECURITY.md](SECURITY.md).
+End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`, which builds the website and tests the production build. `pnpm test:e2e:measure` runs the WebGL resource and remount measurements, which regular runs skip. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [AGENTS.md](AGENTS.md) for the rules every contributor and AI agent follows, and [the object guide](docs/CONTRIBUTING_OBJECTS.md) for catalog objects. Security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 

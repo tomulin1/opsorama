@@ -25,6 +25,7 @@
     "check:bundles": "node scripts/measure-kit-bundles.mjs --check",
     "test": "pnpm check:colors && pnpm check:boundary && vitest run",
     "test:e2e": "pnpm --filter @opsorama/site test:e2e",
+    "test:e2e:measure": "pnpm --filter @opsorama/site test:e2e:measure",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build:packages && changeset publish"

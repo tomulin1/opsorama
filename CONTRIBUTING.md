@@ -44,7 +44,7 @@ pnpm dev                              # website at http://127.0.0.1:3100
    | --- | --- |
    | Any code | `pnpm typecheck`, `pnpm lint`, `pnpm test` |
    | Package entry points, exports, kits, dependencies or build | `pnpm build:packages`, `pnpm check:packages`, `pnpm check:bundles`, `pnpm smoke:starters` |
-   | Website pages or examples | `pnpm build`, and the Playwright specs that cover them: `pnpm --filter @opsorama/site exec playwright test <spec>` |
+   | Website pages or examples | `pnpm build`, and the Playwright specs that cover them, which run against that production build: `pnpm --filter @opsorama/site exec playwright test <spec>` |
    | Documentation only | Links and content; `pnpm test` covers the README code examples |
 
 4. If the change affects a published package, add a changeset with `pnpm changeset` and describe the change for users. All packages share one version.
