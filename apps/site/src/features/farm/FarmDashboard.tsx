@@ -7,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { FARM_NAME, SCENARIOS, farmMetrics, type FarmScenario, type FieldId, type PenId } from './model';
 import { DEFAULT_ZOOM, applyFarmSnapshot, createFarmStore } from './scene';
 import { AlertList, AnimalInspector, EmptyInspector, FarmLibrary, farmHudMetrics, FieldInspector, FieldTable, PenChips, PenInspector, TaskList, TroughInspector, YardInspector } from './components';
@@ -84,7 +84,7 @@ function FarmViewport() {
     {panelsVisible && sidePanel === 'alerts' && <DataPanel className="hud-side-panel" label="Farm alerts" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock snapshot · no live feed', state: 'unknown' }}>
       <AlertList snapshot={snapshot} onSelect={select} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel fm-inspector-panel" label="Farm inspector" density="compact" slots={{ header: sideTabs }}>{inspector}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel fm-inspector-panel" label="Farm inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={selection} />{inspector}</DataPanel>}
 
     {panelsVisible && leftPanel === 'pens' && <DataPanel className="hud-floating-panel" title="Livestock" label="Pens" description={`${metrics.animals} animals in five pens · up to ten shown per pen · bar = trough level`} density="compact" slots={{ icon: <Bird size={16} />, actions: closeLeft }}>
       <PenChips snapshot={snapshot} selected={kind === 'pin' ? id as PenId : undefined} onSelect={value => select(`pin:${value}`)} />

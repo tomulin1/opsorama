@@ -7,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, applyAquaticsSnapshot, createAquaticsStore, laneNumber, type AquaticsScenario, type PoolId } from './model';
 import { AquaticsLibrary, aquaticsHudMetrics, EmptyInspector, LaneChips, LaneInspector, LaneLegend, PlantInspector, PostInspector, PostStrip, WaterInspector, WaterTable } from './components';
 import '@opsorama/ui/styles.css';
@@ -82,7 +82,7 @@ function AquaticsViewport() {
     {panelsVisible && sidePanel === 'posts' && <DataPanel className="hud-side-panel" label="Lifeguard posts" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock rota · no staffing connection', state: 'unknown' }}>
       <PostStrip snapshot={snapshot} selected={selectedPost?.id} onSelect={value => select(`post:${value}`)} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel aq-inspector-panel" label="Pool inspector" density="compact" slots={{ header: sideTabs }}>{inspector}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel aq-inspector-panel" label="Pool inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={selection} />{inspector}</DataPanel>}
 
     {panelsVisible && leftPanel === 'lanes' && <DataPanel className="hud-floating-panel aq-lanes-panel" title="Lanes" label="Lane overview" description={`${openLanes.length} open · ${openLanes.filter(session => session.swimmers >= session.capacity).length} full · up to four swimmers shown per lane`} density="compact" slots={{ icon: <Waves size={16} />, actions: closeLeft }}>
       <LaneChips snapshot={snapshot} selectedId={selectedLane?.laneId} onSelect={value => select(`lane:${value}`)} />

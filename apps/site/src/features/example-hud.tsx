@@ -1,8 +1,9 @@
 'use client';
 import { useCallback, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
-import { useRendererFps, useSceneZoom } from '@opsorama/react';
+import { NodePreview, useRendererFps, useScene, useSceneZoom } from '@opsorama/react';
 import { MetricCard, ZoomControl, type MetricCardProps, type MetricSize } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/three';
+import { previewNodes, type SceneRenderer } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 
 /** A short panel of a domain HUD. The host owns tone, visual and action; size comes from the shared size control. */
 export type HudMetric = Omit<MetricCardProps<ReactNode>, 'size' | 'slots'> & { id: string; icon: ReactNode };
@@ -37,4 +38,14 @@ export function MetricSizeControl({ size, onChange }: { size: MetricSize; onChan
 export function HudZoom({ rendererRef, defaultZoom }: { rendererRef: RefObject<SceneRenderer | null>; defaultZoom: number }) {
   const zoom = useSceneZoom(), fps = useRendererFps(rendererRef, true);
   return <ZoomControl {...zoom} className="hud-zoom" step={.2} reset onReset={() => zoom.onChange(defaultZoom)} caption="Zoom" fps={fps} labels={{ group: 'Camera zoom' }} />;
+}
+
+/**
+ * A live 3D copy of the inspected scene node at the top of an inspector. It mirrors the node's state, counts and animation
+ * from the provider's scene and renders nothing for a selection without geometry, such as an HTML marker.
+ */
+export function HudNodePreview({ nodeId }: { nodeId: string | null }) {
+  const nodes = useScene().nodes;
+  if (nodeId === null || previewNodes(nodes, nodeId, 1).length === 0) return null;
+  return <figure className="hud-node-preview"><NodePreview nodeId={nodeId} assets={catalogAssets} className="hud-node-preview-canvas" /><figcaption>Live 3D copy · drag to turn</figcaption></figure>;
 }

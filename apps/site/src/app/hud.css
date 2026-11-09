@@ -59,6 +59,11 @@
 .hud-side-tabs > button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border-radius: 8px; font-size: 12px; color: var(--panel-muted); }
 .hud-side-tabs > button[aria-pressed="true"] { color: var(--hud-accent-strong); background: var(--hud-accent-soft); font-weight: 650; }
 .hud-side-tabs > .hud-icon-button { margin-left: auto; padding: 0; }
+/* Live 3D copy of the inspected node at the top of an inspector; the canvas is transparent over the tint. */
+.hud-node-preview { position: relative; margin: 0 0 12px; border: 1px solid var(--hud-line); border-radius: 10px; background: radial-gradient(circle at 50% 42%, #fff, var(--hud-tint) 72%); overflow: hidden; }
+.hud-node-preview-canvas { height: 150px !important; }
+.hud-node-preview canvas:focus-visible { outline: 2px solid var(--hud-focus); outline-offset: -2px; border-radius: 10px; }
+.hud-node-preview figcaption { position: absolute; left: 9px; bottom: 6px; color: var(--panel-muted); font-size: 10px; pointer-events: none; }
 
 /* Bottom-left zone: floating data panels. */
 .hud-floating-panel { position: absolute; z-index: 20; bottom: 86px; left: 20px; width: min(var(--hud-panel-width, 640px), calc(100% - 380px)); max-height: calc(100% - 290px); overflow: auto; overscroll-behavior: contain; --panel-padding: 14px; }
@@ -123,6 +128,8 @@
   .hud-metric-sizes { display: none; }
   .hud-side-panel, .hud-floating-panel { --panel-padding: 10px; top: auto; bottom: var(--hud-phone-panel-bottom); left: 12px; right: 12px; width: auto; max-height: min(300px, 38%); }
   .hud-viewport:not([data-left-panel="none"]) .hud-side-panel { visibility: hidden; pointer-events: none; }
+  .hud-node-preview { margin-bottom: 8px; }
+  .hud-node-preview-canvas { height: 104px !important; }
   .hud-floating-panel .dp-header { margin-bottom: 8px; }
   .hud-viewport-controls { bottom: 10px; left: 12px; right: 12px; }
   .hud-viewport-controls > .dp-panel { --panel-padding: 7px; }

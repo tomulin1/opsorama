@@ -1,4 +1,5 @@
 'use client';
+import { exampleSelectionNodeId } from '../example-selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, Briefcase, Crosshair, DoorOpen, Eye, EyeOff, Info, KanbanSquare, Maximize2, Minimize2, Palette, Users, X, Building2 } from 'lucide-react';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
@@ -6,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { EMPLOYEES, SCENARIOS, currentTicket, officeMetrics, project, team, ticket, tickets, type AreaId, type FocusPodId, type OfficeScenario, type ProjectId, type RoomId, type TeamId } from './model';
 import { DEFAULT_ZOOM, applyOfficeSnapshot, createOfficeStore, personSceneNode, ticketSceneNode } from './scene';
 import {
@@ -114,7 +115,7 @@ function OfficeViewport() {
       <TeamList snapshot={snapshot} selected={teamFilter} onSelect={selectTeam} />
       <ActivityList snapshot={snapshot} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel of-inspector-panel" label="Office inspector" density="compact" slots={{ header: sideTabs }}>{inspector}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel of-inspector-panel" label="Office inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={exampleSelectionNodeId(scene)} />{inspector}</DataPanel>}
 
     {panelsVisible && leftPanel === 'people' && <DataPanel className="hud-floating-panel of-people-panel" title="People" label="People" description={`${people.length} of ${EMPLOYEES.length} people${scope ? ` · ${scope}` : ''} · shirt colour = current project`} density="compact" slots={{ icon: <Users size={16} />, actions: closeLeft, footer: filterFooter }}>
       <PeopleTable snapshot={snapshot} people={people} onPerson={inspectPerson} onTicket={inspectTicket} />
