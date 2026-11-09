@@ -77,6 +77,7 @@ export function farmNodes(snapshot: FarmSnapshot): SceneNode[] {
   nodes.push(selectable('coop', 'coop', 'chicken-coop', COOP_AT, `Hen house · ${snapshot.coop.eggs} eggs`, { variant: snapshot.coop.open ? 'open' : 'closed' }));
 
   // Pens: fence, status pin, trough and up to `shown` animals; flagged animals come first with separate host alert markers.
+  // Every drawn animal is selectable: a flagged one opens its flag, the others stand for the herd and open their pen.
   for (const pen of PENS) {
     const record = penRecord(snapshot, pen.id), flags = flagsOf(snapshot, pen.id), state = penState(snapshot, pen.id);
     nodes.push(...fence(pen));
@@ -89,7 +90,7 @@ export function farmNodes(snapshot: FarmSnapshot): SceneNode[] {
       if (flag) {
         nodes.push(selectable(`animal:${flag.tag}`, flag.tag, asset, spot.at, `${SPECIES[pen.species].label} ${flag.tag} · ${flag.issue}`, { rotation: yaw(spot.heading), state: FLAG_STATE[flag.severity], variant: flag.severity === 'critical' && pen.species !== 'sheep' ? 'lying' : 'standing' }));
         nodes.push({ id: `animal-alert:${flag.tag}`, entityId: flag.tag, kind: 'asset', asset: 'map-pin', attachment: { nodeId: `animal:${flag.tag}`, anchor: 'top' }, position: [0, .08, 0], scale: [.3, .3, .3], state: FLAG_STATE[flag.severity], localMotion: false, selectable: true });
-      } else nodes.push(fixture(`animal:${pen.id}:${i}`, asset, spot.at, { rotation: yaw(spot.heading), variant: spot.lying ? 'lying' : 'standing' }));
+      } else nodes.push(selectable(`animal:${pen.id}:${i}`, pen.id, asset, spot.at, `${SPECIES[pen.species].label} · ${pen.label}`, { rotation: yaw(spot.heading), variant: spot.lying ? 'lying' : 'standing' }));
     });
   }
 
@@ -104,11 +105,11 @@ export function farmNodes(snapshot: FarmSnapshot): SceneNode[] {
   if (tractor.status === 'working') nodes.push({ ...selectable('tractor', 'tractor', 'tractor', TRACTOR_ROUTE.points[0], label), route: TRACTOR_ROUTE });
   else nodes.push(selectable('tractor', 'tractor', 'tractor', tractor.status === 'service' ? p(1, -6.2) : p(4, -5), label, { rotation: yaw(tractor.status === 'service' ? -HALF : HALF) }));
 
-  // Moving life: the yard dog, a farmer on the chores round and two birds over the fields.
-  nodes.push({ ...fixture('dog', 'dog', DOG_ROUTE.points[0], { variant: 'walking' }), route: DOG_ROUTE });
+  // Moving life: the yard dog, a farmer on the chores round and two birds over the fields. The animals are selectable; the farmer stays scenery.
+  nodes.push({ ...selectable('dog', 'dog', 'dog', DOG_ROUTE.points[0], 'Yard dog', { variant: 'walking' }), route: DOG_ROUTE });
   nodes.push({ ...fixture('farmer', 'worker', FARMER_ROUTE.points[0], { variant: 'walking', color: '#4f7f3a' }), route: FARMER_ROUTE });
-  BIRD_ROUTES.forEach((route, i) => nodes.push({ ...fixture(`bird:${i}`, 'bird', route.points[0]), route }));
-  nodes.push(fixture('cat', 'cat', p(-2.6, -6.6), { variant: 'lying', rotation: yaw(.4) }));
+  BIRD_ROUTES.forEach((route, i) => nodes.push({ ...selectable(`bird:${i}`, `bird:${i}`, 'bird', route.points[0], 'Small bird'), route }));
+  nodes.push(selectable('cat', 'cat', 'cat', p(-2.6, -6.6), 'Farm cat', { variant: 'lying', rotation: yaw(.4) }));
   return nodes;
 }
 

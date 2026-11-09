@@ -10,7 +10,7 @@ import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { FARM_NAME, SCENARIOS, farmMetrics, type FarmScenario, type FieldId, type PenId } from './model';
 import { DEFAULT_ZOOM, applyFarmSnapshot, createFarmStore } from './scene';
-import { AlertList, AnimalInspector, EmptyInspector, FarmLibrary, farmHudMetrics, FieldInspector, FieldTable, PenChips, PenInspector, TaskList, TroughInspector, YardInspector } from './components';
+import { AlertList, AnimalInspector, EmptyInspector, FarmLibrary, farmHudMetrics, FieldInspector, FieldTable, HerdAnimalInspector, PenChips, PenInspector, TaskList, TroughInspector, YardAnimalInspector, YardInspector } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
 
@@ -34,7 +34,7 @@ function FarmViewport() {
   const [expanded, setExpanded] = useState(false), [panelsVisible, setPanelsVisible] = useState(true);
   const { metricSize, setMetricSize } = useHudMetricSize();
   const snapshot = SCENARIOS[scenario], selection = exampleSelectionNodeId(scene), metrics = farmMetrics(snapshot);
-  const [kind, id = ''] = (selection ?? '').split(':') as [string, string | undefined];
+  const [kind, id = '', index] = (selection ?? '').split(':') as [string, string | undefined, string | undefined];
 
   // A selection from the scene or a list opens the inspector; narrow layouts close the left panel that would cover it.
   const openInspector = useCallback(() => {
@@ -59,7 +59,9 @@ function FarmViewport() {
 
   const inspector = kind === 'pin' ? <PenInspector snapshot={snapshot} id={id as PenId} />
     : kind === 'trough' ? <TroughInspector snapshot={snapshot} id={id as PenId} />
+    : kind === 'animal' && index !== undefined ? <HerdAnimalInspector snapshot={snapshot} id={id as PenId} />
     : kind === 'animal' ? <AnimalInspector snapshot={snapshot} tag={id} />
+    : kind === 'dog' || kind === 'cat' || kind === 'bird' ? <YardAnimalInspector node={selection!} />
     : kind === 'field' ? <FieldInspector snapshot={snapshot} id={id as FieldId} tractor={snapshot.tractor.status === 'working' && snapshot.tractor.field === id} />
     : kind === 'silo' || kind === 'tractor' || kind === 'coop' || kind === 'barn' ? <YardInspector snapshot={snapshot} node={selection!} />
     : <EmptyInspector />;

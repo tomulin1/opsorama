@@ -46,6 +46,17 @@ describe('farm dashboard', () => {
     }
   });
 
+  it('makes every drawn animal selectable and keeps the farmer and fixtures as scenery', () => {
+    const species = new Set<string>([...PENS.map(pen => pen.species), 'dog', 'cat', 'bird']);
+    for (const snapshot of Object.values(SCENARIOS)) {
+      const nodes = assets(farmNodes(snapshot)), animals = nodes.filter(node => species.has(node.asset));
+      expect(animals.length).toBeGreaterThan(PENS.length);
+      for (const animal of animals) expect(animal.selectable, animal.id).toBe(true);
+      for (const pen of PENS) for (const herd of animals.filter(node => node.id.startsWith(`animal:${pen.id}:`))) expect(herd.entityId, herd.id).toBe(pen.id);
+      expect(nodes.find(node => node.id === 'farmer')?.selectable).toBe(false);
+    }
+  });
+
   it('derives pen states and metrics from the records', () => {
     expect(troughState(0)).toBe('inactive'); expect(troughState(29)).toBe('warning'); expect(troughState(30)).toBe('normal');
     const heat = SCENARIOS.heat, metrics = farmMetrics(heat);
