@@ -10,6 +10,7 @@ import './office.css';
 import './restaurant.css';
 import './aquatics.css';
 import './farm.css';
+import './warehouse.css';
 import './examples.css';
 import './objects.css';
 import './measurements.css';

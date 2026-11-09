@@ -10,8 +10,9 @@ import { anchor, block } from './parts';
 export function parcelPart(color: string, index: number, palette?: MaterialPalette): THREE.Group {
   const part = new THREE.Group(); part.name = `count-part-${index}`;
   block(part, [1.02, .8, .83], [0, .48, 0], color, 'parcel-body', { bevel: .03, roughness: .85 });
-  // Lid flap seam along the box, under the cross tape; tape is glossier than cardboard.
-  block(part, [.006, .004, .8], [-.3, .881, 0], '#000000', 'parcel-seam', { opacity: .12 });
+  // Lid flap seam along the box, under the cross tape; tape is glossier than cardboard. The seam is the body colour
+  // darkened by 12 % (what a 12 % black overlay gave) and opaque, so it merges and instances with the rest of the box.
+  block(part, [.006, .004, .8], [-.3, .881, 0], `#${new THREE.Color(color).multiplyScalar(.88).getHexString()}`, 'parcel-seam');
   block(part, [.11, .81, .84], [0, .48, 0], palette?.trim ?? '#f6e6c7', 'parcel-tape', { roughness: .35 });
   block(part, [1.03, .04, .12], [0, .885, 0], palette?.trim ?? '#f5e4c5', 'parcel-tape', { roughness: .35 });
   block(part, [.31, .18, .01], [.2, .52, .422], palette?.text ?? '#fffaf2', 'parcel-sticker', { roughness: .5 });

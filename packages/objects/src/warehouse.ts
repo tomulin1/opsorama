@@ -22,11 +22,14 @@ function pallet(group: THREE.Object3D, [x, y, z]: readonly [number, number, numb
   for (const dz of [-1, 1]) boards.push(new THREE.BoxGeometry(width, .02, depth * .14).translate(x, y + .01, z + dz * depth * .43));
   return merged(group, boards, tone, name, { roughness: .9 });
 }
-/** Stretch-wrapped carton load on its pallet; the film is a faint glossy shell. */
+/**
+ * Stretch-wrapped carton load on its pallet. The film is a glossy shell in the tone a 28 % film overlay gave on the cartons,
+ * drawn opaque so loads merge and instance instead of sorting as transparent parts.
+ */
 function wrappedLoad(group: THREE.Object3D, base: readonly [number, number, number], width: number, depth: number, height: number, carton = CARTON) {
   pallet(group, base, width, depth);
   block(group, [width - .06, height, depth - .06], [base[0], base[1] + .13 + height / 2, base[2]], carton, 'load-cartons', { bevel: .02, roughness: .85 });
-  block(group, [width - .02, height * .9, depth - .02], [base[0], base[1] + .13 + height * .47, base[2]], FILM, 'load-film', { opacity: .28, roughness: .1 });
+  block(group, [width - .02, height * .9, depth - .02], [base[0], base[1] + .13 + height * .47, base[2]], `#${new THREE.Color(carton).lerp(new THREE.Color(FILM), .28).getHexString()}`, 'load-film', { roughness: .1 });
 }
 
 export const PALLET_RACK = Object.freeze({ levels: [0, 1.56, 3.06] as const, positions: [-.65, .65] as const, width: 2.75, depth: 1.1, height: 4.5 });
