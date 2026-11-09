@@ -11,19 +11,23 @@ async function expectPanelsInsideViewport(page: Page) {
   expect(outside).toEqual([]);
 }
 
-const NEW_OBJECTS = ['dining-table', 'booth-seating', 'bar-counter', 'bar-stool', 'espresso-machine', 'pizza-oven', 'walk-in-cooler', 'heated-pass', 'pickup-shelf', 'host-stand', 'menu-board', 'dish-machine', 'patio-umbrella'];
+const NEW_OBJECTS = ['dining-table', 'booth-seating', 'bar-counter', 'bar-stool', 'espresso-machine', 'pizza-oven', 'walk-in-cooler', 'heated-pass', 'pickup-shelf', 'host-stand', 'menu-board', 'dish-machine', 'patio-umbrella', 'serving-plates'];
 
 test('restaurant models have live previews and usage snippets', async ({ page }) => {
   test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const slug of NEW_OBJECTS) {
     await page.goto(`/docs/objects/${slug}`); await expect(page.locator('canvas'), slug).toHaveCount(1);
-    // Only the espresso steam and the oven fire animate; tables, booths, the pass and the pickup shelf are countable.
+    // Only the espresso steam and the oven fire animate; tables, booths, the pass, the pickup shelf and the serving plates are countable.
     await expect(page.getByLabel('Object animation'), slug).toHaveCount(['espresso-machine', 'pizza-oven'].includes(slug) ? 1 : 0);
-    await expect(page.getByLabel('Object count', { exact: true }), slug).toHaveCount(['dining-table', 'booth-seating', 'heated-pass', 'pickup-shelf'].includes(slug) ? 1 : 0);
-    await page.getByLabel('Object color').fill('#765432');
+    await expect(page.getByLabel('Object count', { exact: true }), slug).toHaveCount(['dining-table', 'booth-seating', 'heated-pass', 'pickup-shelf', 'serving-plates'].includes(slug) ? 1 : 0);
+    // Serving plates keep fixed plate and food tones, so they have no color control.
+    const colored = slug !== 'serving-plates';
+    await expect(page.getByLabel('Object color'), slug).toHaveCount(colored ? 1 : 0);
+    if (colored) await page.getByLabel('Object color').fill('#765432');
     await page.getByRole('button', { name: 'JavaScript', exact: true }).click();
-    await expect(page.locator('.docs-code-block pre')).toContainText(slug); await expect(page.locator('.docs-code-block pre')).toContainText('#765432');
+    await expect(page.locator('.docs-code-block pre')).toContainText(slug);
+    if (colored) await expect(page.locator('.docs-code-block pre')).toContainText('#765432');
   }
   expect(errors).toEqual([]);
 });

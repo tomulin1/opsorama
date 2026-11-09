@@ -1,6 +1,6 @@
 # @opsorama/objects
 
-The Opsorama object catalog: 160 procedural Three.js models (no downloaded meshes or textures) with typed options, semantic palette roles, static poses, anchors and serializable descriptors. Models are grouped into 21 kits that mirror the object browser categories, so a scene bundles only what it uses.
+The Opsorama object catalog: 161 procedural Three.js models (no downloaded meshes or textures) with typed options, semantic palette roles, static poses, anchors and serializable descriptors. Models are grouped into 21 kits that mirror the object browser categories, so a scene bundles only what it uses.
 
 ## Install
 

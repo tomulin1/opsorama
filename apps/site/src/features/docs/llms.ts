@@ -10,7 +10,7 @@ const INTRO = [
   '',
   '> Open-source toolkit for animated 3D dashboards in existing admin interfaces, with native React and Vue adapters and plain JavaScript support. The host application keeps its data, rules and commands; Opsorama draws the scene.',
   '',
-  'Packages: `@opsorama/core` (framework-free scene model), `@opsorama/three` (Three.js renderer, ships no models), `@opsorama/objects` (160 procedural models in 21 kits on subpaths such as `@opsorama/objects/vehicles`, plus `catalogAssets` and `catalog.json`), `@opsorama/react`, `@opsorama/vue`, `@opsorama/ui` (optional panels).',
+  'Packages: `@opsorama/core` (framework-free scene model), `@opsorama/three` (Three.js renderer, ships no models), `@opsorama/objects` (161 procedural models in 21 kits on subpaths such as `@opsorama/objects/vehicles`, plus `catalogAssets` and `catalog.json`), `@opsorama/react`, `@opsorama/vue`, `@opsorama/ui` (optional panels).',
   'Key rule: the renderer needs an explicit `assets` registry, for example `createAssetRegistry(workItemsKit, furnitureKit)`. Pre-release: packages are not on npm yet and the API can change before 1.0.',
 ];
 

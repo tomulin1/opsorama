@@ -6,7 +6,7 @@
 
 Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source toolkit for animated 3D dashboards inside existing admin interfaces: warehouses, shops, offices, datacenters, restaurants and other operational spaces. It has native **React** and **Vue** adapters and works with **plain JavaScript**. Your application keeps its data, rules and commands; Opsorama draws the scene.
 
-- **160 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
+- **161 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
 - **One renderer** for every framework, with selection, labels, markers, camera control, motion, instancing and explicit disposal.
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
 - **Made for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama).

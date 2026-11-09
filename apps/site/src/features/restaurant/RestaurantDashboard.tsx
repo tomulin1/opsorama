@@ -8,7 +8,7 @@ import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
-import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, stationTickets, type RestaurantScenario, type StationId } from './model';
+import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, nextPlateVisit, plateRuns, restaurantNodes, stationTickets, type RestaurantScenario, type StationId } from './model';
 import { CoolerInspector, EmptyInspector, RestaurantLibrary, restaurantHudMetrics, StationInspector, StationStrip, TableChips, TableInspector, TableLegend, TicketTable } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -16,6 +16,8 @@ import { catalogAssets } from '@opsorama/objects';
 const SCENARIO_LABELS: Readonly<Record<RestaurantScenario, string>> = { rush: 'Friday dinner rush', quiet: 'Quiet afternoon', closed: 'After close' };
 const SCENARIO_NOTES: Readonly<Record<RestaurantScenario, string>> = { rush: 'One late grill ticket and a warm walk-in reading.', quiet: 'A few tables and a short ticket queue.', closed: 'Stations idle, oven cold.' };
 const DEFAULT_ZOOM = 1.05;
+/** How often the host reads where plate carriers are; a server pauses at least 3 s at the pass and at a table. */
+const PLATE_POLL_MS = 200;
 /** Below this width the floating panels share one area, so opening one closes the other. */
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'floor' | 'tickets' | 'about';
@@ -42,6 +44,27 @@ function RestaurantViewport() {
     if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null);
   }, []);
   useEffect(() => { if (selection) openInspector(); }, [selection, openInspector]);
+  // Servers set full plates down at one table, clear the finished plates of another and refill at the pass. The host
+  // reads each server's carry anchor from the renderer, so plates follow the walk the renderer draws through pauses,
+  // speed changes and remounts; each move updates only that server and its plates.
+  useEffect(() => {
+    const snapshot = SCENARIOS[scenario], runs = plateRuns(snapshot), visits: Record<string, number> = {};
+    if (!runs.length) return;
+    const timer = window.setInterval(() => {
+      const view = renderer.current;
+      if (!view || view.getDiagnostics().disposed) return;
+      for (const run of runs) {
+        const carry = view.getAnchor(run.server, 'carry'), current = visits[run.server] ?? run.start;
+        const next = carry ? nextPlateVisit(run, carry.position, current) : current;
+        if (next === current) continue;
+        visits[run.server] = next;
+        const nodes = restaurantNodes(snapshot, visits);
+        for (const node of nodes) if (node.id.startsWith(`plate:${run.server}:`)) store.upsert(node);
+        store.upsert(nodes.find(node => node.id === run.server)!);
+      }
+    }, PLATE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [scenario, store]);
   useEffect(() => {
     if (!expanded) return;
     const exit = (event: KeyboardEvent) => { if (event.key === 'Escape') setExpanded(false); };
@@ -91,7 +114,7 @@ function RestaurantViewport() {
       <TicketTable snapshot={snapshot} tickets={tickets} onSelectTable={value => select(`table:${value}`)} />
     </DataPanel>}
     {panelsVisible && leftPanel === 'about' && <DataPanel className="hud-floating-panel rs-about" title="Restaurant" label="Restaurant information" density="compact" slots={{ icon: <Info size={16} />, actions: closeLeft }}>
-      <p className="hud-concept-note">Kitchen, bar, dining room, booths and terrace. Place settings show covers, plates on the pass and bags on the pickup shelf show ready orders, and each table tent shows the table status. Every model comes from the shared restaurant catalog.</p>
+      <p className="hud-concept-note">Kitchen, bar, dining room, booths and terrace. Place settings show covers, plates on the pass and bags on the pickup shelf show ready orders; table chips and labels show the table status. Every model comes from the shared restaurant catalog.</p>
       <TableLegend />
       <RestaurantLibrary />
     </DataPanel>}

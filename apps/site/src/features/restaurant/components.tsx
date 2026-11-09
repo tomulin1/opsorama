@@ -49,7 +49,7 @@ export function TableInspector({ session, snapshot }: { session: TableSession; s
   return <aside className="restaurant-inspector" aria-label="Table inspector"><div className="restaurant-eyebrow">{layout.area.toUpperCase()} / {layout.seats} SEATS</div><h2>{layout.label}</h2><TableStatusBadge status={session.status} />
     <dl><dt>Party</dt><dd>{session.party || '—'}</dd><dt>Server</dt><dd>{session.server ?? '—'}</dd><dt>{session.status === 'reserved' ? 'Reservation' : 'Seated for'}</dt><dd>{session.status === 'reserved' ? session.guestName ?? '—' : session.minutes === undefined ? '—' : `${session.minutes} min`}</dd><dt>Open tickets</dt><dd>{tickets.length ? tickets.map(ticket => ticket.id).join(', ') : 'None'}</dd></dl>
     <p>{session.note}</p>{tickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)}
-    <div className="restaurant-host-note">Seat guests, fire courses and close bills in your POS. The board shows covers laid as place settings and the status on each table tent.</div></aside>;
+    <div className="restaurant-host-note">Seat guests, fire courses and close bills in your POS. The board shows covers laid as place settings; the table chips and table labels show the status.</div></aside>;
 }
 function TicketCard({ ticket }: { ticket: KitchenTicket }) {
   return <div className="restaurant-ticket" data-status={ticket.status}><div><strong>{ticket.id}</strong><TicketStatusBadge status={ticket.status} /></div><span>{ticket.items.join(' · ')}</span><small>{STATIONS.find(station => station.id === ticket.station)!.label} · {ticket.minutes} / {ticket.target} min</small></div>;
@@ -75,7 +75,7 @@ export function EmptyInspector() {
   return <div className="restaurant-inspector"><div className="restaurant-eyebrow">FLOOR INSPECTOR</div><h2>Select a table</h2><p>Choose a table, booth, station or the walk-in cooler in the scene, or use the Floor, Tickets and Stations panels.</p><TableLegend /></div>;
 }
 
-/** Table-status colors and symbols shared by the table chips and the table tents. */
+/** Table-status colors and symbols of the table chips. */
 export function TableLegend() {
   return <div className="restaurant-legend" aria-label="Table status legend">{(Object.keys(TABLE_STATUS) as TableStatus[]).map(status => <TableStatusBadge key={status} status={status} />)}</div>;
 }
@@ -90,7 +90,7 @@ export function TicketTable({ snapshot, tickets, onSelectTable }: { snapshot: Re
 
 export const RESTAURANT_CATALOG = [
   ['dining-table', 'Dining table', 'Square or round four-top; covers laid as 0–4 place settings.'],
-  ['booth-seating', 'Booth seating', 'Upholstered booth for four with a status tent.'],
+  ['booth-seating', 'Booth seating', 'Upholstered booth for four with place settings.'],
   ['bar-counter', 'Bar counter', 'Slatted bar with taps, foot rail and lit back bar.'],
   ['bar-stool', 'Bar stool', 'Chrome stool for bar-counter guest anchors.'],
   ['espresso-machine', 'Espresso machine', 'Two-group machine with grinder and rising steam.'],
@@ -102,6 +102,7 @@ export const RESTAURANT_CATALOG = [
   ['menu-board', 'Menu board', 'A-frame chalkboard with a menu surface label.'],
   ['dish-machine', 'Dish machine', 'Hood dishwasher with inlet and outlet tables.'],
   ['patio-umbrella', 'Patio umbrella', 'Striped market umbrella, open or furled.'],
+  ['serving-plates', 'Serving plates', 'Two plates a server holds, full or cleared.'],
 ] as const;
 /** Links to the shared catalog pages of every restaurant model in the scene. */
 export function RestaurantLibrary() {
