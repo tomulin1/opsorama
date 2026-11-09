@@ -11,6 +11,19 @@ Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source t
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
 - **Made for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama).
 
+Four of the domain examples on the documentation website, with fictional data:
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/ecommerce.gif" alt="Online shop and fulfilment centre: shoppers, pickers and a delivery truck move while the order and cut-off metrics update" width="100%"><br><sub><b>Online shop &amp; fulfilment centre</b> · orders from picking to dispatch</sub></td>
+    <td width="50%"><img src="docs/media/restaurant.gif" alt="Restaurant floor and kitchen: guests and waiting staff move between tables, the bar and the kitchen" width="100%"><br><sub><b>Restaurant</b> · tables, kitchen tickets and takeout</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/media/aquatics.gif" alt="Aquatic centre: swimmers move along the lanes of a 25 m pool next to a teaching pool and lifeguard chairs" width="100%"><br><sub><b>Aquatic centre</b> · lanes, lifeguard cover and water quality</sub></td>
+    <td width="50%"><img src="docs/media/farm.gif" alt="Farm: a farmer and a dog walk past the barn, pens, pastures and fields" width="100%"><br><sub><b>Farm</b> · pens, troughs, animals and chores</sub></td>
+  </tr>
+</table>
+
 > **Status: pre-release.** The packages are not published on npm yet, and the API can change before 1.0. See the [roadmap](docs/ROADMAP.md).
 
 ## Quick start
@@ -141,7 +154,7 @@ pnpm check:bundles
 pnpm smoke:starters
 ```
 
-End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`, which builds the website and tests the production build. `pnpm test:e2e:measure` runs the WebGL resource and remount measurements, which regular runs skip. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [AGENTS.md](AGENTS.md) for the rules every contributor and AI agent follows, and [the object guide](docs/CONTRIBUTING_OBJECTS.md) for catalog objects. Security reports: [SECURITY.md](SECURITY.md).
+End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install chromium`, then `pnpm test:e2e`, which builds the website and tests the production build. `pnpm test:e2e:measure` runs the WebGL resource and remount measurements, which regular runs skip. The animations at the top of this README are recorded from the running website by [`apps/site/scripts/capture-readme-media.mjs`](apps/site/scripts/capture-readme-media.mjs) (needs ffmpeg). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [AGENTS.md](AGENTS.md) for the rules every contributor and AI agent follows, and [the object guide](docs/CONTRIBUTING_OBJECTS.md) for catalog objects. Security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 
