@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { isPersonAsset, routeDuration, sampleRoute, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
-import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, stationTickets, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
+import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, nextPlateLoad, plateRuns, restaurantMetrics, restaurantNodes, stationTickets, type PlateLoad, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
 
 const asset = (nodes: readonly SceneNode[], id: string) => nodes.find(node => node.id === id) as AssetNode;
 const scenarios = Object.keys(SCENARIOS) as RestaurantScenario[];
@@ -77,6 +77,29 @@ describe('restaurant dashboard model', () => {
           const hit = solid.find(({ box }) => x > box.min.x - RADIUS && x < box.max.x + RADIUS && z > box.min.z - RADIUS && z < box.max.z + RADIUS);
           expect(hit?.id, `${scenario} ${walker.id} at ${x.toFixed(2)}, ${z.toFixed(2)}`).toBeUndefined();
         }
+      }
+    }
+  });
+
+  it('hands plate carriers full plates at the pass and empty ones after the first table they serve', () => {
+    expect(plateRuns(SCENARIOS.rush).map(run => run.server)).toEqual(['staff:ana', 'staff:ben', 'staff:cleo', 'staff:dan']);
+    expect(plateRuns(SCENARIOS.quiet).map(run => run.server)).toEqual(['staff:dan']); expect(plateRuns(SCENARIOS.closed)).toEqual([]);
+    for (const scenario of scenarios) {
+      const nodes = restaurantNodes(SCENARIOS[scenario], { 'staff:dan': 'empty' }), runs = plateRuns(SCENARIOS[scenario]);
+      expect(nodes.filter(node => node.kind === 'asset' && node.asset === 'serving-plates'), scenario).toHaveLength(runs.length);
+      for (const run of runs) {
+        const plates = asset(nodes, `plates:${run.server}`), server = asset(nodes, run.server);
+        expect(plates.attachment).toEqual({ nodeId: run.server, anchor: 'carry' }); expect(plates.variant).toBe(run.server === 'staff:dan' ? 'empty' : 'full');
+        expect(server.variant, run.server).toBe('holding');
+        // Walk one loop with the carry anchor about 0.45 m in front of the body: plates empty at the table and refill at the pass.
+        const route = server.route!, loads: PlateLoad[] = [];
+        let load: PlateLoad = 'full';
+        for (let t = 0; t <= routeDuration(route) + .5; t += .2) {
+          const { position: [x, y, z], yaw } = sampleRoute(route, t);
+          load = nextPlateLoad(run, [x + Math.sin(yaw) * .45, y, z + Math.cos(yaw) * .45], load);
+          if (loads.at(-1) !== load) loads.push(load);
+        }
+        expect(loads, `${scenario} ${run.server}`).toEqual(['full', 'empty', 'full']);
       }
     }
   });

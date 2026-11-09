@@ -48,7 +48,7 @@ describe('model-native status and explicit operation', () => {
       const descriptor = assetDescriptors[item.asset];
       if (descriptor) expect(descriptor.customization.some(option => option.field === 'state'), item.slug).toBe(false);
     }
-    expect(neutral).toBe(152);
+    expect(neutral).toBe(153);
   }, 20_000);
 
   it('derives chooser capabilities from native support and treats unsupported busy as normal', () => {

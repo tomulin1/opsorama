@@ -11,7 +11,7 @@ async function expectPanelsInsideViewport(page: Page) {
   expect(outside).toEqual([]);
 }
 
-const NEW_OBJECTS = ['dining-table', 'booth-seating', 'bar-counter', 'bar-stool', 'espresso-machine', 'pizza-oven', 'walk-in-cooler', 'heated-pass', 'pickup-shelf', 'host-stand', 'menu-board', 'dish-machine', 'patio-umbrella'];
+const NEW_OBJECTS = ['dining-table', 'booth-seating', 'bar-counter', 'bar-stool', 'espresso-machine', 'pizza-oven', 'walk-in-cooler', 'heated-pass', 'pickup-shelf', 'host-stand', 'menu-board', 'dish-machine', 'patio-umbrella', 'serving-plates'];
 
 test('restaurant models have live previews and usage snippets', async ({ page }) => {
   test.setTimeout(ciScaled(120000));

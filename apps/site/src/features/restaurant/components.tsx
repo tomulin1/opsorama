@@ -102,6 +102,7 @@ export const RESTAURANT_CATALOG = [
   ['menu-board', 'Menu board', 'A-frame chalkboard with a menu surface label.'],
   ['dish-machine', 'Dish machine', 'Hood dishwasher with inlet and outlet tables.'],
   ['patio-umbrella', 'Patio umbrella', 'Striped market umbrella, open or furled.'],
+  ['serving-plates', 'Serving plates', 'Two plates a server holds, full or cleared.'],
 ] as const;
 /** Links to the shared catalog pages of every restaurant model in the scene. */
 export function RestaurantLibrary() {
