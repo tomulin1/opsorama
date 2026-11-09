@@ -192,8 +192,13 @@ export function nextPlateLoad(run: PlateRun, carry: readonly [number, number, nu
   const near = (point: Vec3) => Math.hypot(carry[0] - point[0], carry[2] - point[2]) < PLATE_REACH;
   return near(run.table) ? 'empty' : near(run.pass) ? 'full' : current;
 }
-/** Plates held at a server's carry anchor. */
-export const plateNode = (server: string, load: PlateLoad): AssetNode => ({ id: `plates:${server}`, kind: 'asset', asset: 'serving-plates', variant: load, attachment: { nodeId: server, anchor: 'carry' }, position: [0, 0, 0], selectable: false });
+/**
+ * The carry anchor is the base of a load held between the arms; plates rest on top of the level forearms and hands of
+ * the holding pose instead, this much higher. The lift is inside the rig, so it follows the feminine scale and the gait.
+ */
+export const PLATE_LIFT = .3;
+/** Plates resting on a server's hands, above the carry anchor. */
+export const plateNode = (server: string, load: PlateLoad): AssetNode => ({ id: `plates:${server}`, kind: 'asset', asset: 'serving-plates', variant: load, attachment: { nodeId: server, anchor: 'carry' }, position: [0, PLATE_LIFT, 0], selectable: false });
 
 /** Floors, fixtures and decoration that do not depend on the service snapshot. */
 export const restaurantBase: readonly SceneNode[] = [

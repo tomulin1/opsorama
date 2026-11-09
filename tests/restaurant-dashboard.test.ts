@@ -91,6 +91,12 @@ describe('restaurant dashboard model', () => {
         const plates = asset(nodes, `plates:${run.server}`), server = asset(nodes, run.server);
         expect(plates.attachment).toEqual({ nodeId: run.server, anchor: 'carry' }); expect(plates.variant).toBe(run.server === 'staff:dan' ? 'empty' : 'full');
         expect(server.variant, run.server).toBe('holding');
+        // The plates rest just on top of the hands, not below them at the carry anchor.
+        const figure = catalogAssets[server.asset]({ ...server, route: undefined }), model = catalogAssets['serving-plates'](plates);
+        figure.getObjectByName('anchor-carry')!.add(model); model.position.fromArray(plates.position!); figure.updateMatrixWorld(true);
+        const hands = new THREE.Box3().setFromObject(figure.getObjectByName('anchor-hand')!.parent!), held = new THREE.Box3().setFromObject(model);
+        expect(held.min.y - hands.max.y, run.server).toBeGreaterThan(-.01); expect(held.min.y - hands.max.y, run.server).toBeLessThan(.03);
+        model.removeFromParent(); disposeObject(model); disposeObject(figure);
         // Walk one loop with the carry anchor about 0.45 m in front of the body: plates empty at the table and refill at the pass.
         const route = server.route!, loads: PlateLoad[] = [];
         let load: PlateLoad = 'full';

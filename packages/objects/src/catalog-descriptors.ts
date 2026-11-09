@@ -2437,7 +2437,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/restaurant",
-    notes: "Two 0.26 m plates side by side at x ±0.14 m, sized to a person's carry anchor: attach them there and give the person the holding pose, which keeps the carrying arms without the built-in carton. full plates carry a dish and garnish; empty plates carry leftovers and crossed cutlery. Plate and food tones are fixed and never identify a dish or an order; the rim and cutlery use trim. top anchor. Static.",
+    notes: "Two 0.26 m plates side by side at x ±0.14 m, sized to a person's carry anchor: attach them there 0.3 m up so they rest on the hands, and give the person the holding pose, which keeps the carrying arms without the built-in carton. full plates carry a dish and garnish; empty plates carry leftovers and crossed cutlery. Plate and food tones are fixed and never identify a dish or an order; the rim and cutlery use trim. top anchor. Static.",
   },
   {
     asset: "lab-flask",
