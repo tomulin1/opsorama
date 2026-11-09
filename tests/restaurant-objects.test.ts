@@ -77,7 +77,10 @@ describe('restaurant objects', () => {
     expect(named(empty, 'plates-food')).toHaveLength(0); expect(named(empty, 'plates-cutlery')).toHaveLength(4); expect(named(empty, 'plates-scrap').length).toBeGreaterThan(0);
     // Both plates fit between a server's hands and stay low enough to read as held, not stacked.
     const size = new THREE.Box3().setFromObject(full).getSize(new THREE.Vector3()); expect(size.x).toBeLessThan(.6); expect(size.y).toBeLessThan(.1);
-    disposeObject(full); disposeObject(empty);
+    // One plate sits centred on the origin, the size of a place setting.
+    const single = build('serving-plates', { count: 1 }), bounds = new THREE.Box3().setFromObject(single);
+    expect(named(single, 'plates-plate')).toHaveLength(1); expect(bounds.getCenter(new THREE.Vector3()).x).toBeCloseTo(0, 2); expect(bounds.getSize(new THREE.Vector3()).x).toBeLessThan(.3);
+    disposeObject(full); disposeObject(empty); disposeObject(single);
   });
 
   it('lights pickup bays only while they hold a bag', () => {

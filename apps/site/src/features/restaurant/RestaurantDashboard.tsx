@@ -8,7 +8,7 @@ import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
-import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, nextPlateLoad, plateNode, plateRuns, stationTickets, type PlateLoad, type RestaurantScenario, type StationId } from './model';
+import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, nextPlateVisit, plateRuns, restaurantNodes, stationTickets, type RestaurantScenario, type StationId } from './model';
 import { CoolerInspector, EmptyInspector, RestaurantLibrary, restaurantHudMetrics, StationInspector, StationStrip, TableChips, TableInspector, TableLegend, TicketTable } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -44,18 +44,23 @@ function RestaurantViewport() {
     if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null);
   }, []);
   useEffect(() => { if (selection) openInspector(); }, [selection, openInspector]);
-  // Servers empty their plates at the table they serve and refill them at the pass. The host reads each server's carry
-  // anchor from the renderer, so the load follows the walk the renderer draws through pauses, speed changes and remounts.
+  // Servers set full plates down at one table, clear the finished plates of another and refill at the pass. The host
+  // reads each server's carry anchor from the renderer, so plates follow the walk the renderer draws through pauses,
+  // speed changes and remounts; each move updates only that server and its plates.
   useEffect(() => {
-    const runs = plateRuns(SCENARIOS[scenario]), loads: Record<string, PlateLoad> = {};
+    const snapshot = SCENARIOS[scenario], runs = plateRuns(snapshot), visits: Record<string, number> = {};
     if (!runs.length) return;
     const timer = window.setInterval(() => {
       const view = renderer.current;
       if (!view || view.getDiagnostics().disposed) return;
       for (const run of runs) {
-        const carry = view.getAnchor(run.server, 'carry'), current = loads[run.server] ?? 'full';
-        const next = carry ? nextPlateLoad(run, carry.position, current) : current;
-        if (next !== current) { loads[run.server] = next; store.upsert(plateNode(run.server, next)); }
+        const carry = view.getAnchor(run.server, 'carry'), current = visits[run.server] ?? run.start;
+        const next = carry ? nextPlateVisit(run, carry.position, current) : current;
+        if (next === current) continue;
+        visits[run.server] = next;
+        const nodes = restaurantNodes(snapshot, visits);
+        for (const node of nodes) if (node.id.startsWith(`plate:${run.server}:`)) store.upsert(node);
+        store.upsert(nodes.find(node => node.id === run.server)!);
       }
     }, PLATE_POLL_MS);
     return () => window.clearInterval(timer);

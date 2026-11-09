@@ -37,6 +37,7 @@ export const assetCountDefinitions: Readonly<Record<string, AssetCountDefinition
   'drum-pallet': Object.freeze({ kind: 'range', label: 'Drums', unit: 'drums', min: 1, max: 4, step: 1, default: 4 }),
   'dining-table': Object.freeze({ kind: 'range', label: 'Place settings', unit: 'settings', min: 0, max: 4, step: 1, default: 2 }),
   'booth-seating': Object.freeze({ kind: 'range', label: 'Place settings', unit: 'settings', min: 0, max: 4, step: 1, default: 4 }),
+  'serving-plates': Object.freeze({ kind: 'range', label: 'Plates', unit: 'plates', min: 1, max: 2, step: 1, default: 2 }),
   'heated-pass': Object.freeze({ kind: 'range', label: 'Plated dishes', unit: 'dishes', min: 0, max: 6, step: 1, default: 3 }),
   'pickup-shelf': Object.freeze({ kind: 'range', label: 'Pickup bags', unit: 'bags', min: 0, max: 9, step: 1, default: 5 }),
 });

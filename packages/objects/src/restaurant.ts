@@ -87,7 +87,8 @@ export function createDiningTable(node: AssetNode, context?: MaterialContext): T
   return table;
 }
 
-export const BOOTH = Object.freeze({ seats: [[-.32, .7, Math.PI], [.32, .7, Math.PI], [-.32, -.7, 0], [.32, -.7, 0]] as const });
+/** Seats as `[x, z, facing]`; each place setting sits at the seat's x and `settingZ` toward its bench. */
+export const BOOTH = Object.freeze({ seats: [[-.32, .7, Math.PI], [.32, .7, Math.PI], [-.32, -.7, 0], [.32, -.7, 0]] as const, settingZ: .2 });
 /**
  * Upholstered booth: two high-backed benches facing across a 1.2 × 0.7 m table. `count` lays 0–4 place settings in seat
  * order (+z left/right, then −z). Service status belongs to the host composition. Color changes the upholstery.
@@ -109,7 +110,7 @@ export function createBoothSeating(node: AssetNode, context?: MaterialContext): 
   for (const x of [-.42, .42]) { cylinder(booth, .04, TABLE - .06, (TABLE - .06) / 2 + .02, p.structure, 'table-pedestal', { segments: 12, ...metal }).position.x = x; block(booth, [.08, .03, .5], [x, .015, 0], p.structure, 'table-foot', metal); }
   BOOTH.seats.forEach(([x, z, facing], i) => {
     seatAnchor(booth, i, [x, SEAT, z], facing);
-    if (i < count) placeSetting(booth, i, [x, TABLE, Math.sign(z) * .2], z > 0 ? 0 : Math.PI, p);
+    if (i < count) placeSetting(booth, i, [x, TABLE, Math.sign(z) * BOOTH.settingZ], z > 0 ? 0 : Math.PI, p);
   });
   centerpiece(booth, TABLE, p);
   anchor(booth, 'top', [0, TABLE, 0]);
@@ -464,18 +465,20 @@ export function createDishMachine(node: AssetNode, context?: MaterialContext): T
 
 /** Market umbrella with a weighted base, open octagonal canopy with valance or furled closed. Static. Color changes the canopy. */
 export type ServingPlatesVariant = 'full' | 'empty';
-/** Two plates side by side, sized to a person's `carry` anchor: centres at x ±0.14 m, 0.26 m across. */
+/** Two plates side by side, sized to a person's `carry` anchor: centres at x ±0.14 m, 0.26 m across. One plate sits at the centre. */
 export const SERVING_PLATES = Object.freeze({ offsets: [-.14, .14] as const, radius: .13 });
 /**
- * Two dinner plates a server holds in front of the chest: `full` plates carry a plated dish and garnish, `empty` plates
- * carry leftovers and crossed cutlery after clearing. Attach them at a person's `carry` anchor with the `holding` pose.
- * Plates and food tones are fixed; they never identify a dish or an order. The rim and cutlery use trim.
+ * One or two dinner plates (`count`, default two): `full` plates carry a plated dish and garnish, `empty` plates carry
+ * leftovers and crossed cutlery after clearing. Two plates fit a person's `carry` anchor with the `holding` pose; one
+ * plate fits a place setting on a table. Plates and food tones are fixed; they never identify a dish or an order. The
+ * rim and cutlery use trim.
  */
 export function createServingPlates(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const variant = variantOf(node, ['full', 'empty'] as const, 'serving plates'), p = kitPalette(node, context), { offsets, radius } = SERVING_PLATES;
+  const { count } = resolveCountRepresentation(node, assetCountDefinitions['serving-plates']);
   const plates = new THREE.Group(); plates.name = `serving-plates-${variant}`;
-  offsets.forEach((x, i) => {
-    const plate = new THREE.Group(); plate.position.x = x; plates.add(plate);
+  (count === 1 ? [0] : offsets).forEach((x, i) => {
+    const plate = new THREE.Group(); plate.name = `count-part-${i}`; plate.position.x = x; plates.add(plate);
     cylinder(plate, radius + .006, .006, .003, p.trim, 'plates-rim', { segments: 28, ...metal });
     cylinder(plate, radius, .014, .009, PLATE, 'plates-plate', { segments: 28, roughness: .25 });
     cylinder(plate, radius * .66, .004, .016, '#eef1f4', 'plates-well', { segments: 24, roughness: .25 });
