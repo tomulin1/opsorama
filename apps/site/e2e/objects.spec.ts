@@ -35,7 +35,7 @@ test('object catalog filters, previews and documents real definitions', async ({
   await page.goto('/docs');
   await page.getByRole('navigation', { name: 'Toolkit navigation' }).getByRole('link', { name: 'Objects', exact: true }).click();
   await expect(page).toHaveURL(/\/docs\/objects$/);
-  await expect(page.getByRole('link', { name: /^Explore / })).toHaveCount(163);
+  await expect(page.getByRole('link', { name: /^Explore / })).toHaveCount(164);
   await expect(page.getByAltText('Parcel model preview')).toBeVisible({ timeout: 30000 });
   await expect(page.locator('canvas')).toHaveCount(0);
   await page.getByRole('button', { name: 'People', exact: true }).click();
