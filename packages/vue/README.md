@@ -33,6 +33,8 @@ const store = createSceneStore();
 
 `SceneCanvas` creates the renderer on mount and disposes it on unmount; the store belongs to your component.
 
+Until the first frame `SceneCanvas` shows a loading indicator. The `loading` slot (given `{ state }`) replaces its content, `:loading="false"` turns it off, and `@load` reports progress.
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

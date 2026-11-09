@@ -40,6 +40,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
 - `SceneCanvas` disposes its renderer on unmount. The store belongs to your component: call `store.dispose()` when the dashboard goes away for good. In plain JavaScript dispose in reverse order: listeners, subscriptions, `renderer.dispose()`, `store.dispose()`.
 - Pass a stable `assets` registry (module constant or memoized). Replacing it remounts the renderer.
 - A theme or palette change (`store.configure({ theme: 'midnight' })`) rebuilds every asset node.
+- The initial scene loads in slices behind a loading indicator. `onReady` fires before the first frame: `getAnchor` returns null for nodes not built yet, so await `renderer.loaded` before reading anchors. `frame(id)` called early is applied when the build finishes.
 - Settings: `theme` (`light` | `midnight`), `labels`, `grid`, `shadows`, `motion`, `paused`, `speed`, `zoom` (0.65–5), `selectionStyle` (`corners` | `glow`), `palette` (semantic material overrides). Reduced-motion and motion-off always win over per-object animation.
 
 ## Common mistakes

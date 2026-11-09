@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { contentsLabel } from '@opsorama/core';
-import type { ResolvedTarget, SceneNode, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
+import type { ResolvedTarget, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
 import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
@@ -16,6 +16,9 @@ import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
 import { createMoveTargetObject, highlightMoveTarget, type MoveTargetMarker } from './move-targets';
 import { createMarkerElement, MARKER_STYLES } from './markers';
+import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
+export { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, loadingIndicatorAttributes, loadProgress, loadStateText, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES } from './loading';
+export type { LoadingIndicator, SceneLoadPhase, SceneLoadState } from './loading';
 export { createMarkerElement, markerAccessibleName, resolveMarkerAppearance, MARKER_ICON_ELEMENTS, MARKER_SHAPE_GEOMETRY, MARKER_STYLES, type MarkerAppearance } from './markers';
 export { sampleRendererFps, type FrameSource, type FpsSamplerOptions } from './fps';
 export { createInstanceBatcher, INSTANCING_MIN_COUNT, INSTANCED_BATCH_NAME } from './instancing';
@@ -33,8 +36,29 @@ export { animateAsset, setAssetAnimator, hasAssetAnimator, assetAnimatedParts, c
 export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-merge';
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
-export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
-export interface SceneRenderer { overview(): void; frame(id: string, options?: { fit?: boolean }): void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable move targets, positioned once from current anchors; a click on one calls `onPick` instead of selecting. Null removes them. Hosts usually use `bindMoveMode`. */ setMoveTargets(targets: readonly ResolvedTarget[] | null, onPick?: (target: ResolvedTarget) => void): void; getDiagnostics(): { objects: number; disposed: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
+export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; overview(): void; /** Centre (or with `fit`, fit) a node. During the initial load a node that is not built yet is framed when the build finishes, at the zoom of this call. */ frame(id: string, options?: { fit?: boolean }): void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable move targets, positioned once from current anchors; a click on one calls `onPick` instead of selecting. Null removes them. Hosts usually use `bindMoveMode`. */ setMoveTargets(targets: readonly ResolvedTarget[] | null, onPick?: (target: ResolvedTarget) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+/**
+ * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
+ * driver links in the background and this resolves when every program is ready; without it, linking
+ * already happened in `compile`. Unlike `WebGLRenderer.compileAsync`, polling stops once `cancelled`
+ * returns true, so disposing the renderer mid-compile neither throws nor keeps polling.
+ */
+function compileScene(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, cancelled: () => boolean): Promise<void> {
+  let pending: Set<THREE.Material>;
+  // A program that fails here fails again, and is reported, on the first frame.
+  try { pending = renderer.compile(scene, camera); } catch { return Promise.resolve(); }
+  if (!renderer.extensions.has('KHR_parallel_shader_compile')) return Promise.resolve();
+  return new Promise(resolve => {
+    const check = () => {
+      if (cancelled()) { resolve(); return; }
+      // `isReady` is false while linking and null after a lost context; only false keeps waiting.
+      for (const material of pending) { const program = (renderer.properties.get(material) as { currentProgram?: { isReady(): boolean | null } }).currentProgram; if (!program || program.isReady() !== false) pending.delete(material); }
+      if (pending.size === 0) resolve(); else setTimeout(check, 10);
+    };
+    check();
+  });
+}
 export function createSceneRenderer(container: HTMLElement, store: SceneStore, options: RendererOptions): SceneRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -53,6 +77,21 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // Marker styles travel with the label layer, so a host needs no stylesheet and disposal removes them.
   const markerStyles = document.createElement('style'); markerStyles.textContent = MARKER_STYLES; labelLayer.append(markerStyles);
   container.append(renderer.domElement, labelLayer);
+  // Initial load: build in slices, compile shaders, then draw the first frame. Canvas and labels stay transparent (still hit-testable) until then.
+  const buildBudget = options.buildBudget ?? DEFAULT_BUILD_BUDGET;
+  let loadState: SceneLoadState = { phase: 'building', built: 0, total: 0 }, compileStarted = false, compiled = false, sliceTimer: ReturnType<typeof setTimeout> | undefined;
+  /** A `frame` call made before its node was built, replayed when the build finishes. */
+  let deferredFrame: { id: string; fit: boolean; zoom: number } | null = null;
+  /** Between build slices: entries waiting for instancing, and the snapshot and nodes the last slice left unbuilt. */
+  let buildPending: Entry[] = [], sliceSnapshot: SceneSnapshot | null = null, sliceDeferred = new Set<string>();
+  let resolveLoaded: () => void = () => undefined; const loaded = new Promise<void>(resolve => { resolveLoaded = resolve; });
+  let indicator: LoadingIndicator | null = options.loadingIndicator === false ? null : createLoadingIndicator(container, store.getSnapshot().settings.theme);
+  renderer.domElement.style.opacity = '0'; labelLayer.style.opacity = '0';
+  const reportLoad = (next: SceneLoadState) => {
+    if (next.phase === loadState.phase && next.built === loadState.built && next.total === loadState.total) return;
+    loadState = next; indicator?.update(next, store.getSnapshot().settings.theme);
+    try { options.onLoad?.(next); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
+  };
   const assets = options.assets, controllers: ControllerRegistry = { ...basicControllers, ...options.controllers };
   type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: parent or carrier chain reaches a building. */ insideBuilding: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
@@ -101,10 +140,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     const visibleNodes = snapshot.nodes.filter(node => isInteriorVisible(node, snapshot.nodes, byId));
     const ids = new Set(visibleNodes.map(n => n.id)); for (const [id, entry] of entries) if (!ids.has(id)) { entry.controller.cancel('removed'); cleanEntry(entry); entries.delete(id); }
     const built: Entry[] = [], style = snapshot.settings.selectionStyle;
+    // During the initial build only one slice of models is built per call; the rest waits for the next slice.
+    const building = loadState.phase === 'building', slice = createBuildSlice(building && !document.hidden ? buildBudget : Infinity), deferred = new Set<string>();
     for (const node of visibleNodes) {
       // Placement is part of the signature: a carried node follows its carrier into or out of a building.
-      const insideBuilding = isInsideBuilding(node, byId), signature = JSON.stringify({ ...node, position: undefined, route: undefined, insideBuilding, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
+      // A later slice of an unchanged snapshot reuses the signatures of nodes an earlier slice built.
+      const current = building && snapshot === sliceSnapshot && !sliceDeferred.has(node.id) ? entries.get(node.id) : undefined;
+      const insideBuilding = current ? current.insideBuilding : isInsideBuilding(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, insideBuilding, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
       if (!entry || entry.signature !== signature) {
+        // A child waits for a deferred parent or carrier, so it is never built against an old one.
+        if (building && (deferred.has(node.parentId ?? '') || deferred.has(node.attachment?.nodeId ?? '') || !slice.allow())) { deferred.add(node.id); continue; }
         // Narrow shadows per part first, then merge static parts grouped by the decided flags.
         const object = build(node); applyShadowPolicy(object, { interior: insideBuilding }); mergeStaticParts(object);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
@@ -146,18 +191,36 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (attachment && owner && !parent) throw new Error(`Unknown attachment anchor ${attachment.anchor} on ${attachment.nodeId}.`);
       if (parent && entry.object.parent !== parent) parent.add(entry.object);
     }
-    // Register new objects once their world matrices and shadow placement are current.
-    scene.updateMatrixWorld(true); updatePlacements(); for (const entry of built) instancing?.add(entry.object);
+    // Register new objects once their world matrices and shadow placement are current. Nothing is drawn during the initial build, so this waits for its last slice.
+    if (building && deferred.size) { buildPending.push(...built); sliceSnapshot = snapshot; sliceDeferred = deferred; }
+    else {
+      scene.updateMatrixWorld(true); updatePlacements();
+      for (const entry of [...buildPending, ...built]) if (entries.get(entry.node.id) === entry) instancing?.add(entry.object);
+      buildPending = []; sliceSnapshot = null; sliceDeferred = new Set();
+    }
     const selectedId = snapshot.selection?.nodeId || null;
     for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && entry?.bounds ? entry.object : null, selectionColor(entry?.node.state, snapshot.settings.palette)); }
     if (selectedId !== previousSelection) { previousSelection = selectedId; if (selectedId) frame(selectedId); else { pan?.cancel(); target.copy(overviewTarget()); } }
+    if (building) {
+      const total = visibleNodes.length;
+      if (deferred.size) { reportLoad({ phase: 'building', built: total - deferred.size, total }); sliceTimer ??= setTimeout(() => { sliceTimer = undefined; if (!disposed) safeSync(); }, 0); }
+      else {
+        reportLoad({ phase: 'compiling', built: total, total });
+        if (deferredFrame) { const { id, fit, zoom } = deferredFrame; deferredFrame = null; frameAt(id, fit, zoom); currentTarget.copy(target); }
+      }
+    }
   }
-  const safeSync = () => { try { sync(); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
+  const safeSync = () => { try { sync(); } catch (error) { if (loadState.phase !== 'loaded') { indicator?.dispose(); indicator = null; } options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
   const unsubscribe = store.subscribe(safeSync);
-  try { sync(); } catch (error) { unsubscribe(); entries.forEach(cleanEntry); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); container.replaceChildren(); throw error; }
+  try { sync(); } catch (error) { clearTimeout(sliceTimer); unsubscribe(); entries.forEach(cleanEntry); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); container.replaceChildren(); throw error; }
   const resize = () => { pan?.cancel(); const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height); renderer.setSize(width, height, false); camera.left = -width / 2; camera.right = width / 2; camera.top = height / 2; camera.bottom = -height / 2; camera.updateProjectionMatrix(); };
   const observer = new ResizeObserver(resize); observer.observe(container); resize();
-  function frame(id: string, options?: { fit?: boolean }) { const entry = entries.get(id); if (entry) { pan?.cancel(); if (options?.fit) { const bounds = new THREE.Box3().setFromObject(entry.object), size = bounds.getSize(new THREE.Vector3()), direction = cameraOffset.clone().normalize(), right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize(), up = direction.clone().cross(right); const span = (axis: THREE.Vector3) => Math.abs(axis.x) * size.x + Math.abs(axis.y) * size.y + Math.abs(axis.z) * size.z; fittedExtent = Math.max(.3, (span(right) + 4) / 34, (span(up) + 4) / 21) * store.getSnapshot().settings.zoom; target.copy(bounds.getCenter(new THREE.Vector3())); currentTarget.copy(target); } else { target.copy(entry.object.getWorldPosition(new THREE.Vector3())).multiplyScalar(fittedExtent === undefined ? .48 : 1).setY(0); } } }
+  function frame(id: string, options?: { fit?: boolean }) {
+    const zoom = store.getSnapshot().settings.zoom;
+    if (entries.has(id)) { deferredFrame = null; frameAt(id, Boolean(options?.fit), zoom); }
+    else if (loadState.phase === 'building') deferredFrame = { id, fit: Boolean(options?.fit), zoom };
+  }
+  function frameAt(id: string, fit: boolean, zoom: number) { const entry = entries.get(id); if (entry) { pan?.cancel(); if (fit) { const bounds = new THREE.Box3().setFromObject(entry.object), size = bounds.getSize(new THREE.Vector3()), direction = cameraOffset.clone().normalize(), right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize(), up = direction.clone().cross(right); const span = (axis: THREE.Vector3) => Math.abs(axis.x) * size.x + Math.abs(axis.y) * size.y + Math.abs(axis.z) * size.z; fittedExtent = Math.max(.3, (span(right) + 4) / 34, (span(up) + 4) / 21) * zoom; target.copy(bounds.getCenter(new THREE.Vector3())); currentTarget.copy(target); } else { target.copy(entry.object.getWorldPosition(new THREE.Vector3())).multiplyScalar(fittedExtent === undefined ? .48 : 1).setY(0); } } }
   /** Other nodes' live poses in the controlled node's parent space. */
   const controllerContext = (entry: Entry): ControllerContext => ({
     node: entry.node as ControllerContext['node'],
@@ -221,11 +284,14 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     return result;
   }
   const onClick = (event: PointerEvent) => {
+    // The canvas is transparent until the first frame; a click must not select what nobody can see yet.
+    if (loadState.phase !== 'loaded') return;
     const index = moveTargetAt(event);
     if (index !== null) { moveTargets!.onPick?.(moveTargets!.targets[index]); return; }
     select(pick(event) || null, 'pointer');
   };
   const onMove = (event: PointerEvent) => {
+    if (loadState.phase !== 'loaded') return;
     if (moveTargets) {
       const index = moveTargetAt(event);
       highlightMoveTarget(moveTargets.object, index);
@@ -243,11 +309,19 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   container.addEventListener('pointerleave', leave); labelLayer.addEventListener('pointermove', onMove);
   pan = bindCameraPan(renderer.domElement, camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove });
   const wheelZoom = options.wheelZoom ? bindWheelZoom([renderer.domElement, labelLayer], { getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }) }) : null;
-  const onContextLost = (event: Event) => { event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); options.onError?.(new Error('Graphics context lost. Reload the scene to recover; records remain available in the host HTML view.')); };
+  const onContextLost = (event: Event) => { event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; options.onError?.(new Error('Graphics context lost. Reload the scene to recover; records remain available in the host HTML view.')); };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
   let renderedFrames = 0;
   function animate(time: number) {
     if (disposed) return; const dt = Math.min(.05, lastTime ? (time - lastTime) / 1000 : .016); lastTime = time; const settings = store.getSnapshot().settings;
+    // Until the build finishes nothing is drawn; then shaders compile (in parallel where the browser supports it) before the first frame.
+    if (loadState.phase !== 'loaded' && !compiled) {
+      if (loadState.phase === 'compiling' && !compileStarted && !document.hidden) {
+        compileStarted = true; scene.updateMatrixWorld(); instancing?.update();
+        compileScene(renderer, scene, camera, () => disposed).then(() => { compiled = true; }, () => { compiled = true; });
+      }
+      raf = requestAnimationFrame(animate); return;
+    }
     if (!document.hidden) {
       const extent = fittedExtent ?? store.getSnapshot().nodes.reduce((value, node) => node.kind === 'ground' ? Math.max(value, node.size[0] / 32, node.size[1] / 19) : value, 1);
       currentTarget.lerp(target, reducedMotion.matches ? 1 : 1 - Math.exp(-dt * 5)); camera.position.copy(currentTarget).add(cameraOffset); camera.lookAt(currentTarget); camera.zoom = Math.min(width / (34 * extent), height / (21 * extent)) * settings.zoom; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
@@ -297,6 +371,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         entry.label.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
         if (!overlaps) labelRects.push({ x, y, width: labelWidth });
       } if (areas.length) updatePlacements(); scene.updateMatrixWorld(); instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++;
+      if (loadState.phase !== 'loaded') {
+        renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
+        reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
+      }
     } raf = requestAnimationFrame(animate);
   }
   raf = requestAnimationFrame(animate);
@@ -321,9 +399,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       scene.add(object);
     },
     setOverlay: overlay => { if (disposed) return; const next = overlay ? createOverlayObject(overlay) : null; clearOverlay(); if (next) { overlayObject = next; scene.add(next); } },
-    overview: () => { fittedExtent = undefined; pan?.cancel(); target.copy(overviewTarget()); store.select(null); options.onSelect?.(null); },
-    getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearMoveTargets(); disposed = true; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (isBuilding(node) && node.building?.view === 'peek') setBuildingView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    loaded,
+    getLoadState: () => loadState,
+    overview: () => { deferredFrame = null; fittedExtent = undefined; pan?.cancel(); target.copy(overviewTarget()); store.select(null); options.onSelect?.(null); },
+    getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
+    dispose: () => { if (disposed) return; clearMoveTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (isBuilding(node) && node.building?.view === 'peek') setBuildingView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
 }
 

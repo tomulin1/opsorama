@@ -39,7 +39,7 @@ The [`vite-react` starter](../examples/vite-react) (React 19, `@opsorama/react`,
 | `DOMContentLoaded` | 26–44 ms |
 | Scene ready | 63–125 ms (median about 100 ms) |
 
-Network transfer is not included (local server, cached assets). Toolkit code alone is measured by `pnpm check:bundles`: 59.6 KiB minified for the renderer, 87–116 KiB for the renderer with one kit.
+Network transfer is not included (local server, cached assets). These results predate the sliced initial load; new measurements use `SceneRenderer.loaded`, which resolves after the first drawn frame, as the end point. Toolkit code alone is measured by `pnpm check:bundles`: 59.6 KiB minified for the renderer, 87–116 KiB for the renderer with one kit.
 
 ## Repeated mount and unmount
 

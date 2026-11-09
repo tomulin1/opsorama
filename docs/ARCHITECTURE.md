@@ -38,7 +38,7 @@ Do not rewrite the current React Three Fiber demo in one step. First validate th
 
 ### 3. Framework adapters
 
-React provides JSX components, hooks, refs, and controlled props. Vue provides components/SFCs, composables, slots, and native emit/v-model conventions. Adapters handle registration, prop updates, subscriptions, and cleanup. Prop meaning, units, event payloads, and resulting scenes remain consistent.
+React provides JSX components, hooks, refs, and controlled props. Vue provides components/SFCs, composables, slots, and native emit/v-model conventions. Adapters handle registration, prop updates, subscriptions, and cleanup. Prop meaning, units, event payloads, and resulting scenes remain consistent. Both adapters render the same loading indicator markup and styles from `@opsorama/three` and let hosts replace its content.
 
 Vue must not host a hidden React application. Web Components support would be an additional embedding option over the same core, rather than a prerequisite for native adapters. Vue can both create and consume Web Components, but this does not replace an application's complete component and reactivity model. [Official Vue documentation](https://vuejs.org/guide/extras/web-components.html).
 
@@ -212,6 +212,7 @@ Asset factories can return custom `THREE.Object3D` instances. The public rendere
 - Avoid business-state updates and unnecessary framework renders at 60 Hz.
 - Support embedding inside a panel as well as a full-screen layout.
 - Initialize rendering on the client during SSR; importing core must not require `window` or `document`.
+- Load heavy scenes in steps. The renderer builds the initial scene in time slices (`buildBudget`, 12 ms by default, at least one node per slice) and yields to the browser between them, compiles shaders before the first frame (in the background where `KHR_parallel_shader_compile` is available), and only then draws. A loading indicator covers the scene until the first frame: the renderer's own DOM indicator in plain JavaScript, and in React and Vue an indicator that is also server-rendered, so it covers script download too. It fades in after 200 ms, animates only transform and opacity, and exposes progress as an ARIA progress bar. `onLoad` reports each step and `SceneRenderer.loaded` resolves after the first frame. Later store changes still build at once; slicing them would show half-built scenes.
 - Use scoped CSS and CSS variables instead of global resets. The host controls size, fonts, and overlay layout.
 - Provide an HTML state overview and recovery when WebGL is unavailable or its context is lost.
 - Verify React StrictMode mount/unmount and Vue unmount.
