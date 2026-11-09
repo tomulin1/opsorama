@@ -33,7 +33,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
    - Plain JavaScript: `createSceneRenderer(element, store, { assets })`.
    Complete runnable projects: `examples/vanilla`, `examples/vite-react`, `examples/vite-vue`, `examples/next` in the Opsorama repository.
 5. **Update from data**: on each application change, `store.upsert(node)` or `store.replace(nodes)`. React to clicks with `onSelect` (React `SceneCanvas` prop or renderer option; Vue `@select` event) and read `selection.entityId`; run business commands in the application, then update the store.
-6. **Add panels if needed**: `@opsorama/react/ui` or `@opsorama/vue/ui` (`MetricCard`, `DataPanel`, `EntityInspector`, `ResourceList`, `ValueMeter`, …) or the DOM builders in `@opsorama/ui`, with `@opsorama/ui/styles.css`. Panels only present data the application passes in.
+6. **Add panels if needed**: `@opsorama/react/ui` or `@opsorama/vue/ui` (`MetricCard`, `DataPanel`, `EntityInspector`, `ResourceList`, `ValueMeter`, …) or the DOM builders in `@opsorama/ui`, with `@opsorama/ui/styles.css`. Panels only present data the application passes in. To show the selected object itself in a detail panel, add `NodePreview` (React or Vue, `nodeId` plus the same `assets`) or `createNodePreview(element, store, { assets, nodeId })` in plain JavaScript: a live, slowly turning 3D copy of the node and what it carries. Use one per panel; each owns a WebGL context.
 
 ## Lifecycle rules
 

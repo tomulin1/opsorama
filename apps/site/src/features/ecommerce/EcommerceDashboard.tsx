@@ -1,4 +1,5 @@
 'use client';
+import { exampleSelectionNodeId } from '../example-selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, Boxes, ClipboardList, Crosshair, Eye, EyeOff, Info, LayoutGrid, Maximize2, Minimize2, Palette, Pause, Play, Truck, X, Store } from 'lucide-react';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
@@ -6,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { AREAS, area, orderArea, type AreaId, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type LocationId, type PackStationId, type PutWallId } from './model';
 import { runFeedLoop } from './feed-loop';
 import { DEFAULT_ZOOM, ecommerceControllers, orderNodeId } from './scene';
@@ -112,7 +113,7 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
       <TaskList snapshot={snapshot} />
       <ActivityList snapshot={snapshot} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel ec-inspector-panel" label="Shop and warehouse inspector" density="compact" slots={{ header: sideTabs }}>{inspector}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel ec-inspector-panel" label="Shop and warehouse inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={exampleSelectionNodeId(scene)} />{inspector}</DataPanel>}
 
     {panelsVisible && leftPanel === 'orders' && <DataPanel className="hud-floating-panel ec-orders-panel" title="Open orders" label="Open orders" description={`${orders.length} of ${snapshot.orders.length} open${areaFilter ? ` · ${area(areaFilter).label}` : ''} · ${snapshot.ordersToday} placed today`} density="compact" slots={{ icon: <ClipboardList size={16} />, actions: closeLeft, footer: areaFilter ? <button type="button" className="hud-text-button" onClick={() => setAreaFilter(null)}>Clear area filter</button> : undefined }}>
       <OrderTable snapshot={snapshot} orders={orders} onInspect={inspectOrder} />

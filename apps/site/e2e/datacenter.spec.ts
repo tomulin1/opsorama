@@ -1,11 +1,11 @@
-import { ciScaled, expect, test, type Page } from './fixtures';
+import { ciScaled, expect, sceneCanvas, test, type Page } from './fixtures';
 
 /**
  * Distinct colors in a 160 × 100 copy of the canvas, read right after a rendered frame; a blank WebGL canvas has one color.
  * Polls get 20 seconds because software WebGL on GitHub Actions renders the full datacenter at about 5 FPS.
  */
 async function canvasPixels(page: Page) {
-  return page.locator('canvas').evaluate(canvas => new Promise<number>(resolve => requestAnimationFrame(() => {
+  return sceneCanvas(page).evaluate(canvas => new Promise<number>(resolve => requestAnimationFrame(() => {
     const copy = document.createElement('canvas'); copy.width = 160; copy.height = 100;
     const context = copy.getContext('2d')!; context.drawImage(canvas as HTMLCanvasElement, 0, 0, 160, 100);
     const pixels = context.getImageData(0, 0, 160, 100).data, colors = new Set<string>();
@@ -15,7 +15,7 @@ async function canvasPixels(page: Page) {
 }
 
 async function fanFrameChanges(page: Page) {
-  return page.locator('canvas').evaluate(async canvas => {
+  return sceneCanvas(page).evaluate(async canvas => {
     const copy = document.createElement('canvas'); copy.width = 320; copy.height = 200;
     const context = copy.getContext('2d')!, frames = new Set<string>();
     for (let frame = 0; frame < 12; frame++) {

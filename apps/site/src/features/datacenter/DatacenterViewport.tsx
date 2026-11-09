@@ -11,7 +11,10 @@ import '@opsorama/ui/styles.css';
 
 export interface DatacenterViewportProps {
   /** The scene canvas, or null while it is preparing. Its identity stays stable for the life of the page. */
-  scene: ReactNode; ports: number; modules: number; motion: boolean; zoom: number;
+  scene: ReactNode;
+  /** Live 3D copy of the inspected equipment, or null while the scene is preparing. */
+  preview: ReactNode;
+  ports: number; modules: number; motion: boolean; zoom: number;
   scenario: DatacenterScenario; room: string; rackPage: number; selected: string | null; error: string | null;
   rendererRef: RefObject<SceneRenderer | null>;
   onPortsChange(value: number): void; onModulesChange(value: number): void; onMotionChange(value: boolean): void;
@@ -89,6 +92,7 @@ export function DatacenterViewport(props: DatacenterViewportProps) {
     </ResourceList>}
 
     {panelsVisible && sidePanel === 'inspector' && <EntityInspector className="hud-side-panel dc-inspector" label="Equipment inspector" density="compact" description={record ? `${datacenterRooms.find(room => room.id === record.roomId)?.name} · ${record.role}` : selectedRoom?.purpose} fields={reading ? [{ id: 'inlet', label: 'Inlet', value: <span className="hud-reading dp-tone" data-tone={reading.inlet > datacenterInletLimit ? 'critical' : 'neutral'}>{reading.inlet.toFixed(1)} °C</span> }, { id: 'power', label: 'Rack power', value: `${reading.power.toFixed(1)} kW` }] : selectedRoom ? [{ id: 'size', label: 'Room footprint', value: `${selectedRoom.size[0]} × ${selectedRoom.size[1]} m` }] : []} slots={{ header: inspectorHeader, footer: name ? <Link className="dc-model-link" href={`/docs/objects/${record?.asset ?? (selectedNode?.kind === 'asset' ? selectedNode.asset : 'equipment-cabinet')}`}>Shared model details <ArrowUpRight size={13} /></Link> : undefined }}>
+      {props.preview}
       <p className="dc-selection" role="status">Selected: {name ?? 'none'}</p>
       {name ? <>{reading && <ValueMeter label="Mean host CPU" value={reading.load} max={100} unit="%" />}{activeIncident ? <div className="dc-inspector-incident dp-tone" data-tone={activeIncident.severity}><StatusBadge label={activeIncident.title} tone={activeIncident.severity} /><p>{activeIncident.detail}</p><h3>Suggested investigation</h3><p>{activeIncident.nextStep}</p></div> : <p className="dc-healthy"><span className="hud-symbol dp-tone" data-tone="success"><CheckCircle2 size={18} /></span>No open fixture alert for this equipment.</p>}</> : <div className="dc-empty-inspector"><span className="hud-symbol dp-tone" data-tone="info"><Network size={34} /></span><h2>Follow an alert to its rack</h2><p>Select equipment, a room or an alert to inspect its readings.</p></div>}
     </EntityInspector>}

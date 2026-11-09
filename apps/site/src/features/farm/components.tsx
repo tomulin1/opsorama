@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { AlertTriangle, Bird, ClipboardList, Droplets, Tractor, Warehouse, Wheat } from 'lucide-react';
+import { AlertTriangle, Bird, Cat, ClipboardList, Dog, Droplets, Tractor, Warehouse, Wheat } from 'lucide-react';
 import type { MetricAction, Tone } from '@opsorama/react/ui';
 import type { VisualState } from '@opsorama/core';
 import type { HudMetric } from '../example-hud';
@@ -90,6 +90,28 @@ export function AnimalInspector({ snapshot, tag }: { snapshot: FarmSnapshot; tag
     <p>{flag.note}</p><div className="farm-host-note">A separate marker shows the alert supplied by the host; identification tags stay neutral and the pose is illustrative.</div></aside>;
 }
 
+/** An untagged animal stands for its herd: the herd record has no per-animal data, so it shows the pen. */
+export function HerdAnimalInspector({ snapshot, id }: { snapshot: FarmSnapshot; id: PenId }) {
+  const pen = penOf(id), record = penRecord(snapshot, id), flags = flagsOf(snapshot, id);
+  return <aside className="farm-inspector" aria-label="Herd animal inspector"><div className="farm-eyebrow">{SPECIES[pen.species].label.toUpperCase()} / {pen.label.toUpperCase()}</div><h2>{SPECIES[pen.species].label}</h2><StateBadge state="normal" label="No open flag" />
+    <dl><dt>Pen</dt><dd>{pen.label}</dd><dt>Headcount</dt><dd>{record.headcount} of {record.expected}</dd><dt>{pen.trough.variant === 'water' ? 'Water tank' : 'Feed trough'}</dt><dd>{levelText(record.level)}</dd><dt>Open flags in the pen</dt><dd>{flags.length}</dd></dl>
+    <div className="farm-host-note">Untagged animals stand for the herd; the host&apos;s herd record has no per-animal data. Pose and spot are illustrative.</div></aside>;
+}
+
+const YARD_ANIMALS: Readonly<Record<string, { title: string; eyebrow: string; note: string; icon: typeof Dog }>> = {
+  dog: { title: 'Yard dog', eyebrow: 'YARD LIFE / DOG', note: 'Patrols the yard on a fixed loop.', icon: Dog },
+  cat: { title: 'Farm cat', eyebrow: 'YARD LIFE / CAT', note: 'Rests by the yard.', icon: Cat },
+  bird: { title: 'Small bird', eyebrow: 'YARD LIFE / BIRD', note: 'Circles over the fields, 5 to 7 m up.', icon: Bird },
+};
+/** Yard animals bring the scene to life; the host keeps no record of them. */
+export function YardAnimalInspector({ node }: { node: string }) {
+  const value = YARD_ANIMALS[node.split(':')[0]];
+  if (!value) return <EmptyInspector />;
+  const Icon = value.icon;
+  return <aside className="farm-inspector" aria-label="Yard animal inspector"><div className="farm-eyebrow">{value.eyebrow}</div><h2><Icon size={20} aria-hidden="true" /> {value.title}</h2><p>{value.note}</p>
+    <div className="farm-host-note">Scene life only: no herd, sensor or task record belongs to it.</div></aside>;
+}
+
 export function TroughInspector({ snapshot, id }: { snapshot: FarmSnapshot; id: PenId }) {
   const pen = penOf(id), level = penRecord(snapshot, id).level, state = troughState(level);
   return <aside className="farm-inspector" aria-label="Trough inspector"><div className="farm-eyebrow">{pen.trough.variant === 'water' ? 'WATER TANK' : 'FEED TROUGH'} / MOCK LEVEL SENSOR</div><h2>{pen.label}</h2><StateBadge state={state} />
@@ -114,7 +136,7 @@ export function YardInspector({ snapshot, node }: { snapshot: FarmSnapshot; node
 }
 
 export function EmptyInspector() {
-  return <div className="farm-inspector"><div className="farm-eyebrow">FARM INSPECTOR</div><h2>Select a pen</h2><p>Choose a pen pin, a trough, a tagged animal, a field or a building in the scene, or use the Pens, Fields, Tasks and Alerts panels.</p><p>Pins and tags: green OK, blue in hand, amber needs attention, red act now. An empty trough is drawn dry with its lamp off.</p></div>;
+  return <div className="farm-inspector"><div className="farm-eyebrow">FARM INSPECTOR</div><h2>Select a pen</h2><p>Choose a pen pin, a trough, an animal, a field or a building in the scene, or use the Pens, Fields, Tasks and Alerts panels.</p><p>Pins and tags: green OK, blue in hand, amber needs attention, red act now. An empty trough is drawn dry with its lamp off.</p></div>;
 }
 
 export const FARM_CATALOG = [

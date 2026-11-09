@@ -1,6 +1,6 @@
 import { computed, defineComponent, h, inject, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType } from 'vue';
 import type { MarkerIcon, MarkerShape, MarkerSize, MarkerTone, ContainerContents, Attachment, SceneNode, SceneStore, SceneSnapshot, Selection, DisplayReading, SurfaceLabel, Measurement, NodeRoute, CountLayout, BuildingOptions, PersonOptions, MaterialOverrides, Footprint, NodeController, NodeTransfer, ForkMotion, ControllerRegistry } from '@opsorama/core';
-import { createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type AssetRegistry, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type AssetRegistry, type NodePreview as NodePreviewHandle, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const storeKey: InjectionKey<SceneStore> = Symbol('dashboard-store');
 export const DashboardProvider = defineComponent({ name: 'DashboardProvider', props: { store: { type: Object as PropType<SceneStore>, required: true } }, setup(props, { slots }) { provide(storeKey, props.store); return () => slots.default?.(); } });
@@ -31,6 +31,18 @@ export const SceneCanvas = defineComponent({
     const defaultLoading = (state: SceneLoadState | null) => [h('span', { class: SCENE_LOADING_CLASSES.spinner, 'aria-hidden': 'true' }), h('span', { class: SCENE_LOADING_CLASSES.title, 'aria-hidden': 'true' }, 'Loading scene'), h('span', { class: SCENE_LOADING_CLASSES.bar, 'aria-hidden': 'true' }, [h('span', { style: { transform: `scaleX(${loadProgress(state)})` } })]), h('span', { class: SCENE_LOADING_CLASSES.detail, 'aria-hidden': 'true' }, loadStateText(state))];
     const indicator = () => props.loading && !error.value && load.value?.phase !== 'loaded' ? h('div', { class: SCENE_LOADING_CLASSES.root, 'data-theme': theme.value, ...loadingIndicatorAttributes(load.value) }, [h('style', SCENE_LOADING_STYLES), ...(slots.loading?.({ state: load.value }) ?? defaultLoading(load.value))]) : null;
     return () => h('div', { ...attrs, style: [{ position: 'relative', width: '100%', height: '100%', minHeight: '240px' }, attrs.style || {}] }, [h('div', { ref: container, style: { position: 'absolute', inset: 0 } }), slots.default?.(), indicator(), error.value ? h('div', { class: 'kit-scene-error', role: 'alert' }, [h('strong', 'Scene unavailable'), h('p', error.value), h('span', 'Use the HTML record list to continue working.')]) : null]);
+  },
+});
+/** A live copy of a node from the provider's scene in its own canvas, for an inspector; see `createNodePreview`. Size it with a class or style; the default height is 160 px. `assets`, `spin` and `maxNodes` are mount-time. */
+export const NodePreview = defineComponent({
+  name: 'NodePreview', inheritAttrs: false, props: { /** The scene node to copy, or null for an empty preview. */ nodeId: { type: String as PropType<string | null>, default: null }, assets: { type: Object as PropType<AssetRegistry>, required: true }, /** Turntable speed in radians per second; see `NodePreviewOptions.spin`. */ spin: Number, /** See `NodePreviewOptions.maxNodes`. */ maxNodes: Number }, emits: { ready: (preview: NodePreviewHandle) => typeof preview.dispose === 'function', error: (error: Error) => error instanceof Error },
+  setup(props, { attrs, emit }) {
+    const store = useSceneStore(), container = ref<HTMLDivElement>(), error = ref<string | null>(null); let preview: NodePreviewHandle | undefined, stop: (() => void) | undefined;
+    const mount = () => { if (!container.value) return; error.value = null; try { preview = createNodePreview(container.value, store, { assets: props.assets, spin: props.spin, maxNodes: props.maxNodes, nodeId: props.nodeId, onError: err => { error.value = err.message; emit('error', err); } }); emit('ready', preview); } catch (err) { const failure = err instanceof Error ? err : new Error(String(err)); error.value = failure.message; emit('error', failure); } };
+    onMounted(() => { mount(); stop = watch(() => [props.assets, props.spin, props.maxNodes], () => { preview?.dispose(); mount(); }); });
+    watch(() => props.nodeId, id => { error.value = null; preview?.setNode(id); });
+    onUnmounted(() => { stop?.(); preview?.dispose(); });
+    return () => h('div', { ...attrs, style: [{ position: 'relative', width: '100%', height: '160px' }, attrs.style || {}] }, [h('div', { ref: container, style: { position: 'absolute', inset: 0 } }), error.value ? h('div', { class: 'kit-scene-error', role: 'alert' }, [h('strong', 'Preview unavailable'), h('p', error.value)]) : null]);
   },
 });
 export const SceneElement = defineComponent({ name: 'SceneElement', props: { node: { type: Object as PropType<SceneNode>, required: true } }, setup(props) { const store = useSceneStore(); let id: string | undefined; watch(() => props.node, node => { if (id && id !== node.id) store.remove(id); store.upsert(node); id = node.id; }, { immediate: true, deep: true }); onUnmounted(() => { if (id) store.remove(id); }); return () => null; } });

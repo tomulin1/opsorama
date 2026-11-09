@@ -7,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, nextPlateVisit, plateRuns, restaurantNodes, stationTickets, type RestaurantScenario, type StationId } from './model';
 import { CoolerInspector, EmptyInspector, RestaurantLibrary, restaurantHudMetrics, StationInspector, StationStrip, TableChips, TableInspector, TableLegend, TicketTable } from './components';
 import '@opsorama/ui/styles.css';
@@ -105,7 +105,7 @@ function RestaurantViewport() {
     {panelsVisible && sidePanel === 'stations' && <DataPanel className="hud-side-panel" label="Kitchen stations" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock tickets · no kitchen display connection', state: 'unknown' }}>
       <StationStrip snapshot={snapshot} selected={station} onSelect={selectStation} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel rs-inspector-panel" label="Restaurant inspector" density="compact" slots={{ header: sideTabs }}>{inspector}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel rs-inspector-panel" label="Restaurant inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={selection} />{inspector}</DataPanel>}
 
     {panelsVisible && leftPanel === 'floor' && <DataPanel className="hud-floating-panel rs-floor-panel" title="Floor" label="Floor tables" description={`${TABLE_LAYOUT.length} tables · ${freeTables} free · place settings show covers`} density="compact" slots={{ icon: <UtensilsCrossed size={16} />, actions: closeLeft }}>
       <TableChips snapshot={snapshot} selectedId={selectedTable?.tableId} onSelect={value => select(`table:${value}`)} />

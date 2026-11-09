@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode } from '@opsorama/core';
-import { createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type RendererOptions, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
 export function DashboardProvider({ store, children }: { store: SceneStore; children: ReactNode }) { return <Context.Provider value={store}>{children}</Context.Provider>; }
@@ -44,6 +44,27 @@ export function SceneCanvas({ className, style, children, assets, controllers, i
     ? <div className={SCENE_LOADING_CLASSES.root} data-theme={theme} {...loadingIndicatorAttributes(load)}><style>{SCENE_LOADING_STYLES}</style>{typeof loading === 'function' ? loading(load) : loading ?? <SceneLoadingContent state={load} />}</div>
     : null;
   return <div className={className} style={{ position: 'relative', width: '100%', height: '100%', minHeight: 240, ...style }}><div ref={ref} style={{ position: 'absolute', inset: 0 }} />{children}{indicator}{error && <div className="kit-scene-error" role="alert"><strong>Scene unavailable</strong><p>{error}</p><span>Use the HTML record list to continue working.</span></div>}</div>;
+}
+export interface NodePreviewProps extends Omit<NodePreviewOptions, 'nodeId'> {
+  /** The scene node to copy, or null for an empty preview. Changing it keeps the canvas. */
+  nodeId: string | null;
+  /** Size the preview with a class or style; the default height is 160 px. */
+  className?: string; style?: CSSProperties;
+  /** Receives the mounted preview, for example to read `getState()` in tests. */
+  onReady?: (preview: NodePreviewHandle) => void;
+}
+/** A live copy of a node from the provider's scene in its own canvas, for an inspector; see `createNodePreview`. `assets`, `spin` and `maxNodes` are mount-time. */
+export function NodePreview({ nodeId, assets, spin, maxNodes, className, style, onReady, onError }: NodePreviewProps) {
+  const store = useSceneStore(); const ref = useRef<HTMLDivElement>(null), preview = useRef<NodePreviewHandle | null>(null), latest = useRef({ nodeId, onReady, onError }); latest.current = { nodeId, onReady, onError };
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!ref.current) return; let view: NodePreviewHandle | undefined; setError(null);
+    try { view = createNodePreview(ref.current, store, { assets, spin, maxNodes, nodeId: latest.current.nodeId, onError: err => { setError(err.message); latest.current.onError?.(err); } }); preview.current = view; latest.current.onReady?.(view); }
+    catch (err) { const failure = err instanceof Error ? err : new Error(String(err)); setError(failure.message); latest.current.onError?.(failure); }
+    return () => { view?.dispose(); preview.current = null; };
+  }, [store, assets, spin, maxNodes]);
+  useEffect(() => { setError(null); preview.current?.setNode(nodeId); }, [nodeId]);
+  return <div className={className} style={{ position: 'relative', width: '100%', height: 160, ...style }}><div ref={ref} style={{ position: 'absolute', inset: 0 }} />{error && <div className="kit-scene-error" role="alert"><strong>Preview unavailable</strong><p>{error}</p></div>}</div>;
 }
 function Node({ node }: { node: SceneNode }) {
   const store = useSceneStore(); const signature = JSON.stringify(node);
