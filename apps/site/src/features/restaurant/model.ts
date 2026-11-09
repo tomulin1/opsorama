@@ -1,4 +1,4 @@
-import { personHairColor, createSceneStore, type AssetNode, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
+import { personHairColor, createSceneStore, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
 
 /** Floor service status of one table, as reported by the host's POS or reservation source. */
 export type TableStatus = 'free' | 'reserved' | 'seated' | 'ordered' | 'eating' | 'waiting' | 'bill';
@@ -141,6 +141,39 @@ const chef = (id: string, position: Vec3, rotation: number, variant: string, lab
 const FEMININE = { person: { figure: 'feminine' } } as const satisfies Partial<AssetNode>;
 const decor = (id: string, asset: string, position: Vec3, extra: Partial<AssetNode> = {}): AssetNode => ({ id, kind: 'asset', asset, position, selectable: false, ...extra });
 
+/** A floor point `[x, z]` walked through, or `[x, z, yaw, seconds]` where the person pauses facing `yaw` (0 faces +z). */
+type Waypoint = readonly [x: number, z: number, yaw?: number, seconds?: number];
+/** A looping walk that returns to its first point; `elapsed` staggers people who share the floor. */
+function walk(points: readonly Waypoint[], speed: number, elapsed = 0): NodeRoute {
+  const stops = points.flatMap(([, , yaw, seconds], index) => yaw === undefined ? [] : [{ index, seconds: seconds ?? 3, yaw }]);
+  return { points: [...points, points[0]].map(([x, z]) => v(x, z)), speed, loop: true, elapsed, stops };
+}
+/** A person who walks `route`; the route owns position and heading, so the node starts at its first point. */
+const walking = (node: AssetNode, route: NodeRoute): AssetNode => ({ ...node, position: route.points[0], route });
+/**
+ * Service walks through the aisles: x −13.7 by the side wall, −10.75, −7.5/−7, −4.15 and −3.25 between the table columns and booths, z −3.95 along
+ * the kitchen partitions, z −0.3 between the table rows and z 3.2 in front of them. Servers collect at the heated pass
+ * (front edge z −5.1), pause at their tables and return.
+ */
+const PASS_Z = -4.4, N = 0, S = Math.PI, E = Math.PI / 2, W = -Math.PI / 2;
+const RUSH_WALKS = {
+  // Tables 1 and 2: plates from the pass.
+  ana: walk([[-7.15, PASS_Z, S, 4], [-10.75, -4], [-10.75, -2.5, E, 5], [-10.75, -1.9, W, 4], [-10.75, -4]], 1.1),
+  // Table 3 (late mains) and table 4 (bill).
+  ben: walk([[-6.25, PASS_Z, S, 3], [-4.15, -3.95], [-4.15, -2.2, W, 5], [-4.15, -.3], [-12.5, -.3, N, 6], [-7, -.5], [-7, -3.95]], 1.2, 9),
+  // Booths 7 and 8, lounge table 11 and table 5.
+  cleo: walk([[-5.8, PASS_Z, S, 3], [-3.25, -3.95], [-3.25, -2.9, E, 4], [-3.25, -1, E, 4], [-3.25, 2.25], [.1, 2.25], [4.1, .4, E, 5], [.1, 2.25], [-9, 3.25, S, 5], [-7, 3], [-7, -3.9]], 1.25, 3),
+  // Pizzas for terrace tables 13 and 12.
+  dan: walk([[-6.7, PASS_Z, S, 4], [-7.5, -3.95], [-7.5, 3.3], [-7, 4.75, N, 5], [-11.5, 4.75, N, 5], [-7.5, 3.3]], 1.1, 14),
+} as const;
+const QUIET_WALK = walk([[-6.7, PASS_Z, S, 5], [-7.5, -3.95], [-7.5, 3.3], [-11.5, 4.75, N, 6], [-7.5, 3.3]], 1);
+/** After close, one server checks every table around the dining room. */
+const CLOSING_WALK = walk([[-6.5, PASS_Z, S, 4], [-13.7, -3.95], [-13.7, 2.9, E, 3], [-3.6, 2.9, N, 3], [-3.6, -3.95]], .9);
+/** The courier walks between the cargo bike and the pickup shelf. */
+const COURIER_WALK = walk([[10, 6.6, W, 4], [13.15, .6, E, 6]], 1.2);
+/** The arriving party walks in from the street once and waits at the host stand. */
+const arrival = (from: Vec3, to: Vec3): NodeRoute => ({ points: [from, to], speed: 1, endYaw: S });
+
 /** Floors, fixtures and decoration that do not depend on the service snapshot. */
 export const restaurantBase: readonly SceneNode[] = [
   { id: 'ground', kind: 'ground', size: [34, 22], position: [0, 0, -1.6], color: '#e9edf2' },
@@ -194,7 +227,7 @@ export function restaurantNodes(snapshot: RestaurantSnapshot): SceneNode[] {
     { id: 'equipment:cooler', entityId: 'cooler', kind: 'asset', asset: 'walk-in-cooler', position: v(-1.5, -9.6), state: snapshot.cooler.celsius > snapshot.cooler.limit ? 'warning' : 'normal', label: 'Walk-in cooler', labelMode: 'active', selectable: true, surfaceLabel: { kind: 'text', text: `${snapshot.cooler.celsius.toFixed(1)} °C`, color: snapshot.cooler.celsius > snapshot.cooler.limit ? '#ffd27a' : '#bff3df', background: '#102438' } },
     { id: 'host-stand', kind: 'asset', asset: 'host-stand', position: v(9.2, 2.6), label: 'Host stand', labelMode: 'active', selectable: true },
   );
-  if (!snapshot.open) { nodes.push(worker('staff:closing', v(-6.5, -4.4), Math.PI, 'walking', SERVER)); return nodes; }
+  if (!snapshot.open) { nodes.push(walking(worker('staff:closing', v(-6.5, PASS_Z), S, 'walking', SERVER), CLOSING_WALK)); return nodes; }
   nodes.push(
     chef('staff:grill', v(-12, -9.45), Math.PI, 'working', 'Grill cook'),
     chef('staff:pizza', v(-8.2, -8.45), Math.PI, 'working', 'Pizzaiolo', FEMININE),
@@ -205,12 +238,15 @@ export function restaurantNodes(snapshot: RestaurantSnapshot): SceneNode[] {
     person('staff:host', 'office-worker', v(9.2, 2.05), 0, 'idle', '#8a5a3c', 'Host', FEMININE),
   );
   const servers = snapshot.scenario === 'rush'
-    ? [worker('staff:ana', v(-10.7, -.3), Math.PI / 2, 'carrying', SERVER, 'Ana'), worker('staff:ben', v(-6.5, -4.4), 0, 'walking', SERVER, 'Ben'), worker('staff:cleo', v(-3.4, -.4), -Math.PI / 2, 'walking', SERVER, 'Cleo'), worker('staff:dan', v(-9.3, 4.6), Math.PI / 2, 'carrying', SERVER, 'Dan')]
-    : [worker('staff:ana', v(-7.2, 1.6), -Math.PI / 2, 'idle', SERVER, 'Ana'), worker('staff:dan', v(-9.3, 4.6), Math.PI / 2, 'walking', SERVER, 'Dan')];
+    ? [walking(worker('staff:ana', v(0, 0), S, 'carrying', SERVER, 'Ana'), RUSH_WALKS.ana), walking(worker('staff:ben', v(0, 0), S, 'walking', SERVER, 'Ben'), RUSH_WALKS.ben), walking(worker('staff:cleo', v(0, 0), S, 'walking', SERVER, 'Cleo'), RUSH_WALKS.cleo), walking(worker('staff:dan', v(0, 0), S, 'carrying', SERVER, 'Dan'), RUSH_WALKS.dan)]
+    : [worker('staff:ana', v(-7.2, 1.6), W, 'idle', SERVER, 'Ana'), walking(worker('staff:dan', v(0, 0), S, 'walking', SERVER, 'Dan'), QUIET_WALK)];
   // Every other server uses the feminine figure.
   nodes.push(...servers.map((server, i) => i % 2 ? server : { ...server, ...FEMININE }));
-  if (pickupReady) nodes.push(worker('courier', v(13.15, .6), Math.PI / 2, 'idle', '#3d8a6e', 'Courier'));
-  if (snapshot.scenario === 'rush') nodes.push(person('arrival-1', 'visitor', v(8.8, 3.5), Math.PI, 'idle', '#b07cc6', 'Novák party', FEMININE), person('arrival-2', 'office-worker', v(9.6, 3.6), Math.PI, 'idle', '#e0b44c'));
+  if (pickupReady) nodes.push(walking(worker('courier', v(0, 0), E, 'walking', '#3d8a6e', 'Courier'), COURIER_WALK));
+  if (snapshot.scenario === 'rush') nodes.push(
+    walking(person('arrival-1', 'visitor', v(0, 0), S, 'walking', '#b07cc6', 'Novák party', FEMININE), arrival(v(11.6, 7), v(8.8, 3.5))),
+    walking(person('arrival-2', 'office-worker', v(0, 0), S, 'walking', '#e0b44c'), arrival(v(12.4, 7.3), v(9.6, 3.6))),
+  );
   return nodes;
 }
 

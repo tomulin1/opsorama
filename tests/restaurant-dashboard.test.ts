@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AssetNode, SceneNode } from '@opsorama/core';
+import * as THREE from 'three';
+import { isPersonAsset, routeDuration, sampleRoute, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { PASS_CAPACITY, PICKUP_CAPACITY, SCENARIOS, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, stationTickets, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
@@ -51,6 +52,33 @@ describe('restaurant dashboard model', () => {
     const nodes = restaurantNodes(many);
     expect(asset(nodes, 'station:pass').count).toBe(PASS_CAPACITY); expect(asset(nodes, 'station:pickup').count).toBe(6);
     expect(restaurantMetrics(many).ready).toBe(12);
+  });
+
+  it('walks servers, the courier and arriving guests along routes that clear the furniture', () => {
+    // Standing obstacles: world boxes of every mesh below head height (umbrella canopies and pass gantries are walked under).
+    const obstacles = (nodes: readonly SceneNode[]) => nodes.flatMap(node => {
+      if (node.kind !== 'asset' || node.attachment || isPersonAsset(node.asset) || node.footprint) return [];
+      // Surface labels need a DOM canvas and add no standing geometry.
+      const object = catalogAssets[node.asset]({ ...node, surfaceLabel: undefined }), boxes: THREE.Box3[] = [];
+      object.position.fromArray(node.position ?? [0, 0, 0]); object.rotation.set(...(node.rotation ?? [0, 0, 0])); object.updateMatrixWorld(true);
+      object.traverse(child => { if (!(child instanceof THREE.Mesh)) return; const box = new THREE.Box3().setFromObject(child); if (box.min.y < 1.2 && box.max.y > .15) boxes.push(box); });
+      disposeObject(object);
+      return boxes.map(box => ({ id: node.id, box }));
+    });
+    const RADIUS = .18;
+    for (const scenario of scenarios) {
+      const nodes = restaurantNodes(SCENARIOS[scenario]), solid = obstacles(nodes), walkers = nodes.filter((node): node is AssetNode => node.kind === 'asset' && !!node.route);
+      expect(walkers.length, scenario).toBeGreaterThan(0);
+      for (const walker of walkers) {
+        const route = walker.route!, duration = routeDuration(route);
+        expect(walker.position, walker.id).toEqual(route.points[0]);
+        for (let t = 0; t <= duration; t += .05) {
+          const { position: [x, , z] } = sampleRoute(route, t);
+          const hit = solid.find(({ box }) => x > box.min.x - RADIUS && x < box.max.x + RADIUS && z > box.min.z - RADIUS && z < box.max.z + RADIUS);
+          expect(hit?.id, `${scenario} ${walker.id} at ${x.toFixed(2)}, ${z.toFixed(2)}`).toBeUndefined();
+        }
+      }
+    }
   });
 
   it('shows a closed restaurant with idle stations, a cold oven and no guests', () => {
