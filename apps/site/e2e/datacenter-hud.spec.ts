@@ -114,7 +114,9 @@ test('datacenter zoom changes camera magnification and keeps working across room
     // Horizontal spacing tracks projection independently of vertical label collision offsets.
     return Math.abs(a[0] - b[0]);
   }, ids);
+  // The scene builds in slices, so on a slow renderer one hall label can appear well before the other.
   await expect(page.locator('[data-node-id="hall-01"]')).toBeVisible();
+  await expect(page.locator('[data-node-id="hall-02"]')).toHaveCount(1);
   await expect.poll(() => labelDistance()).toBeGreaterThan(10);
   const baseline = await labelDistance();
   await zoomIn.click();
