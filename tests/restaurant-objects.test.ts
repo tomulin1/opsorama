@@ -16,14 +16,14 @@ const named = (object: THREE.Object3D, name: string) => meshes(object).filter(me
 
 const VARIANTS: Readonly<Record<string, readonly (string | undefined)[]>> = {
   'dining-table': ['square', 'round'], 'booth-seating': [undefined], 'bar-counter': [undefined], 'bar-stool': [undefined], 'espresso-machine': [undefined], 'pizza-oven': [undefined],
-  'walk-in-cooler': [undefined], 'heated-pass': [undefined], 'pickup-shelf': [undefined], 'host-stand': [undefined], 'menu-board': [undefined], 'dish-machine': [undefined], 'patio-umbrella': ['open', 'closed'],
+  'walk-in-cooler': [undefined], 'heated-pass': [undefined], 'pickup-shelf': [undefined], 'host-stand': [undefined], 'menu-board': [undefined], 'dish-machine': [undefined], 'patio-umbrella': ['open', 'closed'], 'serving-plates': ['full', 'empty'],
 };
 const ANIMATED = new Set(['espresso-machine', 'pizza-oven']);
 /** Parts that `color` changes; every other part keeps its palette role or fixed natural material. */
 const COLOR_PARTS: Readonly<Record<string, readonly string[]>> = {
   'dining-table': ['chair-seat', 'chair-back'], 'booth-seating': ['booth-cushion', 'booth-back'], 'bar-counter': ['bar-front'], 'bar-stool': ['stool-cushion'], 'espresso-machine': ['espresso-body'],
   'pizza-oven': ['oven-dome', 'oven-vault'], 'walk-in-cooler': ['cooler-panel', 'cooler-door'], 'heated-pass': ['pass-lamp-hood'], 'pickup-shelf': ['pickup-upright', 'pickup-lip'], 'host-stand': ['host-body'],
-  'menu-board': ['menu-frame', 'menu-chalk-tray'], 'dish-machine': ['dish-rack-frame'], 'patio-umbrella': ['umbrella-canopy'],
+  'menu-board': ['menu-frame', 'menu-chalk-tray'], 'dish-machine': ['dish-rack-frame'], 'patio-umbrella': ['umbrella-canopy'], 'serving-plates': [],
 };
 const COUNTED = ['dining-table', 'booth-seating', 'heated-pass', 'pickup-shelf'];
 
@@ -41,7 +41,7 @@ describe('restaurant objects', () => {
   });
 
   it('rejects unknown variants', () => {
-    for (const asset of ['dining-table', 'patio-umbrella']) expect(() => build(asset, { variant: 'unknown' }), asset).toThrow(/Unknown/);
+    for (const asset of ['dining-table', 'patio-umbrella', 'serving-plates']) expect(() => build(asset, { variant: 'unknown' }), asset).toThrow(/Unknown/);
   });
 
   it('applies color to the documented parts only and inherits scene palette roles elsewhere', () => {
@@ -68,6 +68,16 @@ describe('restaurant objects', () => {
     }
     // Chairs are capacity, independent of the laid covers.
     const bare = build('dining-table', { count: 0 }); expect(named(bare, 'chair-seat')).toHaveLength(4); expect(named(bare, 'setting-plate')).toHaveLength(0); disposeObject(bare);
+  });
+
+  it('serves full plates with food and clears empty plates with leftovers and cutlery', () => {
+    const full = build('serving-plates'), empty = build('serving-plates', { variant: 'empty' });
+    for (const model of [full, empty]) expect(named(model, 'plates-plate')).toHaveLength(2);
+    expect(named(full, 'plates-food')).toHaveLength(2); expect(named(full, 'plates-cutlery')).toHaveLength(0);
+    expect(named(empty, 'plates-food')).toHaveLength(0); expect(named(empty, 'plates-cutlery')).toHaveLength(4); expect(named(empty, 'plates-scrap').length).toBeGreaterThan(0);
+    // Both plates fit between a server's hands and stay low enough to read as held, not stacked.
+    const size = new THREE.Box3().setFromObject(full).getSize(new THREE.Vector3()); expect(size.x).toBeLessThan(.6); expect(size.y).toBeLessThan(.1);
+    disposeObject(full); disposeObject(empty);
   });
 
   it('lights pickup bays only while they hold a bag', () => {

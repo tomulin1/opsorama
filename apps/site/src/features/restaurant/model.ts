@@ -174,6 +174,27 @@ const COURIER_WALK = walk([[10, 6.6, W, 4], [13.15, .6, E, 6]], 1.2);
 /** The arriving party walks in from the street once and waits at the host stand. */
 const arrival = (from: Vec3, to: Vec3): NodeRoute => ({ points: [from, to], speed: 1, endYaw: S });
 
+export type PlateLoad = 'full' | 'empty';
+/** A server who leaves the pass with full plates, serves the first table on the walk and clears plates on the way back. */
+export interface PlateRun { server: string; pass: Vec3; table: Vec3; }
+const plateRun = (server: string, route: NodeRoute): PlateRun => ({ server, pass: route.points[0], table: route.points[Math.min(...route.stops!.filter(stop => stop.index > 0).map(stop => stop.index))] });
+const RUSH_RUNS = [plateRun('staff:ana', RUSH_WALKS.ana), plateRun('staff:ben', RUSH_WALKS.ben), plateRun('staff:cleo', RUSH_WALKS.cleo), plateRun('staff:dan', RUSH_WALKS.dan)];
+const QUIET_RUNS = [plateRun('staff:dan', QUIET_WALK)];
+/** Servers who carry plates in this snapshot. */
+export const plateRuns = (snapshot: RestaurantSnapshot): readonly PlateRun[] => !snapshot.open ? [] : snapshot.scenario === 'rush' ? RUSH_RUNS : snapshot.scenario === 'quiet' ? QUIET_RUNS : [];
+/** The plates sit at the server's carry anchor, about 0.5 m in front of the body; within this distance of a stop the server has reached it. */
+const PLATE_REACH = .6;
+/**
+ * Plate load after the server's carry anchor is seen at `carry`: plates empty at the served table and fill again at the pass.
+ * Between the two the load is kept, so the host can poll the anchor at any rate.
+ */
+export function nextPlateLoad(run: PlateRun, carry: readonly [number, number, number], current: PlateLoad): PlateLoad {
+  const near = (point: Vec3) => Math.hypot(carry[0] - point[0], carry[2] - point[2]) < PLATE_REACH;
+  return near(run.table) ? 'empty' : near(run.pass) ? 'full' : current;
+}
+/** Plates held at a server's carry anchor. */
+export const plateNode = (server: string, load: PlateLoad): AssetNode => ({ id: `plates:${server}`, kind: 'asset', asset: 'serving-plates', variant: load, attachment: { nodeId: server, anchor: 'carry' }, position: [0, 0, 0], selectable: false });
+
 /** Floors, fixtures and decoration that do not depend on the service snapshot. */
 export const restaurantBase: readonly SceneNode[] = [
   { id: 'ground', kind: 'ground', size: [34, 22], position: [0, 0, -1.6], color: '#e9edf2' },
@@ -201,8 +222,11 @@ export const restaurantBase: readonly SceneNode[] = [
   ...[5.8, 6.6, 7.4, 8.2].map((x, i) => decor(`stool:${i}`, 'bar-stool', v(x, -7.85))),
 ];
 
-/** Snapshot-dependent nodes: table states and covers, attached guests, station states, ready-order counts and staff. */
-export function restaurantNodes(snapshot: RestaurantSnapshot): SceneNode[] {
+/**
+ * Snapshot-dependent nodes: table states and covers, attached guests, station states, ready-order counts and staff.
+ * `plates` keeps the current load of each plate carrier; carriers missing from it start with full plates at the pass.
+ */
+export function restaurantNodes(snapshot: RestaurantSnapshot, plates: Readonly<Record<string, PlateLoad>> = {}): SceneNode[] {
   const nodes: SceneNode[] = [...restaurantBase];
   let tone = 0;
   for (const layout of TABLE_LAYOUT) {
@@ -237,11 +261,14 @@ export function restaurantNodes(snapshot: RestaurantSnapshot): SceneNode[] {
     worker('staff:bar', v(7, -9.3), 0, 'working', '#5a3b2e', 'Bartender'),
     person('staff:host', 'office-worker', v(9.2, 2.05), 0, 'idle', '#8a5a3c', 'Host', FEMININE),
   );
+  const server = (id: string, label: string, route: NodeRoute) => walking(worker(id, v(0, 0), S, 'holding', SERVER, label), route);
   const servers = snapshot.scenario === 'rush'
-    ? [walking(worker('staff:ana', v(0, 0), S, 'carrying', SERVER, 'Ana'), RUSH_WALKS.ana), walking(worker('staff:ben', v(0, 0), S, 'walking', SERVER, 'Ben'), RUSH_WALKS.ben), walking(worker('staff:cleo', v(0, 0), S, 'walking', SERVER, 'Cleo'), RUSH_WALKS.cleo), walking(worker('staff:dan', v(0, 0), S, 'carrying', SERVER, 'Dan'), RUSH_WALKS.dan)]
-    : [worker('staff:ana', v(-7.2, 1.6), W, 'idle', SERVER, 'Ana'), walking(worker('staff:dan', v(0, 0), S, 'walking', SERVER, 'Dan'), QUIET_WALK)];
+    ? [server('staff:ana', 'Ana', RUSH_WALKS.ana), server('staff:ben', 'Ben', RUSH_WALKS.ben), server('staff:cleo', 'Cleo', RUSH_WALKS.cleo), server('staff:dan', 'Dan', RUSH_WALKS.dan)]
+    : [worker('staff:ana', v(-7.2, 1.6), W, 'idle', SERVER, 'Ana'), server('staff:dan', 'Dan', QUIET_WALK)];
   // Every other server uses the feminine figure.
   nodes.push(...servers.map((server, i) => i % 2 ? server : { ...server, ...FEMININE }));
+  // Plate carriers hold the plates with the holding pose; the host reports full or empty from where each server is.
+  nodes.push(...plateRuns(snapshot).map(run => plateNode(run.server, plates[run.server] ?? 'full')));
   if (pickupReady) nodes.push(walking(worker('courier', v(0, 0), E, 'walking', '#3d8a6e', 'Courier'), COURIER_WALK));
   if (snapshot.scenario === 'rush') nodes.push(
     walking(person('arrival-1', 'visitor', v(0, 0), S, 'walking', '#b07cc6', 'Novák party', FEMININE), arrival(v(11.6, 7), v(8.8, 3.5))),

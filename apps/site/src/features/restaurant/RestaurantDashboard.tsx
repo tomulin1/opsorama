@@ -8,7 +8,7 @@ import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
-import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, stationTickets, type RestaurantScenario, type StationId } from './model';
+import { SCENARIOS, STATIONS, TABLE_LAYOUT, applyRestaurantSnapshot, createRestaurantStore, nextPlateLoad, plateNode, plateRuns, stationTickets, type PlateLoad, type RestaurantScenario, type StationId } from './model';
 import { CoolerInspector, EmptyInspector, RestaurantLibrary, restaurantHudMetrics, StationInspector, StationStrip, TableChips, TableInspector, TableLegend, TicketTable } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -16,6 +16,8 @@ import { catalogAssets } from '@opsorama/objects';
 const SCENARIO_LABELS: Readonly<Record<RestaurantScenario, string>> = { rush: 'Friday dinner rush', quiet: 'Quiet afternoon', closed: 'After close' };
 const SCENARIO_NOTES: Readonly<Record<RestaurantScenario, string>> = { rush: 'One late grill ticket and a warm walk-in reading.', quiet: 'A few tables and a short ticket queue.', closed: 'Stations idle, oven cold.' };
 const DEFAULT_ZOOM = 1.05;
+/** How often the host reads where plate carriers are; a server pauses at least 3 s at the pass and at a table. */
+const PLATE_POLL_MS = 200;
 /** Below this width the floating panels share one area, so opening one closes the other. */
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'floor' | 'tickets' | 'about';
@@ -42,6 +44,22 @@ function RestaurantViewport() {
     if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null);
   }, []);
   useEffect(() => { if (selection) openInspector(); }, [selection, openInspector]);
+  // Servers empty their plates at the table they serve and refill them at the pass. The host reads each server's carry
+  // anchor from the renderer, so the load follows the walk the renderer draws through pauses, speed changes and remounts.
+  useEffect(() => {
+    const runs = plateRuns(SCENARIOS[scenario]), loads: Record<string, PlateLoad> = {};
+    if (!runs.length) return;
+    const timer = window.setInterval(() => {
+      const view = renderer.current;
+      if (!view || view.getDiagnostics().disposed) return;
+      for (const run of runs) {
+        const carry = view.getAnchor(run.server, 'carry'), current = loads[run.server] ?? 'full';
+        const next = carry ? nextPlateLoad(run, carry.position, current) : current;
+        if (next !== current) { loads[run.server] = next; store.upsert(plateNode(run.server, next)); }
+      }
+    }, PLATE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [scenario, store]);
   useEffect(() => {
     if (!expanded) return;
     const exit = (event: KeyboardEvent) => { if (event.key === 'Escape') setExpanded(false); };
