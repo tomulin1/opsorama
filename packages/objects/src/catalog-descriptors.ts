@@ -2424,7 +2424,7 @@ const entries: readonly CatalogEntry[] = [
     asset: "serving-plates",
     name: "Serving plates",
     category: "Restaurant",
-    purpose: "Two dinner plates a server holds in front of the chest, full with a plated dish or empty after clearing.",
+    purpose: "One or two dinner plates a server carries or sets on a table, full with a plated dish or empty after clearing.",
     bounds: {"min":[-0.276,0,-0.136],"max":[0.276,0.094,0.136]},
     pivot: "base-center",
     placement: "Local origin is the ground centre of the default footprint. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
@@ -2437,7 +2437,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/restaurant",
-    notes: "Two 0.26 m plates side by side at x ±0.14 m, sized to a person's carry anchor: attach them there 0.3 m up so they rest on the hands, and give the person the holding pose, which keeps the carrying arms without the built-in carton. full plates carry a dish and garnish; empty plates carry leftovers and crossed cutlery. Plate and food tones are fixed and never identify a dish or an order; the rim and cutlery use trim. top anchor. Static.",
+    notes: "Count 1–2, default 2. Two 0.26 m plates side by side at x ±0.14 m are sized to a person's carry anchor: attach them there 0.3 m up so they rest on the hands, and give the person the holding pose, which keeps the carrying arms without the built-in carton. One plate sits at the origin and covers a place setting of dining-table or booth-seating; attach it at the table's top anchor and give it a transfer to animate it between hands and table. full plates carry a dish and garnish; empty plates carry leftovers and crossed cutlery. Plate and food tones are fixed and never identify a dish or an order; the rim and cutlery use trim. top anchor. Static.",
   },
   {
     asset: "lab-flask",
