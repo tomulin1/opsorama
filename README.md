@@ -4,6 +4,8 @@
 
 ![Opsorama — a clear view of your operations](apps/site/public/brand/opsorama-lockup.svg)
 
+**[opsorama.dev](https://opsorama.dev)** · [Documentation](https://opsorama.dev/docs) · [Examples](https://opsorama.dev/examples) · [Object catalog](https://opsorama.dev/docs/objects)
+
 Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source toolkit for animated 3D dashboards inside existing admin interfaces: warehouses, shops, offices, datacenters, restaurants and other operational spaces. It has native **React** and **Vue** adapters and works with **plain JavaScript**. Your application keeps its data, rules and commands; Opsorama draws the scene.
 
 - **161 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
@@ -11,16 +13,16 @@ Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source t
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
 - **Made for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama).
 
-Four of the domain examples on the documentation website, with fictional data:
+Four of the [domain examples on opsorama.dev](https://opsorama.dev/examples), with fictional data:
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/ecommerce.gif" alt="Online shop and fulfilment centre: shoppers, pickers and a delivery truck move while the order and cut-off metrics update" width="100%"><br><sub><b>Online shop &amp; fulfilment centre</b> · orders from picking to dispatch</sub></td>
-    <td width="50%"><img src="docs/media/restaurant.gif" alt="Restaurant floor and kitchen: guests and waiting staff move between tables, the bar and the kitchen" width="100%"><br><sub><b>Restaurant</b> · tables, kitchen tickets and takeout</sub></td>
+    <td width="50%"><img src="docs/media/ecommerce.gif" alt="Online shop and fulfilment centre: shoppers, pickers and a delivery truck move while the order and cut-off metrics update" width="100%"><br><sub><b><a href="https://opsorama.dev/examples/ecommerce">Online shop &amp; fulfilment centre</a></b> · orders from picking to dispatch</sub></td>
+    <td width="50%"><img src="docs/media/restaurant.gif" alt="Restaurant floor and kitchen: guests and waiting staff move between tables, the bar and the kitchen" width="100%"><br><sub><b><a href="https://opsorama.dev/examples/restaurant">Restaurant</a></b> · tables, kitchen tickets and takeout</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/media/aquatics.gif" alt="Aquatic centre: swimmers move along the lanes of a 25 m pool next to a teaching pool and lifeguard chairs" width="100%"><br><sub><b>Aquatic centre</b> · lanes, lifeguard cover and water quality</sub></td>
-    <td width="50%"><img src="docs/media/farm.gif" alt="Farm: a farmer and a dog walk past the barn, pens, pastures and fields" width="100%"><br><sub><b>Farm</b> · pens, troughs, animals and chores</sub></td>
+    <td width="50%"><img src="docs/media/aquatics.gif" alt="Aquatic centre: swimmers move along the lanes of a 25 m pool next to a teaching pool and lifeguard chairs" width="100%"><br><sub><b><a href="https://opsorama.dev/examples/aquatics">Aquatic centre</a></b> · lanes, lifeguard cover and water quality</sub></td>
+    <td width="50%"><img src="docs/media/farm.gif" alt="Farm: a farmer and a dog walk past the barn, pens, pastures and fields" width="100%"><br><sub><b><a href="https://opsorama.dev/examples/farm">Farm</a></b> · pens, troughs, animals and chores</sub></td>
   </tr>
 </table>
 
@@ -122,7 +124,7 @@ All packages are ESM-only, ship TypeScript declarations and declare `"sideEffect
 
 ## Documentation
 
-- The documentation website (run `pnpm dev`, then open http://127.0.0.1:3100/docs) has the API reference, guides, a live playground and the object browser at `/docs/objects`, where each object page shows its kit, options and usage snippets.
+- The documentation website at [opsorama.dev](https://opsorama.dev/docs) has the API reference, guides, a live playground and the [object browser](https://opsorama.dev/docs/objects), where each object page shows its kit, options and usage snippets. To run it locally, use `pnpm dev` and open http://127.0.0.1:3100/docs.
 - [Architecture](docs/ARCHITECTURE.md), [project vision](docs/PROJECT_VISION.md) and [roadmap](docs/ROADMAP.md).
 - [Performance measurements](docs/PERFORMANCE.md) on a documented reference machine.
 - Guides: [panels](docs/DATA_PANELS.md), [indicators](docs/INDICATORS.md), [object labels](docs/OBJECT_LABELS.md), [object composition](docs/OBJECT_COMPOSITION.md), [bounded counts](docs/QUANTITY_SCALING.md), [handling units](docs/CONTAINMENT.md), [performance playground](docs/PERFORMANCE_PLAYGROUND.md), [brand](docs/BRAND.md).
@@ -160,4 +162,4 @@ End-to-end tests (slow): `pnpm --filter @opsorama/site exec playwright install c
 
 [MIT](LICENSE), copyright 2026 Tomas Jirsa. This covers the source code, procedural models, documentation and supplied SVG assets unless identified otherwise; third-party material keeps its own license; see [third-party notices](THIRD_PARTY_NOTICES.md). A "Powered by Opsorama" credit is welcome but optional.
 
-Contact: [contact@opsorama.dev](mailto:contact@opsorama.dev) · [GitHub](https://github.com/tomulin1/opsorama)
+Contact: [contact@opsorama.dev](mailto:contact@opsorama.dev) · [Website](https://opsorama.dev) · [GitHub](https://github.com/tomulin1/opsorama)
