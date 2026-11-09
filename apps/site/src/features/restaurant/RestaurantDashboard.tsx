@@ -109,7 +109,7 @@ function RestaurantViewport() {
       <TicketTable snapshot={snapshot} tickets={tickets} onSelectTable={value => select(`table:${value}`)} />
     </DataPanel>}
     {panelsVisible && leftPanel === 'about' && <DataPanel className="hud-floating-panel rs-about" title="Restaurant" label="Restaurant information" density="compact" slots={{ icon: <Info size={16} />, actions: closeLeft }}>
-      <p className="hud-concept-note">Kitchen, bar, dining room, booths and terrace. Place settings show covers, plates on the pass and bags on the pickup shelf show ready orders, and each table tent shows the table status. Every model comes from the shared restaurant catalog.</p>
+      <p className="hud-concept-note">Kitchen, bar, dining room, booths and terrace. Place settings show covers, plates on the pass and bags on the pickup shelf show ready orders; table chips and labels show the table status. Every model comes from the shared restaurant catalog.</p>
       <TableLegend />
       <RestaurantLibrary />
     </DataPanel>}
