@@ -1,8 +1,8 @@
-import { expect, test, type Page } from './fixtures';
+import { expect, sceneCanvas, test, type Page } from './fixtures';
 
 async function dragCanvas(page: Page, dx: number, dy: number) {
   // Start on the first canvas point that no floating panel or label covers, scanning from the top-left corner.
-  const { x, y } = await page.locator('canvas').evaluate((canvas, offset) => {
+  const { x, y } = await sceneCanvas(page).evaluate((canvas, offset) => {
     const bounds = canvas.getBoundingClientRect();
     for (let row = 25; row < bounds.height - offset.dy - 25; row += 20) for (let column = 25; column < bounds.width - offset.dx - 25; column += 20) {
       const x = bounds.left + column, y = bounds.top + row;

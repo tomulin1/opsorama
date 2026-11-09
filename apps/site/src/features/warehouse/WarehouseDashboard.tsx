@@ -7,7 +7,7 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, SITE_NAME, warehouseAlerts, warehouseMetrics, type AisleId, type AreaId, type DockId, type Side, type WarehouseScenario, type WarehouseSnapshot } from './model';
 import { DEFAULT_ZOOM, applyWarehouseSnapshot, createWarehouseStore } from './scene';
 import {
@@ -27,6 +27,11 @@ const SCENARIO_NOTES: Readonly<Record<WarehouseScenario, string>> = {
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'docks' | 'loads' | 'storage' | 'fleet' | 'about';
 type SidePanel = 'alerts' | 'inspector';
+
+/** The scene node a selection shows in the inspector preview; an alert marker shows the node it points at. */
+function previewNodeFor(snapshot: WarehouseSnapshot, selection: string | null): string | null {
+  return selection?.startsWith('alert:') ? warehouseAlerts(snapshot).find(value => `alert:${value.id}` === selection)?.node ?? null : selection;
+}
 
 /** The inspector for a selected node id; alert markers open the inspector of the node they point at. */
 function inspectorFor(snapshot: WarehouseSnapshot, selection: string | null): ReactNode {
@@ -96,7 +101,7 @@ function WarehouseViewport() {
     {panelsVisible && sidePanel === 'alerts' && <DataPanel className="hud-side-panel" label="Distribution centre alerts" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock snapshot · no live feed', state: 'unknown' }}>
       <AlertList snapshot={snapshot} onSelect={select} />
     </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel wh-inspector-panel" label="Distribution centre inspector" density="compact" slots={{ header: sideTabs }}>{inspectorFor(snapshot, selection)}</DataPanel>}
+    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel wh-inspector-panel" label="Distribution centre inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={previewNodeFor(snapshot, selection)} />{inspectorFor(snapshot, selection)}</DataPanel>}
 
     {panelsVisible && leftPanel === 'docks' && <DataPanel className="hud-floating-panel wh-wide-panel" title="Docks & yard" label="Docks" description={`${metrics.occupied} of ${metrics.doors} doors in use · D01–D08 receiving, D09–D16 dispatch`} density="compact" slots={{ icon: <Truck size={16} />, actions: closeLeft }}>
       <DockTable snapshot={snapshot} onSelect={select} />

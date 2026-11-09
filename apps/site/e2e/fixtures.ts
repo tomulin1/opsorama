@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 
 export { expect };
 export type { Locator, Page } from '@playwright/test';
@@ -9,6 +9,9 @@ export type { Locator, Page } from '@playwright/test';
  * Use it as `test.setTimeout(ciScaled(90_000))`.
  */
 export const ciScaled = (milliseconds: number) => process.env.CI ? milliseconds * 4 : milliseconds;
+
+/** The scene canvas, without the node preview canvas (`role="img"`) that an example inspector shows next to it. */
+export const sceneCanvas = (page: Page) => page.locator('canvas:not([role="img"])');
 
 /**
  * Playwright's `test` with one change: `page.goto()` resolves only after React has hydrated the new page, which the
