@@ -21,7 +21,7 @@ describe('restaurant dashboard model', () => {
     store.dispose();
   });
 
-  it('keeps one table record per floor-plan table and maps statuses to tent states', () => {
+  it('keeps one table record per floor-plan table and maps statuses to table states without status markers', () => {
     for (const scenario of scenarios) {
       const snapshot = SCENARIOS[scenario], nodes = restaurantNodes(snapshot);
       expect(snapshot.tables.map(table => table.tableId).sort()).toEqual(TABLE_LAYOUT.map(table => table.id).sort());
@@ -29,6 +29,7 @@ describe('restaurant dashboard model', () => {
         const node = asset(nodes, `table:${session.tableId}`), seats = TABLE_LAYOUT.find(table => table.id === session.tableId)!.seats;
         expect(node.state).toBe(TABLE_STATUS[session.status].state); expect(node.entityId).toBe(session.tableId);
         expect(node.count).toBe(session.status === 'free' ? 0 : Math.min(seats, session.party));
+        expect(nodes.some(other => other.kind === 'asset' && other.asset === 'map-pin'), scenario).toBe(false);
       }
     }
   });
