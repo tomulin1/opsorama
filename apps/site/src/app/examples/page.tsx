@@ -39,18 +39,16 @@ const toolkitExamples = [
 type Example = (typeof domainExamples)[number];
 
 function ExampleCard({ example }: { example: Example }) {
-  return <article className="examples-card">
-    <Link href={example.href} prefetch={false} aria-label={example.action}>
-      <div className="examples-card-preview">
-        <Image src={`/example-previews/${example.preview}.webp`} alt="" width={768} height={480} unoptimized />
-      </div>
-      <div className="examples-card-body">
-        <h3>{example.title}</h3>
-        <p>{example.description}</p>
-        <span className="examples-card-action">{example.action}<ArrowUpRight size={15} aria-hidden="true" /></span>
-      </div>
-    </Link>
-  </article>;
+  return <Link className="examples-card" href={example.href} prefetch={false} aria-label={example.action}>
+    <div className="examples-card-preview">
+      <Image src={`/example-previews/${example.preview}.webp`} alt="" width={768} height={480} unoptimized />
+    </div>
+    <div className="examples-card-body">
+      <h3>{example.title}</h3>
+      <p>{example.description}</p>
+      <span className="examples-card-action">{example.action}<ArrowUpRight size={15} aria-hidden="true" /></span>
+    </div>
+  </Link>;
 }
 
 export default function ExamplesPage() {
