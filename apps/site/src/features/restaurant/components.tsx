@@ -1,20 +1,22 @@
 'use client';
 import Link from 'next/link';
-import { AlertTriangle, ChefHat, ClipboardList, CookingPot, Flame, GlassWater, ShoppingBag, Soup, Thermometer, Users, UtensilsCrossed } from 'lucide-react';
-import type { MetricAction } from '@opsorama/react/ui';
-import type { HudMetric } from '../example-hud';
+import { AlertTriangle, CalendarClock, ChefHat, ClipboardList, CookingPot, Flame, GlassWater, ReceiptText, ShoppingBag, Soup, Thermometer, Users, UtensilsCrossed } from 'lucide-react';
+import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
+import { HUD_STATE_TONE, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import { PASS_CAPACITY, PICKUP_CAPACITY, STATIONS, TABLE_LAYOUT, TABLE_STATUS, TICKET_STATUS, isOccupied, restaurantMetrics, stationTickets, type KitchenTicket, type RestaurantSnapshot, type StationId, type TableSession, type TableStatus, type TicketStatus } from './model';
 
 const STATION_ICONS = { grill: Flame, pizza: CookingPot, cold: Soup, bar: GlassWater, pass: ChefHat, pickup: ShoppingBag } as const;
 export function StationIcon({ station, size = 20 }: { station: StationId; size?: number }) { const Icon = STATION_ICONS[station]; return <Icon size={size} aria-hidden="true" />; }
+const STATION_MODELS = { grill: 'kitchen-station', pizza: 'pizza-oven', cold: 'kitchen-station-prep', bar: 'bar-counter', pass: 'heated-pass', pickup: 'pickup-shelf' } as const;
+const TABLE_ICONS = { free: UtensilsCrossed, reserved: CalendarClock, seated: Users, ordered: ClipboardList, eating: Soup, waiting: AlertTriangle, bill: ReceiptText } as const;
 
 export function TableStatusBadge({ status }: { status: TableStatus }) {
-  const value = TABLE_STATUS[status];
-  return <span className="restaurant-status"><span aria-hidden="true" style={{ color: value.color }}>{value.symbol}</span>{value.label}</span>;
+  const value = TABLE_STATUS[status], Icon = TABLE_ICONS[status];
+  return <StatusBadge label={value.label} tone={status === 'free' ? 'success' : HUD_STATE_TONE[value.state]} icon={<Icon />} />;
 }
 export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const value = TICKET_STATUS[status];
-  return <span className="restaurant-status"><span aria-hidden="true" style={{ color: value.color }}>{value.symbol}</span>{value.label}</span>;
+  return <StatusBadge label={value.label} tone={HUD_STATE_TONE[value.state]} icon={status === 'cooking' ? <Flame /> : undefined} />;
 }
 
 export type RestaurantMetricId = 'guests' | 'tickets' | 'late' | 'cooler';
@@ -33,14 +35,16 @@ export function StationStrip({ snapshot, selected, onSelect }: { snapshot: Resta
   return <nav className="restaurant-stations" aria-label="Filter tickets by station">{STATIONS.map(station => {
     const tickets = stationTickets(snapshot, station.id), late = tickets.filter(ticket => ticket.status === 'late').length;
     const summary = station.id === 'pass' || station.id === 'pickup' ? `${tickets.length} ready` : `${tickets.length} open${late ? ` · ${late} late` : ''}`;
-    return <button key={station.id} data-alert={late > 0 || undefined} aria-pressed={selected === station.id} aria-label={`${station.label}: ${summary}`} onClick={() => onSelect(selected === station.id ? null : station.id)}><span className="hud-symbol dp-tone" data-tone={late ? 'critical' : tickets.length ? 'info' : 'neutral'}><StationIcon station={station.id} /></span><strong>{station.label}</strong><span>{summary}</span></button>;
+    return <button key={station.id} data-alert={late > 0 || undefined} aria-pressed={selected === station.id} aria-label={`${station.label}: ${summary}`} onClick={() => onSelect(selected === station.id ? null : station.id)}><HudObjectThumbnail model={STATION_MODELS[station.id]} /><strong>{station.label}</strong><span>{summary}</span></button>;
   })}</nav>;
 }
+
+const tableModel = (layout: (typeof TABLE_LAYOUT)[number]) => layout.variant === 'round' ? 'dining-table-round' : layout.asset;
 
 export function TableChips({ snapshot, selectedId, onSelect }: { snapshot: RestaurantSnapshot; selectedId?: string; onSelect: (id: string) => void }) {
   return <nav className="restaurant-tables" aria-label="Floor tables">{TABLE_LAYOUT.map(layout => {
     const session = snapshot.tables.find(table => table.tableId === layout.id)!, status = TABLE_STATUS[session.status];
-    return <button key={layout.id} aria-pressed={selectedId === layout.id} aria-label={`Inspect ${layout.label}: ${status.label}`} style={{ borderTopColor: status.color }} onClick={() => onSelect(layout.id)}><strong>{layout.id}</strong><span>{isOccupied(session) || session.status === 'reserved' ? `${session.party} ${session.party === 1 ? 'guest' : 'guests'}` : layout.area}</span><small style={{ color: status.color }}>{status.label}</small></button>;
+    return <button key={layout.id} aria-pressed={selectedId === layout.id} aria-label={`Inspect ${layout.label}: ${status.label}`} style={{ borderTopColor: status.color }} onClick={() => onSelect(layout.id)}><HudObjectLabel model={tableModel(layout)}><strong>{layout.id}</strong></HudObjectLabel><span className="restaurant-table-detail">{isOccupied(session) || session.status === 'reserved' ? `${session.party} ${session.party === 1 ? 'guest' : 'guests'}` : layout.area}</span><TableStatusBadge status={session.status} /></button>;
   })}</nav>;
 }
 
@@ -65,7 +69,7 @@ export function StationInspector({ station, snapshot }: { station: StationId; sn
 
 export function CoolerInspector({ snapshot }: { snapshot: RestaurantSnapshot }) {
   const { celsius, limit } = snapshot.cooler, warm = celsius > limit;
-  return <aside className="restaurant-inspector" aria-label="Cooler inspector"><div className="restaurant-eyebrow">EQUIPMENT / MOCK SENSOR</div><h2><Thermometer size={20} aria-hidden="true" /> Walk-in cooler</h2><span className="restaurant-status"><span aria-hidden="true" style={{ color: warm ? '#dca644' : '#38a88a' }}>{warm ? '!' : '✓'}</span>{warm ? 'Above limit' : 'Within limit'}</span>
+  return <aside className="restaurant-inspector" aria-label="Cooler inspector"><div className="restaurant-eyebrow">EQUIPMENT / MOCK SENSOR</div><h2><Thermometer size={20} aria-hidden="true" /> Walk-in cooler</h2><StatusBadge label={warm ? 'Above limit' : 'Within limit'} tone={warm ? 'warning' : 'success'} />
     <dl><dt>Reading</dt><dd>{celsius.toFixed(1)} °C</dd><dt>Limit</dt><dd>{limit.toFixed(1)} °C</dd></dl>
     <p>{warm ? 'The door display shows the supplied reading in amber. Check the door seal and recent openings; the host decides whether to raise an alert.' : 'The supplied reading is within the configured limit.'}</p>
     <div className="restaurant-host-note">The door display is a surface label fed by host data. The model does not simulate refrigeration or alarms.</div></aside>;
@@ -84,7 +88,7 @@ export function TableLegend() {
 export function TicketTable({ snapshot, tickets, onSelectTable }: { snapshot: RestaurantSnapshot; tickets: readonly KitchenTicket[]; onSelectTable: (id: string) => void }) {
   return <div className="hud-table restaurant-table-wrap"><table><thead><tr><th>Ticket</th><th>Table / channel</th><th>Items</th><th>Station</th><th>Status</th><th>Elapsed / target</th></tr></thead><tbody>{tickets.map(ticket => {
     const table = ticket.tableId ? snapshot.tables.find(value => value.tableId === ticket.tableId) : undefined, over = ticket.minutes > ticket.target;
-    return <tr key={ticket.id} data-status={ticket.status}><td><strong>{ticket.id}</strong></td><td>{ticket.tableId ? <button onClick={() => onSelectTable(ticket.tableId!)} aria-label={`Inspect ${TABLE_LAYOUT.find(value => value.id === ticket.tableId)!.label} for ticket ${ticket.id}`}>{ticket.tableId}</button> : <span className="restaurant-channel">{ticket.channel === 'takeout' ? 'Takeout' : 'Delivery'}</span>}{table && <small><TableStatusBadge status={table.status} /></small>}</td><td>{ticket.items.join(', ')}</td><td>{STATIONS.find(value => value.id === ticket.station)!.label}</td><td><TicketStatusBadge status={ticket.status} /></td><td className={over ? 'over' : ''}>{ticket.minutes} / {ticket.target} min</td></tr>;
+    return <tr key={ticket.id} data-status={ticket.status}><td><HudObjectLabel model="serving-plates"><strong>{ticket.id}</strong></HudObjectLabel></td><td>{ticket.tableId ? <button onClick={() => onSelectTable(ticket.tableId!)} aria-label={`Inspect ${TABLE_LAYOUT.find(value => value.id === ticket.tableId)!.label} for ticket ${ticket.id}`}>{ticket.tableId}</button> : <span className="restaurant-channel">{ticket.channel === 'takeout' ? 'Takeout' : 'Delivery'}</span>}{table && <small><TableStatusBadge status={table.status} /></small>}</td><td>{ticket.items.join(', ')}</td><td>{STATIONS.find(value => value.id === ticket.station)!.label}</td><td><TicketStatusBadge status={ticket.status} /></td><td className={over ? 'over' : ''}>{ticket.minutes} / {ticket.target} min</td></tr>;
   })}</tbody></table>{tickets.length === 0 && <p className="restaurant-empty">No open tickets in this scope.</p>}</div>;
 }
 

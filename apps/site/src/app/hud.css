@@ -23,7 +23,38 @@
 .hud-scene-surface > .hud-canvas { position: absolute; inset: 0; }
 .hud-viewport .dp-panel { backdrop-filter: blur(12px); }
 .hud-viewport .dp-header { margin-bottom: 10px; }
-.hud-viewport .dp-badge { font-size: 11px; }
+.hud-viewport .dp-badge:not(.dp-delta) {
+  max-width: 100%; gap: 5px; padding: 3px 8px 3px 4px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  color: var(--dp-tone); background: color-mix(in srgb, currentColor 9%, #fff); font-size: 11px; font-weight: 650; line-height: 1.25;
+}
+.hud-viewport .dp-badge[data-tone="neutral"] {
+  --badge-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.hud-viewport .dp-badge[data-tone="success"] {
+  --badge-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.5 8 3 3 6-6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.hud-viewport .dp-badge[data-tone="info"] {
+  --badge-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8h10m-4-4 4 4-4 4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.hud-viewport .dp-badge[data-tone="warning"] {
+  --badge-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5 14 13H2zM8 6v3m0 2v.1' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.hud-viewport .dp-badge[data-tone="critical"] {
+  --badge-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5.5 2h5L14 5.5v5L10.5 14h-5L2 10.5v-5zM8 5v3.5m0 2.5v.1' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.hud-viewport .dp-badge:not(:has(> [aria-hidden]))::before {
+  content: ""; width: 12px; height: 12px; flex: none; margin-inline: 2px;
+  background: currentColor; mask: var(--badge-icon) center / contain no-repeat;
+}
+.hud-viewport .dp-badge:not(.dp-delta) > [aria-hidden] {
+  display: inline-grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 50%;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.hud-viewport .dp-badge svg { display: block; width: 12px; height: 12px; }
+@media (forced-colors: active) {
+  .hud-viewport .dp-badge:not(:has(> [aria-hidden]))::before { forced-color-adjust: none; background: CanvasText; }
+}
 .hud-viewport button, .hud-viewport select { font: inherit; color: inherit; cursor: pointer; }
 .hud-viewport button:disabled { opacity: .5; cursor: default; }
 .hud-viewport :is(button, select, input, a):focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
@@ -83,6 +114,13 @@
 .hud-table td { padding: 8px 9px; border-top: 1px solid var(--hud-line); color: var(--panel-text); vertical-align: top; font-variant-numeric: tabular-nums; }
 .hud-table tbody tr:first-child td { border-top: 0; }
 .hud-table td > button { padding: 0; font-weight: 650; color: var(--hud-accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+.hud-table tr:has(.hud-object-thumbnail) td { vertical-align: middle; }
+.hud-object-thumbnail {
+  display: block; flex: none; width: 48px; height: auto; aspect-ratio: 7 / 5;
+  border: 1px solid #d8e3ed; border-radius: 8px; background: #edf2f8; object-fit: contain;
+}
+.hud-object-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; text-align: left; }
+.hud-object-copy { min-width: 0; }
 
 /* Bottom bar: zoom and the viewport toolbar. */
 .hud-viewport-controls { position: absolute; z-index: 30; bottom: 16px; left: 20px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
@@ -103,11 +141,13 @@
 .hud-display-controls { margin-left: auto; }
 .hud-display-controls > span { font-size: 11px; color: var(--panel-muted); margin-left: 4px; }
 
+@media (max-width: 1360px) {
+  .hud-display-controls > span { display: none; }
+}
 @media (max-width: 1150px) {
   .hud-top { grid-template-columns: minmax(280px, 350px) minmax(0, 1fr); gap: 10px; }
   .hud-side-panel { width: 300px; }
   .hud-floating-panel { width: min(var(--hud-panel-width, 640px), calc(100% - 350px)); }
-  .hud-display-controls > span { display: none; }
 }
 @media (max-width: 1000px) {
   /* Four cards beside the navigation get too narrow for their context, so they form two rows. */

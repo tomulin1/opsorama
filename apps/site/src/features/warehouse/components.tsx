@@ -2,21 +2,22 @@
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { AlertTriangle, Boxes, Clock, Forklift, PackageCheck, Thermometer, Truck as TruckIcon, Warehouse, Wrench, Zap } from 'lucide-react';
-import type { MetricAction, Tone } from '@opsorama/react/ui';
+import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
 import type { VisualState } from '@opsorama/core';
-import type { HudMetric } from '../example-hud';
+import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, type HudMetric } from '../example-hud';
+import type { HudThumbnailModel } from '../hud-thumbnails';
+import { VEHICLE_ASSET } from './scene';
 import {
   AISLES, BAY_POSITIONS, DOCKS, LANE_CAPACITY, RULES, alertArea, aisleOf, aisleUsage, areaOf, areaState, bayCount, chilledState, deliveryLate, deliveryOf, deliveryStatus, dockOf, dockState,
   issueAt, loadAtRisk, loadDock, loadMinutesLeft, loadOf, loadStatus, loadWorkLeft, locationCode, stagedPallets, truckAt, truckFor, warehouseAlerts, warehouseMetrics, yardDwell,
-  type AisleId, type AreaId, type DockId, type Side, type Vehicle, type WarehouseAlert, type WarehouseSnapshot,
+  type AisleId, type AreaId, type DockId, type DockStatus, type Side, type Vehicle, type WarehouseSnapshot,
 } from './model';
 
 const STATE_TONE: Readonly<Record<VisualState, string>> = { normal: '#38a88a', busy: '#5088ec', warning: '#dca644', critical: '#df6470', inactive: '#91a0b5' };
-const STATE_LABEL: Readonly<Record<VisualState, [string, string]>> = { normal: ['✓', 'OK'], busy: ['›', 'Working'], warning: ['!', 'Needs attention'], critical: ['!!', 'Act now'], inactive: ['–', 'Not staffed'] };
+const STATE_LABEL: Readonly<Record<VisualState, string>> = { normal: 'OK', busy: 'Working', warning: 'Needs attention', critical: 'Act now', inactive: 'Not staffed' };
 
 export function StateBadge({ state, label }: { state: VisualState; label?: string }) {
-  const [symbol, text] = STATE_LABEL[state];
-  return <span className="wh-status"><span aria-hidden="true" style={{ color: STATE_TONE[state] }}>{symbol}</span>{label ?? text}</span>;
+  return <StatusBadge tone={HUD_STATE_TONE[state]} label={label ?? STATE_LABEL[state]} className="wh-status" />;
 }
 const pct = (value: number, total: number) => total ? Math.round(value / total * 100) : 0;
 function Progress({ value, total, label }: { value: number; total: number; label: string }) {
@@ -37,7 +38,7 @@ export function warehouseHudMetrics(snapshot: WarehouseSnapshot, actions: Readon
 
 /* ── Panels ─────────────────────────────────────────────────────────────── */
 
-const DOCK_STATUS: Readonly<Record<string, VisualState>> = { free: 'normal', docked: 'busy', unloading: 'busy', loading: 'busy', 'out-of-service': 'warning' };
+const dockThumbnail = (status: DockStatus) => status === 'loading' || status === 'unloading' ? 'loading-dock-open' : 'loading-dock';
 export function DockTable({ snapshot, onSelect }: { snapshot: WarehouseSnapshot; onSelect: (node: string) => void }) {
   const yard = snapshot.trucks.filter(value => value.stall !== undefined);
   return <>
@@ -45,10 +46,10 @@ export function DockTable({ snapshot, onSelect }: { snapshot: WarehouseSnapshot;
       const state = dockState(snapshot, value.id), truck = truckAt(snapshot, value.id), delivery = deliveryOf(snapshot, state.ref), load = loadOf(snapshot, state.ref);
       const risk = load && loadAtRisk(snapshot, load), late = delivery && deliveryLate(snapshot, delivery);
       return <tr key={value.id} data-side={value.side} data-alert={risk || state.status === 'out-of-service' || late ? true : undefined}>
-        <td><button onClick={() => onSelect(`dock:${value.id}`)} aria-label={`Inspect door ${value.id}`}>{value.id}</button></td>
-        <td><StateBadge state={DOCK_STATUS[state.status]} label={state.status.replace(/-/g, ' ')} /></td>
-        <td>{truck ? <button className="wh-link" onClick={() => onSelect(`truck:${truck.id}`)}>{truck.id}</button> : '—'}</td>
-        <td>{delivery ? `${delivery.id} · ${delivery.supplier}` : load ? `${load.id} · ${load.route}` : '—'}</td>
+        <td><button onClick={() => onSelect(`dock:${value.id}`)} aria-label={`Inspect door ${value.id}`}><HudObjectLabel model={dockThumbnail(state.status)}>{value.id}</HudObjectLabel></button></td>
+        <td><HudDockStatus status={state.status} /></td>
+        <td>{truck ? <button className="wh-link" onClick={() => onSelect(`truck:${truck.id}`)}><HudObjectLabel model="truck">{truck.id}</HudObjectLabel></button> : '—'}</td>
+        <td className="wh-dock-reference">{delivery ? `${delivery.id} · ${delivery.supplier}` : load ? `${load.id} · ${load.route}` : '—'}</td>
         <td>{delivery ? <Progress value={delivery.received} total={delivery.pallets} label={`${delivery.id} received`} /> : load ? <Progress value={load.loaded} total={load.pallets} label={`${load.id} loaded`} /> : '—'}</td>
         <td>{stagedPallets(snapshot, value.id) || '—'}</td>
       </tr>;
@@ -56,8 +57,8 @@ export function DockTable({ snapshot, onSelect }: { snapshot: WarehouseSnapshot;
     <h3 className="wh-subhead">Yard · {yard.length} truck{yard.length === 1 ? '' : 's'} in the stalls</h3>
     {yard.length ? <ol className="wh-list" aria-label="Yard queue">{yard.map(truck => {
       const dwell = yardDwell(snapshot, truck), delivery = deliveryOf(snapshot, truck.ref), late = delivery ? deliveryLate(snapshot, delivery) : 0;
-      return <li key={truck.id} data-alert={dwell > RULES.yardDwellMinutes || late ? true : undefined}><button onClick={() => onSelect(`truck:${truck.id}`)}><strong>{truck.id} · stall {truck.stall! + 1}</strong><span>{truck.carrier} · {truck.ref} · {truck.dropped ? 'dropped trailer' : `arrived ${truck.arrived}`}</span></button>
-        <span className="wh-tag">{truck.dropped ? 'Parked' : late ? `${late} min late` : `${dwell} min`}</span></li>;
+      return <li key={truck.id} data-alert={dwell > RULES.yardDwellMinutes || late ? true : undefined}><button onClick={() => onSelect(`truck:${truck.id}`)}><HudObjectLabel model="truck"><strong>{truck.id} · stall {truck.stall! + 1}</strong><span>{truck.carrier} · {truck.ref} · {truck.dropped ? 'dropped trailer' : `arrived ${truck.arrived}`}</span></HudObjectLabel></button>
+        <StatusBadge label={truck.dropped ? 'Parked' : late ? `${late} min late` : `${dwell} min`} tone={truck.dropped ? 'neutral' : late || dwell > RULES.yardDwellMinutes ? 'warning' : 'info'} icon={truck.dropped ? <TruckIcon /> : <Clock />} /></li>;
     })}</ol> : <p className="wh-quiet">No trucks waiting.</p>}
   </>;
 }
@@ -68,13 +69,13 @@ export function StorageChips({ snapshot, onSelect }: { snapshot: WarehouseSnapsh
       const usage = aisleUsage(snapshot, value.id), share = pct(usage.used, usage.capacity), issues = snapshot.issues.filter(item => item.aisle === value.id);
       const state: VisualState = issues.some(item => item.kind === 'damaged') ? 'critical' : issues.length ? 'warning' : 'normal';
       return <button key={value.id} data-chilled={value.zone === 'chilled' || undefined} aria-label={`Inspect ${value.label}: ${share} % used, ${issues.length} open issues`} style={{ borderTopColor: STATE_TONE[state] }} onClick={() => onSelect(`aisle:${value.id}`)}>
-        <strong>{value.id}</strong><span>{usage.used}/{usage.capacity} pallets</span><meter min={0} max={100} high={90} optimum={70} value={share} aria-hidden="true" /><small>{share} %{issues.length ? ` · ${issues.length} issue${issues.length === 1 ? '' : 's'}` : ''}</small>
+        <HudObjectLabel model="pallet-rack"><strong>{value.id}</strong></HudObjectLabel><span>{usage.used}/{usage.capacity} pallets</span><meter min={0} max={100} high={90} optimum={70} value={share} aria-hidden="true" /><small>{share} %{issues.length ? ` · ${issues.length} issue${issues.length === 1 ? '' : 's'}` : ''}</small>
       </button>;
     })}</nav>
     <h3 className="wh-subhead">Location issues</h3>
     {snapshot.issues.length ? <ol className="wh-list" aria-label="Location issues">{snapshot.issues.map(value => {
       const code = locationCode(value.aisle, value.bay, value.side);
-      return <li key={code} data-alert={value.kind === 'damaged' || undefined}><button onClick={() => onSelect(`rack:${value.aisle}:${value.bay}:${value.side}`)}><strong>{code} · {ISSUE_LABEL[value.kind]}</strong><span>{value.note}</span></button></li>;
+      return <li key={code} data-alert={value.kind === 'damaged' || undefined}><button onClick={() => onSelect(`rack:${value.aisle}:${value.bay}:${value.side}`)}><HudObjectLabel model="pallet-rack"><strong>{code} · {ISSUE_LABEL[value.kind]}</strong><span>{value.note}</span></HudObjectLabel></button></li>;
     })}</ol> : <p className="wh-quiet">No open location issues.</p>}
   </>;
 }
@@ -88,7 +89,7 @@ export function LoadTable({ snapshot, onSelect }: { snapshot: WarehouseSnapshot;
       const dockId = loadDock(snapshot, load.id), risk = loadAtRisk(snapshot, load), truck = truckFor(snapshot, load.id);
       const node = dockId ? `dock:${dockId}` : truck ? `truck:${truck.id}` : 'pin:outbound';
       return <tr key={load.id} data-alert={risk || undefined}>
-        <td><button onClick={() => onSelect(node)} aria-label={`Show ${load.id} in the scene`}>{load.id}</button></td><td>{load.route}</td><td>{dockId ?? '—'}</td><td>{load.departure}</td>
+        <td><button onClick={() => onSelect(node)} aria-label={`Show ${load.id} in the scene`}><HudObjectLabel model={truck ? 'truck' : 'pallet'}>{load.id}</HudObjectLabel></button></td><td>{load.route}</td><td>{dockId ?? '—'}</td><td>{load.departure}</td>
         <td><Progress value={load.picked} total={load.pallets} label={`${load.id} picked`} /></td><td><Progress value={load.loaded} total={load.pallets} label={`${load.id} loaded`} /></td>
         <td><StateBadge state={risk ? 'critical' : loadStatus(snapshot, load) === 'Loaded' ? 'normal' : 'busy'} label={risk ? 'At risk' : loadStatus(snapshot, load)} /></td>
       </tr>;
@@ -101,28 +102,36 @@ const VEHICLE_LABEL: Readonly<Record<Vehicle['kind'], string>> = { forklift: 'Fo
 const vehicleState = (value: Vehicle): VisualState => value.status === 'fault' ? 'critical' : value.status === 'working' && value.battery < RULES.lowBattery ? 'warning' : value.status === 'working' ? 'busy' : value.status === 'charging' ? 'normal' : 'inactive';
 export function FleetList({ snapshot, onSelect }: { snapshot: WarehouseSnapshot; onSelect: (node: string) => void }) {
   return <ol className="wh-fleet" aria-label="Fleet">{snapshot.fleet.map(value => <li key={value.id} data-alert={vehicleState(value) === 'critical' || vehicleState(value) === 'warning' || undefined}>
-    <button onClick={() => onSelect(`mhe:${value.id}`)} aria-label={`Inspect ${value.id}`}><strong>{value.id}</strong><span>{VEHICLE_LABEL[value.kind]} · {value.aisle ?? areaOf(value.area).short}{value.operator ? ` · ${value.operator}` : ''}</span></button>
+    <button onClick={() => onSelect(`mhe:${value.id}`)} aria-label={`Inspect ${value.id}`}><HudObjectLabel model={VEHICLE_ASSET[value.kind]}><strong>{value.id}</strong><span>{VEHICLE_LABEL[value.kind]} · {value.aisle ?? areaOf(value.area).short}{value.operator ? ` · ${value.operator}` : ''}</span></HudObjectLabel></button>
     <span className="wh-battery"><meter min={0} max={100} low={RULES.lowBattery} high={60} optimum={100} value={value.battery} aria-label={`${value.id} battery`} /><small>{value.battery} %</small></span>
     <StateBadge state={vehicleState(value)} label={value.status} />
   </li>)}</ol>;
 }
 
-const ALERT_TONE: Readonly<Record<WarehouseAlert['severity'], Tone>> = { critical: 'critical', warning: 'warning' };
 const ALERT_ICON = { clock: Clock, thermometer: Thermometer, wrench: Wrench, package: PackageCheck, alert: AlertTriangle, zap: Zap } as const;
+const EVENT_MODELS: Readonly<Partial<Record<string, HudThumbnailModel>>> = { area: 'map-pin', pin: 'map-pin', aisle: 'pallet-rack', rack: 'pallet-rack', chilled: 'led-display', truck: 'truck' };
+function eventModel(snapshot: WarehouseSnapshot, node: string): HudThumbnailModel {
+  const [kind, id] = node.split(':');
+  const vehicle = kind === 'mhe' ? snapshot.fleet.find(item => item.id === id) : undefined;
+  if (vehicle) return VEHICLE_ASSET[vehicle.kind];
+  const dock = kind === 'dock' ? snapshot.docks.find(item => item.id === id) : undefined;
+  if (dock) return dockThumbnail(dock.status);
+  return EVENT_MODELS[kind] ?? 'map-pin';
+}
 export function AlertList({ snapshot, onSelect }: { snapshot: WarehouseSnapshot; onSelect: (node: string) => void }) {
   const alerts = warehouseAlerts(snapshot);
   return <>
-    {alerts.length ? <nav className="wh-alerts" aria-label="Alerts">{alerts.map(alert => { const Icon = ALERT_ICON[alert.icon]; return <button key={alert.id} data-severity={alert.severity} onClick={() => onSelect(alert.node)}><span className="hud-symbol dp-tone" data-tone={ALERT_TONE[alert.severity]}><Icon size={18} aria-hidden="true" /></span><strong>{alert.title}</strong><span>{alert.detail}</span></button>; })}</nav>
+    {alerts.length ? <nav className="wh-alerts" aria-label="Alerts">{alerts.map(alert => { const Icon = ALERT_ICON[alert.icon]; return <button key={alert.id} data-severity={alert.severity} onClick={() => onSelect(alert.node)}><HudObjectLabel model={eventModel(snapshot, alert.node)}><strong>{alert.title}</strong><small>{alert.detail}</small></HudObjectLabel><StatusBadge label={alert.severity === 'critical' ? 'Critical' : 'Warning'} tone={alert.severity} icon={<Icon />} /></button>; })}</nav>
       : <p className="wh-quiet">No exceptions in this snapshot.</p>}
     <h3 className="wh-subhead">Recent events</h3>
-    <ol className="wh-events" aria-label="Recent events">{snapshot.events.map(event => <li key={`${event.time}${event.text}`} data-tone={event.tone}><button onClick={() => onSelect(event.node)}><time>{event.time}</time><span>{event.text}</span></button></li>)}</ol>
+    <ol className="wh-events" aria-label="Recent events">{snapshot.events.map(event => <li key={`${event.time}${event.text}`} data-tone={event.tone}><button onClick={() => onSelect(event.node)}><time>{event.time}</time><HudObjectLabel model={eventModel(snapshot, event.node)}>{event.text}</HudObjectLabel></button></li>)}</ol>
   </>;
 }
 
 /* ── Inspectors ─────────────────────────────────────────────────────────── */
 
-function Inspector({ label, eyebrow, title, state, stateLabel, children }: { label: string; eyebrow: string; title: string; state: VisualState; stateLabel?: string; children: ReactNode }) {
-  return <aside className="wh-inspector" aria-label={label}><div className="wh-eyebrow">{eyebrow}</div><h2>{title}</h2><StateBadge state={state} label={stateLabel} />{children}</aside>;
+function Inspector({ label, eyebrow, title, state, stateLabel, badge, children }: { label: string; eyebrow: string; title: string; state?: VisualState; stateLabel?: string; badge?: ReactNode; children: ReactNode }) {
+  return <aside className="wh-inspector" aria-label={label}><div className="wh-eyebrow">{eyebrow}</div><h2>{title}</h2>{badge ?? (state && <StateBadge state={state} label={stateLabel} />)}{children}</aside>;
 }
 const Note = ({ children }: { children: ReactNode }) => <div className="wh-host-note">{children}</div>;
 
@@ -157,7 +166,7 @@ export function ChilledInspector({ snapshot }: { snapshot: WarehouseSnapshot }) 
 export function DockInspector({ snapshot, id }: { snapshot: WarehouseSnapshot; id: DockId }) {
   const value = dockOf(id), state = dockState(snapshot, id), truck = truckAt(snapshot, id), delivery = deliveryOf(snapshot, state.ref), load = loadOf(snapshot, state.ref);
   const risk = load && loadAtRisk(snapshot, load);
-  return <Inspector label="Dock inspector" eyebrow={`DOCK DOOR / ${value.side.toUpperCase()}`} title={`Door ${id}`} state={risk ? 'critical' : DOCK_STATUS[state.status]} stateLabel={risk ? 'Load at risk' : state.status.replace(/-/g, ' ')}>
+  return <Inspector label="Dock inspector" eyebrow={`DOCK DOOR / ${value.side.toUpperCase()}`} title={`Door ${id}`} badge={risk ? <StateBadge state="critical" label="Load at risk" /> : <HudDockStatus status={state.status} />}>
     <dl><dt>Truck</dt><dd>{truck ? `${truck.id} · ${truck.carrier}` : '—'}</dd><dt>Lane</dt><dd>{stagedPallets(snapshot, id)} pallets</dd>
       {delivery && <><dt>ASN</dt><dd>{delivery.id}</dd><dt>Supplier</dt><dd>{delivery.supplier}</dd><dt>Slot</dt><dd>{delivery.appointment}{deliveryLate(snapshot, delivery) ? ` · ${deliveryLate(snapshot, delivery)} min late` : ''}</dd><dt>Received</dt><dd>{delivery.received} of {delivery.pallets}</dd>{(delivery.chilled || delivery.hazardous) && <><dt>Handling</dt><dd>{delivery.chilled ? 'Chilled' : 'Hazardous goods'}</dd></>}</>}
       {load && <><dt>Load</dt><dd>{load.id}</dd><dt>Route</dt><dd>{load.route} · {load.stops} stop{load.stops === 1 ? '' : 's'}</dd><dt>Departure</dt><dd>{load.departure} ({loadMinutesLeft(snapshot, load)} min)</dd><dt>Picked / loaded</dt><dd>{load.picked} / {load.loaded} of {load.pallets}</dd><dt>Work left</dt><dd>{Math.round(loadWorkLeft(load))} min</dd><dt>Short picks</dt><dd>{load.shorts}</dd></>}

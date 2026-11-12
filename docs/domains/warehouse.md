@@ -34,6 +34,8 @@ The layout follows a common real-world pattern rather than a measured building. 
 
 Three mock snapshots cover the morning inbound peak, the afternoon dispatch wave and night replenishment. The scene, metrics, alerts and panels are derived from the same snapshot; the dashboard never changes records and sends no commands.
 
+The docks, yard, loads, storage, fleet and alerts panels show static thumbnails of the relevant models. Dock thumbnails show the shutter open during loading and unloading. Status badges pair labels with icons, including distinct symbols for loading and unloading.
+
 Rules are explicit and shown in the inspectors: a delivery is late after a 15 minute grace period, a truck may wait 45 minutes in the yard, more than 30 pallets in the receiving lanes is a putaway backlog, the chilled chamber warns from 4.5 °C and alarms from 5 °C, a battery below 20 % is low, and a load is at risk when the estimated work left (1.5 minutes per pallet to load, 3 minutes per pallet to pick) exceeds the time to its departure.
 
 ## Counts, alerts and motion

@@ -51,9 +51,9 @@ export const FIELDS: readonly Field[] = [
 /** Trough level thresholds in % for this mock farm. */
 export const TROUGH_LIMITS = Object.freeze({ low: 30 });
 export const STAGE_LABELS: Readonly<Record<CropStage, string>> = { plowed: 'Plowed', sprouting: 'Sprouting', growing: 'Growing', ripe: 'Ready to harvest', harvested: 'Harvested' };
-export const TASK_STATUS: Readonly<Record<TaskStatus, { label: string; color: string; symbol: string }>> = {
-  done: { label: 'Done', color: '#38a88a', symbol: '✓' }, 'in-progress': { label: 'In progress', color: '#5088ec', symbol: '›' },
-  due: { label: 'Due', color: '#8a9bb0', symbol: '○' }, overdue: { label: 'Overdue', color: '#df6470', symbol: '!' },
+export const TASK_STATUS: Readonly<Record<TaskStatus, { label: string; state: VisualState }>> = {
+  done: { label: 'Done', state: 'normal' }, 'in-progress': { label: 'In progress', state: 'busy' },
+  due: { label: 'Due', state: 'inactive' }, overdue: { label: 'Overdue', state: 'critical' },
 };
 
 const pen = (id: PenId, headcount: number, expected: number, level: number, note: string): PenRecord => ({ id, headcount, expected, level, note });

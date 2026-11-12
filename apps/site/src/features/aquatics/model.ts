@@ -9,16 +9,16 @@ export type FilterStatus = 'running' | 'backwash' | 'off';
 export type PoolId = 'main' | 'teaching';
 export type AquaticsScenario = 'morning' | 'afternoon' | 'closed';
 
-export const LANE_USE: Readonly<Record<LaneUse, { label: string; color: string; symbol: string }>> = {
-  public: { label: 'Public lane', color: '#2f6fd6', symbol: 'P' },
-  club: { label: 'Club training', color: '#7a5cc4', symbol: 'C' },
-  lessons: { label: 'Swim school', color: '#2e9d84', symbol: 'S' },
-  closed: { label: 'Closed', color: '#91a0b5', symbol: '×' },
+export const LANE_USE: Readonly<Record<LaneUse, { label: string; color: string }>> = {
+  public: { label: 'Public lane', color: '#2f6fd6' },
+  club: { label: 'Club training', color: '#7a5cc4' },
+  lessons: { label: 'Swim school', color: '#2e9d84' },
+  closed: { label: 'Closed', color: '#91a0b5' },
 };
-export const POST_STATUS: Readonly<Record<PostStatus, { label: string; color: string; symbol: string }>> = {
-  'on-post': { label: 'On post', color: '#38a88a', symbol: '✓' },
-  break: { label: 'On break', color: '#dca644', symbol: '‖' },
-  alert: { label: 'Responding', color: '#df6470', symbol: '!' },
+export const POST_STATUS: Readonly<Record<PostStatus, { label: string; state: VisualState }>> = {
+  'on-post': { label: 'On post', state: 'normal' },
+  break: { label: 'On break', state: 'warning' },
+  alert: { label: 'Responding', state: 'critical' },
 };
 /** Mock limits for the example; real limits come from the operator and local regulations. */
 export const WATER_LIMITS = Object.freeze({ ph: [7, 7.6] as const, chlorine: [.3, 1] as const });

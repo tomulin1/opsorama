@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Boxes, Coffee, DoorOpen, KanbanSquare, Lock, MonitorSmartphone, Presentation, UserRound, Users } from 'lucide-react';
+import { AlertTriangle, Boxes, Coffee, DoorOpen, Eye, KanbanSquare, Lock, MonitorSmartphone, Presentation, UserRound, Users } from 'lucide-react';
 import { ActivityFeed, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
-import type { HudMetric } from '../example-hud';
+import { HudObjectLabel, type HudMetric } from '../example-hud';
 import {
   BOARD_NOTES, FOCUS_PODS, HOT_DESKS, KITCHEN_SEATS, NO_TICKET_COLOR, PROJECTS, ROOMS, TEAMS, TEAM_DESKS, TICKET_STATUSES,
   area, areaStatus, assignedTo, boardCounts, currentBooking, currentTicket, employee, hotDeskUser, inOffice, membersOf, nextBooking, officeMetrics, peopleAt, peopleIn,
@@ -30,7 +30,7 @@ export function officeHudMetrics(snapshot: OfficeSnapshot, actions: Readonly<Rec
 export function TeamList({ snapshot, selected, onSelect }: { snapshot: OfficeSnapshot; selected: TeamId | null; onSelect: (id: TeamId) => void }) {
   return <ResourceList className="of-team-list" label="Teams" density="compact" selectedId={selected} onSelect={id => onSelect(id as TeamId)} items={TEAMS.map(value => {
     const members = membersOf(value.id), present = members.filter(person => inOffice(stateOf(snapshot, person.id))).length, status = teamStatus(snapshot, value.id), counts = boardCounts(snapshot, value.id);
-    return { id: value.id, label: value.label, description: `${present} of ${members.length} in the office · ${counts['in-progress'] + counts.review} active tickets`, status: status.label, tone: status.tone };
+    return { id: value.id, label: <HudObjectLabel model="desk-pod">{value.label}</HudObjectLabel>, description: `${present} of ${members.length} in the office · ${counts['in-progress'] + counts.review} active tickets`, status: status.label, tone: status.tone };
   })} />;
 }
 export function ActivityList({ snapshot }: { snapshot: OfficeSnapshot }) {
@@ -39,7 +39,7 @@ export function ActivityList({ snapshot }: { snapshot: OfficeSnapshot }) {
 
 export function StatusChip({ value }: { value: TicketStatus }) {
   const item = ticketStatus(value);
-  return <span className="of-chip"><i style={{ background: item.color }} aria-hidden="true" />{item.label}</span>;
+  return <StatusBadge label={item.label} tone={item.tone} icon={value === 'review' ? <Eye /> : value === 'blocked' ? <Lock /> : undefined} />;
 }
 export function ProjectChip({ id }: { id: ProjectId }) {
   const item = project(id);
@@ -49,15 +49,18 @@ function PresenceBadge({ snapshot, id }: { snapshot: OfficeSnapshot; id: string 
   const value = presence(stateOf(snapshot, id));
   return <StatusBadge label={value.label} tone={value.tone} />;
 }
-const TicketButton = ({ value, onOpen }: { value: Ticket; onOpen: Open }) => <button type="button" onClick={() => onOpen(value.id)} aria-label={`Inspect ticket ${value.id}`}>{value.id}</button>;
-const PersonButton = ({ id, onOpen }: { id: string; onOpen: Open }) => <button type="button" onClick={() => onOpen(id)} aria-label={`Inspect ${employee(id).name}`}>{employee(id).name}</button>;
+const TicketButton = ({ value, onOpen, preview }: { value: Ticket; onOpen: Open; preview?: boolean }) => <button type="button" onClick={() => onOpen(value.id)} aria-label={`Inspect ticket ${value.id}`}>{preview ? <HudObjectLabel model="whiteboard">{value.id}</HudObjectLabel> : value.id}</button>;
+const PersonButton = ({ id, onOpen, preview }: { id: string; onOpen: Open; preview?: boolean }) => {
+  const { name } = employee(id);
+  return <button type="button" onClick={() => onOpen(id)} aria-label={`Inspect ${name}`}>{preview ? <HudObjectLabel model="worker">{name}</HudObjectLabel> : name}</button>;
+};
 
 /** Everyone on the roster in the current scope with presence and the ticket they are working on. */
 export function PeopleTable({ snapshot, people, onPerson, onTicket }: { snapshot: OfficeSnapshot; people: readonly Employee[]; onPerson: Open; onTicket: Open }) {
   return <div className="hud-table of-table-wrap"><table><thead><tr><th>Person</th><th>Team</th><th>Presence</th><th>Working on</th><th>Project</th></tr></thead><tbody>{people.map(person => {
     const value = currentTicket(snapshot, person.id);
     return <tr key={person.id} data-alert={value?.status === 'blocked' ? value.priority === 'P1' ? 'critical' : 'warning' : undefined}>
-      <td><PersonButton id={person.id} onOpen={onPerson} /><small>{person.role}</small></td><td className="of-nowrap">{team(person.team).label}</td>
+      <td><PersonButton id={person.id} onOpen={onPerson} preview /><small>{person.role}</small></td><td className="of-nowrap">{team(person.team).label}</td>
       <td><PresenceBadge snapshot={snapshot} id={person.id} /><small>{placeLabel(snapshot, person.id)}</small></td>
       <td>{value ? <><TicketButton value={value} onOpen={onTicket} /> {value.title}<small><StatusChip value={value.status} /></small></> : <span className="of-muted">No ticket in progress</span>}</td>
       <td>{value ? <ProjectChip id={value.project} /> : '—'}</td>
@@ -71,7 +74,7 @@ export function TicketTable({ snapshot, list, onPerson, onTicket }: { snapshot: 
   const sorted = [...list].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.priority.localeCompare(b.priority) || a.id.localeCompare(b.id));
   return <div className="hud-table of-table-wrap"><table><thead><tr><th>Ticket</th><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Points</th></tr></thead><tbody>{sorted.map(value => (
     <tr key={value.id} data-alert={value.status === 'blocked' ? value.priority === 'P1' ? 'critical' : 'warning' : undefined} data-done={value.status === 'done' || undefined}>
-      <td><TicketButton value={value} onOpen={onTicket} /></td><td>{value.title}<small><ProjectChip id={value.project} /></small></td><td><StatusChip value={value.status} />{value.blocker && <small className="of-issue">{value.blocker}</small>}</td>
+      <td><TicketButton value={value} onOpen={onTicket} preview /></td><td>{value.title}<small><ProjectChip id={value.project} /></small></td><td><StatusChip value={value.status} />{value.blocker && <small className="of-issue">{value.blocker}</small>}</td>
       <td><span className="of-priority" data-priority={value.priority}>{value.priority}</span></td><td>{value.assignee ? <PersonButton id={value.assignee} onOpen={onPerson} /> : <span className="of-muted">Unassigned</span>}{value.assignee && <small>{presence(stateOf(snapshot, value.assignee)).label}</small>}</td><td>{value.points}</td>
     </tr>))}</tbody></table>{sorted.length === 0 && <p className="of-empty">No tickets in this scope.</p>}</div>;
 }
@@ -81,7 +84,7 @@ export function ProjectPanel({ snapshot, selected, onProject, onFilter }: { snap
   return <div className="of-cards">{PROJECTS.map(value => {
     const progress = projectProgress(snapshot, value.id), health = projectHealth(snapshot, value.id);
     return <article key={value.id} className="of-card" data-selected={selected === value.id || undefined} style={{ borderLeftColor: value.color }}>
-      <div><strong><button type="button" onClick={() => onProject(value.id)} aria-label={`Inspect project ${value.name}`}>{value.name}</button></strong><span>{value.client} · due {value.due}</span><StatusBadge label={health.label} tone={health.tone} /></div>
+      <div><strong><button type="button" onClick={() => onProject(value.id)} aria-label={`Inspect project ${value.name}`}><HudObjectLabel model="whiteboard">{value.name}</HudObjectLabel></button></strong><span>{value.client} · due {value.due}</span><StatusBadge label={health.label} tone={health.tone} /></div>
       <ValueMeter label="Sprint points done" value={progress.done} max={progress.total} tone={health.tone === 'critical' ? 'critical' : health.tone === 'warning' ? 'warning' : 'info'} />
       <p>{progress.people.length ? `${progress.people.length} working on it now: ${progress.people.map(person => person.name.split(' ')[0]).join(', ')}` : 'Nobody is on a ticket of this project right now.'}</p>
       <button type="button" className="of-text-button" onClick={() => onFilter(value.id)}>{selected === value.id ? 'Clear people filter' : 'Show people on this project'}</button>
@@ -92,12 +95,12 @@ export function ProjectPanel({ snapshot, selected, onProject, onFilter }: { snap
 /** Room schedules, focus pods, hot desks and today's visitors. */
 export function SpacesPanel({ snapshot, onSelect, onPerson }: { snapshot: OfficeSnapshot; onSelect: (nodeId: string) => void; onPerson: Open }) {
   return <div className="of-spaces">
-    {ROOMS.map(value => <article key={value.id} className="of-card"><div><strong><button type="button" onClick={() => onSelect(`room:${value.id}`)} aria-label={`Inspect ${value.name} room`}>{value.name} room</button></strong><span>{value.seats} seats</span><StatusBadge label={areaStatus(snapshot, value.id).label} tone={areaStatus(snapshot, value.id).tone} /></div>
+    {ROOMS.map(value => <article key={value.id} className="of-card"><div><strong><button type="button" onClick={() => onSelect(`room:${value.id}`)} aria-label={`Inspect ${value.name} room`}><HudObjectLabel model="meeting-table">{value.name} room</HudObjectLabel></button></strong><span>{value.seats} seats</span><StatusBadge label={areaStatus(snapshot, value.id).label} tone={areaStatus(snapshot, value.id).tone} /></div>
       <Schedule snapshot={snapshot} id={value.id} /></article>)}
     <h3>Focus pods</h3>
-    <ul className="of-mini">{FOCUS_PODS.map(id => { const occupant = podOccupant(snapshot, id), state = occupant && stateOf(snapshot, occupant.id); return <li key={id}><button type="button" onClick={() => onSelect(`focus:${id}`)} aria-label={`Inspect focus pod ${id}`}>{id}</button><span>{occupant ? <><PersonButton id={occupant.id} onOpen={onPerson} />{state?.note ? ` · ${state.note}` : ''}</> : 'Free'}</span><span>{state?.until ? `until ${state.until}` : ''}</span></li>; })}</ul>
+    <ul className="of-mini of-space-list">{FOCUS_PODS.map(id => { const occupant = podOccupant(snapshot, id), state = occupant && stateOf(snapshot, occupant.id); return <li key={id}><button type="button" onClick={() => onSelect(`focus:${id}`)} aria-label={`Inspect focus pod ${id}`}><HudObjectLabel model="focus-pod">{id}</HudObjectLabel></button>{occupant ? <span><PersonButton id={occupant.id} onOpen={onPerson} />{state?.note ? ` · ${state.note}` : ''}</span> : <StatusBadge label="Free" tone="success" icon={<DoorOpen />} />}<span>{state?.until ? `until ${state.until}` : ''}</span></li>; })}</ul>
     <h3>Hot desks</h3>
-    <ul className="of-mini">{HOT_DESKS.map(id => { const user = hotDeskUser(id), here = user && stateOf(snapshot, user.id).where === 'desk'; return <li key={id}><strong>{id}</strong><span>{user ? <>Booked by <PersonButton id={user.id} onOpen={onPerson} /></> : 'Free to book'}</span><span>{user ? here ? 'At the desk' : presence(stateOf(snapshot, user.id)).label : ''}</span></li>; })}</ul>
+    <ul className="of-mini of-space-list">{HOT_DESKS.map(id => { const user = hotDeskUser(id), here = user && stateOf(snapshot, user.id).where === 'desk'; return <li key={id}><HudObjectLabel model="desk-pod"><strong>{id}</strong></HudObjectLabel>{user ? <span>Booked by <PersonButton id={user.id} onOpen={onPerson} /></span> : <StatusBadge label="Free to book" tone="success" />}<span>{user ? here ? 'At the desk' : presence(stateOf(snapshot, user.id)).label : ''}</span></li>; })}</ul>
     <h3>Visitors today</h3>
     <VisitorList snapshot={snapshot} onPerson={onPerson} />
   </div>;
