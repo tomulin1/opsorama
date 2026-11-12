@@ -1,24 +1,24 @@
 'use client';
 import Link from 'next/link';
 import { AlertTriangle, Bird, Cat, ClipboardList, Dog, Droplets, Tractor, Warehouse, Wheat } from 'lucide-react';
-import type { MetricAction, Tone } from '@opsorama/react/ui';
+import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
 import type { VisualState } from '@opsorama/core';
-import type { HudMetric } from '../example-hud';
+import { HUD_STATE_TONE, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
+import type { HudThumbnailModel } from '../hud-thumbnails';
 import {
   FIELDS, PENS, SPECIES, STAGE_LABELS, TASK_STATUS, TROUGH_LIMITS, farmMetrics, fieldOf, fieldRecord, flagNode, flagsOf, penOf, penRecord, penState, troughState,
   type AnimalFlag, type FarmSnapshot, type FarmTask, type FieldId, type PenId,
 } from './model';
 
 const STATE_TONE: Readonly<Record<VisualState, string>> = { normal: '#38a88a', busy: '#5088ec', warning: '#dca644', critical: '#df6470', inactive: '#91a0b5' };
-const STATE_LABEL: Readonly<Record<VisualState, [string, string]>> = { normal: ['✓', 'OK'], busy: ['›', 'In hand'], warning: ['!', 'Needs attention'], critical: ['!!', 'Act now'], inactive: ['–', 'Empty'] };
+const STATE_LABEL: Readonly<Record<VisualState, string>> = { normal: 'OK', busy: 'In hand', warning: 'Needs attention', critical: 'Act now', inactive: 'Empty' };
 
 export function StateBadge({ state, label }: { state: VisualState; label?: string }) {
-  const [symbol, text] = STATE_LABEL[state];
-  return <span className="farm-status"><span aria-hidden="true" style={{ color: STATE_TONE[state] }}>{symbol}</span>{label ?? text}</span>;
+  return <StatusBadge label={label ?? STATE_LABEL[state]} tone={HUD_STATE_TONE[state]} />;
 }
 export function TaskBadge({ task }: { task: FarmTask }) {
   const value = TASK_STATUS[task.status];
-  return <span className="farm-status"><span aria-hidden="true" style={{ color: value.color }}>{value.symbol}</span>{value.label}</span>;
+  return <StatusBadge label={value.label} tone={HUD_STATE_TONE[value.state]} />;
 }
 const levelText = (level: number) => level <= 0 ? 'Empty' : `${level} %`;
 
@@ -39,7 +39,7 @@ export function PenChips({ snapshot, selected, onSelect }: { snapshot: FarmSnaps
   return <nav className="farm-pens" aria-label="Pens">{PENS.map(pen => {
     const record = penRecord(snapshot, pen.id), state = penState(snapshot, pen.id), alert = state === 'warning' || state === 'critical';
     return <button key={pen.id} data-alert={alert || undefined} aria-pressed={selected === pen.id} aria-label={`Inspect ${pen.label}: ${record.headcount} of ${record.expected} ${SPECIES[pen.species].plural}, trough ${levelText(record.level)}`} style={{ borderTopColor: STATE_TONE[state] }} onClick={() => onSelect(pen.id)}>
-      <strong>{pen.label}</strong><span>{record.headcount}{record.headcount < record.expected ? ` / ${record.expected}` : ''} {SPECIES[pen.species].plural}</span>
+      <HudObjectThumbnail model={pen.species} /><strong>{pen.label}</strong><span>{record.headcount}{record.headcount < record.expected ? ` / ${record.expected}` : ''} {SPECIES[pen.species].plural}</span>
       <meter min={0} max={100} low={TROUGH_LIMITS.low} optimum={100} value={record.level} aria-hidden="true" /><small style={{ color: STATE_TONE[troughState(record.level)] }}>{pen.trough.variant === 'water' ? 'Water' : 'Feed'} {levelText(record.level)}</small>
     </button>;
   })}</nav>;
@@ -48,25 +48,29 @@ export function PenChips({ snapshot, selected, onSelect }: { snapshot: FarmSnaps
 export function FieldTable({ snapshot, onSelect }: { snapshot: FarmSnapshot; onSelect: (id: FieldId) => void }) {
   return <div className="hud-table farm-table-wrap"><table><thead><tr><th>Field</th><th>Crop</th><th>Area</th><th>Stage</th><th>Soil moisture</th><th>Next</th></tr></thead><tbody>{FIELDS.map(value => {
     const record = fieldRecord(snapshot, value.id);
-    return <tr key={value.id} data-ripe={record.stage === 'ripe' || undefined}><td><button onClick={() => onSelect(value.id)} aria-label={`Inspect ${value.name}`}>{value.name}</button></td><td>{value.crop}</td><td>{value.hectares.toFixed(1)} ha</td><td>{STAGE_LABELS[record.stage]}</td><td>{record.moisture} %</td><td>{record.next}</td></tr>;
+    return <tr key={value.id} data-ripe={record.stage === 'ripe' || undefined}><td><button onClick={() => onSelect(value.id)} aria-label={`Inspect ${value.name}`}><HudObjectLabel model="crop-field">{value.name}</HudObjectLabel></button></td><td>{value.crop}</td><td>{value.hectares.toFixed(1)} ha</td><td>{STAGE_LABELS[record.stage]}</td><td>{record.moisture} %</td><td>{record.next}</td></tr>;
   })}</tbody></table></div>;
+}
+
+const TASK_MODELS: Readonly<Partial<Record<string, HudThumbnailModel>>> = { coop: 'chicken-coop', field: 'crop-field', silo: 'grain-silo', tractor: 'tractor', trough: 'trough' };
+function taskModel(snapshot: FarmSnapshot, node: string): HudThumbnailModel {
+  const [kind, id] = node.split(':');
+  const penId = kind === 'pin' ? id : kind === 'animal' ? snapshot.flags.find(flag => flag.tag === id)?.pen : undefined;
+  return PENS.find(pen => pen.id === penId)?.species ?? TASK_MODELS[kind] ?? 'map-pin';
 }
 
 export function TaskList({ snapshot, onSelect }: { snapshot: FarmSnapshot; onSelect: (node: string) => void }) {
   return <ol className="farm-tasks" aria-label="Today's tasks">{snapshot.tasks.map(value => <li key={value.id} data-status={value.status}>
-    <button onClick={() => onSelect(value.node)} aria-label={`Show ${value.title} in the scene`}><strong>{value.title}</strong><span>{value.due} · {value.who}</span></button><TaskBadge task={value} />
+    <button onClick={() => onSelect(value.node)} aria-label={`Show ${value.title} in the scene`}><HudObjectLabel model={taskModel(snapshot, value.node)}><strong>{value.title}</strong><span>{value.due} · {value.who}</span></HudObjectLabel></button><TaskBadge task={value} />
   </li>)}</ol>;
 }
-
-const ALERT_TONE: Readonly<Record<AnimalFlag['severity'], Tone>> = { critical: 'critical', warning: 'warning', busy: 'info' };
-const alertSymbol = (tone: Tone) => <span className="hud-symbol dp-tone" data-tone={tone}><AlertTriangle size={18} aria-hidden="true" /></span>;
 
 export function AlertList({ snapshot, onSelect }: { snapshot: FarmSnapshot; onSelect: (node: string) => void }) {
   const troughs = PENS.filter(pen => troughState(penRecord(snapshot, pen.id).level) !== 'normal');
   if (!snapshot.flags.length && !troughs.length) return <p className="farm-quiet">No animal or trough alerts in this snapshot.</p>;
   return <nav className="farm-alerts" aria-label="Alerts">
-    {snapshot.flags.map(flag => <button key={flag.tag} data-severity={flag.severity} onClick={() => onSelect(flagNode(flag))}>{alertSymbol(ALERT_TONE[flag.severity])}<strong>{flag.tag} · {flag.issue}</strong><span>{penOf(flag.pen).label}{flag.missing ? ' · not in the scene' : ''}</span></button>)}
-    {troughs.map(pen => { const level = penRecord(snapshot, pen.id).level; return <button key={pen.id} data-severity={level <= 0 ? 'critical' : 'warning'} onClick={() => onSelect(`trough:${pen.id}`)}>{alertSymbol(level <= 0 ? 'critical' : 'warning')}<strong>{pen.label} {pen.trough.variant} · {levelText(level)}</strong><span>Refill or check the supply</span></button>; })}
+    {snapshot.flags.map(flag => <button key={flag.tag} data-severity={flag.severity} onClick={() => onSelect(flagNode(flag))}><HudObjectThumbnail model={penOf(flag.pen).species} /><strong>{flag.tag} · {flag.issue}</strong><span>{penOf(flag.pen).label}{flag.missing ? ' · not in the scene' : ''}</span></button>)}
+    {troughs.map(pen => { const level = penRecord(snapshot, pen.id).level; return <button key={pen.id} data-severity={level <= 0 ? 'critical' : 'warning'} onClick={() => onSelect(`trough:${pen.id}`)}><HudObjectThumbnail model="trough" /><strong>{pen.label} {pen.trough.variant} · {levelText(level)}</strong><span>Refill or check the supply</span></button>; })}
   </nav>;
 }
 

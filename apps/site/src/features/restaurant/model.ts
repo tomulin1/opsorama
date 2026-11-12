@@ -8,20 +8,20 @@ export type StationId = 'grill' | 'pizza' | 'cold' | 'bar' | 'pass' | 'pickup';
 export type Channel = 'dine-in' | 'takeout' | 'delivery';
 export type RestaurantScenario = 'rush' | 'quiet' | 'closed';
 
-export const TABLE_STATUS: Readonly<Record<TableStatus, { label: string; color: string; symbol: string; state: VisualState }>> = {
-  free: { label: 'Free', color: '#91a0b5', symbol: '○', state: 'inactive' },
-  reserved: { label: 'Reserved', color: '#8c7bc4', symbol: 'R', state: 'inactive' },
-  seated: { label: 'Seated', color: '#5088ec', symbol: '◔', state: 'busy' },
-  ordered: { label: 'Ordered', color: '#5088ec', symbol: '◑', state: 'busy' },
-  eating: { label: 'Eating', color: '#38a88a', symbol: '●', state: 'normal' },
-  waiting: { label: 'Food delayed', color: '#df6470', symbol: '!', state: 'critical' },
-  bill: { label: 'Bill requested', color: '#dca644', symbol: '€', state: 'warning' },
+export const TABLE_STATUS: Readonly<Record<TableStatus, { label: string; color: string; state: VisualState }>> = {
+  free: { label: 'Free', color: '#91a0b5', state: 'inactive' },
+  reserved: { label: 'Reserved', color: '#8c7bc4', state: 'inactive' },
+  seated: { label: 'Seated', color: '#5088ec', state: 'busy' },
+  ordered: { label: 'Ordered', color: '#5088ec', state: 'busy' },
+  eating: { label: 'Eating', color: '#38a88a', state: 'normal' },
+  waiting: { label: 'Food delayed', color: '#df6470', state: 'critical' },
+  bill: { label: 'Bill requested', color: '#dca644', state: 'warning' },
 };
-export const TICKET_STATUS: Readonly<Record<TicketStatus, { label: string; color: string; symbol: string }>> = {
-  queued: { label: 'Queued', color: '#91a0b5', symbol: '…' },
-  cooking: { label: 'Cooking', color: '#5088ec', symbol: '↻' },
-  late: { label: 'Late', color: '#df6470', symbol: '!' },
-  ready: { label: 'Ready', color: '#38a88a', symbol: '✓' },
+export const TICKET_STATUS: Readonly<Record<TicketStatus, { label: string; state: VisualState }>> = {
+  queued: { label: 'Queued', state: 'inactive' },
+  cooking: { label: 'Cooking', state: 'busy' },
+  late: { label: 'Late', state: 'critical' },
+  ready: { label: 'Ready', state: 'normal' },
 };
 
 export interface TableLayout { id: string; label: string; area: 'Dining room' | 'Booths' | 'Bar' | 'Lounge' | 'Terrace'; asset: 'dining-table' | 'booth-seating'; variant?: 'square' | 'round'; seats: number; position: readonly [number, number]; rotation?: number; }

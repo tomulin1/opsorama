@@ -213,7 +213,7 @@ function parkedSpots(fleet: readonly Vehicle[]): Map<string, { position: Vec3; h
   }
   return spots;
 }
-const VEHICLE_ASSET = { forklift: 'forklift', 'reach-truck': 'reach-truck', amr: 'mobile-robot' } as const;
+export const VEHICLE_ASSET = { forklift: 'forklift', 'reach-truck': 'reach-truck', amr: 'mobile-robot' } as const;
 const vehicleLabel = (value: Vehicle) => `${value.id} · ${value.status === 'working' ? value.aisle ?? value.area : value.status} · ${value.battery} %`;
 /** Height of a marker above a vehicle's origin. */
 const VEHICLE_TOP: Readonly<Record<Vehicle['kind'], number>> = { forklift: 2.8, 'reach-truck': 4.9, amr: 1 };

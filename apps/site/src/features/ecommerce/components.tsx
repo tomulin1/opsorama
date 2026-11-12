@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Boxes, Clock3, PackageCheck, ShoppingBag, ShoppingCart, Store, Truck, Warehouse } from 'lucide-react';
+import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, PackageOpen, ShoppingBag, ShoppingCart, Store, Truck, Warehouse } from 'lucide-react';
 import { ActivityFeed, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
-import type { HudMetric } from '../example-hud';
+import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import {
   AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, FACINGS_PER_GONDOLA, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
   alertStatus, alertsAt, area, areaStatus, cageCounts, carrier, cutoffRisk, departmentFacings, departmentLow, ecommerceMetrics, location, locationState, minutesOf, orderArea, ordersIn, shoppers, stage, stagedFor,
@@ -11,8 +11,13 @@ import {
 } from './model';
 
 type Inspect = (orderId: string) => void;
-const TONES = { critical: 'critical', warning: 'warning', busy: 'info', normal: 'success', inactive: 'neutral' } as const;
 const money = (value: number) => `€${value.toLocaleString('en-US')}`;
+const LOCATION_MODELS = { rack: 'pallet-rack', flow: 'carton-flow-rack', shelf: 'shelf' } as const;
+const STAGE_BADGES = {
+  released: { tone: 'neutral', Icon: ClipboardList }, picking: { tone: 'info', Icon: ShoppingCart },
+  sorting: { tone: 'info', Icon: Layers3 }, packing: { tone: 'info', Icon: PackageOpen },
+  staged: { tone: 'success', Icon: Truck }, collect: { tone: 'success', Icon: ShoppingBag },
+} as const;
 
 export type EcommerceMetricId = 'orders' | 'cutoff' | 'stock' | 'shoppers';
 /** Four short panels for the top of the floating HUD. The viewport supplies the detail each one opens. */
@@ -30,7 +35,7 @@ export function ecommerceHudMetrics(snapshot: EcommerceSnapshot, actions: Readon
 export function AreaList({ snapshot, selected, onSelect }: { snapshot: EcommerceSnapshot; selected: AreaId | null; onSelect: (id: AreaId) => void }) {
   return <ResourceList className="ec-area-list" label="Process areas" density="compact" selectedId={selected} onSelect={id => onSelect(id as AreaId)} items={AREAS.map(value => {
     const status = areaStatus(snapshot, value.id), orders = ordersIn(snapshot, value.id).length;
-    return { id: value.id, label: value.label, description: `${value.site}${orders ? ` · ${orders} ${orders === 1 ? 'order' : 'orders'}` : ''}`, status: status.label, tone: status.tone };
+    return { id: value.id, label: <HudObjectLabel model="map-pin">{value.label}</HudObjectLabel>, description: `${value.site}${orders ? ` · ${orders} ${orders === 1 ? 'order' : 'orders'}` : ''}`, status: status.label, tone: status.tone };
   })} />;
 }
 export function ActivityList({ snapshot }: { snapshot: EcommerceSnapshot }) {
@@ -43,8 +48,8 @@ export function TaskList({ snapshot }: { snapshot: EcommerceSnapshot }) {
 }
 
 export function StageBadge({ value }: { value: OrderStage }) {
-  const item = stage(value);
-  return <span className="ec-stage"><i style={{ background: item.color }} aria-hidden="true" />{item.label}</span>;
+  const { tone, Icon } = STAGE_BADGES[value];
+  return <StatusBadge label={stage(value).label} tone={tone} icon={<Icon />} />;
 }
 const cutoffLabel = (snapshot: EcommerceSnapshot, order: Order) => {
   if (!order.carrier) return order.channel === 'click-collect' ? 'Counter pickup' : order.channel === 'store' ? 'To the shop floor' : '—';
@@ -57,7 +62,7 @@ const picked = (order: Order) => order.lines.reduce((sum, item) => sum + item.pi
 export function OrderTable({ snapshot, orders, onInspect }: { snapshot: EcommerceSnapshot; orders: readonly Order[]; onInspect: Inspect }) {
   return <div className="hud-table ec-table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Stage</th><th>Picked</th><th>Carrier · cut-off</th><th>Value</th></tr></thead><tbody>{orders.map(order => {
     const risk = cutoffRisk(snapshot, order) !== null;
-    return <tr key={order.id} data-alert={order.issue && order.stage !== 'released' ? 'critical' : risk ? 'warning' : undefined}><td><button type="button" onClick={() => onInspect(order.id)} aria-label={`Inspect order ${order.id}`}>{order.id}</button></td><td>{order.customer}<small>{CHANNEL_LABELS[order.channel]}</small></td><td><StageBadge value={order.stage} />{order.issue && <small className="ec-issue">{order.issue.split(':')[0].split('.')[0]}</small>}</td><td>{picked(order)} / {units(order)}</td><td>{cutoffLabel(snapshot, order)}</td><td>{order.value ? money(order.value) : '—'}</td></tr>;
+    return <tr key={order.id} data-alert={order.issue && order.stage !== 'released' ? 'critical' : risk ? 'warning' : undefined}><td><button type="button" onClick={() => onInspect(order.id)} aria-label={`Inspect order ${order.id}`}><HudObjectLabel model="parcel">{order.id}</HudObjectLabel></button></td><td>{order.customer}<small>{CHANNEL_LABELS[order.channel]}</small></td><td><StageBadge value={order.stage} />{order.issue && <small className="ec-issue">{order.issue.split(':')[0].split('.')[0]}</small>}</td><td>{picked(order)} / {units(order)}</td><td>{cutoffLabel(snapshot, order)}</td><td>{order.value ? money(order.value) : '—'}</td></tr>;
   })}</tbody></table>{orders.length === 0 && <p className="ec-empty">No open orders in this scope.</p>}</div>;
 }
 
@@ -66,22 +71,23 @@ export function StockPanel({ snapshot, onSelect }: { snapshot: EcommerceSnapshot
   return <div className="ec-stock">
     <h3>Forward-pick alerts</h3>
     {snapshot.alerts.length ? <ul className="ec-alerts">{snapshot.alerts.map(alert => <li key={alert.sku} data-status={alertStatus(alert)}>
-      <div><strong>{alert.sku}</strong> {SKUS[alert.sku].name}<StatusBadge label={alertStatus(alert) === 'out' ? 'Out of stock' : 'Low'} tone={alertStatus(alert) === 'out' ? 'critical' : 'warning'} /></div>
+      <div><HudObjectLabel model="parcel"><strong>{alert.sku}</strong> {SKUS[alert.sku].name}</HudObjectLabel><StatusBadge label={alertStatus(alert) === 'out' ? 'Out of stock' : 'Low'} tone={alertStatus(alert) === 'out' ? 'critical' : 'warning'} /></div>
       <span>{alert.onHand} on hand · minimum {alert.min} · pick face <button type="button" onClick={() => onSelect(locationNode(SKUS[alert.sku].pick))}>{SKUS[alert.sku].pick}</button> · reserve <button type="button" onClick={() => onSelect(locationNode(SKUS[alert.sku].reserve))}>{SKUS[alert.sku].reserve}</button></span>
       <small>{alert.task}</small></li>)}</ul> : <p className="ec-empty">No SKU below its minimum.</p>}
     <h3>Locations</h3>
     <div className="hud-table ec-table-wrap"><table><thead><tr><th>Location</th><th>Family</th><th>Occupied</th><th>Status</th></tr></thead><tbody>{LOCATIONS.map(value => {
       const state = locationState(snapshot, value.id);
-      return <tr key={value.id}><td><button type="button" onClick={() => onSelect(locationNode(value.id))} aria-label={`Inspect location ${value.id}`}>{value.id}</button></td><td>{value.family}</td><td><span className="ec-fill"><i style={{ width: `${snapshot.occupancy[value.id] / value.capacity * 100}%` }} /></span>{snapshot.occupancy[value.id]} / {value.capacity} {LOCATION_UNITS[value.kind]}</td><td><StatusBadge label={state === 'critical' ? 'Empty lane' : state === 'warning' ? 'Low SKU' : state === 'busy' ? 'Replenishing' : state === 'inactive' ? 'Empty' : 'OK'} tone={TONES[state as keyof typeof TONES] ?? 'neutral'} /></td></tr>;
+      return <tr key={value.id}><td><button type="button" onClick={() => onSelect(locationNode(value.id))} aria-label={`Inspect location ${value.id}`}><HudObjectLabel model={LOCATION_MODELS[value.kind]}>{value.id}</HudObjectLabel></button></td><td>{value.family}</td><td><span className="ec-fill"><i style={{ width: `${snapshot.occupancy[value.id] / value.capacity * 100}%` }} /></span>{snapshot.occupancy[value.id]} / {value.capacity} {LOCATION_UNITS[value.kind]}</td><td><StatusBadge label={state === 'critical' ? 'Empty lane' : state === 'warning' ? 'Low SKU' : state === 'busy' ? 'Replenishing' : state === 'inactive' ? 'Empty' : 'OK'} tone={HUD_STATE_TONE[state]} /></td></tr>;
     })}</tbody></table></div>
   </div>;
 }
 export const locationNode = (id: LocationId) => `${location(id).kind}:${id}`;
 
-const DOCK_STATUS: Readonly<Record<Dock['status'], string>> = { free: 'Free', expected: 'Expected', unloading: 'Unloading', loading: 'Loading', departed: 'Departed' };
 function DockCard({ dock, onSelect }: { dock: Dock; onSelect?: (nodeId: string) => void }) {
+  const name = `Dock ${dock.id}`;
+  const heading = onSelect ? <HudObjectLabel model={dock.status === 'loading' || dock.status === 'unloading' ? 'loading-dock-open' : 'loading-dock'}>{name}</HudObjectLabel> : name;
   return <article className="ec-dock" data-late={dock.late || undefined}>
-    <div><strong>{onSelect ? <button type="button" onClick={() => onSelect(`dock:${dock.id}`)} aria-label={`Inspect dock ${dock.id}`}>Dock {dock.id}</button> : `Dock ${dock.id}`}</strong><span>{dock.direction === 'inbound' ? 'Inbound' : 'Outbound'}</span><StatusBadge label={dock.late ? 'Late' : DOCK_STATUS[dock.status]} tone={dock.late ? 'warning' : dock.status === 'unloading' || dock.status === 'loading' ? 'info' : 'neutral'} /></div>
+    <div><strong>{onSelect ? <button type="button" onClick={() => onSelect(`dock:${dock.id}`)} aria-label={`Inspect dock ${dock.id}`}>{heading}</button> : heading}</strong><span>{dock.direction === 'inbound' ? 'Inbound' : 'Outbound'}</span>{dock.late ? <StatusBadge label="Late" tone="warning" icon={<Clock3 />} /> : <HudDockStatus status={dock.status} />}</div>
     <p>{dock.partner} · {dock.reference}{dock.time !== '—' && ` · ${dock.direction === 'inbound' ? 'slot' : 'cut-off'} ${dock.time}`}</p>
     {dock.pallets && <ValueMeter label="Pallets received" value={dock.pallets.done} max={dock.pallets.total} tone={dock.late ? 'warning' : 'info'} />}
     <small>{dock.note}</small>
@@ -94,7 +100,7 @@ export function DockPanel({ snapshot, onSelect }: { snapshot: EcommerceSnapshot;
     <h3>Carrier cut-offs</h3>
     <ul className="ec-carriers">{CARRIERS.map(value => {
       const staged = stagedFor(snapshot, value.id).length, risk = snapshot.orders.filter(order => order.carrier === value.id && cutoffRisk(snapshot, order) !== null).length;
-      return <li key={value.id}><button type="button" onClick={() => onSelect(value.cages.length ? `cage:${value.cages[0]}` : 'wrapper')} aria-label={`Inspect carrier ${value.name}`}><Truck size={15} aria-hidden="true" /><strong>{value.name}</strong><span>{value.service} · {value.cutoff}</span><span>{staged} staged{risk ? ` · ${risk} at risk` : ''}</span></button></li>;
+      return <li key={value.id}><button type="button" onClick={() => onSelect(value.cages.length ? `cage:${value.cages[0]}` : 'wrapper')} aria-label={`Inspect carrier ${value.name}`}><HudObjectThumbnail model={value.cages.length ? 'roll-cage' : 'pallet'} /><strong>{value.name}</strong><span>{value.service} · {value.cutoff}</span><span>{staged} staged{risk ? ` · ${risk} at risk` : ''}</span></button></li>;
     })}</ul>
     <p className="ec-note">Staging lanes: {snapshot.staging} {snapshot.staging === 1 ? 'pallet' : 'pallets'} waiting for put-away (the lanes show up to {STAGING_CAPACITY}).</p>
   </div>;
@@ -158,7 +164,7 @@ function DepartmentList({ snapshot }: { snapshot: EcommerceSnapshot }) {
 export function LocationInspector({ id, snapshot }: { id: LocationId; snapshot: EcommerceSnapshot }) {
   const value = location(id), state = locationState(snapshot, id), alerts = alertsAt(snapshot, id), count = snapshot.occupancy[id];
   return <Inspector label="Location inspector" eyebrow={`${value.kind === 'rack' ? 'RESERVE STORAGE' : 'FORWARD PICKING'} / ${value.kind.toUpperCase()}`} title={`${id} · ${value.family}`} icon={<Warehouse size={19} aria-hidden="true" />}
-    badge={<StatusBadge label={state === 'critical' ? 'Empty lane' : state === 'warning' ? 'Low SKU' : state === 'busy' ? 'Replenishing' : state === 'inactive' ? 'Empty' : 'OK'} tone={TONES[state as keyof typeof TONES] ?? 'neutral'} />}
+    badge={<StatusBadge label={state === 'critical' ? 'Empty lane' : state === 'warning' ? 'Low SKU' : state === 'busy' ? 'Replenishing' : state === 'inactive' ? 'Empty' : 'OK'} tone={HUD_STATE_TONE[state]} />}
     note={value.kind === 'rack' ? 'Each pallet in the bay is one object: select it to see its SKU. It leaves the rack on the reach truck.' : `Each ${value.kind === 'flow' ? 'filled lane' : 'stored box'} on the model is one occupied ${value.kind === 'flow' ? 'lane' : 'bin'}; SKU quantities stay in your WMS.`}>
     <ValueMeter label={`Occupied ${LOCATION_UNITS[value.kind]}`} value={count} max={value.capacity} tone={state === 'critical' ? 'critical' : state === 'warning' ? 'warning' : 'info'} />
     <h3>SKUs needing attention</h3>

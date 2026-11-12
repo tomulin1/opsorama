@@ -1,24 +1,28 @@
 'use client';
 import Link from 'next/link';
-import { AlertTriangle, Droplets, Filter, LifeBuoy, Users, Waves } from 'lucide-react';
-import type { MetricAction } from '@opsorama/react/ui';
-import type { HudMetric } from '../example-hud';
+import { AlertTriangle, BookOpen, Droplets, Filter, LifeBuoy, Lock, Pause, Timer, Users, Waves } from 'lucide-react';
+import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
+import { HUD_STATE_TONE, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import { LANE_USE, POOL_LABELS, POST_STATUS, WATER_LIMITS, aquaticsMetrics, bathers, laneNumber, laneState, postState, waterState, type AquaticsSnapshot, type FilterRecord, type LaneSession, type LaneUse, type LifeguardPost, type PoolId, type PostStatus } from './model';
 
 const STATE_TONE = { normal: '#38a88a', busy: '#5088ec', warning: '#dca644', critical: '#df6470', inactive: '#91a0b5' } as const;
-const WATER_STATUS = { normal: ['✓', 'Within limits'], busy: ['✓', 'Within limits'], warning: ['!', 'Outside limits'], critical: ['!!', 'Far outside limits'], inactive: ['–', 'No reading'] } as const;
+const WATER_STATUS = { normal: 'Within limits', busy: 'Within limits', warning: 'Outside limits', critical: 'Far outside limits', inactive: 'No reading' } as const;
+const LANE_BADGES = {
+  public: { tone: 'info', Icon: Waves }, club: { tone: 'info', Icon: Timer },
+  lessons: { tone: 'success', Icon: BookOpen }, closed: { tone: 'neutral', Icon: Lock },
+} as const;
 
 export function LaneUseBadge({ use }: { use: LaneUse }) {
-  const value = LANE_USE[use];
-  return <span className="aquatics-status"><span aria-hidden="true" style={{ color: value.color }}>{value.symbol}</span>{value.label}</span>;
+  const { tone, Icon } = LANE_BADGES[use];
+  return <StatusBadge label={LANE_USE[use].label} tone={tone} icon={<Icon />} />;
 }
 export function PostStatusBadge({ status, open }: { status: PostStatus; open: boolean }) {
-  const value = open ? POST_STATUS[status] : { label: 'Off duty', color: '#91a0b5', symbol: '–' };
-  return <span className="aquatics-status"><span aria-hidden="true" style={{ color: value.color }}>{value.symbol}</span>{value.label}</span>;
+  const value = POST_STATUS[status];
+  return <StatusBadge label={open ? value.label : 'Off duty'} tone={open ? HUD_STATE_TONE[value.state] : 'neutral'} icon={open && status === 'break' ? <Pause /> : undefined} />;
 }
 function WaterBadge({ pool, snapshot }: { pool: PoolId; snapshot: AquaticsSnapshot }) {
-  const state = waterState(snapshot.water[pool]), [symbol, label] = WATER_STATUS[state];
-  return <span className="aquatics-status"><span aria-hidden="true" style={{ color: STATE_TONE[state] }}>{symbol}</span>{label}</span>;
+  const state = waterState(snapshot.water[pool]);
+  return <StatusBadge label={WATER_STATUS[state]} tone={HUD_STATE_TONE[state]} />;
 }
 
 export type AquaticsMetricId = 'bathers' | 'lanes' | 'posts' | 'water';
@@ -42,7 +46,8 @@ export function LaneChips({ snapshot, selectedId, onSelect }: { snapshot: Aquati
     const use = LANE_USE[session.use], state = laneState(session), full = session.use !== 'closed' && session.swimmers >= session.capacity;
     const summary = session.use === 'closed' ? 'No swimmers' :`${session.swimmers} / ${session.capacity}${full ? ' · full' : ''}${session.alert ? ' · alert' : ''}`;
     return <button key={session.laneId} data-alert={session.alert ? true : undefined} aria-pressed={selectedId === session.laneId} aria-label={`Inspect lane ${laneNumber(session.laneId)}: ${use.label}, ${summary}`} style={{ borderTopColor: use.color }} onClick={() => onSelect(session.laneId)}>
-      <strong>Lane {laneNumber(session.laneId)}</strong><span>{session.use === 'public' ? `${session.speed} lane` : use.label}</span>
+      <HudObjectThumbnail model="starting-block" /><strong>Lane {laneNumber(session.laneId)}</strong><LaneUseBadge use={session.use} />
+      {session.use === 'public' && <small>{session.speed} lane</small>}
       <meter min={0} max={Math.max(1, session.capacity)} value={session.swimmers} aria-hidden="true" /><small style={{ color: STATE_TONE[state] }}>{summary}</small></button>;
   })}</nav>;
 }
@@ -76,7 +81,7 @@ export function PlantInspector({ snapshot }: { snapshot: AquaticsSnapshot }) {
     <div className="aquatics-host-note">Filter pressure and backwash state are host data. Pressure and backwash alerts stay in the host UI; the neutral gauge needle is not a reading.</div></aside>;
 }
 function FilterCard({ filter }: { filter: FilterRecord }) {
-  return <div className="aquatics-card" data-status={filter.status}><div><strong>Filter {filter.id}</strong><span>{filter.status === 'running' ? 'Running' : filter.status === 'backwash' ? 'Backwash' : 'Off'}</span></div><small>{filter.pressure ? `${filter.pressure.toFixed(1)} bar` : '—'} · {filter.note}</small></div>;
+  return <div className="aquatics-card" data-status={filter.status}><div><strong>Filter {filter.id}</strong><StatusBadge label={filter.status === 'running' ? 'Running' : filter.status === 'backwash' ? 'Backwash' : 'Off'} tone={filter.status === 'running' ? 'success' : filter.status === 'backwash' ? 'warning' : 'neutral'} /></div><small>{filter.pressure ? `${filter.pressure.toFixed(1)} bar` : '—'} · {filter.note}</small></div>;
 }
 
 export function EmptyInspector({ snapshot }: { snapshot: AquaticsSnapshot }) {
@@ -84,7 +89,7 @@ export function EmptyInspector({ snapshot }: { snapshot: AquaticsSnapshot }) {
     <p>{snapshot.open ? 'Starting-block lamps: green free, blue in use, amber full, red alert, grey closed.' : 'The pool is closed and covered.'}</p></div>;
 }
 
-/** Lane-use colors and symbols shared by the lane chips and the starting-block lamps. */
+/** Lane-use labels and icons shared with the lane chips. */
 export function LaneLegend() {
   return <div className="aquatics-legend" aria-label="Lane use legend">{(Object.keys(LANE_USE) as LaneUse[]).map(use => <LaneUseBadge key={use} use={use} />)}</div>;
 }
@@ -92,14 +97,14 @@ export function LaneLegend() {
 export function PostStrip({ snapshot, selected, onSelect }: { snapshot: AquaticsSnapshot; selected?: string; onSelect: (id: string) => void }) {
   return <nav className="aquatics-posts" aria-label="Lifeguard posts">{snapshot.posts.map(post => {
     const state = postState(snapshot, post);
-    return <button key={post.id} data-alert={state === 'critical' || state === 'warning' || undefined} aria-pressed={selected === post.id} aria-label={`Inspect ${post.label}: ${snapshot.open ? POST_STATUS[post.status].label : 'Off duty'}`} onClick={() => onSelect(post.id)}><span className="hud-symbol dp-tone" data-tone={state === 'critical' || state === 'warning' ? state : snapshot.open ? 'info' : 'neutral'}><LifeBuoy size={20} aria-hidden="true" /></span><strong>{post.label}</strong><span>{snapshot.open ? `${post.guard ?? '—'} · ${POST_STATUS[post.status].label}` : 'Off duty'}</span></button>;
+    return <button key={post.id} data-alert={state === 'critical' || state === 'warning' || undefined} aria-pressed={selected === post.id} aria-label={`Inspect ${post.label}: ${snapshot.open ? POST_STATUS[post.status].label : 'Off duty'}`} onClick={() => onSelect(post.id)}><HudObjectLabel model="lifeguard-chair"><strong>{post.label}</strong>{snapshot.open && post.guard && <small>{post.guard}</small>}</HudObjectLabel><PostStatusBadge status={post.status} open={snapshot.open} /></button>;
   })}</nav>;
 }
 
 export function WaterTable({ snapshot, onSelect }: { snapshot: AquaticsSnapshot; onSelect: (pool: PoolId) => void }) {
   return <div className="hud-table aquatics-table-wrap"><table><thead><tr><th>Pool</th><th>pH</th><th>Free chlorine</th><th>Temperature</th><th>Bathers</th><th>Status</th></tr></thead><tbody>{(['main', 'teaching'] as const).map(pool => {
     const reading = snapshot.water[pool], state = waterState(reading), [phLow, phHigh] = WATER_LIMITS.ph, [clLow, clHigh] = WATER_LIMITS.chlorine;
-    return <tr key={pool} data-status={state}><td><button onClick={() => onSelect(pool)} aria-label={`Inspect water in the ${POOL_LABELS[pool]}`}>{POOL_LABELS[pool]}</button></td><td className={reading.ph < phLow || reading.ph > phHigh ? 'over' : ''}>{reading.ph.toFixed(1)}</td><td className={reading.chlorine < clLow || reading.chlorine > clHigh ? 'over' : ''}>{reading.chlorine.toFixed(2)} mg/l</td><td>{reading.temperature.toFixed(1)} °C</td><td>{bathers(snapshot, pool)}</td><td><WaterBadge pool={pool} snapshot={snapshot} /></td></tr>;
+    return <tr key={pool} data-status={state}><td><button onClick={() => onSelect(pool)} aria-label={`Inspect water in the ${POOL_LABELS[pool]}`}><HudObjectLabel model={pool === 'main' ? 'lap-pool' : 'wading-pool'}>{POOL_LABELS[pool]}</HudObjectLabel></button></td><td className={reading.ph < phLow || reading.ph > phHigh ? 'over' : ''}>{reading.ph.toFixed(1)}</td><td className={reading.chlorine < clLow || reading.chlorine > clHigh ? 'over' : ''}>{reading.chlorine.toFixed(2)} mg/l</td><td>{reading.temperature.toFixed(1)} °C</td><td>{bathers(snapshot, pool)}</td><td><WaterBadge pool={pool} snapshot={snapshot} /></td></tr>;
   })}</tbody></table></div>;
 }
 

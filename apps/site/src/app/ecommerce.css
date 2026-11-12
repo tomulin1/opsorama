@@ -26,8 +26,6 @@
 .ec-order-steps .dp-step-index { min-width: 22px; height: 22px; font-size: 11px; }
 .ec-order-steps .dp-item-label { font-size: 11px; line-height: 1.25; overflow-wrap: normal; }
 .ec-order-steps .dp-step:not([data-current="true"]) .dp-item-label { color: var(--e-muted); font-weight: 500; }
-.ec-stage { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; white-space: nowrap; color: var(--e-ink); }
-.ec-stage > i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
 .ec-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0; }
 .ec-order-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .ec-order-links li { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 11px; padding: 6px 8px; border: 1px solid var(--e-line); border-radius: 7px; background: #fff; }
@@ -65,14 +63,14 @@
 .ec-docks { display: flex; flex-direction: column; gap: 8px; }
 .ec-dock { padding: 10px 12px; border: 1px solid var(--e-line); border-radius: 9px; background: #fff; font-size: 11px; }
 .ec-dock[data-late] { border-color: #efd29a; background: #fffaf0; }
-.ec-dock > div { display: flex; align-items: center; gap: 8px; }
+.ec-dock > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ec-dock > div > span { color: var(--e-muted); font-size: 11px; }
 .ec-dock > div .dp-badge { margin-left: auto; }
 .ec-dock p { margin: 6px 0; color: #556479; }
 .ec-dock small { color: var(--e-muted); line-height: 1.5; display: block; margin-top: 6px; }
 .ec-carriers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 7px; }
-.ec-carriers button { width: 100%; display: grid; grid-template-columns: 20px 1fr; gap: 2px 6px; text-align: left; padding: 9px 10px; border: 1px solid var(--e-line); border-radius: 8px; background: #fff; color: var(--e-accent); }
-.ec-carriers svg { grid-row: span 3; }
+.ec-carriers button { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; text-align: left; padding: 9px 10px; border: 1px solid var(--e-line); border-radius: 8px; background: #fff; color: var(--e-accent); }
+.ec-carriers .hud-object-thumbnail { grid-row: span 3; align-self: center; }
 .ec-carriers strong { font-size: 11px; color: var(--e-ink); }
 .ec-carriers span { font-size: 11px; color: var(--e-muted); }
 
