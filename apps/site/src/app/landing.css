@@ -1,7 +1,11 @@
 /* Home page: the city hero uses the shared HUD zones from hud.css; the intro panel is a manual carousel of the introduction and the capabilities. */
 /* The first screen is exactly the header, the city and a compact footer: the page is a column at least one screen tall, and the city takes whatever the header and footer leave, at any window size. */
 .landing-page { display: flex; flex-direction: column; min-height: 100dvh; background: var(--opsorama-surface-raised); color: var(--opsorama-text-strong); }
-.landing-hero { --hud-accent: var(--opsorama-link); --hud-accent-strong: var(--opsorama-link); --hud-accent-soft: #e6eefb; --hud-focus: var(--opsorama-link); --hud-scene: #e3ebe2; --hud-side-top: 18px; --hud-phone-panel-bottom: 124px; flex: 1 1 auto; min-height: 560px; background: var(--hud-scene); }
+.landing-hero { --hud-accent: var(--opsorama-link); --hud-accent-strong: var(--opsorama-link); --hud-accent-soft: #e6eefb; --hud-focus: var(--opsorama-link); --hud-scene: #e3ebe2; --hud-side-top: 18px; --hud-phone-panel-bottom: 124px; flex: 1 1 auto; min-height: 560px; background: var(--hud-scene) url('/example-previews/city.webp') center / cover no-repeat; }
+.landing-hero .hud-scene-surface {
+  --kit-scene-loading-background: color-mix(in srgb, var(--opsorama-surface-soft) 65%, transparent);
+  background: transparent;
+}
 .landing-intro { position: absolute; z-index: 10; bottom: 64px; left: 24px; width: min(380px, calc(100% - 48px)); padding: 16px 18px; border: 1px solid var(--panel-border); border-radius: var(--panel-radius); background: var(--panel-surface); box-shadow: var(--panel-shadow); backdrop-filter: blur(12px); }
 .landing-slides { display: grid; }
 /* Every slide sits in the same cell, so the panel keeps the tallest slide's height and does not jump while rotating. */
