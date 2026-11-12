@@ -22,20 +22,20 @@
     "@opsorama/ui": "workspace:*",
     "@opsorama/vue": "workspace:*",
     "lucide-react": "^0.545.0",
-    "next": "^16.4.4",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "three": "^0.180.0",
-    "vue": "^3.5.22"
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.187.0",
+    "vue": "^3.5.45"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
-    "@tailwindcss/postcss": "^4.1.14",
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.18.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
-    "@types/three": "^0.180.0",
-    "tailwindcss": "^4.1.14",
+    "@types/three": "^0.187.0",
+    "tailwindcss": "^4.3.5",
     "typescript": "^5.9.3"
   },
   "browserslist": [
