@@ -1,5 +1,6 @@
 import { BOOTH, DINING_SEATS, DINING_TABLE, SERVING_PLATES } from '@opsorama/objects';
 import { personHairColor, createSceneStore, routeDuration, routeTimes, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
+import { closeWallJoints } from '../example-walls';
 
 /** Floor service status of one table, as reported by the host's POS or reservation source. */
 export type TableStatus = 'free' | 'reserved' | 'seated' | 'ordered' | 'eating' | 'waiting' | 'bill';
@@ -277,7 +278,7 @@ function plateNodes(snapshot: RestaurantSnapshot, run: PlateRun, visit: number):
 }
 
 /** Floors, fixtures and decoration that do not depend on the service snapshot. */
-export const restaurantBase: readonly SceneNode[] = [
+export const restaurantBase: readonly SceneNode[] = closeWallJoints([
   { id: 'ground', kind: 'ground', size: [34, 22], position: [0, 0, -1.6], color: '#e9edf2' },
   decor('floor-dining', 'floor', v(0, -.3), { variant: 'wood', footprint: [30, 8.6], interior: true }),
   decor('floor-kitchen', 'floor', v(-7.5, -7.9), { variant: 'tiles', footprint: [15, 6.6], interior: true }),
@@ -295,13 +296,14 @@ export const restaurantBase: readonly SceneNode[] = [
   // Back and side walls frame the interior; the camera side stays open like a cutaway.
   ...[-13, -9, -5, -1, 3, 7, 11].map((x, i) => decor(`wall-back-${i}`, 'wall-segment', v(x, -11.3), { variant: x > 1 && x < 9 ? 'solid' : 'window', color: '#efe7dc' })),
   decor('wall-back-7', 'wall-segment', v(14, -11.3), { scale: [.5, 1, 1], color: '#efe7dc' }),
-  ...[-9.2, -5.2, -1.2, 2.2].map((z, i) => decor(`wall-left-${i}`, 'wall-segment', v(-15.08, z), { variant: i === 0 ? 'door' : 'window', rotation: [0, Math.PI / 2, 0], color: '#efe7dc', ...(i === 3 ? { scale: [.6, 1, 1] as Vec3 } : {}) })),
+  // The left wall runs without gaps from the back wall (z −11.2) to the terrace (z 3.4).
+  ...[-9.2, -5.2, -1.2, 2.1].map((z, i) => decor(`wall-left-${i}`, 'wall-segment', v(-15.08, z), { variant: i === 0 ? 'door' : 'window', rotation: [0, Math.PI / 2, 0], color: '#efe7dc', ...(i === 3 ? { scale: [.65, 1, 1] as Vec3 } : {}) })),
   // Low kitchen partitions leave the pass and the aisles open.
   decor('partition-1', 'wall-segment', v(-13, -4.75), { scale: [1, .42, 1], color: '#d9c7b4' }),
   decor('partition-2', 'wall-segment', v(-9.6, -4.75), { scale: [.6, .42, 1], color: '#d9c7b4' }),
   decor('partition-3', 'wall-segment', v(-3.3, -4.75), { scale: [1, .42, 1], color: '#d9c7b4' }),
   ...[5.8, 6.6, 7.4, 8.2].map((x, i) => decor(`stool:${i}`, 'bar-stool', v(x, -7.85))),
-];
+]);
 
 /**
  * Snapshot-dependent nodes: table states and covers, attached guests, station states, ready-order counts and staff.

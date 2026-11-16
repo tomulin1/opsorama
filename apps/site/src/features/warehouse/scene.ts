@@ -5,6 +5,7 @@ import {
   areaState, aisleOf, bayCount, chilledState, dockOf, dockState, issueAt, locationCode, locationState, stagedPallets, truckAt, warehouseAlerts,
   type AisleId, type AreaId, type DockId, type Side, type Truck, type Vehicle, type WarehouseScenario, type WarehouseSnapshot,
 } from './model';
+import { closeWallJoints } from '../example-walls';
 
 /**
  * Ground plan in metres: x runs west → east, z runs from the back wall (−34) to the dock front (+12) and on to
@@ -85,7 +86,7 @@ const fence = (id: string, from: readonly [number, number], to: readonly [number
 };
 
 /** Ground, yard, hall shell, racking frames and fixtures that do not depend on the snapshot. */
-export const warehouseBase: readonly SceneNode[] = [
+export const warehouseBase: readonly SceneNode[] = closeWallJoints([
   // The first ground piece holds the point the overview camera targets.
   { id: 'ground', kind: 'ground', size: [132, 98], position: [0, 0, 7], color: '#d3ddcc' },
   fixture('yard', 'terrain', g(0, 29.55), { variant: 'asphalt', footprint: [100, 34.9] }),
@@ -162,7 +163,7 @@ export const warehouseBase: readonly SceneNode[] = [
   ...fence('fence-front-west', [-66, 46.8], [31, 46.8]), ...fence('fence-front-east', [43, 46.8], [64, 46.8]),
   // The fence closes the yard side of the site; its mesh panels are transparent, so the back and the sides behind the hall have none.
   ...fence('fence-west', [-66, 12], [-66, 45]), ...fence('fence-east', [64, 12], [64, 45]),
-];
+]);
 
 /* ── Motion ─────────────────────────────────────────────────────────────── */
 
