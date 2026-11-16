@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createSceneStore, type GroundNode, type SceneNode } from '@opsorama/core';
-import { CITY, cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce } from '../apps/site/src/features/landing/city';
+import { CITY, cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce, restaurantServiceNodes } from '../apps/site/src/features/landing/city';
+import { restaurantNodes, SCENARIOS as RESTAURANT } from '../apps/site/src/features/restaurant/model';
 import { createEcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 import { SCENARIOS } from '../apps/site/src/features/ecommerce/model';
 import { farmNodes } from '../apps/site/src/features/farm/scene';
 import { SCENARIOS as FARM } from '../apps/site/src/features/farm/model';
 
-const simulation = createEcommerceSimulation('peak'), live = placeEcommerce(simulation.nodes()), nodes: readonly SceneNode[] = [...cityStaticNodes(), ...live];
+const simulation = createEcommerceSimulation('peak'), live = [...restaurantServiceNodes(), ...placeEcommerce(simulation.nodes())], nodes: readonly SceneNode[] = [...cityStaticNodes(), ...live];
 const ids = new Set(nodes.map(node => node.id));
 const rect = (node: GroundNode) => { const [x, , z] = node.position ?? [0, 0, 0]; return { x0: x - node.size[0] / 2, x1: x + node.size[0] / 2, z0: z - node.size[1] / 2, z1: z + node.size[1] / 2 }; };
 
@@ -22,6 +23,16 @@ describe('home page city', () => {
   });
   it('runs the own nodes of an example, so a change there reaches the city', () => {
     for (const node of farmNodes(FARM.heat)) expect(ids.has(`farm:${node.id}`)).toBe(true);
+    for (const node of restaurantNodes(RESTAURANT.rush)) expect(ids.has(`restaurant:${node.id}`), node.id).toBe(true);
+  });
+  it('keeps the restaurant service loop out of the static city, so its live nodes replace one another', () => {
+    const fixed = new Set(cityStaticNodes().map(node => node.id));
+    for (const phase of [0, 37, 112]) {
+      const service = restaurantServiceNodes(phase);
+      expect(service.some(node => node.id.startsWith('restaurant:plate:')), `${phase}`).toBe(true);
+      for (const node of service) expect(fixed.has(node.id), node.id).toBe(false);
+      expect(() => createSceneStore({ schemaVersion: 1, nodes: [...cityStaticNodes(), ...service] }), `${phase}`).not.toThrow();
+    }
   });
   it('has a pin and a camera target for each district', () => {
     for (const district of DISTRICTS) {

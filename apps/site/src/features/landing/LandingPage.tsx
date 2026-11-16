@@ -12,7 +12,8 @@ import { HudZoom } from '../example-hud';
 import { runFeedLoop } from '../ecommerce/feed-loop';
 import { ecommerceControllers } from '../ecommerce/scene';
 import { createEcommerceSimulation, type EcommerceSimulation } from '../ecommerce/simulation';
-import { cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce, type DistrictId } from './city';
+import { runServiceLoop } from '../restaurant/service-loop';
+import { cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce, RESTAURANT_SERVICE, restaurantServiceNodes, type DistrictId } from './city';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
 
@@ -78,7 +79,13 @@ function CityViewport({ city, simulation }: { city: readonly SceneNode[]; simula
   const store = useSceneStore(), renderer = useRef<SceneRenderer | null>(null);
   const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; }, []);
   const [records, setRecords] = useState(() => simulation.snapshot()), district = useDistrict(renderer);
-  useEffect(() => runFeedLoop({ feed: () => simulation, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace([...city, ...placeEcommerce(nodes)]), onRecords: setRecords }), [store, city, simulation]);
+  // The restaurant's service loop moves its cooks, servers and plates; every e-commerce publish keeps its latest nodes.
+  const service = useRef<readonly SceneNode[]>(restaurantServiceNodes());
+  useEffect(() => runServiceLoop({
+    ...RESTAURANT_SERVICE, renderer: () => renderer.current, clock: () => store.getSnapshot().settings,
+    onChange: ({ nodes, changed, removed }) => { service.current = nodes; changed.forEach(node => store.upsert(node)); removed.forEach(id => store.remove(id)); },
+  }), [store]);
+  useEffect(() => runFeedLoop({ feed: () => simulation, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace([...city, ...service.current, ...placeEcommerce(nodes)]), onRecords: setRecords }), [store, city, simulation]);
   return <>
     <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
     <nav className="landing-districts" aria-label="City districts">
@@ -101,7 +108,7 @@ export function LandingPage() {
   const [session, setSession] = useState<{ store: SceneStore; city: readonly SceneNode[]; simulation: EcommerceSimulation } | null>(null);
   useEffect(() => {
     const simulation = createEcommerceSimulation('peak'), city = cityStaticNodes();
-    const store = createSceneStore({ schemaVersion: 1, nodes: [...city, ...placeEcommerce(simulation.nodes())] }, { zoom: CITY_ZOOM, shadows: false });
+    const store = createSceneStore({ schemaVersion: 1, nodes: [...city, ...restaurantServiceNodes(), ...placeEcommerce(simulation.nodes())] }, { zoom: CITY_ZOOM, shadows: false });
     setSession({ store, city, simulation });
     return () => { setSession(null); store.dispose(); simulation.dispose(); };
   }, []);
