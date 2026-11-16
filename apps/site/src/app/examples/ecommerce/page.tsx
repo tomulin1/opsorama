@@ -1,3 +1,4 @@
 import { EcommerceDashboard } from '@/features/ecommerce/EcommerceDashboard';
-export const metadata = { title: 'Online shop & fulfilment centre · Opsorama' };
+import { exampleMetadata } from '@/features/examples/catalog';
+export const metadata = exampleMetadata('/examples/ecommerce');
 export default function EcommercePage() { return <EcommerceDashboard />; }

@@ -3,11 +3,13 @@ import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
 import { BrandPalette } from '@/features/brand/BrandPalette';
 import palette from '@/features/brand/palette.json';
+import { pageMetadata } from '@/features/seo/site';
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'Website brand & colors · Opsorama',
   description: 'The palette for the Opsorama example website. Object appearances and real dashboard palettes are configured separately.',
-};
+  path: '/brand',
+});
 
 export default function WebsiteBrandPage() {
   return <main className="website-brand-page"><SiteHeader active={null} />

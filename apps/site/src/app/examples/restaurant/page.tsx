@@ -1,3 +1,4 @@
 import { RestaurantDashboard } from '@/features/restaurant/RestaurantDashboard';
-export const metadata = { title: 'Restaurant operations · Opsorama' };
+import { exampleMetadata } from '@/features/examples/catalog';
+export const metadata = exampleMetadata('/examples/restaurant');
 export default function RestaurantPage() { return <RestaurantDashboard />; }

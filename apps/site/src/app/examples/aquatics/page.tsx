@@ -1,3 +1,4 @@
 import { AquaticsDashboard } from '@/features/aquatics/AquaticsDashboard';
-export const metadata = { title: 'Aquatic centre · Opsorama' };
+import { exampleMetadata } from '@/features/examples/catalog';
+export const metadata = exampleMetadata('/examples/aquatics');
 export default function AquaticsPage() { return <AquaticsDashboard />; }
