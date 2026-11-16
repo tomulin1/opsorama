@@ -1,4 +1,6 @@
 # Deploys the static documentation website to Cloudflare Pages: main to production (opsorama.dev), pull requests to preview URLs.
+# Run it by hand from the Actions tab (Site → Run workflow) to redeploy a branch, for example when a push to main did not start it;
+# a manual run on main deploys production, on any other branch a preview.
 # Requires repository secrets CLOUDFLARE_API_TOKEN (Pages edit permission) and CLOUDFLARE_ACCOUNT_ID, and a Pages project named "opsorama-website".
 # Pull requests from forks have no access to the secrets and skip the deployment.
 # Disabled until the repository variable SITE_DEPLOY_ENABLED is set to true.
@@ -8,6 +10,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.repository == 'tomulin1/opsorama' && vars.SITE_DEPLOY_ENABLED == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.repository == 'tomulin1/opsorama' && vars.SITE_DEPLOY_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
