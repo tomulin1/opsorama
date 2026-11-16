@@ -1,8 +1,7 @@
 import { docs, type DocArticle, type DocSection } from './content';
 import { catalogObjects, objectKit } from './objects';
+import { SITE_ORIGIN } from '../seo/site';
 
-/** Public origin of the documentation website; llms.txt links are absolute. */
-export const SITE_ORIGIN = 'https://opsorama.dev';
 const articleUrl = (article: DocArticle) => `${SITE_ORIGIN}/docs${article.slug ? `/${article.slug}` : ''}`;
 
 const INTRO = [

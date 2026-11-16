@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { catalogAssets } from '@opsorama/objects';
 import { docs } from '../apps/site/src/features/docs/content';
-import { llmsFull, llmsIndex, SITE_ORIGIN } from '../apps/site/src/features/docs/llms';
+import { llmsFull, llmsIndex } from '../apps/site/src/features/docs/llms';
+import { SITE_ORIGIN } from '../apps/site/src/features/seo/site';
 
 describe('llms.txt', () => {
   it('links every documentation page from the index', () => {

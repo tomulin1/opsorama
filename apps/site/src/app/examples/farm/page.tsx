@@ -1,3 +1,4 @@
 import { FarmDashboard } from '@/features/farm/FarmDashboard';
-export const metadata = { title: 'Farm · Opsorama' };
+import { exampleMetadata } from '@/features/examples/catalog';
+export const metadata = exampleMetadata('/examples/farm');
 export default function FarmPage() { return <FarmDashboard />; }
