@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { AlertTriangle, CalendarClock, ChefHat, ClipboardList, CookingPot, Flame, GlassWater, ReceiptText, ShoppingBag, Soup, Thermometer, Users, UtensilsCrossed } from 'lucide-react';
 import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
 import { HUD_STATE_TONE, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
-import { PASS_CAPACITY, PICKUP_CAPACITY, STATIONS, TABLE_LAYOUT, TABLE_STATUS, TICKET_STATUS, isOccupied, restaurantMetrics, stationTickets, type KitchenTicket, type RestaurantSnapshot, type StationId, type TableSession, type TableStatus, type TicketStatus } from './model';
+import { PICKUP_CAPACITY, STATIONS, TABLE_LAYOUT, TABLE_STATUS, TICKET_STATUS, isOccupied, restaurantMetrics, stationTickets, type KitchenTicket, type RestaurantSnapshot, type StationId, type TableSession, type TableStatus, type TicketStatus } from './model';
 
 const STATION_ICONS = { grill: Flame, pizza: CookingPot, cold: Soup, bar: GlassWater, pass: ChefHat, pickup: ShoppingBag } as const;
 export function StationIcon({ station, size = 20 }: { station: StationId; size?: number }) { const Icon = STATION_ICONS[station]; return <Icon size={size} aria-hidden="true" />; }
@@ -60,11 +60,14 @@ function TicketCard({ ticket }: { ticket: KitchenTicket }) {
 }
 
 export function StationInspector({ station, snapshot }: { station: StationId; snapshot: RestaurantSnapshot }) {
-  const value = STATIONS.find(item => item.id === station)!, tickets = stationTickets(snapshot, station), capacity = station === 'pass' ? PASS_CAPACITY : station === 'pickup' ? PICKUP_CAPACITY : undefined;
-  return <aside className="restaurant-inspector" aria-label="Station inspector"><div className="restaurant-eyebrow">{station === 'pass' || station === 'pickup' ? 'READY ORDERS' : 'KITCHEN STATION'}</div><h2><StationIcon station={station} size={20} /> {value.label}</h2><p>{value.description}</p>
-    <dl>{capacity === undefined ? (['queued', 'cooking', 'late'] as const).map(status => <div key={status}><dt>{TICKET_STATUS[status].label}</dt><dd>{tickets.filter(ticket => ticket.status === status).length}</dd></div>) : <><dt>Ready orders</dt><dd>{tickets.length}</dd><dt>Shown on the model</dt><dd>{Math.min(capacity, tickets.length)} of {capacity} slots</dd></>}{station === 'bar' && <><dt>Bar-seat guests</dt><dd>{snapshot.barGuests}</dd></>}</dl>
+  const value = STATIONS.find(item => item.id === station)!, tickets = stationTickets(snapshot, station), ready = station === 'pass' || station === 'pickup';
+  const note = station === 'pass' ? 'Ready dine-in orders wait here as plates, one per guest and at most two per order, until the table\'s server collects them. The scene loops the snapshot\'s dine-in tickets from plating to the dish machine; exact totals stay in this panel.'
+    : station === 'pickup' ? `Each bag is one ready order, up to ${PICKUP_CAPACITY}; exact totals stay in this panel.`
+    : 'The model state follows the most urgent ticket. In the scene the cook plates each dine-in ticket here and carries it to the pass. Kitchen display and bump actions remain in the host.';
+  return <aside className="restaurant-inspector" aria-label="Station inspector"><div className="restaurant-eyebrow">{ready ? 'READY ORDERS' : 'KITCHEN STATION'}</div><h2><StationIcon station={station} size={20} /> {value.label}</h2><p>{value.description}</p>
+    <dl>{!ready ? (['queued', 'cooking', 'late'] as const).map(status => <div key={status}><dt>{TICKET_STATUS[status].label}</dt><dd>{tickets.filter(ticket => ticket.status === status).length}</dd></div>) : <><dt>Ready orders</dt><dd>{tickets.length}</dd>{station === 'pickup' && <><dt>Shown on the model</dt><dd>{Math.min(PICKUP_CAPACITY, tickets.length)} of {PICKUP_CAPACITY} slots</dd></>}</>}{station === 'bar' && <><dt>Bar-seat guests</dt><dd>{snapshot.barGuests}</dd></>}</dl>
     {tickets.map(ticket => <TicketCard key={ticket.id} ticket={ticket} />)}{tickets.length === 0 && <p>No tickets at this station.</p>}
-    <div className="restaurant-host-note">{capacity === undefined ? 'The model state follows the most urgent ticket. Kitchen display and bump actions remain in the host.' : `Each plate or bag is one ready order, up to ${capacity}; exact totals stay in this panel.`}</div></aside>;
+    <div className="restaurant-host-note">{note}</div></aside>;
 }
 
 export function CoolerInspector({ snapshot }: { snapshot: RestaurantSnapshot }) {

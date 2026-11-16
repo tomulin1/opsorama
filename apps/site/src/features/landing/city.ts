@@ -9,7 +9,8 @@ import { farmMetrics, SCENARIOS as FARM } from '../farm/model';
 import { farmNodes } from '../farm/scene';
 import { officeMetrics, SCENARIOS as OFFICE } from '../office/model';
 import { officeNodes } from '../office/scene';
-import { restaurantMetrics, restaurantNodes, SCENARIOS as RESTAURANT } from '../restaurant/model';
+import { restaurantMetrics, restaurantNodes, serviceNodes, SCENARIOS as RESTAURANT } from '../restaurant/model';
+import type { ServiceLoopOptions } from '../restaurant/service-loop';
 
 /**
  * The home page city. Each district is a whole domain example: its own node function runs unchanged
@@ -169,12 +170,21 @@ export function placeEcommerce(nodes: readonly SceneNode[]): SceneNode[] {
 
 const offsetOf = (id: DistrictId) => DISTRICTS.find(district => district.id === id)!.offset;
 
-/** Everything in the city except the live e-commerce district. Call it once: it composes every static example. */
+/** The restaurant's service loop runs live in its district, like the e-commerce feed: these options place its cooks, servers and plates. */
+export const RESTAURANT_SERVICE = {
+  snapshot: RESTAURANT.rush, idPrefix: 'restaurant:', offset: offsetOf('restaurant'),
+  place: (nodes: readonly SceneNode[]) => inDistrict('restaurant', offsetOf('restaurant'), nodes),
+} as const satisfies Partial<ServiceLoopOptions>;
+/** The restaurant loop's nodes at `phase`, placed in the district; the city starts with phase 0. */
+export const restaurantServiceNodes = (phase = 0) => RESTAURANT_SERVICE.place(serviceNodes(RESTAURANT_SERVICE.snapshot, phase));
+
+/** Everything in the city except the live e-commerce district and restaurant service loop. Call it once: it composes every static example. */
 export function cityStaticNodes(): SceneNode[] {
+  const service = new Set(serviceNodes(RESTAURANT.rush, 0).map(node => node.id));
   return [
     ...cityGround(), ...roads(), ...sidewalks(), ...greenery(), ...streetLife(), ...energyPark(), ...districtPins(),
     ...inDistrict('office', offsetOf('office'), officeNodes(OFFICE.planning)),
-    ...inDistrict('restaurant', offsetOf('restaurant'), restaurantNodes(RESTAURANT.rush)),
+    ...inDistrict('restaurant', offsetOf('restaurant'), restaurantNodes(RESTAURANT.rush).filter(node => !service.has(node.id))),
     ...inDistrict('aquatics', offsetOf('aquatics'), aquaticsNodes(AQUATICS.afternoon)),
     ...inDistrict('farm', offsetOf('farm'), farmNodes(FARM.heat)),
     ...inDistrict('datacenter', offsetOf('datacenter'), datacenterOverview()),

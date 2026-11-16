@@ -1,6 +1,7 @@
 import { BOOTH, DINING_SEATS, DINING_TABLE, SERVING_PLATES } from '@opsorama/objects';
-import { personHairColor, createSceneStore, routeDuration, routeTimes, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
+import { personHairColor, createSceneStore, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
 import { closeWallJoints } from '../example-walls';
+import { HAND_OFF, actorPose, compileService, platesAt, routeAtPhase, type FloorPoint, type PlateRest, type ServiceActor, type ServiceCycle, type ServicePlan, type ServiceStop } from './service';
 
 /** Floor service status of one table, as reported by the host's POS or reservation source. */
 export type TableStatus = 'free' | 'reserved' | 'seated' | 'ordered' | 'eating' | 'waiting' | 'bill';
@@ -56,8 +57,8 @@ export const STATIONS: readonly { id: StationId; label: string; description: str
   { id: 'pass', label: 'Pass', description: 'Plated dine-in orders waiting for a server.' },
   { id: 'pickup', label: 'Pickup', description: 'Bagged takeout and delivery orders.' },
 ];
-/** The pass and pickup shelf show at most this many ready orders; the HTML keeps exact totals. */
-export const PASS_CAPACITY = 6, PICKUP_CAPACITY = 9;
+/** The pickup shelf shows at most this many ready orders; the HTML keeps exact totals. */
+export const PICKUP_CAPACITY = 9;
 
 const T = (tableId: string, status: TableStatus, party: number, note: string, extra: Partial<TableSession> = {}): TableSession => ({ tableId, status, party, note, ...extra });
 const free = (tableId: string) => T(tableId, 'free', 0, 'Clean and ready for the next party.');
@@ -143,138 +144,243 @@ const chef = (id: string, position: Vec3, rotation: number, variant: string, lab
 const FEMININE = { person: { figure: 'feminine' } } as const satisfies Partial<AssetNode>;
 const decor = (id: string, asset: string, position: Vec3, extra: Partial<AssetNode> = {}): AssetNode => ({ id, kind: 'asset', asset, position, selectable: false, ...extra });
 
-/**
- * A floor point `[x, z]` walked through, or `[x, z, yaw, seconds, table]` where the person pauses facing `yaw` (0 faces
- * +z); `table` names the table a server sets plates on or clears from that pause.
- */
-type Waypoint = readonly [x: number, z: number, yaw?: number, seconds?: number, table?: string];
+/** A floor point `[x, z]` walked through, or `[x, z, yaw, seconds]` where the person pauses facing `yaw` (0 faces +z). */
+type Waypoint = readonly [x: number, z: number, yaw?: number, seconds?: number];
 /** A looping walk that returns to its first point; `elapsed` staggers people who share the floor. */
 function walk(points: readonly Waypoint[], speed: number, elapsed = 0): NodeRoute {
   const stops = points.flatMap(([, , yaw, seconds], index) => yaw === undefined ? [] : [{ index, seconds: seconds ?? 3, yaw }]);
   return { points: [...points, points[0]].map(([x, z]) => v(x, z)), speed, loop: true, elapsed, stops };
 }
-/**
- * Two laps from the pass: the second visits the same stops in reverse order, so the table a server sets plates on in
- * one lap is the table cleared last in the other.
- */
-const serviceLaps = (lap: readonly Waypoint[]): readonly Waypoint[] => [...lap, lap[0], ...lap.slice(1).reverse()];
 /** A person who walks `route`; the route owns position and heading, so the node starts at its first point. */
 const walking = (node: AssetNode, route: NodeRoute): AssetNode => ({ ...node, position: route.points[0], route });
-/**
- * Service walks through the aisles: x −13.7 by the side wall, −10.75, −7.5/−7, −4.15 and −3.25 between the table columns and booths, z −3.95 along
- * the kitchen partitions, z −0.3 between the table rows and z 3.2 in front of them. Servers collect at the heated pass
- * (front edge z −5.1), pause at their tables and return.
- */
-const PASS_Z = -4.4, N = 0, S = Math.PI, E = Math.PI / 2, W = -Math.PI / 2;
-const RUSH_LAPS: Readonly<Record<'ana' | 'ben' | 'cleo' | 'dan', readonly Waypoint[]>> = {
-  // Tables 2 and 1.
-  ana: [[-7.15, PASS_Z, S, 4], [-10.75, -4], [-10.75, -2.5, E, 5, 'T2'], [-10.75, -1.9, W, 5, 'T1'], [-10.75, -4]],
-  // Table 3 (late mains) and table 4 (bill).
-  ben: [[-6.25, PASS_Z, S, 3], [-4.15, -3.95], [-4.15, -2.2, W, 5, 'T3'], [-4.15, -.3], [-12.5, -.3, N, 6, 'T4'], [-7, -.5], [-7, -3.95]],
-  // Booth 7 and lounge table 11, checking booth 8 and table 5 on the way.
-  cleo: [[-5.8, PASS_Z, S, 3], [-3.25, -3.95], [-3.25, -2.9, E, 5, 'B7'], [-3.25, -1, E, 3], [-3.25, 2.25], [.1, 2.25], [4.1, .4, E, 5, 'T11'], [.1, 2.25], [-9, 3.25, S, 3], [-7, 3], [-7, -3.9]],
-  // Terrace tables 13 and 12.
-  dan: [[-6.7, PASS_Z, S, 4], [-7.5, -3.95], [-7.5, 3.3], [-7, 4.75, N, 5, 'T13'], [-11.5, 4.75, N, 5, 'T12'], [-7.5, 3.3]],
-};
-const RUSH_WALKS = {
-  ana: walk(serviceLaps(RUSH_LAPS.ana), 1.1),
-  ben: walk(serviceLaps(RUSH_LAPS.ben), 1.2, 9),
-  cleo: walk(serviceLaps(RUSH_LAPS.cleo), 1.25, 3),
-  dan: walk(serviceLaps(RUSH_LAPS.dan), 1.1, 14),
-} as const;
-const QUIET_LAP: readonly Waypoint[] = [[-6.7, PASS_Z, S, 5], [-7.5, -3.95], [-7.5, 3.3], [-11.5, 4.75, N, 6, 'T12'], [-7.5, 3.3]];
-const QUIET_WALK = walk(serviceLaps(QUIET_LAP), 1);
+const N = 0, S = Math.PI, E = Math.PI / 2, W = -Math.PI / 2;
 /** After close, one server checks every table around the dining room. */
-const CLOSING_WALK = walk([[-6.5, PASS_Z, S, 4], [-13.7, -3.95], [-13.7, 2.9, E, 3], [-3.6, 2.9, N, 3], [-3.6, -3.95]], .9);
+const CLOSING_WALK = walk([[-6.5, -4.4, S, 4], [-13.7, -3.95], [-13.7, 2.9, E, 3], [-3.6, 2.9, N, 3], [-3.6, -3.95]], .9);
 /** The courier walks between the cargo bike and the pickup shelf. */
 const COURIER_WALK = walk([[10, 6.6, W, 4], [13.15, .6, E, 6]], 1.2);
 /** The arriving party walks in from the street once and waits at the host stand. */
 const arrival = (from: Vec3, to: Vec3): NodeRoute => ({ points: [from, to], speed: 1, endYaw: S });
 
-export type PlateLoad = 'full' | 'empty';
-/** Two plates a server carries together: in the server's hands, or set down on the settings of `table`. */
-export interface PlatePair { readonly load: PlateLoad; readonly table?: string; }
-/** A pause where a server's plates move: at the pass, or at a table. `carry` is where the carry anchor rests then. */
-export interface PlateVisit { readonly carry: Vec3; readonly stop: Vec3; readonly table?: string; }
-/**
- * A server's plate service over the two laps of the walk. `pairs[k]` is where the plates are after `visits[k]`; the
- * walk starts at the pass with full plates in hand, and `start` is the visit already reached at the walk's stagger.
+/*
+ * The service loop. Each dine-in kitchen ticket of the snapshot is one course: its cook plates it at the station,
+ * carries it to the pass and goes back; the table's server collects it, sets one plate on each of up to two occupied
+ * place settings, comes back once the guests have finished, clears the empty plates and drops them at the dish machine,
+ * where they go in to be washed. The loop lasts `SERVICE_PERIOD` seconds and starts at the snapshot: ready tickets wait
+ * on the pass, the others are still at their stations.
  */
-export interface PlateRun { readonly server: string; readonly visits: readonly PlateVisit[]; readonly pairs: readonly (readonly PlatePair[])[]; readonly start: number; }
-/**
- * Plates after a visit. At the pass the plates in hand fill and guests finish the dishes set down earlier. At a table the
- * plates in hand are set down when it has none of the server's plates, and its plates are picked up when the hands are
- * free; otherwise nothing moves.
- */
-export function applyPlateVisit(pairs: readonly PlatePair[], table?: string): readonly PlatePair[] {
-  if (!table) return pairs.map(pair => pair.table === undefined ? { load: 'full' } : pair.load === 'full' ? { ...pair, load: 'empty' } : pair);
-  const hands = pairs.findIndex(pair => pair.table === undefined), there = pairs.findIndex(pair => pair.table === table);
-  if (hands >= 0 && there < 0) return pairs.map((pair, i) => i === hands ? { ...pair, table } : pair);
-  if (hands < 0 && there >= 0) return pairs.map((pair, i) => i === there ? { load: pair.load } : pair);
-  return pairs;
-}
-/** The carry anchor sits this far in front of a standing server. */
-const CARRY_AHEAD = .49;
-function plateRun(server: string, lap: readonly Waypoint[], route: NodeRoute): PlateRun {
-  const laps = serviceLaps(lap), times = routeTimes(route);
-  const visits = laps.flatMap(([x, z, yaw, , table], index) => yaw === undefined || (!table && index % lap.length) ? [] : [{ index, visit: { carry: v(x + Math.sin(yaw) * CARRY_AHEAD, z + Math.cos(yaw) * CARRY_AHEAD), stop: v(x, z), ...(table ? { table } : {}) } }]);
-  // The walk leaves the pass with full plates; the table cleared last in the first lap holds the second pair.
-  const tables = lap.flatMap(([, , , , table]) => table ? [table] : []), cleared = tables.at(-1);
-  const pairs: (readonly PlatePair[])[] = [cleared && cleared !== tables[0] ? [{ load: 'full' }, { load: 'empty', table: cleared }] : [{ load: 'full' }]];
-  for (const { visit } of visits.slice(1)) pairs.push(applyPlateVisit(pairs.at(-1)!, visit.table));
-  const elapsed = (route.elapsed ?? 0) % routeDuration(route), start = visits.findLastIndex(({ index }) => times[index].arrive <= elapsed);
-  return { server, visits: visits.map(({ visit }) => visit), pairs, start: Math.max(0, start) };
-}
-const RUSH_RUNS = [plateRun('staff:ana', RUSH_LAPS.ana, RUSH_WALKS.ana), plateRun('staff:ben', RUSH_LAPS.ben, RUSH_WALKS.ben), plateRun('staff:cleo', RUSH_LAPS.cleo, RUSH_WALKS.cleo), plateRun('staff:dan', RUSH_LAPS.dan, RUSH_WALKS.dan)];
-const QUIET_RUNS = [plateRun('staff:dan', QUIET_LAP, QUIET_WALK)];
-/** Servers who carry plates in this snapshot. */
-export const plateRuns = (snapshot: RestaurantSnapshot): readonly PlateRun[] => !snapshot.open ? [] : snapshot.scenario === 'rush' ? RUSH_RUNS : snapshot.scenario === 'quiet' ? QUIET_RUNS : [];
-/** Within this distance of a visit's carry point the server has arrived and turned to the pass or table. */
-const PLATE_REACH = .3;
-const placeOf = (visit: PlateVisit) => visit.table ?? 'pass';
-/**
- * The visit reached after the server's carry anchor is seen at `carry`, from the `current` one. Arriving at another
- * place moves to the next visit there, so a visit missed while the page was hidden resynchronizes the plates at the
- * next pause; the host can poll the anchor at any rate.
- */
-export function nextPlateVisit(run: PlateRun, carry: readonly [number, number, number], current: number): number {
-  const reached = run.visits.find(visit => Math.hypot(carry[0] - visit.carry[0], carry[2] - visit.carry[2]) < PLATE_REACH);
-  if (!reached || placeOf(reached) === placeOf(run.visits[current])) return current;
-  for (let step = 1; step <= run.visits.length; step++) { const next = (current + step) % run.visits.length; if (placeOf(run.visits[next]) === placeOf(reached)) return next; }
-  return current;
-}
-/**
- * The carry anchor is the base of a load held between the arms; plates rest on top of the level forearms and hands of
- * the holding pose instead, this much higher. The lift is inside the rig, so it follows the feminine scale and the gait.
- */
-export const PLATE_LIFT = .3;
+
+/** Seconds of one service loop. */
+export const SERVICE_PERIOD = 150;
+/** A person's carry anchor sits this far in front of the root. Plates in hand rest `PLATE_LIFT` higher, on the forearms and hands of the holding pose; the lift is inside the rig, so it follows the feminine scale and the gait. */
+export const CARRY_AHEAD = .49, PLATE_LIFT = .3;
 /** A plate set down rests on a place setting's plate, which is this high above the table top. */
 const ON_SETTING = .016;
-/** Plates move between hands and table along a short arc. */
+/** Plates move between hands, stations, the pass, tables and the dish machine along a short arc. */
 const PLATE_TRANSFER = { seconds: .8, arc: .25 } as const;
-const coversAt = (snapshot: RestaurantSnapshot, layout: TableLayout) => { const session = snapshot.tables.find(table => table.tableId === layout.id); return !session || session.status === 'free' ? 0 : Math.min(layout.seats, session.party); };
+
 /**
- * The two settings of `layout` that plates go on: occupied seats first, then the seats nearest to where the server
+ * Kitchen and service walkways. Cooks walk the cook lane (z −7.5) between their stations and the kitchen side of the
+ * pass; servers enter the kitchen through the door west of the pass (x −7.9) and walk the server lane (z −6.85) to the
+ * dish machine's inlet table, which faces the door. In the dining room they use the aisles x −10.75, −7.5, −4.15 and
+ * −3.25, z −3.75 along the kitchen partitions (z −4.1 past booth 7 to the lounge aisle x 0), z −0.3 between the table rows
+ * and z 3.3 in front of them. Servers step up
+ * from the partition aisle to the pass, so people walking the aisle pass behind anyone standing at it.
+ */
+const COOK_LANE = -7.5, SERVER_LANE = -6.85, DOOR_X = -7.9, ALONG_PARTITIONS = -3.75, BEHIND_BOOTHS = -4.1;
+/** Each kitchen station uses one pair of pass slots; the cook and the server stand in front of the pair. */
+type PassPair = 'left' | 'middle' | 'right';
+const PASS_X: Readonly<Record<PassPair, number>> = { left: -7.1, middle: -6.5, right: -5.9 };
+const PASS_SLOTS: Readonly<Record<PassPair, readonly [number, number]>> = { left: [0, 1], middle: [2, 3], right: [4, 5] };
+const PASS_COOK_Z = -6.2, PASS_SERVER_Z = -4.55;
+type CookStation = Exclude<StationId, 'bar' | 'pass' | 'pickup'>;
+/** Where each cook works, facing the station, and where its plated dishes wait (local to the station node). */
+const KITCHEN: Readonly<Record<CookStation, { spot: FloorPoint; pass: PassPair; plating: readonly Vec3[] }>> = {
+  grill: { spot: [-12, -9.45], pass: 'left', plating: [[.45, .92, .1], [.75, .92, .1]] },
+  pizza: { spot: [-8.2, -8.45], pass: 'middle', plating: [[-.66, .98, .6], [-.36, .98, .94]] },
+  cold: { spot: [-4.4, -9.45], pass: 'right', plating: [[-.55, .93, .05], [-.25, .93, .05]] },
+};
+const DISH: FloorPoint = [-9.15, SERVER_LANE];
+/** Through the kitchen door to the dish machine, from the aisle along the partitions. */
+const TO_DISH: readonly FloorPoint[] = [[DOOR_X, ALONG_PARTITIONS], [DOOR_X, SERVER_LANE]];
+/** From the dish machine back out through the door to the pass. */
+const DISH_TO_PASS: readonly FloorPoint[] = [[DOOR_X, SERVER_LANE], [DOOR_X, ALONG_PARTITIONS]];
+
+const covers = (snapshot: RestaurantSnapshot, tableId: string) => { const layout = TABLE_LAYOUT.find(table => table.id === tableId)!, session = snapshot.tables.find(table => table.tableId === tableId); return !session || session.status === 'free' ? 0 : Math.min(layout.seats, session.party); };
+/**
+ * The place settings of `layout` that plates go on: occupied seats first, then the seats nearest to where the server
  * stands. Positions and yaw are local to the table's top anchor.
  */
-function plateSettings(layout: TableLayout, covers: number, from: Vec3): { position: Vec3; yaw: number }[] {
+function plateSettings(layout: TableLayout, occupied: number, from: FloorPoint): { position: Vec3; yaw: number }[] {
   const turn = layout.rotation ?? 0, settings = layout.asset === 'booth-seating'
     ? BOOTH.seats.map(([x, z]) => ({ x, z: Math.sign(z) * BOOTH.settingZ, yaw: z > 0 ? 0 : Math.PI }))
     : DINING_SEATS.map(([x, z]) => ({ x: x * DINING_TABLE.settingOffset, z: z * DINING_TABLE.settingOffset, yaw: Math.atan2(x, z) }));
-  const distance = ({ x, z }: { x: number; z: number }) => Math.hypot(layout.position[0] + x * Math.cos(turn) + z * Math.sin(turn) - from[0], layout.position[1] - x * Math.sin(turn) + z * Math.cos(turn) - from[2]);
-  return settings.map((setting, seat) => ({ setting, seat })).sort((a, b) => Number(b.seat < covers) - Number(a.seat < covers) || distance(a.setting) - distance(b.setting))
-    .slice(0, 2).map(({ setting }) => ({ position: [setting.x, ON_SETTING, setting.z], yaw: setting.yaw }));
+  const distance = ({ x, z }: { x: number; z: number }) => Math.hypot(layout.position[0] + x * Math.cos(turn) + z * Math.sin(turn) - from[0], layout.position[1] - x * Math.sin(turn) + z * Math.cos(turn) - from[1]);
+  return settings.map((setting, seat) => ({ setting, seat })).sort((a, b) => Number(b.seat < occupied) - Number(a.seat < occupied) || distance(a.setting) - distance(b.setting))
+    .map(({ setting }) => ({ position: [setting.x, ON_SETTING, setting.z], yaw: setting.yaw }));
 }
-/** The plate nodes of `run` after visit `visit`: two single plates per pair, in the server's hands or on table settings. */
-function plateNodes(snapshot: RestaurantSnapshot, run: PlateRun, visit: number): AssetNode[] {
-  return run.pairs[visit].flatMap((pair, index) => {
-    const layout = pair.table ? TABLE_LAYOUT.find(table => table.id === pair.table)! : undefined;
-    const settings = layout ? plateSettings(layout, coversAt(snapshot, layout), run.visits.find(item => item.table === pair.table)!.stop) : [];
-    return SERVING_PLATES.offsets.map((x, plate): AssetNode => ({
-      id: `plate:${run.server}:${index}:${plate}`, kind: 'asset', asset: 'serving-plates', variant: pair.load, count: 1, transfer: PLATE_TRANSFER, selectable: false,
-      ...(layout ? { attachment: { nodeId: `table:${layout.id}`, anchor: 'top' }, position: settings[plate].position, rotation: [0, settings[plate].yaw, 0] } : { attachment: { nodeId: run.server, anchor: 'carry' }, position: [x, PLATE_LIFT, 0] }),
-    }));
+
+/** A course's table, station and plate count (one per guest, at most the two a person carries). */
+interface CourseInfo { table: string; station: CookStation; plates: number; }
+function courseOf(snapshot: RestaurantSnapshot, ticketId: string): CourseInfo {
+  const ticket = snapshot.tickets.find(item => item.id === ticketId);
+  if (!ticket?.tableId || ticket.channel !== 'dine-in' || ticket.station === 'bar') throw new Error(`Service course ${ticketId} needs a dine-in kitchen ticket with a table in the ${snapshot.scenario} snapshot.`);
+  const plates = Math.min(2, covers(snapshot, ticket.tableId));
+  if (!plates) throw new Error(`Service course ${ticketId} is for table ${ticket.tableId}, which has no guests in the ${snapshot.scenario} snapshot.`);
+  return { table: ticket.tableId, station: ticket.station as CookStation, plates };
+}
+
+/** Stops of a cook who plates `courses` (ticket, leave time) in order and carries each to the pass. */
+function cookStops(snapshot: RestaurantSnapshot, station: CookStation, courses: readonly (readonly [ticket: string, leave: number])[]): ServiceStop[] {
+  const { spot, pass } = KITCHEN[station], passSpot: FloorPoint = [PASS_X[pass], PASS_COOK_Z];
+  const toPass: FloorPoint[] = [[spot[0], COOK_LANE], [passSpot[0], COOK_LANE]], back = [...toPass].reverse();
+  return courses.flatMap(([ticket, leave]): ServiceStop[] => {
+    const { plates } = courseOf(snapshot, ticket);
+    return [
+      { via: back, at: spot, yaw: S, pose: 'working', leave, action: { take: ticket } },
+      { via: toPass, at: passSpot, yaw: N, dwell: 2.5, action: { put: ticket, on: PASS_SLOTS[pass].slice(0, plates).map(slot => ({ node: 'station:pass', anchor: `slot-${slot}`, offset: [0, 0, 0] })) } },
+    ];
   });
+}
+const passX = (snapshot: RestaurantSnapshot, ticket: string) => PASS_X[KITCHEN[courseOf(snapshot, ticket).station].pass];
+/** A server's stop at the pass that collects `ticket`, stepping up from the partition aisle. */
+const collect = (snapshot: RestaurantSnapshot, ticket: string, leave: number, via: readonly FloorPoint[]): ServiceStop => ({ via: [...via, [passX(snapshot, ticket), ALONG_PARTITIONS]], at: [passX(snapshot, ticket), PASS_SERVER_Z], yaw: S, leave, action: { take: ticket } });
+/**
+ * A server's stop at a table that sets `ticket`'s plates on the guests' settings. It follows the stop that collected
+ * the ticket, so the walk starts by stepping back from the pass.
+ */
+function serve(snapshot: RestaurantSnapshot, ticket: string, at: FloorPoint, yaw: number, via: readonly FloorPoint[] = []): ServiceStop {
+  const { table, plates } = courseOf(snapshot, ticket), layout = TABLE_LAYOUT.find(item => item.id === table)!;
+  const on = plateSettings(layout, covers(snapshot, table), at).slice(0, plates).map(({ position, yaw: heading }): PlateRest => ({ node: `table:${table}`, anchor: 'top', offset: position, yaw: heading }));
+  return { via: [[passX(snapshot, ticket), ALONG_PARTITIONS], ...via], at, yaw, dwell: 3, action: { put: ticket, on } };
+}
+/** A server's stop at a table that clears `ticket`'s empty plates. */
+const clear = (ticket: string, at: FloorPoint, yaw: number, leave: number, via?: readonly FloorPoint[]): ServiceStop => ({ ...(via ? { via } : {}), at, yaw, leave, action: { take: ticket } });
+/** A server's stop at the dish machine inlet that drops `ticket`'s plates. */
+const dropAtDish = (snapshot: RestaurantSnapshot, ticket: string, via: readonly FloorPoint[]): ServiceStop => ({
+  via, at: DISH, yaw: N, dwell: 2.5,
+  action: { put: ticket, on: (courseOf(snapshot, ticket).plates === 1 ? [0] : [-.14, .14]).map((z): PlateRest => ({ node: 'equipment:dish', anchor: 'inlet', offset: [0, 0, z] })) },
+});
+
+/** One person of the service loop: the plan's stops and the node it walks as; the loop sets its pose. */
+export interface ServicePerson { actor: ServiceActor; node: Omit<AssetNode, 'id' | 'route'>; }
+const chefNode = (label: string, extra: Partial<AssetNode> = {}): ServicePerson['node'] => ({ kind: 'asset', asset: 'chef', variant: 'working', label, labelMode: 'active', selectable: false, ...extra });
+const serverNode = (label: string, extra: Partial<AssetNode> = {}): ServicePerson['node'] => ({ kind: 'asset', asset: 'worker', variant: 'walking', color: SERVER, label, labelMode: 'active', selectable: false, ...extra });
+/** Servers' tables: the stop beside each table, and the heading toward it. */
+const AT: Readonly<Record<string, readonly [FloorPoint, number]>> = {
+  T1: [[-10.75, -1.9], W], T2: [[-10.75, -2.5], E], T3: [[-4.15, -2.2], W], T4: [[-12.5, -.3], N], T6: [[-5.5, -.3], N],
+  B7: [[-3.25, -2.9], E], B8: [[0, -1], W], T11: [[4.1, .4], E], T12: [[-11.5, 4.75], N], T13: [[-7, 4.75], N], T14: [[-2.5, 4.75], N],
+};
+/** A server's stop beside `table` without plates: an order, a bill or a check. */
+const stopAt = (table: string, timing: { dwell: number } | { leave: number }, via?: readonly FloorPoint[]): ServiceStop => ({ ...(via ? { via } : {}), at: AT[table][0], yaw: AT[table][1], ...timing });
+
+function rushService(snapshot: RestaurantSnapshot): ServicePerson[] {
+  const id = (name: string) => `staff:rush:${name}`;
+  const toTerrace: FloorPoint[] = [[-7.5, ALONG_PARTITIONS], [-7.5, 3.3]], fromTerrace: FloorPoint[] = [[-7.5, 3.3], [-7.5, ALONG_PARTITIONS]];
+  return [
+    { actor: { id: id('grill'), speed: 1, stops: cookStops(snapshot, 'grill', [['#2049', 8], ['#2041', 40]]) }, node: chefNode('Grill cook') },
+    { actor: { id: id('pizza'), speed: 1, stops: cookStops(snapshot, 'pizza', [['#2050', 28], ['#2048', 125]]) }, node: chefNode('Pizzaiolo', FEMININE) },
+    { actor: { id: id('cold'), speed: 1, stops: cookStops(snapshot, 'cold', [['#2047', 20], ['#2054', 128]]) }, node: chefNode('Cold prep') },
+    // Table 2, and the dessert menu at table 1.
+    { actor: { id: id('ana'), speed: 1.1, stops: [
+      collect(snapshot, '#2047', 40, [[AT.T1[0][0], ALONG_PARTITIONS], [-7.5, ALONG_PARTITIONS]]),
+      serve(snapshot, '#2047', ...AT.T2, [[AT.T2[0][0], ALONG_PARTITIONS]]),
+      stopAt('T1', { leave: 90 }),
+      clear('#2047', ...AT.T2, 94),
+      dropAtDish(snapshot, '#2047', [[AT.T2[0][0], ALONG_PARTITIONS], ...TO_DISH]),
+      stopAt('T1', { leave: 29 }, [...DISH_TO_PASS.slice(0, 1), [DOOR_X, ALONG_PARTITIONS], [AT.T1[0][0], ALONG_PARTITIONS]]),
+    ] }, node: serverNode('Ana', FEMININE) },
+    // Table 3 (late mains), the bill at table 4 and the reserved table 6.
+    { actor: { id: id('ben'), speed: 1.2, stops: [
+      collect(snapshot, '#2041', 58, [[AT.T3[0][0], -.3], [AT.T3[0][0], ALONG_PARTITIONS]]),
+      serve(snapshot, '#2041', ...AT.T3, [[AT.T3[0][0], ALONG_PARTITIONS]]),
+      stopAt('T4', { leave: 100 }, [[AT.T3[0][0], -.3]]),
+      clear('#2041', ...AT.T3, 122.5, [[AT.T3[0][0], -.3]]),
+      dropAtDish(snapshot, '#2041', [[AT.T3[0][0], ALONG_PARTITIONS], ...TO_DISH]),
+      stopAt('T6', { leave: 48 }, [...DISH_TO_PASS.slice(0, 1), [DOOR_X, ALONG_PARTITIONS], [AT.T3[0][0], ALONG_PARTITIONS], [AT.T3[0][0], -.3]]),
+    ] }, node: serverNode('Ben') },
+    // Booth 7 from the dining room, booth 8 from the lounge side where two of its guests sit, and lounge table 11.
+    { actor: { id: id('cleo'), speed: 1.25, stops: [
+      collect(snapshot, '#2054', 4, DISH_TO_PASS),
+      serve(snapshot, '#2054', ...AT.B7, [[AT.B7[0][0], ALONG_PARTITIONS]]),
+      collect(snapshot, '#2049', 22, [[AT.B7[0][0], ALONG_PARTITIONS]]),
+      serve(snapshot, '#2049', ...AT.B8, [[AT.B7[0][0], BEHIND_BOOTHS], [AT.B8[0][0], BEHIND_BOOTHS]]),
+      stopAt('T11', { leave: 57 }),
+      clear('#2054', ...AT.B7, 70, [[.1, 2.25], [AT.B7[0][0], 2.25]]),
+      dropAtDish(snapshot, '#2054', [[AT.B7[0][0], ALONG_PARTITIONS], ...TO_DISH]),
+      clear('#2049', ...AT.B8, 103, [[DOOR_X, SERVER_LANE], [DOOR_X, ALONG_PARTITIONS], [AT.B7[0][0], ALONG_PARTITIONS], [AT.B7[0][0], BEHIND_BOOTHS], [AT.B8[0][0], BEHIND_BOOTHS]]),
+      dropAtDish(snapshot, '#2049', [[AT.B8[0][0], BEHIND_BOOTHS], [AT.B7[0][0], BEHIND_BOOTHS], [AT.B7[0][0], ALONG_PARTITIONS], ...TO_DISH]),
+    ] }, node: serverNode('Cleo', FEMININE) },
+    // Terrace tables 12 and 13.
+    { actor: { id: id('dan'), speed: 1.2, stops: [
+      collect(snapshot, '#2048', 6, DISH_TO_PASS),
+      serve(snapshot, '#2048', ...AT.T12, toTerrace),
+      stopAt('T13', { dwell: 4 }),
+      collect(snapshot, '#2050', 45, fromTerrace),
+      serve(snapshot, '#2050', ...AT.T13, toTerrace),
+      clear('#2048', ...AT.T12, 76),
+      dropAtDish(snapshot, '#2048', [...fromTerrace, ...TO_DISH]),
+      clear('#2050', ...AT.T13, 132, [...[...TO_DISH].reverse(), ...toTerrace]),
+      dropAtDish(snapshot, '#2050', [...fromTerrace, ...TO_DISH]),
+    ] }, node: serverNode('Dan') },
+  ];
+}
+function quietService(snapshot: RestaurantSnapshot): ServicePerson[] {
+  const id = (name: string) => `staff:quiet:${name}`;
+  return [
+    { actor: { id: id('cold'), speed: 1, stops: cookStops(snapshot, 'cold', [['#3011', 20]]) }, node: chefNode('Cold prep') },
+    // Salads for table 12, checking the free terrace table 14 while the guests eat.
+    { actor: { id: id('dan'), speed: 1.1, stops: [
+      collect(snapshot, '#3011', 40, DISH_TO_PASS),
+      serve(snapshot, '#3011', ...AT.T12, [[-7.5, ALONG_PARTITIONS], [-7.5, 3.3]]),
+      stopAt('T14', { leave: 100 }),
+      clear('#3011', ...AT.T12, 110),
+      dropAtDish(snapshot, '#3011', [[-7.5, 3.3], [-7.5, ALONG_PARTITIONS], ...TO_DISH]),
+    ] }, node: serverNode('Dan') },
+  ];
+}
+/**
+ * The people and courses of a snapshot's service loop. The loops are written for the mock snapshots in `SCENARIOS`, so
+ * any other snapshot (a live host feed, a test fixture) and the closed restaurant have none and show staff at their posts.
+ */
+function servicePeople(snapshot: RestaurantSnapshot): ServicePerson[] {
+  if (!snapshot.open || snapshot !== SCENARIOS[snapshot.scenario]) return [];
+  return snapshot.scenario === 'rush' ? rushService(snapshot) : snapshot.scenario === 'quiet' ? quietService(snapshot) : [];
+}
+/** Seconds before its cook collects it that a course appears plated at its station. */
+const PLATING_SECONDS = 12;
+function servicePlan(snapshot: RestaurantSnapshot, people: readonly ServicePerson[]): ServicePlan {
+  const courses = people.flatMap(({ actor }) => actor.stops.flatMap(stop => {
+    if (!stop.action || !('take' in stop.action) || stop.pose !== 'working') return [];
+    const { table, station, plates } = courseOf(snapshot, stop.action.take);
+    return [{ id: stop.action.take, table: `table:${table}`, platedAt: ((stop.leave! - HAND_OFF - PLATING_SECONDS) % SERVICE_PERIOD + SERVICE_PERIOD) % SERVICE_PERIOD, plated: KITCHEN[station].plating.slice(0, plates).map((offset): PlateRest => ({ node: `station:${station}`, offset })) }];
+  }));
+  return { period: SERVICE_PERIOD, actors: people.map(person => person.actor), courses };
+}
+const cycles = new WeakMap<RestaurantSnapshot, { people: ServicePerson[]; cycle: ServiceCycle } | null>();
+/** The compiled service loop of `snapshot`, or null when nothing is served. Cached per snapshot object. */
+export function serviceLoop(snapshot: RestaurantSnapshot): { people: readonly ServicePerson[]; cycle: ServiceCycle } | null {
+  if (!cycles.has(snapshot)) { const people = servicePeople(snapshot); cycles.set(snapshot, people.length ? { people, cycle: compileService(servicePlan(snapshot, people)) } : null); }
+  return cycles.get(snapshot)!;
+}
+/**
+ * The nodes the service loop moves at `phase` (seconds into the loop): the walking cooks and servers, each in the
+ * pose of what it does, and every plate where it is. Hosts upsert these as the phase advances.
+ */
+export function serviceNodes(snapshot: RestaurantSnapshot, phase: number): AssetNode[] {
+  const loop = serviceLoop(snapshot);
+  if (!loop) return [];
+  const { people, cycle } = loop;
+  const staff = people.map(({ actor, node }, i): AssetNode => {
+    const compiled = cycle.actors[i];
+    return { ...node, id: actor.id, variant: actorPose(cycle, compiled, phase), position: compiled.route.points[0], route: routeAtPhase(compiled, cycle.period, phase), materials: { hair: personHairColor(actor.id) } };
+  });
+  const plates = platesAt(cycle, phase).map((plate): AssetNode => ({
+    id: plate.id, kind: 'asset', asset: 'serving-plates', variant: plate.load, count: 1, transfer: PLATE_TRANSFER, selectable: false,
+    ...(plate.holder
+      ? { attachment: { nodeId: plate.holder, anchor: 'carry' }, position: [plate.count === 1 ? 0 : SERVING_PLATES.offsets[plate.slot], PLATE_LIFT, 0] }
+      : { attachment: { nodeId: plate.rest!.node, ...(plate.rest!.anchor ? { anchor: plate.rest!.anchor } : {}) }, position: plate.rest!.offset, ...(plate.rest!.yaw ? { rotation: [0, plate.rest!.yaw, 0] as Vec3 } : {}) }),
+  }));
+  return [...staff, ...plates];
 }
 
 /** Floors, fixtures and decoration that do not depend on the service snapshot. */
@@ -291,7 +397,7 @@ export const restaurantBase: readonly SceneNode[] = closeWallJoints([
   decor('cargo-bike', 'cargo-bike', v(8.5, 7.4), { rotation: [0, Math.PI / 2, 0] }),
   ...([[.7, 3.4], [-14.4, 3.4], [14.4, 3.4], [14.4, -4.2], [.6, -10.6], [3.4, -1.6], [7.4, -1.6]] as const).map(([x, z], i) => decor(`plant-${i}`, 'potted-plant', v(x, z))),
   decor('lamp-1', 'lamp-post', v(1.2, 7.6)), decor('lamp-2', 'lamp-post', v(-15.6, 7.6)),
-  { id: 'equipment:dish', kind: 'asset', asset: 'dish-machine', position: v(-12.3, -6), rotation: [0, Math.PI, 0], label: 'Dish machine', labelMode: 'active', selectable: true },
+  { id: 'equipment:dish', kind: 'asset', asset: 'dish-machine', position: v(-9.9, -6), rotation: [0, Math.PI, 0], label: 'Dish machine', labelMode: 'active', selectable: true },
   decor('bench', 'bench', v(13.4, -2.6), { rotation: [0, -Math.PI / 2, 0] }),
   // Back and side walls frame the interior; the camera side stays open like a cutaway.
   ...[-13, -9, -5, -1, 3, 7, 11].map((x, i) => decor(`wall-back-${i}`, 'wall-segment', v(x, -11.3), { variant: x > 1 && x < 9 ? 'solid' : 'window', color: '#efe7dc' })),
@@ -306,54 +412,52 @@ export const restaurantBase: readonly SceneNode[] = closeWallJoints([
 ]);
 
 /**
- * Snapshot-dependent nodes: table states and covers, attached guests, station states, ready-order counts and staff.
- * `visits` keeps the visit each plate carrier last reached (`nextPlateVisit`); carriers missing from it start at the
- * visit their walk's stagger has reached.
+ * Snapshot-dependent nodes: table states and covers, attached guests, station states, ready-order counts, staff and the
+ * service loop at `phase` seconds (`serviceNodes`). Staff IDs include the scenario, so a scenario change gives the
+ * renderer new walkers that start at the loop's phase instead of joining from the previous scenario's routes.
  */
-export function restaurantNodes(snapshot: RestaurantSnapshot, visits: Readonly<Record<string, number>> = {}): SceneNode[] {
+export function restaurantNodes(snapshot: RestaurantSnapshot, phase = 0): SceneNode[] {
   const nodes: SceneNode[] = [...restaurantBase];
   let tone = 0;
   for (const layout of TABLE_LAYOUT) {
     const session = snapshot.tables.find(table => table.tableId === layout.id) ?? free(layout.id), status = TABLE_STATUS[session.status];
-    const covers = coversAt(snapshot, layout);
-    nodes.push({ id: `table:${layout.id}`, entityId: layout.id, kind: 'asset', asset: layout.asset, ...(layout.variant ? { variant: layout.variant } : {}), position: v(...layout.position), ...(layout.rotation ? { rotation: [0, layout.rotation, 0] as Vec3 } : {}), count: covers, state: status.state, label: `${layout.label} · ${status.label}`, labelMode: 'active', selectable: true });
+    const seated = covers(snapshot, layout.id);
+    nodes.push({ id: `table:${layout.id}`, entityId: layout.id, kind: 'asset', asset: layout.asset, ...(layout.variant ? { variant: layout.variant } : {}), position: v(...layout.position), ...(layout.rotation ? { rotation: [0, layout.rotation, 0] as Vec3 } : {}), count: seated, state: status.state, label: `${layout.label} · ${status.label}`, labelMode: 'active', selectable: true });
     // Guests sit on the seat anchors; their feet return to the floor below the 0.52 m seat height.
-    if (isOccupied(session)) for (let seat = 0; seat < covers; seat++) nodes.push({ id: `guest:${layout.id}:${seat}`, materials: { hair: personHairColor(`guest:${layout.id}:${seat}`) }, kind: 'asset', asset: GUEST_ASSETS[tone % GUEST_ASSETS.length], ...((tone >> 1) % 2 ? {} : FEMININE), variant: 'seated', color: GUEST_TONES[tone++ % GUEST_TONES.length], attachment: { nodeId: `table:${layout.id}`, anchor: `seat-${seat}` }, position: [0, -.52, 0], selectable: false });
+    if (isOccupied(session)) for (let seat = 0; seat < seated; seat++) nodes.push({ id: `guest:${layout.id}:${seat}`, materials: { hair: personHairColor(`guest:${layout.id}:${seat}`) }, kind: 'asset', asset: GUEST_ASSETS[tone % GUEST_ASSETS.length], ...((tone >> 1) % 2 ? {} : FEMININE), variant: 'seated', color: GUEST_TONES[tone++ % GUEST_TONES.length], attachment: { nodeId: `table:${layout.id}`, anchor: `seat-${seat}` }, position: [0, -.52, 0], selectable: false });
   }
   for (let seat = 0; seat < Math.min(4, snapshot.barGuests); seat++) nodes.push({ id: `bar-guest:${seat}`, materials: { hair: personHairColor(`bar-guest:${seat}`) }, kind: 'asset', asset: GUEST_ASSETS[(seat + 1) % GUEST_ASSETS.length], ...(seat % 2 ? {} : FEMININE), variant: 'seated', color: GUEST_TONES[(tone++ + 3) % GUEST_TONES.length], attachment: { nodeId: `stool:${[0, 1, 3, 2][seat]}`, anchor: 'seat' }, position: [0, -.52, 0], rotation: [0, Math.PI, 0], selectable: false });
   const station = (id: StationId, asset: string, position: Vec3, extra: Partial<AssetNode> = {}): AssetNode => ({ id: `station:${id}`, entityId: id, kind: 'asset', asset, position, state: stationState(snapshot, id), label: STATIONS.find(item => item.id === id)!.label, labelMode: 'active', selectable: true, ...extra });
-  const passReady = stationTickets(snapshot, 'pass').length, pickupReady = stationTickets(snapshot, 'pickup').length;
+  const pickupReady = stationTickets(snapshot, 'pickup').length;
   nodes.push(
     station('grill', 'kitchen-station', v(-12, -10.2), { variant: 'cooking' }),
     station('pizza', 'pizza-oven', v(-8.2, -9.8), { heatEnabled: snapshot.open }),
     station('cold', 'kitchen-station', v(-4.4, -10.2), { variant: 'prep', color: '#d9e8e1' }),
-    station('pass', 'heated-pass', v(-6.5, -5.4), { heatEnabled: snapshot.open, count: Math.min(PASS_CAPACITY, passReady), color: '#3a4c60' }),
+    station('pass', 'heated-pass', v(-6.5, -5.4), { heatEnabled: snapshot.open, count: 0, color: '#3a4c60' }),
     station('bar', 'bar-counter', v(7, -8.6)),
     station('pickup', 'pickup-shelf', v(14, .6), { rotation: [0, -Math.PI / 2, 0], count: Math.min(PICKUP_CAPACITY, pickupReady), color: '#3d8a6e', surfaceLabel: { kind: 'text', text: 'PICKUP', color: '#ffffff' } }),
     { id: 'equipment:espresso', kind: 'asset', asset: 'espresso-machine', attachment: { nodeId: 'station:bar', anchor: 'top' }, heatEnabled: snapshot.open, selectable: false },
     { id: 'equipment:cooler', entityId: 'cooler', kind: 'asset', asset: 'walk-in-cooler', position: v(-1.5, -9.6), state: snapshot.cooler.celsius > snapshot.cooler.limit ? 'warning' : 'normal', label: 'Walk-in cooler', labelMode: 'active', selectable: true, surfaceLabel: { kind: 'text', text: `${snapshot.cooler.celsius.toFixed(1)} °C`, color: snapshot.cooler.celsius > snapshot.cooler.limit ? '#ffd27a' : '#bff3df', background: '#102438' } },
     { id: 'host-stand', kind: 'asset', asset: 'host-stand', position: v(9.2, 2.6), label: 'Host stand', labelMode: 'active', selectable: true },
   );
-  if (!snapshot.open) { nodes.push(walking(worker('staff:closing', v(-6.5, PASS_Z), S, 'walking', SERVER), CLOSING_WALK)); return nodes; }
+  if (!snapshot.open) { nodes.push(walking(worker('staff:closing', v(-6.5, PASS_SERVER_Z), S, 'walking', SERVER), CLOSING_WALK)); return nodes; }
+  // People the service loop moves walk it; the others stay at their posts.
+  const id = (name: string) => `staff:${snapshot.scenario}:${name}`, loop = serviceLoop(snapshot), moving = new Set(loop?.people.map(person => person.actor.id) ?? []);
+  const posts: AssetNode[] = [
+    chef(id('grill'), v(-12, -9.45), S, 'working', 'Grill cook'),
+    chef(id('pizza'), v(-8.2, -8.45), S, 'working', 'Pizzaiolo', FEMININE),
+    chef(id('cold'), v(-4.4, -9.45), S, 'working', 'Cold prep'),
+    { ...worker(id('ana'), v(-13.3, -.3), E, 'idle', SERVER, 'Ana'), ...FEMININE },
+  ];
   nodes.push(
-    chef('staff:grill', v(-12, -9.45), Math.PI, 'working', 'Grill cook'),
-    chef('staff:pizza', v(-8.2, -8.45), Math.PI, 'working', 'Pizzaiolo', FEMININE),
-    chef('staff:cold', v(-4.4, -9.45), Math.PI, 'working', 'Cold prep'),
-    chef('staff:expo', v(-6.5, -6.15), 0, 'placing', 'Expo', FEMININE),
-    worker('staff:dish', v(-12.3, -6.8), 0, 'working', '#9fb3c8', 'Dish'),
-    worker('staff:bar', v(7, -9.3), 0, 'working', '#5a3b2e', 'Bartender'),
-    person('staff:host', 'office-worker', v(9.2, 2.05), 0, 'idle', '#8a5a3c', 'Host', FEMININE),
+    ...posts.filter(node => !moving.has(node.id)),
+    // The expo calls orders from the end of the pass, clear of the cooks who set plates on it.
+    chef(id('expo'), v(-4.95, -5.9), W, 'placing', 'Expo', FEMININE),
+    worker(id('dish'), v(-9.9, -6.8), 0, 'working', '#9fb3c8', 'Dish'),
+    worker(id('bar'), v(7, -9.3), 0, 'working', '#5a3b2e', 'Bartender'),
+    person(id('host'), 'office-worker', v(9.2, 2.05), 0, 'idle', '#8a5a3c', 'Host', FEMININE),
+    ...serviceNodes(snapshot, phase),
   );
-  // A server with plates in hand holds them; with free hands the arms swing.
-  const runs = plateRuns(snapshot), visitOf = (run: PlateRun) => visits[run.server] ?? run.start;
-  const server = (id: string, label: string, route: NodeRoute) => { const run = runs.find(item => item.server === id); return walking(worker(id, v(0, 0), S, run && !run.pairs[visitOf(run)].some(pair => !pair.table) ? 'walking' : 'holding', SERVER, label), route); };
-  const servers = snapshot.scenario === 'rush'
-    ? [server('staff:ana', 'Ana', RUSH_WALKS.ana), server('staff:ben', 'Ben', RUSH_WALKS.ben), server('staff:cleo', 'Cleo', RUSH_WALKS.cleo), server('staff:dan', 'Dan', RUSH_WALKS.dan)]
-    : [worker('staff:ana', v(-7.2, 1.6), W, 'idle', SERVER, 'Ana'), server('staff:dan', 'Dan', QUIET_WALK)];
-  // Every other server uses the feminine figure.
-  nodes.push(...servers.map((server, i) => i % 2 ? server : { ...server, ...FEMININE }));
-  // Plates move between servers' hands and table settings as the host reports each server reaching the pass or a table.
-  nodes.push(...runs.flatMap(run => plateNodes(snapshot, run, visitOf(run))));
   if (pickupReady) nodes.push(walking(worker('courier', v(0, 0), E, 'walking', '#3d8a6e', 'Courier'), COURIER_WALK));
   if (snapshot.scenario === 'rush') nodes.push(
     walking(person('arrival-1', 'visitor', v(0, 0), S, 'walking', '#b07cc6', 'Novák party', FEMININE), arrival(v(11.6, 7), v(8.8, 3.5))),
