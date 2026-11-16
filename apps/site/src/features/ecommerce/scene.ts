@@ -5,6 +5,7 @@ import {
   areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
   type AreaId, type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
 } from './model';
+import { closeWallJoints } from '../example-walls';
 
 /** Top of the area zones: fixtures and people inside the building stand on it. */
 export const FLOOR_Y = .095;
@@ -109,7 +110,7 @@ export const ROAD_Z = 10.2;
 const YARD_WIDTH = SITE_EAST_X - DOCK_EDGE_X, YARD_CENTER_X = DOCK_EDGE_X + YARD_WIDTH / 2;
 const WEST_STRIP_EAST_X = -18.2;
 /** Ground, surfaces, walls and decoration that do not depend on the snapshot. */
-export const ecommerceBase: readonly SceneNode[] = [
+export const ecommerceBase: readonly SceneNode[] = closeWallJoints([
   // The ground leaves a gap for the sunken apron. The first piece holds the point the overview camera targets;
   // the narrow strip behind the building keeps the full site width the overview framing and shadows measure from.
   { id: 'ground', kind: 'ground', size: [41.4, 35.9], position: [2.5, 0, -4.45], color: '#d7e2d2' },
@@ -155,7 +156,7 @@ export const ecommerceBase: readonly SceneNode[] = [
   ...[-25, -5, 12].map((x, i) => fixture(`lamp-${i}`, 'lamp-post', [x, WALK_Y, 6.9])),
   fixture('bench', 'bench', [-9.8, WALK_Y, 6.75], { rotation: yaw(BACK) }),
   ...[[-28, -10], [-28, -4.5], [-28, 1.5], [-28, 4.2], [-28, -16], [33, -17.5], [30.2, -19.6]].map(([x, z], i) => fixture(`tree-${i}`, i % 2 ? 'tree' : 'tree-pine', [x, 0, z])),
-];
+]);
 
 /* ── Movement graph ─────────────────────────────────────────────────────── */
 

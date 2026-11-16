@@ -5,6 +5,7 @@ import {
   areaStatus, boardNotes, currentBooking, currentTicket, employee, hotDeskUser, inOffice, nextBooking, peopleAt, podOccupant, presence, project, projectColor, stateOf,
   type AreaId, type Employee, type FocusPodId, type OfficeScenario, type OfficeSnapshot, type RoomId, type TeamId, type Ticket,
 } from './model';
+import { closeWallJoints } from '../example-walls';
 
 const p = (x: number, z: number, y = 0): Vec3 => [x, y, z];
 const yaw = (value: number): Vec3 => [0, value, 0];
@@ -56,7 +57,7 @@ const floor = (id: string, rect: readonly [number, number, number, number], vari
   fixture(id, 'floor', p((rect[0] + rect[1]) / 2, (rect[2] + rect[3]) / 2), { variant, footprint: [rect[1] - rect[0], rect[3] - rect[2]], ...(color ? { color } : {}) });
 
 /** Ground, floors, walls and decoration that do not depend on the snapshot. */
-export const officeBase: readonly SceneNode[] = [
+export const officeBase: readonly SceneNode[] = closeWallJoints([
   { id: 'ground', kind: 'ground', size: [44, 26], position: [0, 0, -1.5], color: '#d9e1d6' },
   // Floor finishes name the spaces: carpet per team neighbourhood, wood in the aisle and reception, tiles in the kitchen.
   ...TEAMS.map(value => floor(`floor:${value.id}`, AREAS.find(item => item.id === value.id)!.rect, 'carpet', value.floor)),
@@ -83,7 +84,7 @@ export const officeBase: readonly SceneNode[] = [
   fixture('reception:welcome', 'information-board', p(10.6, -10.5), { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'WELCOME TO\nFERNHILL\nSTUDIO\n\nCheck in at\nthe tablet', color: '#eef4f8' } }),
   benchNode,
   ...([[-17.3, -10.3], [.5, -5.6], [8.5, -10.3], [17.3, -6], [-17.3, 6.3], [-10, 6.3], [-2, 6.3], [6, 6.3], [14, 6.3], [17.3, 6.3]] as const).map(([x, z], i) => fixture(`plant-${i}`, 'potted-plant', p(x, z))),
-];
+]);
 
 /* ── Movement graph ─────────────────────────────────────────────────────── */
 
