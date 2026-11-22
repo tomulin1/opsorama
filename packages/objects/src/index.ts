@@ -19,6 +19,8 @@ export { assetCountLayoutDefaults } from './count-layout';
 export { assetLabelSurfaces, applySurfaceLabel, validateLabelSvg } from './surface-labels';
 export type { LabelSurface } from './surface-labels';
 export { catalogAssets, CATALOG_KITS, type CatalogKit } from './catalog';
+export { BUILDING_TYPES, BUILDING_TYPE_LABELS, BUILDING_SIZE, BUILDING_PALETTES, validateBuilding, validateBuildingNode, isBuilding } from './building';
+export type { BuildingType, BuildingOptions, BuildingPalette, BuildingNode } from './building';
 export type { WorkerVariant } from './worker';
 export { WORKER_SEAT_HEIGHT, WORKER_VARIANTS } from './worker';
 export type { VehicleOperatorPose } from './worker';

@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { bindBuildingInterior, isPersonAsset, PERSON_FIGURES, PERSON_HAIR_COLORS, resolveFootprint, type PersonFigure, type PersonHairColor, type Footprint, BUILDING_SIZE, BUILDING_TYPE_LABELS, createSceneStore, type DisplayReading, type BuildingType, type BuildingOptions, type Vec3, type SceneStore, type SurfaceLabel, type Measurement, type VisualState, type CountLayout } from '@opsorama/core';
+import { bindChildren, isPersonAsset, PERSON_FIGURES, PERSON_HAIR_COLORS, resolveFootprint, type PersonFigure, type PersonHairColor, type Footprint, createSceneStore, type DisplayReading, type Vec3, type SceneStore, type SurfaceLabel, type Measurement, type VisualState, type CountLayout } from '@opsorama/core';
 import { type SceneRenderer } from '@opsorama/three';
-import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces } from '@opsorama/objects';
+import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces, BUILDING_SIZE, BUILDING_TYPE_LABELS, type BuildingOptions, type BuildingType } from '@opsorama/objects';
 import { ArrowLeft, ArrowRight, ArrowUpRight, RotateCcw } from 'lucide-react';
 import { ZoomControl } from '@opsorama/react/ui';
 import '@opsorama/ui/styles.css';
@@ -45,7 +45,7 @@ export function ObjectDetails({ item }: { item: CatalogObject }) {
   const labelSurface = item.asset ? assetLabelSurfaces[item.asset] : undefined;
   const [framework, setFramework] = useState<'React' | 'Vue' | 'JavaScript'>('React');
   const canvas = useRef<HTMLDivElement>(null), store = useRef<SceneStore | null>(null), renderer = useRef<SceneRenderer | null>(null), normalization = useRef(1), fit = useRef<((count: number, variant: string | undefined, measurement: Measurement | false, countLayout: CountLayout, building?: BuildingOptions, footprint?: Footprint) => number) | null>(null);
-  const config = useMemo(() => ({ display, ...(item.animation === 'local' ? { localMotion: motion } : {}), ...(item.operatingProperty === 'fillLevel' ? { fillLevel } : item.operatingProperty ? { [item.operatingProperty]: operationEnabled } : {}), ...(figure === 'feminine' ? { person: { figure } } : {}), ...(hair === 'dark' ? {} : { materials: { hair: PERSON_HAIR_COLORS[hair] } }), ...(item.asset === 'building' ? { building: { size: buildingSize, view: buildingOpen ? 'open' as const : 'closed' as const, cutaway: buildingCutaway } } : {}), color: item.variantColors ? colorTouched ? color : undefined : item.asset === 'building' && color === item.color ? undefined : item.color ? color : undefined, variant: variant || undefined, footprint, state: effectiveState, rotation: [0, direction * Math.PI / 180, 0] as const, count, countLayout, surfaceLabel, measurement: reading as Measurement | false, x: moved ? 3 : 0 }), [item, motion, operationEnabled, fillLevel, display, figure, hair, buildingOpen, buildingCutaway, buildingSize, color, colorTouched, footprint, variant, effectiveState, direction, count, countLayout, surfaceLabel, reading, moved]);
+  const config = useMemo(() => ({ display, ...(item.animation === 'local' ? { localMotion: motion } : {}), ...(item.operatingProperty === 'fillLevel' ? { fillLevel } : item.operatingProperty ? { [item.operatingProperty]: operationEnabled } : {}), ...(figure === 'feminine' ? { person: { figure } } : {}), ...(hair === 'dark' ? {} : { materials: { hair: PERSON_HAIR_COLORS[hair] } }), ...(item.asset === 'building' ? { view: buildingOpen ? 'open' as const : 'closed' as const, building: { size: buildingSize, cutaway: buildingCutaway } } : {}), color: item.variantColors ? colorTouched ? color : undefined : item.asset === 'building' && color === item.color ? undefined : item.color ? color : undefined, variant: variant || undefined, footprint, state: effectiveState, rotation: [0, direction * Math.PI / 180, 0] as const, count, countLayout, surfaceLabel, measurement: reading as Measurement | false, x: moved ? 3 : 0 }), [item, motion, operationEnabled, fillLevel, display, figure, hair, buildingOpen, buildingCutaway, buildingSize, color, colorTouched, footprint, variant, effectiveState, direction, count, countLayout, surfaceLabel, reading, moved]);
   const latest = useRef({ config, motion, theme, zoom }); latest.current = { config, motion, theme, zoom };
   useEffect(() => {
     if (!mounted) return;
@@ -60,7 +60,7 @@ export function ObjectDetails({ item }: { item: CatalogObject }) {
       normalization.current = fit.current(value.config.count, value.config.variant, value.config.measurement, value.config.countLayout, value.config.building, value.config.footprint);
       session = createSceneStore({ schemaVersion: 1, nodes: [objectNode(item, { ...value.config, state: value.config.state, scale: normalization.current })] }, { motion: value.motion, theme: value.theme, shadows: false, zoom: value.zoom });
       store.current = session;
-      if (item.asset === 'building') unbind = bindBuildingInterior(session, 'catalog-object', async () => [
+      if (item.asset === 'building') unbind = bindChildren(session, 'catalog-object', async () => [
         { id: 'preview-desk', kind: 'asset', asset: 'desk-pod', position: [-1.5, .12, -.8], label: 'Example desk', selectable: true },
         { id: 'preview-tote', kind: 'asset', asset: 'tote', count: 0, position: [1.8, .12, .8], label: 'Example tote', selectable: true },
       ]);

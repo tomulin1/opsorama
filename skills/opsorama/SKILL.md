@@ -10,7 +10,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
 ## Mental model
 
 1. **Store** (`@opsorama/core`): `createSceneStore(definition?, settings?)` holds immutable scene nodes, settings and the selection. API: `getSnapshot`, `subscribe`, `upsert(node)`, `remove(id)`, `replace(nodes)`, `select(id | null)`, `configure(settings)`, `dispose`.
-2. **Nodes**: visual records with a stable `id`. Kinds: `ground`, `zone`, `path`, `asset`, `marker`. An asset node names a catalog model in `asset` and links to an application record through `entityId`. Positions are metres, Y-up, rotations in radians.
+2. **Nodes**: visual records with a stable `id`. Kinds: `ground`, `zone`, `path`, `asset`, `marker`. An asset node names a catalog model in `asset` and links to an application record through `entityId`. Positions are metres, Y-up, rotations in radians. Any asset can contain other nodes: a child sets `parentId` and uses the container's local coordinates, and it shows only while the container's `view` is `'peek'` or `'open'` (default `'closed'`). Change it with `setNodeView(store, id, view)`, opt into hover peeking with `peekOnHover: true`, and load children on first opening with `bindChildren(store, id, loader)`. The `building` model is the usual container; its own options (`type`, `size`, `cutaway`, `colors`) go in `building`.
 3. **Assets** (`@opsorama/objects`): model factories grouped in kits. The renderer has **no built-in models**; pass a registry.
 4. **Renderer** (`@opsorama/three`): `createSceneRenderer(container, store, { assets })`, or the React/Vue `SceneCanvas`, which creates and disposes the renderer for you.
 

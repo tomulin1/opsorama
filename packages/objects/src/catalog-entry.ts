@@ -9,13 +9,14 @@ import { applySurfaceLabel, assetLabelSurfaces } from './surface-labels';
 import { assetFootprintDefinitions } from './surfaces';
 
 /**
- * Wraps raw model factories as catalog entries. Each wrapped factory validates the node's operating properties, counts and multipliers,
+ * Wraps raw model factories as catalog entries. Each wrapped factory validates the node's operating properties, building options (only the building asset accepts them), counts and multipliers,
  * display, count layout, measurement, surface label and footprint settings against the model's definitions, builds the model, applies its
  * surface label, and releases the model if that decoration fails. Every kit is built with it; the result is frozen.
  */
 export function catalogEntries(factories: Readonly<Record<string, AssetFactory>>): AssetRegistry {
   return Object.freeze(Object.fromEntries(Object.entries(factories).map(([key, factory]): [string, AssetFactory] => [key, (node: AssetNode, context?: MaterialContext) => {
   validateOperatingProperties(node);
+  if (node.building !== undefined && key !== 'building') throw new Error(`Asset ${key} has no building options. Remove building from node ${node.id}, or use the building asset.`);
   const counted = node.count !== undefined || node.multiplier !== undefined;
   if (counted && assetCountDefinitions[key]) resolveCountRepresentation(node, assetCountDefinitions[key]);
   if (node.display !== undefined && !assetDisplayDefinitions[key]) throw new Error(`Asset ${key} has no display configuration.`);

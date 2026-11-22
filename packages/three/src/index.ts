@@ -9,7 +9,7 @@ import { bindWheelZoom } from './wheel-zoom';
 import { startTransfer, advanceTransfer, type TransferState } from './transfer';
 import { createRouteFollower, createControllerSlot, basicControllers, type ControllerContext, type ControllerOutput, type ControllerRegistry, type ControllerSlot, type RouteFollower, type RouteSample } from '@opsorama/core';
 import { formatMeasurement } from '@opsorama/core';
-import { interiorAreas, isBuilding, isInsideBuilding, isInteriorVisible, isPersonAsset, isWithinInteriorArea, setBuildingView, type InteriorArea } from '@opsorama/core';
+import { interiorAreas, isContained, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
 import { applyShadowPolicy } from './shadows';
 import { mergeStaticParts } from './static-merge';
 import { createInstanceBatcher } from './instancing';
@@ -96,7 +96,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     try { options.onLoad?.(next); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
   };
   const assets = options.assets, controllers: ControllerRegistry = { ...basicControllers, ...options.controllers };
-  type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: parent or carrier chain reaches a building. */ insideBuilding: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean };
+  type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: the node or its carrier chain has a parent container (`isContained`). */ contained: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
   let moveTargets: { object: THREE.Group; targets: readonly ResolvedTarget[]; onPick?: (target: ResolvedTarget) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
@@ -106,7 +106,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const updatePlacements = () => {
     for (const entry of entries.values()) {
       const world = entry.object.matrixWorld.elements; pivot[0] = world[12]; pivot[1] = world[13]; pivot[2] = world[14];
-      const indoor = entry.insideBuilding || 'interior' in entry.node && entry.node.interior === true || isWithinInteriorArea(pivot, areas);
+      const indoor = entry.contained || 'interior' in entry.node && entry.node.interior === true || isWithinInteriorArea(pivot, areas);
       if (indoor !== entry.indoor) { entry.indoor = indoor; applyShadowPolicy(entry.object, { interior: indoor }); instancing?.refresh(entry.object); }
     }
   };
@@ -130,23 +130,23 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     const nextShadowExtent = snapshot.nodes.reduce((extent, node) => node.kind === 'ground' ? Math.max(extent, node.size[0] / 2, node.size[1] / 2) : extent, 24);
     if (nextShadowExtent !== shadowExtent) { shadowExtent = nextShadowExtent; sun.shadow.camera.left = -shadowExtent; sun.shadow.camera.right = shadowExtent; sun.shadow.camera.top = shadowExtent; sun.shadow.camera.bottom = -shadowExtent; sun.shadow.camera.updateProjectionMatrix(); }
     const byId = new Map(snapshot.nodes.map(node => [node.id, node])); areas = interiorAreas(snapshot.nodes);
-    const visibleNodes = snapshot.nodes.filter(node => isInteriorVisible(node, snapshot.nodes, byId));
+    const visibleNodes = snapshot.nodes.filter(node => isNodeVisible(node, snapshot.nodes, byId));
     const ids = new Set(visibleNodes.map(n => n.id)); for (const [id, entry] of entries) if (!ids.has(id)) { entry.controller.cancel('removed'); cleanEntry(entry); entries.delete(id); }
     const built: Entry[] = [], style = snapshot.settings.selectionStyle;
     // During the initial build only one slice of models is built per call; the rest waits for the next slice.
     const building = loadState.phase === 'building', slice = createBuildSlice(building && !document.hidden ? buildBudget : Infinity), deferred = new Set<string>();
     for (const node of visibleNodes) {
-      // Placement is part of the signature: a carried node follows its carrier into or out of a building.
+      // Placement is part of the signature: a carried node follows its carrier into or out of a container.
       // A later slice of an unchanged snapshot reuses the signatures of nodes an earlier slice built.
       const current = building && snapshot === sliceSnapshot && !sliceDeferred.has(node.id) ? entries.get(node.id) : undefined;
-      const insideBuilding = current ? current.insideBuilding : isInsideBuilding(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, insideBuilding, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
+      const contained = current ? current.contained : isContained(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, contained, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
       if (!entry || entry.signature !== signature) {
         // A child waits for a deferred parent or carrier, so it is never built against an old one.
         if (building && (deferred.has(node.parentId ?? '') || deferred.has(node.attachment?.nodeId ?? '') || !slice.allow())) { deferred.add(node.id); continue; }
         // Narrow shadows per part first, then merge static parts grouped by the decided flags.
-        const object = build(node); applyShadowPolicy(object, { interior: insideBuilding }); mergeStaticParts(object);
+        const object = build(node); applyShadowPolicy(object, { interior: contained }); mergeStaticParts(object);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
-        const labelHeight = node.kind === 'marker' ? 0 : isBuilding(node) ? (node.building?.size?.[1] ?? 3.6) + .4 : node.kind === 'asset' && (node.surfaceLabel || node.measurement) ? new THREE.Box3().setFromObject(object).max.y + .35 : node.kind === 'asset' && isPersonAsset(node.asset) ? 2.15 : 1.65;
+        const labelHeight = node.kind === 'marker' ? 0 : node.kind === 'asset' && (node.surfaceLabel || node.measurement) ? new THREE.Box3().setFromObject(object).max.y + .35 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         const bounds = node.kind !== 'marker' && (node.entityId || node.selectable) ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
@@ -161,7 +161,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; if (node.entityId || node.selectable) label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); }
         else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (node.kind === 'asset' && node.measurement) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
-        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, insideBuilding, indoor: insideBuilding, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
+        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
       }
       entry.node = node; entry.target.set(...(node.position || [0, 0, 0]));
       const route = node.kind === 'asset' ? node.route : undefined, wasFollowing = entry.follower.route !== null;
@@ -255,18 +255,19 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (disposed) return;
       if (peekId && peekId !== next) {
         const old = store.getSnapshot().nodes.find(node => node.id === peekId);
-        if (isBuilding(old) && old.building?.view === 'peek') setBuildingView(store, peekId, 'closed');
+        if (old?.kind === 'asset' && old.view === 'peek') setNodeView(store, peekId, 'closed');
       }
       peekId = next;
       const node = next ? store.getSnapshot().nodes.find(node => node.id === next) : undefined;
-      if (isBuilding(node) && (node.building?.view ?? 'closed') === 'closed') setBuildingView(store, node.id, 'peek');
+      if (node?.kind === 'asset' && nodeView(node) === 'closed') setNodeView(store, node.id, 'peek');
     }, next ? 160 : 280);
   }
-  function hoveredBuilding(): string | null {
+  /** The nearest container under the pointer that peeks on hover: an asset with `peekOnHover` and factory `containerBounds`. */
+  function hoveredContainer(): string | null {
     let closest = Infinity, result: string | null = null;
     for (const entry of entries.values()) {
-      if (!isBuilding(entry.node) || !entry.node.building?.peekOnHover) continue;
-      const bounds = entry.object.userData.buildingBounds as THREE.Box3 | undefined;
+      if (entry.node.kind !== 'asset' || !entry.node.peekOnHover) continue;
+      const bounds = entry.object.userData.containerBounds as THREE.Box3 | undefined;
       if (!bounds) continue;
       const ray = raycaster.ray.clone().applyMatrix4(entry.object.matrixWorld.clone().invert());
       const point = ray.intersectBox(bounds, new THREE.Vector3());
@@ -275,6 +276,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (distance < closest) { closest = distance; result = entry.node.id; }
     }
     return result;
+  }
+  /** Whether the built model of `id` declares `containerBounds`, the factory hint for a container. */
+  function isContainer(id: string): boolean {
+    return entries.get(id)?.object.userData.containerBounds !== undefined;
   }
   const onClick = (event: PointerEvent) => {
     // The canvas is transparent until the first frame; a click must not select what nobody can see yet.
@@ -294,8 +299,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     const picked = pick(event), next = labelId || picked || null;
     // Floating interior labels are part of the inspection region too.
     let labelNode = labelId ? entries.get(labelId)?.node : undefined;
-    while (labelNode && !isBuilding(labelNode)) labelNode = labelNode.parentId ? entries.get(labelNode.parentId)?.node : undefined;
-    if (event.pointerType === 'mouse') changePeek(isBuilding(labelNode) && labelNode.building?.peekOnHover ? labelNode.id : hoveredBuilding());
+    while (labelNode && !isContainer(labelNode.id)) labelNode = labelNode.parentId ? entries.get(labelNode.parentId)?.node : undefined;
+    if (event.pointerType === 'mouse') changePeek(labelNode?.kind === 'asset' && labelNode.peekOnHover ? labelNode.id : hoveredContainer());
     renderer.domElement.style.cursor = next ? 'pointer' : 'grab'; if (next !== hovered) { hovered = next; safeSync(); }
   };
   const leave = () => { changePeek(null); if (hovered) { hovered = null; safeSync(); } };
@@ -396,7 +401,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     getLoadState: () => loadState,
     overview: () => { deferredFrame = null; fittedExtent = undefined; pan?.cancel(); target.copy(overviewTarget()); store.select(null); options.onSelect?.(null); },
     getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearMoveTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (isBuilding(node) && node.building?.view === 'peek') setBuildingView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    dispose: () => { if (disposed) return; clearMoveTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
 }
 

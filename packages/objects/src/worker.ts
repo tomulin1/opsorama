@@ -30,6 +30,7 @@ export function createVehicleOperator(vehicleId: string, pose: VehicleOperatorPo
 /**
  * Builds any person asset (`PERSON_ASSETS`): one rig with the shared poses, anchors and animator, dressed by the
  * character's look in `people.ts`. The palette resolves with the look's definition defaults and `color` role.
+ * Sets `userData.labelHeight` (2.15 m) so the renderer floats labels above the head.
  */
 export function createPerson(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   if (!isPersonAsset(node.asset)) throw new Error(`Unknown person asset: ${node.asset}. Use one of ${PERSON_ASSETS.join(', ')}.`);
@@ -107,5 +108,7 @@ export function createPerson(node: AssetNode, context?: MaterialContext): THREE.
       rig.position.z = Math.sin(t * .55) * .23; legs[0].rotation.x = Math.sin(t * 2.7) * .09; legs[1].rotation.x = -Math.sin(t * 2.7) * .09;
     }
   }, [rig, head, ...legs, ...arms]);
+  // Renderer label anchor above the head, in model-local metres.
+  object.userData.labelHeight = 2.15;
   return object;
 }

@@ -36,9 +36,16 @@ Use semantic roles such as `surface`, `structure`, `accent`, `trim`, `text`, `wo
 
 Status indicators and selection emphasis are resolved separately from body styling: a custom truck color must not hide its warning marker or selected outline. Keep a text or symbol alternative so meaning never depends on color or motion alone.
 
+## Renderer hints and containers
+
+A factory can leave two optional hints on the returned object's `userData`; the renderer never checks asset names:
+
+- `labelHeight` (number, metres, model-local): where the floating HTML label sits. Default 1.65; nodes with a surface label or a measurement use their bounds plus 0.35. Person models set 2.15, the building sets its height plus 0.4.
+- `containerBounds` (`THREE.Box3`, model-local): stable bounds of a container that do not change with `AssetNode.view`. With `AssetNode.peekOnHover`, hovering inside them peeks the container's children. Any asset can contain children through `parentId`; models that change their look with the view (the building lowers its walls) read `AssetNode.view` themselves.
+
 ## Shadows, merging and instancing
 
-- **Shadows.** Factories declare which parts cast and receive shadows; transparent parts and flat overlays opt out. The renderer then applies one policy to every object: parts narrower than `SHADOW_MIN_WIDTH` (0.06 m) or contained in a larger casting part (`SHADOW_CONTAINMENT_TOLERANCE`, 0.03 m) stop casting, and indoor nodes (inside a `building`, or on a ground, zone or surface with `interior: true`) neither cast nor receive. The policy never turns a flag on.
+- **Shadows.** Factories declare which parts cast and receive shadows; transparent parts and flat overlays opt out. The renderer then applies one policy to every object: parts narrower than `SHADOW_MIN_WIDTH` (0.06 m) or contained in a larger casting part (`SHADOW_CONTAINMENT_TOLERANCE`, 0.03 m) stop casting, and indoor nodes (inside a container through `parentId`, such as a `building`, or on a ground, zone or surface with `interior: true`) neither cast nor receive. The policy never turns a flag on.
 - **Static merging.** Build models from separate named parts; the renderer merges static opaque meshes that differ only in base color into one mesh per material and shadow-flag group after building. Anchors, labels, transparent parts, instanced meshes and lines are never merged. Declare every part an animator moves, hides or recolors with `setAssetAnimator(object, animator, animatedParts)`; parts changed by other code opt out with `keepPartsSeparate(part)`. Tests and descriptor checks see the unmerged factory output.
 - **Instancing.** Across nodes, four or more meshes with identical geometry and a material that differs only in base color draw as one `InstancedMesh`. Nothing extra is needed in the factory; build repeated objects identically to benefit.
 

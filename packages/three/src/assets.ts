@@ -7,6 +7,12 @@ export interface MaterialContext { theme: 'light' | 'midnight'; palette?: Materi
 /**
  * Builds one model for an asset node. The returned object and every geometry, material and texture under it belong to that instance;
  * the renderer releases them with `disposeObject` when the node is removed or rebuilt. A factory that throws must release what it allocated.
+ *
+ * Optional hints the renderer reads from the returned object's `userData`:
+ * - `labelHeight: number`: model-local height in metres of the floating label anchor. Default 1.65; nodes with a surface label or a
+ *   measurement use their bounds plus 0.35 instead.
+ * - `containerBounds: THREE.Box3`: model-local bounds of a container that stay the same in every `view`. With `AssetNode.peekOnHover`,
+ *   hovering inside them peeks the container's children.
  */
 export type AssetFactory = (node: AssetNode, context?: MaterialContext) => THREE.Object3D;
 /**

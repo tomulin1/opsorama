@@ -76,15 +76,15 @@ function siteNodes(): SceneNode[] {
 export function createFacilityNodes(records: readonly DatacenterRecord[]): SceneNode[] {
   const nodes: SceneNode[] = [
     { id: 'floor', kind: 'ground', size: [106, 90], position: [SITE_X, 0, -4], color: '#a9bca7' },
-    { id: 'facility-shell', kind: 'asset', asset: 'building', position: [2, 0, 0], building: { size: [68, 5.5, 48], view: 'open', colors: { wall: '#8fa4b4', floor: '#c7d3dd' } } },
+    { id: 'facility-shell', kind: 'asset', asset: 'building', position: [2, 0, 0], view: 'open', building: { size: [68, 5.5, 48], colors: { wall: '#8fa4b4', floor: '#c7d3dd' } } },
     { id: 'main-spine', kind: 'zone', size: [4, 47], position: [2, .1, 0], color: '#b6d8d5' },
     { id: 'cross-corridor', kind: 'zone', size: [44, 8], position: [2, .09, 0], color: '#b6d8d5' },
     ...siteNodes(),
   ];
   for (const room of datacenterRooms) {
     const hall = room.kind === 'hall';
-    nodes.push({ id: room.id, entityId: room.id.toUpperCase(), kind: 'asset', asset: 'building', position: [room.center[0], .12, room.center[1]], label: hall ? `${room.name} · 32 racks` : room.name, selectable: true,
-      building: { size: [room.size[0], 4.2, room.size[1]], view: 'open', colors: { floor: hall ? '#d8e2e8' : room.kind === 'power' || room.kind === 'battery' ? '#d4d5e3' : room.kind === 'network' ? '#c8d9e2' : '#d6dfd5', wall: '#a7b7c6' } } });
+    nodes.push({ id: room.id, entityId: room.id.toUpperCase(), kind: 'asset', asset: 'building', position: [room.center[0], .12, room.center[1]], label: hall ? `${room.name} · 32 racks` : room.name, selectable: true, view: 'open',
+      building: { size: [room.size[0], 4.2, room.size[1]], colors: { floor: hall ? '#d8e2e8' : room.kind === 'power' || room.kind === 'battery' ? '#d4d5e3' : room.kind === 'network' ? '#c8d9e2' : '#d6dfd5', wall: '#a7b7c6' } } });
     if (hall) {
       for (const z of [-2.43, 2.43]) {
         nodes.push({ id: `${room.id}-cold-${z}`, parentId: room.id, kind: 'zone', size: [9.6, 1.8], position: [-2.7, .04, z], color: '#69afc7' });

@@ -1,9 +1,9 @@
-import { bindBuildingInterior, createSceneStore, type BuildingLoadState, type SceneDefinition, type SceneNode, type SceneStore } from '@opsorama/core';
+import { bindChildren, createSceneStore, type ChildrenLoadState, type SceneDefinition, type SceneNode, type SceneStore } from '@opsorama/core';
 
 export const buildingDefinition: SceneDefinition = { schemaVersion: 1, nodes: [
   { id: 'ground', kind: 'ground', size: [26, 13] },
-  { id: 'workshop', kind: 'asset', asset: 'building', position: [-6, 0, 0], rotation: [0, -.15, 0], label: 'Workshop', selectable: true, building: { type: 'workshop', size: [8, 3.6, 6], peekOnHover: true } },
-  { id: 'office', kind: 'asset', asset: 'building', position: [6, 0, 0], rotation: [0, .2, 0], label: 'Office', selectable: true, building: { type: 'office', size: [8, 3.2, 6], peekOnHover: true, colors: { roof: '#487e74' } } },
+  { id: 'workshop', kind: 'asset', asset: 'building', position: [-6, 0, 0], rotation: [0, -.15, 0], label: 'Workshop', selectable: true, peekOnHover: true, building: { type: 'workshop', size: [8, 3.6, 6] } },
+  { id: 'office', kind: 'asset', asset: 'building', position: [6, 0, 0], rotation: [0, .2, 0], label: 'Office', selectable: true, peekOnHover: true, building: { type: 'office', size: [8, 3.2, 6], colors: { roof: '#487e74' } } },
 ] };
 /** Fictional visual fixtures; no inventory, bookings or people identities are inferred. */
 export function buildingContents(id: 'workshop' | 'office'): readonly SceneNode[] {
@@ -18,10 +18,10 @@ export function buildingContents(id: 'workshop' | 'office'): readonly SceneNode[
   ];
 }
 export interface BuildingSession { store: SceneStore; dispose(): void; }
-export type BuildingStateCallback = (id: 'workshop' | 'office', state: BuildingLoadState, error?: Error) => void;
+export type BuildingStateCallback = (id: 'workshop' | 'office', state: ChildrenLoadState, error?: Error) => void;
 export function makeBuildingSession(onState: BuildingStateCallback) {
   const store = createSceneStore(buildingDefinition, { motion: false, shadows: false, zoom: 1.2 });
-  const unbind = (['workshop', 'office'] as const).map(id => bindBuildingInterior(store, id, signal => new Promise((resolve, reject) => {
+  const unbind = (['workshop', 'office'] as const).map(id => bindChildren(store, id, signal => new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(new Error('Loading cancelled.')); };
     const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(buildingContents(id)); }, 350);
     signal.addEventListener('abort', abort, { once: true });
