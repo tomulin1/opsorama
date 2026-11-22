@@ -11,7 +11,7 @@ Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source t
 - **161 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
 - **One renderer** for every framework, with selection, labels, markers, camera control, motion, instancing and explicit disposal.
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
-- **Made for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama).
+- **Built for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama). A scene schema, headless checks and agent tools are [planned](docs/PROJECT_VISION.md#building-with-ai-agents).
 
 Four of the [domain examples on opsorama.dev](https://opsorama.dev/examples), with fictional data:
 

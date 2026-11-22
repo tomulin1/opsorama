@@ -6,7 +6,7 @@ Recorded: **October 8, 2026**. The name **Opsorama** and local `@opsorama/*` nam
 
 Build an open-source, framework-agnostic toolkit for declarative, data-driven 3D scenes in web applications. Its flagship use is a complete animated operational “game board” embedded in an existing administration interface. The first official integrations will support **React and Vue**. Developers must be able to connect their own data, use their own HTML interface, add objects, and customize behavior without modifying the library's core.
 
-The toolkit is designed to be built and used with AI coding agents. Its logic, architecture, APIs and documentation must be explicit enough that an agent reading only the repository can choose the right building blocks, compose a dashboard and verify it.
+Building with AI coding agents is a key pillar: the toolkit is designed to be built and used with AI coding agents, and an agent should be able to create a working scene, dashboard, game or visualization with it reliably. Its logic, architecture, APIs and documentation must be explicit enough that an agent reading only the repository can choose the right building blocks, compose a dashboard and verify it.
 
 The spatial scene should improve awareness of status, relationships, workflows, and problems. It should serve e-commerce, logistics, HR, and other domains. The strategy-game inspiration applies to spatial navigation, object selection, progressive detail, and animated changes; the result should remain a credible professional tool.
 
@@ -19,6 +19,18 @@ The same scene model, renderer, catalog and adapters serve three kinds of use:
 3. **Spatial visualizations:** process maps, networks, 3D charts and flows.
 
 Out of scope: action and physics-driven games, large geospatial datasets, photorealistic rendering and product configurators. Opsorama does not try to be a general game engine or a geospatial framework; its strengths are a ready object catalog, data binding, the same API in React, Vue and plain JavaScript, and contracts that AI agents can read.
+
+## Building with AI agents
+
+Agent support applies to every target use and is part of every capability, not an add-on. Available now: typed declarative contracts, type-checked package README examples, an agent skill (`skills/opsorama`), `llms.txt` / `llms-full.txt` on the website and the machine-readable object catalog `@opsorama/objects/catalog.json`. Planned:
+
+- a published JSON Schema for scene definitions and a validator that reports every problem with its location and a suggested fix;
+- verification without a browser: a command-line check of scene files and a headless render to an image, so an agent can check structure and appearance;
+- agent tools (an MCP server) for catalog search, object options, scene validation and previews;
+- project templates with agent instructions, and skills for games and visualizations once those uses are supported;
+- agent evaluations: a fixed task set run with current coding agents from the published documentation, with results reported per release for the named agents and dates.
+
+A capability is complete only when the skill, `llms.txt`, the catalog and the schema cover it.
 
 Dashboards are fully supported today. Games and visualizations need the engine capabilities listed in the [roadmap](ROADMAP.md) (cameras, primitives, a frame hook, pointer events, plugins, glTF), which follow the first release.
 
@@ -47,7 +59,7 @@ Target for the first public release: a developer with basic React or Vue knowled
 - **Motion communicates change:** paths, transfers, queues, and handoffs should have understandable meanings.
 - **3D and HTML work together:** the scene shows space and relationships; precise text, forms, and tables remain in the DOM.
 - **Respect the host application:** embedding does not require replacing its router, state library, authentication, or design system.
-- **Readable by AI agents:** typed, declarative contracts, descriptive names, one obvious way per task, documented defaults and limits, actionable errors and complete runnable examples. Docs, decisions and code stay consistent so an agent never has to guess which is current.
+- **Built with AI agents:** typed, declarative contracts, descriptive names, one obvious way per task, documented defaults and limits, actionable errors and complete runnable examples. Docs, decisions and code stay consistent so an agent never has to guess which is current.
 - **Documentation evolves with the API:** a component is complete only when it has a definition, example, edge cases, and relevant verification.
 - **Visual quality is functional:** calm materials, readable hierarchy, useful camera behavior, clear states, and working interactions matter.
 - **One toolkit, many domains and uses:** generic elements belong in shared layers; warehouse models, vehicles, team-capacity assets and domain rules such as handling compatibility belong in optional packages. The core scene model does not change when a catalog model or a domain is added.

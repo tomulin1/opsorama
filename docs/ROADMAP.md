@@ -17,7 +17,7 @@ Opsorama is pre-release. This page lists what is implemented, what comes before 
 
 ## Direction
 
-Opsorama is a toolkit for declarative 3D scenes in web applications. Operational dashboards are the flagship use; management games, interactive explainers and spatial visualizations are further target uses (see the [project vision](PROJECT_VISION.md#target-uses)).
+Opsorama is a toolkit for declarative 3D scenes in web applications that AI coding agents can build with reliably. Operational dashboards are the flagship use; management games, interactive explainers and spatial visualizations are further target uses (see the [project vision](PROJECT_VISION.md#target-uses)).
 
 ## Before the first release (0.1)
 
@@ -29,7 +29,8 @@ Opsorama is a toolkit for declarative 3D scenes in web applications. Operational
 - **Engine API (0.2):** perspective, orbit and follow cameras with animated transitions and camera paths, a public camera API, touch gestures, primitive nodes (box, sphere, cylinder, line, 3D text, billboard), a group node, a public frame hook, pointer events on nodes and a renderer plugin API.
 - **Content (0.3):** glTF/GLB models with instancing and disposal, textures and sprites, lighting and environment presets, optional post-processing (outline, bloom) and quality profiles, including a lighter profile for large scenes.
 - **Showcases beyond dashboards:** a small management game and a visualization built from the same building blocks. Dedicated visualization or game packages are considered only after these showcases.
-- **Reach:** a Web Component adapter for other frameworks, a project scaffolder, a scene editor producing scene JSON, devtools and screenshot or video export.
+- **Building with AI agents:** a JSON Schema for scene definitions and a validator with located, actionable errors (with 0.2), a command-line scene check and headless rendering to an image, an MCP server with catalog search, validation and previews, and agent evaluations reported per release. Every new capability also updates the agent skill, `llms.txt` and the catalog.
+- **Reach:** a Web Component adapter for other frameworks, a project scaffolder with agent instructions in its templates, a scene editor producing scene JSON, devtools and video export.
 - Real host integrations and read-only connectors to external data sources.
 - Streaming data contracts and grouped composition.
 - `1.0` once pilot use has shown that the contracts are stable.
