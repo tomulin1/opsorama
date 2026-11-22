@@ -104,3 +104,56 @@ describe('camera drag input in perspective and with controls none', () => {
     canvas.send('pointermove', { clientX: 330 }); expect(target.x).not.toBeCloseTo(5, 3); pan.dispose();
   });
 });
+
+describe('mouse orbit', () => {
+  function orbitSetup(orbitEnabled = true) {
+    const canvas = new TestCanvas(), camera = new OrthographicCamera(-300, 300, 200, -200, .1, 150);
+    camera.position.set(16, 22, 30); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);
+    const target = new Vector3(), angles = { yaw: 0, pitch: .5 }, starts: string[] = [];
+    let enabled = orbitEnabled;
+    const click = vi.fn();
+    const pan = bindCameraPan(canvas as unknown as HTMLCanvasElement, camera, {
+      getTarget: () => target, setTarget: value => { target.copy(value); }, onClick: click, onHover: vi.fn(),
+      canOrbit: () => enabled, orbit: (yaw, pitch) => { angles.yaw += yaw; angles.pitch += pitch; },
+      onDragStart: mode => { starts.push(mode); return false; },
+    });
+    return { canvas, target, angles, starts, pan, click, enable: (value: boolean) => { enabled = value; } };
+  }
+  it('orbits with a right-button drag in steps of the pointer movement, half a turn per viewport height', () => {
+    const { canvas, target, angles, starts, pan, click } = orbitSetup();
+    canvas.send('pointerdown', { button: 2, buttons: 2 });
+    canvas.send('pointermove', { buttons: 2, clientX: 303 }); expect(angles.yaw).toBe(0);
+    canvas.send('pointermove', { buttons: 2, clientX: 340, clientY: 220 });
+    expect(angles.yaw).toBeCloseTo(-40 * Math.PI / 400, 12); expect(angles.pitch).toBeCloseTo(.5 + 20 * Math.PI / 400, 12);
+    canvas.send('pointermove', { buttons: 2, clientX: 300, clientY: 220 });
+    expect(angles.yaw).toBeCloseTo(0, 12); expect(target.length()).toBe(0); expect(starts).toEqual(['orbit']);
+    expect(canvas.style.cursor).toBe('grabbing');
+    canvas.send('pointerup', { button: 2, buttons: 0 }); expect(click).not.toHaveBeenCalled(); expect(canvas.captured.size).toBe(0); pan.dispose();
+  });
+  it('orbits with Ctrl and the primary button, and a Ctrl click without movement still selects', () => {
+    const { canvas, target, angles, pan, click } = orbitSetup();
+    canvas.send('pointerdown', { ctrlKey: true }); canvas.send('pointermove', { clientX: 400 }); canvas.send('pointerup');
+    expect(angles.yaw).toBeCloseTo(-100 * Math.PI / 400, 12); expect(target.length()).toBe(0); expect(click).not.toHaveBeenCalled();
+    canvas.send('pointerdown', { ctrlKey: true }); canvas.send('pointerup'); expect(click).toHaveBeenCalledTimes(1);
+    // A plain primary drag still pans with orbit controls.
+    canvas.send('pointerdown'); canvas.send('pointermove', { clientX: 400 }); canvas.send('pointerup');
+    expect(target.length()).toBeGreaterThan(0); pan.dispose();
+  });
+  it('suppresses the context menu only while orbit is enabled; without it right drags do nothing and Ctrl drags pan', () => {
+    const { canvas, target, angles, pan, enable } = orbitSetup();
+    const menu = () => { const event = new Event('contextmenu', { cancelable: true }); canvas.dispatchEvent(event); return event.defaultPrevented; };
+    expect(menu()).toBe(true);
+    enable(false); expect(menu()).toBe(false);
+    canvas.send('pointerdown', { button: 2, buttons: 2 }); canvas.send('pointermove', { buttons: 2, clientX: 400 }); canvas.send('pointerup', { button: 2 });
+    expect(angles).toEqual({ yaw: 0, pitch: .5 }); expect(target.length()).toBe(0);
+    canvas.send('pointerdown', { ctrlKey: true }); canvas.send('pointermove', { clientX: 400 }); canvas.send('pointerup');
+    expect(angles).toEqual({ yaw: 0, pitch: .5 }); expect(target.length()).toBeGreaterThan(0);
+    pan.dispose(); enable(true); expect(menu()).toBe(false);
+  });
+  it('ends an orbit when the right button is no longer reported', () => {
+    const { canvas, angles, pan } = orbitSetup();
+    canvas.send('pointerdown', { button: 2, buttons: 2 }); canvas.send('pointermove', { buttons: 2, clientX: 340 });
+    const yaw = angles.yaw; canvas.send('pointermove', { buttons: 1, clientX: 380 });
+    expect(angles.yaw).toBe(yaw); expect(canvas.captured.size).toBe(0); pan.dispose();
+  });
+});

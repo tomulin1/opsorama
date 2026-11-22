@@ -1,5 +1,5 @@
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
-import type { CameraEasing, CameraProjection, SceneNode, Vec3 } from '@opsorama/core';
+import { CAMERA_PITCH_RANGE, type CameraEasing, type CameraProjection, type SceneNode, type Vec3 } from '@opsorama/core';
 
 /**
  * Pure camera math of the scene renderer: no DOM, no store and no renderer state, so every number is unit-tested.
@@ -134,4 +134,39 @@ export function interpolatePose(from: CameraPose, to: CameraPose, k: number): Ca
 /** Share of the remaining distance the default glide covers in `dt` seconds; 1 (a cut) with reduced motion. */
 export function glideStep(dt: number, reducedMotion: boolean): number {
   return reducedMotion ? 1 : 1 - Math.exp(-dt * GLIDE_RATE);
+}
+
+/** Radians a mouse orbit turns per viewport height dragged: half a turn of yaw, or the whole pitch range and more. */
+export const ORBIT_RADIANS_PER_HEIGHT = Math.PI;
+/**
+ * Yaw and pitch change in radians for a pointer move of `dx`, `dy` CSS pixels on a viewport `height` pixels tall. Dragging
+ * right turns the scene right (yaw decreases); dragging down raises the camera (pitch increases). Clamp the new pitch with
+ * `clampPitch`.
+ */
+export function orbitDelta(dx: number, dy: number, height: number): { yaw: number; pitch: number } {
+  const scale = ORBIT_RADIANS_PER_HEIGHT / Math.max(1, height);
+  return { yaw: -dx * scale, pitch: dy * scale };
+}
+/** A pitch within `CAMERA_PITCH_RANGE`. */
+export function clampPitch(pitch: number): number {
+  return Math.min(CAMERA_PITCH_RANGE.max, Math.max(CAMERA_PITCH_RANGE.min, pitch));
+}
+
+/** Rate per second at which a `behind` follow turns the yaw toward the node's heading (1 − e^(−rate·dt) per frame). */
+export const FOLLOW_TURN_RATE = 2.5;
+/**
+ * Yaw of a `behind` follow after `dt` seconds: from `current` toward the view from behind a node heading `heading`
+ * (radians, 0 = facing +Z), the shorter way round, plus `offset` (an orbit around the followed node). With reduced motion
+ * it snaps, so a turning node never makes the view drift or jitter.
+ */
+export function followYaw(current: number, heading: number, offset: number, dt: number, reducedMotion: boolean): number {
+  const step = reducedMotion ? 1 : 1 - Math.exp(-dt * FOLLOW_TURN_RATE);
+  return current + normalizeAngle(heading + Math.PI + offset - current) * step;
+}
+/**
+ * Extent (scale at zoom 1) at which a perspective camera with `fov` degrees on a viewport of `aspect` stands `distance`
+ * metres from its target at `zoom`. The orthographic camera at this extent shows the same area at the target.
+ */
+export function followExtent(distance: number, zoom: number, aspect: number, fov: number): number {
+  return distance * zoom / fitDistance(1, aspect, fov);
 }

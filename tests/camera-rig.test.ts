@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { DEFAULT_CAMERA_SETTINGS, type SceneNode } from '@opsorama/core';
-import { applyOrthographic, applyPerspective, DEFAULT_CAMERA_OFFSET, ease, fitBounds, fitDistance, fitExtent, frameTarget, glideStep, groundExtent, groundTarget, interpolatePose, normalizeAngle, orthographicZoom, viewAngles, viewDirection, type CameraPose } from '../packages/three/src/camera-rig';
+import { applyOrthographic, applyPerspective, clampPitch, DEFAULT_CAMERA_OFFSET, ease, fitBounds, fitDistance, fitExtent, FOLLOW_TURN_RATE, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundTarget, interpolatePose, normalizeAngle, orbitDelta, orthographicZoom, viewAngles, viewDirection, type CameraPose } from '../packages/three/src/camera-rig';
 
 // Numbers pinned from the renderer before the camera math moved into camera-rig.ts: an OrthographicCamera at
 // target + (16, 22, 30) looking at the target, camera.zoom = min(w / (34·extent), h / (21·extent)) · zoom.
@@ -92,5 +92,30 @@ describe('camera transitions', () => {
     expect(middle.zoom).toBeCloseTo(2, 12); expect(middle.extent).toBeCloseTo(.5, 12);
     expect(interpolatePose(from, to, 1).target).toEqual([10, 2, -4]);
     expect(normalizeAngle(-Math.PI)).toBe(Math.PI); expect(normalizeAngle(7)).toBeCloseTo(7 - 2 * Math.PI, 12);
+  });
+});
+
+describe('orbit and follow math', () => {
+  it('turns half a turn of yaw per viewport height and clamps pitch to its range', () => {
+    expect(orbitDelta(100, 0, 400).yaw).toBeCloseTo(-Math.PI / 4, 12); expect(orbitDelta(0, -200, 400).pitch).toBeCloseTo(-Math.PI / 2, 12);
+    expect(orbitDelta(10, 10, 0)).toEqual({ yaw: -10 * Math.PI, pitch: 10 * Math.PI });
+    expect(clampPitch(2)).toBe(1.55); expect(clampPitch(-1)).toBe(.05); expect(clampPitch(.7)).toBe(.7);
+  });
+  it('turns a behind follow toward the view from behind the node, the shorter way round, and snaps with reduced motion', () => {
+    // A node heading +X (yaw π/2) is seen from behind at camera yaw −π/2 (the camera sits on −X).
+    expect(normalizeAngle(followYaw(0, Math.PI / 2, 0, 1, true))).toBeCloseTo(-Math.PI / 2, 12);
+    const step = followYaw(0, Math.PI / 2, 0, .1, false);
+    expect(step).toBeCloseTo(-Math.PI / 2 * (1 - Math.exp(-.1 * FOLLOW_TURN_RATE)), 12);
+    // From yaw 3 toward −3 (heading 0.1416…) it turns forward through π, not back through 0.
+    expect(followYaw(3, -3 - Math.PI, 0, .1, false)).toBeGreaterThan(3);
+    // An orbit offset is kept; a node that keeps its heading is held without drift.
+    expect(normalizeAngle(followYaw(0, 0, .4, 1, true))).toBeCloseTo(normalizeAngle(Math.PI + .4), 12);
+    let yaw = Math.PI; for (let frame = 0; frame < 120; frame++) yaw = followYaw(yaw, 0, 0, 1 / 60, false);
+    expect(normalizeAngle(yaw)).toBeCloseTo(Math.PI, 12);
+  });
+  it('places a perspective camera the follow distance from its target', () => {
+    const extent = followExtent(25, 1.5, 1200 / 700, 30), camera = new PerspectiveCamera();
+    applyPerspective(camera, { target: [3, 0, 4], yaw, pitch, zoom: 1.5, extent }, { width: 1200, height: 700, fov: 30, radius: 20 });
+    expect(camera.position.distanceTo(new Vector3(3, 0, 4))).toBeCloseTo(25, 10);
   });
 });

@@ -1,6 +1,6 @@
 # @opsorama/three
 
-The Opsorama renderer: one Three.js scene renderer for every framework, with orthographic and perspective cameras, timed camera transitions, framing, panning and wheel zoom, labels and markers, selection styles, motion playback, shadows, static merging, instancing and explicit disposal. It ships **no models**: you pass an asset registry, usually kits from `@opsorama/objects`.
+The Opsorama renderer: one Three.js scene renderer for every framework, with orthographic and perspective cameras, timed camera transitions, orbit, following a node, camera paths, framing, panning and wheel zoom, labels and markers, selection styles, motion playback, shadows, static merging, instancing and explicit disposal. It ships **no models**: you pass an asset registry, usually kits from `@opsorama/objects`.
 
 ## Install
 
@@ -51,6 +51,15 @@ await renderer.loaded;
 const result = await renderer.frame('truck', { fit: true, transition: { seconds: 1 } });
 if (result === 'completed') await renderer.setCameraView({ yaw: Math.PI / 4 }, { seconds: 0.8, easing: 'linear' });
 await renderer.overview({ transition: {} });
+
+// Orbit with a right drag or Ctrl + drag, keep the camera behind the truck, then play a path (which ends the follow).
+store.configure({ camera: { ...store.getSnapshot().settings.camera, controls: 'orbit' } });
+const following = renderer.followNode('truck', { heading: 'behind', distance: 15 });
+const tour = renderer.playCameraPath({ keyframes: [
+  { frame: { nodeId: 'truck', fit: true }, view: { yaw: Math.PI / 2 }, seconds: 1.5, hold: 1 },
+  { view: { target: [0, 0, 0], yaw: 0.49, zoom: 1 }, seconds: 1.5, easing: 'linear' },
+] });
+console.log(await following, await tour.finished); // 'interrupted', then 'completed' (or 'interrupted' after tour.stop())
 stop();
 ```
 
@@ -58,6 +67,9 @@ stop();
 - `frame(id, { fit?, transition? })` and `overview({ transition? })` move on the transition's timing when given one and behave as before without. Every move resolves `'completed'` or `'interrupted'`.
 - Transitions run on real time. Reduced motion, `motion: false` and the initial load make them cuts; a drag, another move, clearing the selection or a zoom change from elsewhere interrupts them.
 - `onCameraChange` calls its listener at most once per rendered frame while the view changes. Labels behind the perspective camera are hidden.
+- With `controls: 'orbit'`, a right-button drag or a Ctrl + primary-button drag turns the view around its target (yaw, and pitch within 0.05–1.55); a primary drag still pans and the context menu is suppressed only while orbit is set. The canvas takes no keyboard focus, so give keyboard users host controls that call `setCameraView`.
+- `followNode(id | null, { distance?, heading? })` keeps the target on a node every frame (routes, controllers and carriers included); `heading: 'behind'` also turns the yaw, smoothed, behind the node. A pan or another camera move ends it (`'interrupted'`), an orbit keeps it, removing or hiding the node ends it (`'removed'`), and `followNode(null)` ends it (`'stopped'`); the promise resolves with that reason. `getFollowedNode()` returns the followed ID.
+- `playCameraPath(path)` plays `CameraKeyframe`s (a view and/or a framed node, travel `seconds`, `hold`, `easing`, `loop`) on real seconds and returns `{ stop(), finished }`. Reduced motion and `motion: false` cut to each keyframe at its time; a drag, `frame`, `overview`, `setCameraView`, `followNode`, an outside zoom change or a new path interrupts it.
 
 ### Node preview
 

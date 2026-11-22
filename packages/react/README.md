@@ -59,6 +59,34 @@ export function CameraButton({ nodeId }: { nodeId: string }) {
 }
 ```
 
+Following a node and camera paths are renderer methods; call them through `useSceneRenderer()` and keep the returned promise or playback for state and stopping:
+
+```tsx
+import { useState } from 'react';
+import type { CameraPath } from '@opsorama/core';
+import type { CameraPathPlayback } from '@opsorama/three';
+import { useSceneRenderer } from '@opsorama/react';
+
+export function TourButtons({ nodeId, tour }: { nodeId: string; tour: CameraPath }) {
+  const renderer = useSceneRenderer();
+  const [following, setFollowing] = useState(false), [playback, setPlayback] = useState<CameraPathPlayback | null>(null);
+  const follow = () => {
+    if (!renderer) return;
+    setFollowing(true);
+    void renderer.followNode(nodeId, { heading: 'behind' }).then(() => setFollowing(renderer.getFollowedNode() !== null));
+  };
+  const play = () => {
+    const next = renderer?.playCameraPath(tour) ?? null;
+    setPlayback(next); void next?.finished.then(() => setPlayback(current => current === next ? null : current));
+  };
+  return <>
+    <button disabled={!renderer} onClick={follow}>{following ? 'Following' : 'Follow'} {nodeId}</button>
+    <button disabled={!renderer} onClick={play}>Play tour</button>
+    <button disabled={!playback} onClick={() => playback?.stop()}>Stop tour</button>
+  </>;
+}
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

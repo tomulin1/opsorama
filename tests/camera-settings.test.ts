@@ -3,7 +3,7 @@ import { createElement, type FunctionComponent, type ReactNode } from 'react';
 import { renderToString as renderReact } from 'react-dom/server';
 import { createSSRApp, defineComponent, h } from 'vue';
 import { renderToString as renderVue } from 'vue/server-renderer';
-import { CAMERA_CONTROLS, CAMERA_PROJECTIONS, createSceneStore, DEFAULT_CAMERA_SETTINGS, DEFAULT_SETTINGS, SETTING_DEFINITIONS, validateCameraTransition, validateCameraView, type CameraSettings, type SceneStore } from '@opsorama/core';
+import { CAMERA_CONTROLS, CAMERA_PROJECTIONS, createSceneStore, DEFAULT_CAMERA_SETTINGS, DEFAULT_SETTINGS, SETTING_DEFINITIONS, validateCameraFollow, validateCameraTransition, validateCameraView, type CameraSettings, type SceneStore } from '@opsorama/core';
 import { createRendererSlot, type SceneRenderer } from '@opsorama/three';
 import { DashboardProvider as ReactProvider, useCameraView as useReactCameraView, useSceneRenderer as useReactRenderer } from '@opsorama/react';
 // Vue composables, aliased so the React hook lint rules do not apply to them.
@@ -15,7 +15,7 @@ describe('camera settings', () => {
     expect(DEFAULT_CAMERA_SETTINGS).toEqual({ projection: 'orthographic', controls: 'pan', fov: 30, yaw: Math.atan2(16, 30), pitch: Math.atan2(22, 34), overview: 'ground', frameOnSelect: true });
     expect(createSceneStore().getSnapshot().settings.camera).toEqual(DEFAULT_CAMERA_SETTINGS);
     expect(SETTING_DEFINITIONS.camera.type).toBe('CameraSettings');
-    expect(CAMERA_PROJECTIONS).toEqual(['orthographic', 'perspective']); expect(CAMERA_CONTROLS).toEqual(['pan', 'none']);
+    expect(CAMERA_PROJECTIONS).toEqual(['orthographic', 'perspective']); expect(CAMERA_CONTROLS).toEqual(['pan', 'orbit', 'none']);
   });
   it('resets omitted camera fields to their defaults when camera is replaced, like palette', () => {
     const store = createSceneStore(undefined, { camera: { projection: 'perspective', fov: 50 } });
@@ -32,7 +32,7 @@ describe('camera settings', () => {
   });
   it.each<[unknown, string]>([
     [{ projection: 'isometric' }, 'Use orthographic or perspective'],
-    [{ controls: 'orbit' }, 'Use pan or none'],
+    [{ controls: 'rotate' }, 'Unknown camera controls: rotate. Use pan, orbit or none.'],
     [{ overview: 'all' }, 'Use ground or bounds'],
     [{ fov: 10 }, 'between 20 and 75'],
     [{ fov: Number.NaN }, 'between 20 and 75'],
@@ -59,6 +59,11 @@ describe('camera settings', () => {
     expect(() => validateCameraTransition({ seconds: 11 })).toThrow('between 0 and 10; 0 is a cut');
     expect(() => validateCameraTransition({ easing: 'bounce' as never })).toThrow('Use linear or ease-in-out');
     expect(() => validateCameraTransition({ duration: 1 } as never)).toThrow('Use seconds or easing');
+    expect(() => validateCameraFollow({ distance: 20, heading: 'behind' })).not.toThrow(); expect(() => validateCameraFollow({})).not.toThrow();
+    expect(() => validateCameraFollow({ distance: .5 })).toThrow('Follow distance must be metres between 1 and 1000');
+    expect(() => validateCameraFollow({ heading: 'ahead' } as never)).toThrow('Unknown follow heading: ahead. Use fixed or behind.');
+    expect(() => validateCameraFollow({ offset: 2 } as never)).toThrow('Unknown follow option offset. Use distance or heading.');
+    expect(() => validateCameraFollow(null as never)).toThrow('Follow options must be an object');
   });
 });
 
