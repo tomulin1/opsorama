@@ -3,14 +3,14 @@ import type { CameraFollowEnd, CameraFollowHeading, CameraFollowOptions, CameraK
 import { DEFAULT_CAMERA_TRANSITION, validateCameraFollow, validateCameraPath, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
 import { applyOrthographic, applyPerspective, clampPitch, ease, fitBounds, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
 import { createCameraPathPlayer } from './camera-path';
-import { assetFactory, disposeObject, type AssetRegistry } from './assets';
+import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
 import { bindCameraGestures } from './gestures';
 import { bindWheelZoom } from './wheel-zoom';
 import { startTransfer, advanceTransfer, type TransferState } from './transfer';
 import { createRouteFollower, createControllerSlot, basicControllers, type ControllerContext, type ControllerOutput, type ControllerRegistry, type ControllerSlot, type RouteFollower, type RouteSample } from '@opsorama/core';
-import { interiorAreas, isContained, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
+import { interiorAreas, isContained, isMotionNode, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
 import { applyShadowPolicy } from './shadows';
 import { mergeStaticParts } from './static-merge';
 import { createInstanceBatcher } from './instancing';
@@ -18,13 +18,13 @@ import { advanceCornerMarker, createCornerMarker, createGlowHighlight, selection
 import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
 import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
-import { buildPrimitive } from './primitives';
+import { buildNodeObject, contentBounds } from './nodes';
 import { createFrameClock, validateFrameListener, type FrameListenerOptions, type SceneFrame } from './frame-clock';
-import { createScenePointerEvent, hoverTransitions, resolvePointerTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
+import { createScenePointerEvent, hoverTransitions, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
 import { setupRendererPlugins, validateRendererPlugins, type PluginHost, type RendererPlugin } from './plugins';
 export { createFrameClock, validateFrameListener, DEFAULT_MAX_FRAME_STEPS, FRAME_STEP_RANGE, MAX_FRAME_STEPS } from './frame-clock';
 export type { FrameClock, FrameClockState, FrameListenerOptions, SceneFrame } from './frame-clock';
-export { createScenePointerEvent, hoverTransitions, nearestNodeHit, nodeAncestors, resolvePointerTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
+export { createScenePointerEvent, hoverTransitions, nearestNodeHit, nodeAncestors, resolvePointerTarget, selectionTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
 export type { PointerInput, ScenePointerEvent, ScenePointerEventType, ScenePointerType } from './pointer';
 export { setupRendererPlugins, validateRendererPlugins } from './plugins';
 export type { PluginHost, RendererPlugin, RendererPluginContext } from './plugins';
@@ -51,7 +51,7 @@ export { animateAsset, setAssetAnimator, hasAssetAnimator, assetAnimatedParts, c
 export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-merge';
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
-export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void;
+export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`, and every shape and line node with its palette colors. Shape, line and group nodes need no registry entry. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void;
   /**
    * Pointer events on the scene: `down`, `up`, `click`, `enter`, `leave` and `move` (at most once per animation frame), with
    * the nearest node under the pointer (selectable or not, grounds included), its `parentId` ancestors, the world point (on
@@ -223,14 +223,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2(); const projected = new THREE.Vector3(); const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   // Child nodes own their resources independently of their container's shell.
   const cleanEntry = (entry: Entry) => { for (const child of entries.values()) if (child !== entry) { let parent = child.object.parent; while (parent && parent !== entry.object) parent = parent.parent; if (parent) child.object.removeFromParent(); } entry.object.removeFromParent(); entry.label?.remove(); instancing?.remove(entry.object); disposeObject(entry.object); };
-  function build(node: SceneNode): THREE.Object3D {
-    if (node.kind === 'asset') {
-      const factory = assetFactory(assets, node.asset); factory.validate?.(node);
-      return factory(node, { theme: store.getSnapshot().settings.theme, palette: store.getSnapshot().settings.palette });
-    }
-    if (node.kind === 'marker') return new THREE.Group();
-    return buildPrimitive(node);
-  }
+  const build = (node: SceneNode): THREE.Object3D => { const { theme, palette } = store.getSnapshot().settings; return buildNodeObject(node, { assets, theme, palette }); };
+  /** Whether a click or hover can mark the node: it is selectable, and it has geometry or is a group of other nodes. */
+  const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && (entry.node.entityId || entry.node.selectable)));
   function sync() {
     const snapshot = store.getSnapshot();
     // A new yaw or pitch setting turns the camera at once and keeps its target.
@@ -254,7 +249,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       // Placement is part of the signature: a carried node follows its carrier into or out of a container.
       // A later slice of an unchanged snapshot reuses the signatures of nodes an earlier slice built.
       const current = building && snapshot === sliceSnapshot && !sliceDeferred.has(node.id) ? entries.get(node.id) : undefined;
-      const contained = current ? current.contained : isContained(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, contained, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
+      const contained = current ? current.contained : isContained(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, contained, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' || node.kind === 'shape' || node.kind === 'line' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
       if (!entry || entry.signature !== signature) {
         // A child waits for a deferred parent or carrier, so it is never built against an old one.
         if (building && (deferred.has(node.parentId ?? '') || deferred.has(node.attachment?.nodeId ?? '') || !slice.allow())) { deferred.add(node.id); continue; }
@@ -262,11 +257,12 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         const object = build(node); applyShadowPolicy(object, { interior: contained }); mergeStaticParts(object);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
         const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
-        const bounds = node.kind !== 'marker' && (node.entityId || node.selectable) ? new THREE.Box3().setFromObject(object) : null;
+        // A group has no geometry of its own: its marker bounds are measured from its children when it is marked.
+        const bounds = node.kind !== 'marker' && node.kind !== 'group' && (node.entityId || node.selectable) ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
         // A transfer starts from the last rendered world pose; the old parent may already have been rebuilt in this sync.
-        const transfer = entry && !sameParent && node.kind === 'asset' && node.transfer ? startTransfer(entry.object, node.transfer) : undefined;
+        const transfer = entry && !sameParent && isMotionNode(node) && node.transfer ? startTransfer(entry.object, node.transfer) : undefined;
         if (entry) cleanEntry(entry);
         object.position.set(...(node.position || [0, 0, 0])); if (oldPosition) object.position.copy(oldPosition);
         if (node.rotation) object.rotation.set(...node.rotation); if (oldYaw !== undefined) object.rotation.y = oldYaw; if (node.scale) object.scale.set(...node.scale);
@@ -279,16 +275,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
       }
       entry.node = node; entry.target.set(...(node.position || [0, 0, 0]));
-      const route = node.kind === 'asset' ? node.route : undefined, wasFollowing = entry.follower.route !== null;
+      const route = isMotionNode(node) ? node.route : undefined, wasFollowing = entry.follower.route !== null;
       // A replacement joins from the follower's own pose, not the smoothed object position, so visual timing matches the simulation.
       entry.follower.assign(route, entry.follower.sample()?.position ?? entry.object.position.toArray());
       // A controller starts from the current visual pose and keeps it across model rebuilds; a failing spec is reported, not retried.
       const wasControlled = entry.controller.active;
-      if (node.kind === 'asset') try { entry.controller.assign(node, controllers); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
+      if (isMotionNode(node)) try { entry.controller.assign(node, controllers); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
       if (!route && !entry.controller.active && (snapshot.settings.paused || !snapshot.settings.motion || reducedMotion.matches)) entry.object.position.copy(entry.target);
       if ((wasFollowing || wasControlled) && !route && !entry.controller.active) { entry.moving = false; entry.object.rotation.set(...(node.rotation || [0, 0, 0])); }
       const emphasis = snapshot.selection?.nodeId === node.id ? 'selected' : hovered === node.id ? 'hovered' : null;
-      if (style === 'corners' && emphasis && entry.bounds && !entry.corners) { entry.corners = createCornerMarker(entry.bounds, typeof entry.object.userData.surfaceLevel === 'number' ? entry.object.userData.surfaceLevel : 0); entry.object.add(entry.corners.object); }
+      if (style === 'corners' && emphasis && entry.bounds && !entry.corners && node.kind !== 'group') { entry.corners = createCornerMarker(entry.bounds, typeof entry.object.userData.surfaceLevel === 'number' ? entry.object.userData.surfaceLevel : 0); entry.object.add(entry.corners.object); }
       if (entry.corners) showCornerMarker(entry.corners, style === 'corners' ? emphasis : null, selectionColor(node.state, snapshot.settings.palette));
       if (entry.label) { entry.label.hidden = !snapshot.settings.labels || (node.labelMode === 'active' && snapshot.selection?.nodeId !== node.id && hovered !== node.id); entry.label.classList.toggle('kit-node-selected', snapshot.selection?.nodeId === node.id); }
     }
@@ -308,7 +304,18 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
     if (follow && !entries.has(follow.id)) endFollow('removed');
     const selectedId = snapshot.selection?.nodeId || null;
-    for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && entry?.bounds ? entry.object : null, selectionColor(entry?.node.state, snapshot.settings.palette)); }
+    // A marked group is measured now that its children are in place; brackets follow a change of its contents.
+    if (style === 'corners') for (const id of new Set([selectedId, hovered])) {
+      const entry = id ? entries.get(id) : undefined;
+      if (!entry || entry.node.kind !== 'group' || !markable(entry)) continue;
+      const bounds = contentBounds(entry.object);
+      if (entry.corners && entry.bounds && !entry.bounds.equals(bounds)) { entry.corners.object.removeFromParent(); disposeObject(entry.corners.object); entry.corners = null; }
+      entry.bounds = bounds;
+      if (!entry.corners) { entry.corners = createCornerMarker(bounds, bounds.isEmpty() ? 0 : bounds.min.y); entry.object.add(entry.corners.object); }
+      showCornerMarker(entry.corners, id === selectedId ? 'selected' : 'hovered', selectionColor(entry.node.state, snapshot.settings.palette));
+    }
+    // A group's glow covers the meshes of the nodes inside it and is renewed on every sync, as they may have been rebuilt.
+    for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && markable(entry) ? entry!.object : null, selectionColor(entry?.node.state, snapshot.settings.palette), { descendants: entry?.node.kind === 'group' }); }
     if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); endFollow('interrupted'); target.copy(overviewTarget()); } } }
     if (building) {
       const total = visibleNodes.length;
@@ -474,10 +481,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     aim(event);
     return raycaster.intersectObjects([...entries.values()].filter(e => !e.node.parentId && !e.node.attachment).map(e => e.object), true).filter(hit => hit.object instanceof THREE.Mesh && (hit.object.visible || instancing?.isProxy(hit.object)));
   }
-  /** The node a click selects: the nearest hit when its node is selectable. */
+  /** The node a click selects: the nearest hit when its node is selectable, otherwise its nearest selectable group; see `selectionTarget`. */
   function selectableHit(hits: THREE.Intersection[]) {
-    const id = hits[0]?.object.userData.nodeId as string | undefined, node = id ? entries.get(id)?.node : undefined;
-    return node && (node.entityId || node.selectable) ? id : undefined;
+    const id = hits[0]?.object.userData.nodeId as string | undefined;
+    return id ? selectionTarget(id, getNode) : undefined;
   }
   function pick(event: PointerEvent) { return selectableHit(intersect(event)); }
   // Pointer events for `onPointer`: the nearest node of any kind and the world point, from the same ray as selection.

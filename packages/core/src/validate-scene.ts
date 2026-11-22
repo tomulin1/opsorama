@@ -4,6 +4,7 @@ import { MARKER_ICONS, MARKER_SHAPES, MARKER_SIZES, MARKER_TONES } from './marke
 import { NODE_VIEWS } from './containment';
 import { MAX_ROUTE_ACCELERATION, MAX_ROUTE_CORNER_RADIUS, MAX_ROUTE_POINTS, MAX_ROUTE_SPEED, MAX_ROUTE_STOP_SECONDS, MAX_ROUTE_TURN_RATE } from './route';
 import { collectProblems, pointer, type AddProblem, type SceneProblem } from './scene-problems';
+import { CONTAINER_NODE_KINDS, MAX_LINE_WIDTH, MOTION_NODE_KINDS, SHAPE_TYPES } from './shapes';
 
 /*
  * Problem collectors behind `validateScene` and every throwing `validate*` function of core. Each collector reports all
@@ -32,7 +33,7 @@ const typeName = (value: unknown) => value === null ? 'null' : Array.isArray(val
 
 /** Documented visual states; the schema test checks this list against `VisualState`. */
 const VISUAL_STATES = ['normal', 'busy', 'warning', 'critical', 'inactive'] as const;
-const NODE_KINDS = ['ground', 'zone', 'asset', 'path', 'marker'] as const;
+const NODE_KINDS = ['ground', 'zone', 'asset', 'path', 'marker', 'shape', 'line', 'group'] as const;
 const BASE_KEYS = ['id', 'kind', 'parentId', 'attachment', 'entityId', 'label', 'labelMode', 'position', 'rotation', 'scale', 'state', 'selectable'] as const;
 
 /**
@@ -45,6 +46,9 @@ export const NODE_KEYS: Readonly<Record<SceneNode['kind'], readonly string[]>> =
   asset: [...BASE_KEYS, 'asset', 'interior', 'localMotion', 'transfer', 'materials', 'view', 'peekOnHover', 'options', 'color', 'variant', 'count', 'multiplier', 'countLayout', 'footprint', 'route', 'controller'],
   path: [...BASE_KEYS, 'points', 'color'],
   marker: [...BASE_KEYS, 'shape', 'tone', 'icon', 'color', 'markerSize', 'eyebrow', 'detail', 'pulse'],
+  shape: [...BASE_KEYS, 'shape', 'color', 'opacity', 'route', 'controller', 'transfer'],
+  line: [...BASE_KEYS, 'points', 'color', 'width', 'dashed'],
+  group: [...BASE_KEYS, 'route', 'controller', 'transfer'],
 });
 /** Known keys of nested objects, named after their schema definitions. */
 export const NESTED_KEYS = /* @__PURE__ */ Object.freeze({
@@ -56,6 +60,9 @@ export const NESTED_KEYS = /* @__PURE__ */ Object.freeze({
   MotionProfile: ['acceleration', 'turnRate', 'turnInPlaceAngle', 'cornerSpeed', 'cornerRadius'],
   NodeController: ['kind', 'options'],
   MarkerCustomIcon: ['paths'],
+  BoxShape: ['type', 'size'],
+  SphereShape: ['type', 'radius'],
+  CylinderShape: ['type', 'radiusTop', 'radiusBottom', 'height'],
 } as const satisfies Record<string, readonly string[]>);
 
 /** Edit distance, for the nearest-key suggestion. */
@@ -213,15 +220,49 @@ export function markerChecks(node: Data, at: string, add: AddProblem): void {
   if (node.pulse !== undefined && typeof node.pulse !== 'boolean') fail('pulse', 'pulse must be a boolean.', 'Set pulse to true or false, or omit it for the tone default.');
 }
 
+const shapeFix = "Set shape to { type: 'box', size: [width, height, depth] }, { type: 'sphere', radius } or { type: 'cylinder', radiusTop, radiusBottom, height }, in metres.";
+const positive = (value: unknown) => isFiniteNumber(value) && value > 0;
+/** Checks `ShapeNode.shape`; `name` names the node in messages. */
+export function shapeChecks(value: unknown, at: string, add: AddProblem, name: string): void {
+  if (!isObject(value)) { add(at, 'shape', `Shape ${name} requires a shape object; received ${typeName(value)}.`, shapeFix); return; }
+  const type = value.type;
+  if (!SHAPE_TYPES.includes(type as never)) {
+    const near = typeof type === 'string' ? nearestKey(type, SHAPE_TYPES) : undefined;
+    add(pointer(at, 'type'), 'shape', `Unknown shape type for ${name}: ${type === undefined ? 'missing' : shown(type)}.`, `${near ? `Did you mean "${near}"? ` : ''}Set shape.type to ${SHAPE_TYPES.join(', ')}. ${shapeFix}`);
+    return;
+  }
+  if (type === 'box' && (!Array.isArray(value.size) || value.size.length !== 3 || !value.size.every(positive))) add(pointer(at, 'size'), 'shape', `Box ${name} requires a size of three positive finite dimensions in metres.`, `Set shape.size to [width, height, depth] in metres, each greater than 0 (received ${shown(value.size)}).`);
+  if (type === 'sphere' && !positive(value.radius)) add(pointer(at, 'radius'), 'shape', `Sphere ${name} requires a positive finite radius in metres.`, `Set shape.radius to metres greater than 0 (received ${shown(value.radius)}).`);
+  if (type === 'cylinder') {
+    const radii = (['radiusTop', 'radiusBottom'] as const).map(key => {
+      const radius = value[key], valid = isFiniteNumber(radius) && radius >= 0;
+      if (!valid) add(pointer(at, key), 'shape', `Cylinder ${name} requires ${key} of 0 or more finite metres.`, `Set shape.${key} to metres, 0 or more (0 makes a cone point) (received ${shown(radius)}).`);
+      return valid ? radius as number : undefined;
+    });
+    if (radii[0] === 0 && radii[1] === 0) add(pointer(at, 'radiusTop'), 'shape', `Cylinder ${name} needs a radius greater than 0; both radii are 0.`, 'Set radiusTop or radiusBottom (or both) greater than 0; a cylinder with two zero radii draws nothing.');
+    if (!positive(value.height)) add(pointer(at, 'height'), 'shape', `Cylinder ${name} requires a positive finite height in metres.`, `Set shape.height to metres greater than 0 (received ${shown(value.height)}).`);
+  }
+  const keys = type === 'box' ? NESTED_KEYS.BoxShape : type === 'sphere' ? NESTED_KEYS.SphereShape : NESTED_KEYS.CylinderShape;
+  checkKeys(value, keys, at, `a ${String(type)} shape`, add, () => false);
+}
+
+/** Checks the fields of a line node other than `color`. */
+export function lineChecks(node: Data, at: string, add: AddProblem, name: string): void {
+  if (!Array.isArray(node.points) || node.points.length < 2 || node.points.some(point => !isVec3(point))) add(pointer(at, 'points'), 'line-points', `Line ${name} requires at least two finite points.`, "Set points to two or more [x, y, z] arrays of finite numbers in metres, in the node's local coordinates.");
+  if (node.width !== undefined && !(isFiniteNumber(node.width) && node.width >= 0 && node.width <= MAX_LINE_WIDTH)) add(pointer(at, 'width'), 'line-width', `Line ${name} width must be from 0 to ${MAX_LINE_WIDTH} m.`, `Set width to a tube diameter in metres from 0 to ${MAX_LINE_WIDTH} (received ${shown(node.width)}); 0 or omitted draws a 1-pixel line.`);
+  if (node.dashed !== undefined && typeof node.dashed !== 'boolean') add(pointer(at, 'dashed'), 'field-type', `dashed of ${name} must be boolean.`, 'Set dashed to true or false, or omit it for a continuous line.');
+}
+
 export function interiorChecks(node: Data, at: string, add: AddProblem): void {
   const interior = node.interior, id = String(node.id);
   if (interior === undefined) return;
   const path = pointer(at, 'interior');
   if (typeof interior !== 'boolean') { add(path, 'interior', `interior on ${id} must be boolean.`, 'Set interior to true or false, or omit it.'); return; }
   if (!interior) return;
-  if (node.kind === 'path' || node.kind === 'marker') add(path, 'interior', `${node.kind === 'path' ? 'Path' : 'Marker'} ${id} cannot be an interior area; mark a ground, zone or sized surface asset instead.`, 'Remove interior from this node and set interior: true on the ground, zone or surface asset that covers the area.');
+  const area = node.kind === 'ground' || node.kind === 'zone' || node.kind === 'asset';
+  if (!area) add(path, 'interior', `${String(node.kind).charAt(0).toUpperCase()}${String(node.kind).slice(1)} ${id} cannot be an interior area; mark a ground, zone or sized surface asset instead.`, 'Remove interior from this node and set interior: true on the ground, zone or surface asset that covers the area.');
   else if (node.kind === 'asset' && node.footprint === undefined) add(path, 'interior', `Interior asset ${id} needs an explicit footprint; interior areas are only sized surfaces such as floor or terrain.`, 'Add footprint: [width, depth] to this surface asset, or remove interior.');
-  if (node.parentId !== undefined && (node.kind !== 'path' && node.kind !== 'marker')) add(path, 'interior', `Interior area ${id} must be a top-level node; nodes inside a container (parentId) are already indoor.`, 'Remove interior (the container already makes the node indoor) or remove parentId.');
+  if (node.parentId !== undefined && area) add(path, 'interior', `Interior area ${id} must be a top-level node; nodes inside a container (parentId) are already indoor.`, 'Remove interior (the container already makes the node indoor) or remove parentId.');
 }
 
 const JSON_LIKE = 'options must be plain JSON-like data (objects, arrays, strings, finite numbers, booleans, null)';
@@ -261,7 +302,7 @@ export function nodeProblems(node: unknown, at: string, { validateAsset }: Scene
     if (!known) add(field('kind'), 'node-kind', `Unknown scene node kind: ${kind === undefined ? 'missing' : String(kind)}.`, `${kindFix}${typeof kind === 'string' && nearestKey(kind, NODE_KINDS) ? ` Did you mean "${nearestKey(kind, NODE_KINDS)}"?` : ''}`);
     if (typeof node.id !== 'string') add(field('id'), 'node-id', `Scene node ${name} has no id; every node needs a nonempty string id.`, "Add a unique string id, for example id: 'zone-inbound'.");
     else if (!node.id.trim()) add(field('id'), 'node-id', 'Scene node ID must not be empty.', "Set id to a unique nonempty string, for example 'zone-inbound'.");
-    if (node.parentId !== undefined && (typeof node.parentId !== 'string' || !node.parentId.trim() || node.parentId === node.id)) add(field('parentId'), 'parent-id', `Invalid parent ID for ${name}: use the nonempty ID of another asset node.`, 'Set parentId to the id of the containing asset node, or remove it for a top-level node.');
+    if (node.parentId !== undefined && (typeof node.parentId !== 'string' || !node.parentId.trim() || node.parentId === node.id)) add(field('parentId'), 'parent-id', `Invalid parent ID for ${name}: use the nonempty ID of another asset or group node.`, 'Set parentId to the id of the containing asset or group node, or remove it for a top-level node.');
     if (node.entityId !== undefined && typeof node.entityId !== 'string') add(field('entityId'), 'field-type', `entityId of ${name} must be a string; received ${typeName(node.entityId)}.`, 'Set entityId to the string ID of your host record, for example String(order.id).');
     if (node.label !== undefined && kind !== 'marker' && typeof node.label !== 'string') add(field('label'), 'field-type', `label of ${name} must be a string; received ${typeName(node.label)}.`, 'Set label to display text, or omit it.');
     if (node.labelMode !== undefined && !['always', 'active'].includes(node.labelMode as string)) add(field('labelMode'), 'allowed-value', `Invalid label mode for ${name}.`, `Set labelMode to always or active (received ${shown(node.labelMode)}), or omit it.`);
@@ -273,8 +314,22 @@ export function nodeProblems(node: unknown, at: string, { validateAsset }: Scene
     if ((kind === 'ground' || kind === 'zone') && (!Array.isArray(node.size) || node.size.length !== 2 || node.size.some(value => !isFiniteNumber(value) || value <= 0))) add(field('size'), 'size', `Invalid size for ${name}.`, `Set size to [width, depth] in metres, both greater than 0 (received ${shown(node.size)}).`);
     if (known) interiorChecks(node, at, add);
     if (kind === 'marker') markerChecks(node, at, add);
-    if (known && kind !== 'asset' && node.route !== undefined) add(field('route'), 'motion-owner', `Only asset nodes can follow a route (${name}).`, 'Move the route to an asset node, or remove it.');
-    if (known && kind !== 'asset' && node.controller !== undefined) add(field('controller'), 'motion-owner', `Only asset nodes can have a controller (${name}).`, 'Move the controller to an asset node, or remove it.');
+    const motion = MOTION_NODE_KINDS.includes(kind as never);
+    if (known && !motion && node.route !== undefined) add(field('route'), 'motion-owner', `Only asset, shape and group nodes can follow a route (${name}).`, 'Move the route to an asset, shape or group node (a group moves everything inside it), or remove it.');
+    if (known && !motion && node.controller !== undefined) add(field('controller'), 'motion-owner', `Only asset, shape and group nodes can have a controller (${name}).`, 'Move the controller to an asset, shape or group node (a group moves everything inside it), or remove it.');
+    if (kind === 'shape') {
+      shapeChecks(node.shape, field('shape'), add, name);
+      if (node.opacity !== undefined && !(isFiniteNumber(node.opacity) && node.opacity >= 0 && node.opacity <= 1)) add(field('opacity'), 'opacity', `Opacity of ${name} must be from 0 to 1.`, `Set opacity to a number from 0 (invisible) to 1 (opaque) (received ${shown(node.opacity)}), or omit it for 1.`);
+    }
+    if (kind === 'line') lineChecks(node, at, add, name);
+    if (motion) {
+      if (node.route !== undefined) routeChecks(node.route, field('route'), add);
+      if (node.transfer !== undefined) transferChecks(node.transfer, field('transfer'), add);
+      if (isObject(node.transfer)) checkKeys(node.transfer, NESTED_KEYS.NodeTransfer, field('transfer'), 'a transfer', add, () => false);
+      if (node.controller !== undefined) controllerChecks(node.controller, field('controller'), add);
+      if (isObject(node.controller)) checkKeys(node.controller, NESTED_KEYS.NodeController, field('controller'), 'a controller', add, () => false);
+      if (node.route !== undefined && node.controller !== undefined) add(field('controller'), 'motion-owner', `${kind === 'asset' ? 'Asset' : kind === 'shape' ? 'Shape' : 'Group'} ${name} cannot have both a route and a controller.`, 'Keep either route (a fixed path) or controller (per-frame motion) and remove the other.');
+    }
     if (kind === 'asset') {
       if (!isNonEmpty(node.asset)) add(field('asset'), 'asset-name', `Missing asset for ${name}.`, "Set asset to the name of a registered model, for example a catalog asset name from @opsorama/objects (see catalog.json).");
       if (node.variant !== undefined && typeof node.variant !== 'string') add(field('variant'), 'field-type', `Invalid asset variant for ${name}.`, "Set variant to one of the model's variant names (a string), or omit it.");
@@ -288,12 +343,6 @@ export function nodeProblems(node: unknown, at: string, { validateAsset }: Scene
       if (node.peekOnHover !== undefined && typeof node.peekOnHover !== 'boolean') add(field('peekOnHover'), 'field-type', `peekOnHover of ${name} must be boolean.`, 'Set peekOnHover to true or false, or omit it.');
       if (node.countLayout !== undefined && !['compact', 'reserved'].includes(node.countLayout as string)) add(field('countLayout'), 'allowed-value', `Invalid count layout for ${name}.`, `Set countLayout to compact or reserved (received ${shown(node.countLayout)}), or omit it.`);
       if (node.footprint !== undefined) footprintChecks(node.footprint, field('footprint'), add);
-      if (node.route !== undefined) routeChecks(node.route, field('route'), add);
-      if (node.transfer !== undefined) transferChecks(node.transfer, field('transfer'), add);
-      if (isObject(node.transfer)) checkKeys(node.transfer, NESTED_KEYS.NodeTransfer, field('transfer'), 'a transfer', add, () => false);
-      if (node.controller !== undefined) controllerChecks(node.controller, field('controller'), add);
-      if (isObject(node.controller)) checkKeys(node.controller, NESTED_KEYS.NodeController, field('controller'), 'a controller', add, () => false);
-      if (node.route !== undefined && node.controller !== undefined) add(field('controller'), 'motion-owner', `Asset ${name} cannot have both a route and a controller.`, 'Keep either route (a fixed path) or controller (per-frame motion) and remove the other.');
       countChecks(node, at, add);
     }
   }, id);
@@ -320,7 +369,7 @@ export function nodeProblems(node: unknown, at: string, { validateAsset }: Scene
 
 const ids = (nodes: readonly unknown[]) => nodes.map(node => isObject(node) && typeof node.id === 'string' ? node.id : undefined);
 
-/** Parent graph: a parent must be an asset node, and parent chains must not form a cycle. Missing parents are dormant. */
+/** Parent graph: a parent must be an asset or group node, and parent chains must not form a cycle. Missing parents are dormant. */
 export function parentProblems(nodes: readonly unknown[], base: string): SceneProblem[] {
   const byId = new Map<string, Data>(); nodes.forEach(node => { if (isObject(node) && typeof node.id === 'string' && !byId.has(node.id)) byId.set(node.id, node); });
   return nodes.flatMap((node, index) => {
@@ -328,7 +377,7 @@ export function parentProblems(nodes: readonly unknown[], base: string): ScenePr
     const id = node.id, parentId = node.parentId;
     return collectProblems(add => {
       const parent = byId.get(parentId);
-      if (parent && parent.kind !== 'asset') add(pointer(base, index, 'parentId'), 'parent-kind', `Parent ${parentId} of ${id} must be an asset node; it is a ${String(parent.kind)} node. Only assets can contain children.`, `Set parentId to the id of an asset node, or remove it. To place ${id} on a ground or zone, give it world coordinates instead.`);
+      if (parent && !CONTAINER_NODE_KINDS.includes(parent.kind as never)) add(pointer(base, index, 'parentId'), 'parent-kind', `Parent ${parentId} of ${id} must be an asset or group node; it is a ${String(parent.kind)} node. Only assets and groups can contain children.`, `Set parentId to the id of an asset or group node, or remove it. To place ${id} on a ground or zone, give it world coordinates instead; to move nodes together, put them in a group node.`);
       const seen = new Set([id]); let current: string | undefined = parentId;
       while (current !== undefined) {
         if (current === id) { add(pointer(base, index, 'parentId'), 'parent-cycle', `Parent cycle at ${id}: ${parentId} is its own ancestor. Remove one parentId from the cycle.`, `Remove parentId from ${id} or from one of its ancestors so that the chain ends at a top-level node.`); break; }
@@ -340,7 +389,7 @@ export function parentProblems(nodes: readonly unknown[], base: string): ScenePr
   });
 }
 
-/** Attachments: no attachment together with parentId, no route or controller on an attached asset, and no cycles. */
+/** Attachments: no attachment together with parentId, no route or controller on an attached asset, shape or group, and no cycles. */
 export function attachmentProblems(nodes: readonly unknown[], base: string): SceneProblem[] {
   const byId = new Map<string, Data>(); nodes.forEach(node => { if (isObject(node) && typeof node.id === 'string' && !byId.has(node.id)) byId.set(node.id, node); });
   const link = (node: Data | undefined): { id: string; attached: boolean } | undefined => {
@@ -353,8 +402,9 @@ export function attachmentProblems(nodes: readonly unknown[], base: string): Sce
     const id = node.id;
     return collectProblems(add => {
       if (node.parentId !== undefined) add(pointer(base, index, 'attachment'), 'attachment-conflict', `Node ${id} cannot have both an attachment and a parentId; a carried node follows its carrier, so remove one.`, 'Keep attachment to carry the node, or parentId to place it inside a container, and remove the other.');
-      if (node.kind === 'asset' && node.route !== undefined) add(pointer(base, index, 'route'), 'attachment-conflict', 'Attached assets cannot own a route.', `Remove the route from ${id}; it moves with its carrier. Give the carrier the route instead.`);
-      if (node.kind === 'asset' && node.controller !== undefined) add(pointer(base, index, 'controller'), 'attachment-conflict', 'Attached assets cannot own a controller.', `Remove the controller from ${id}; it moves with its carrier. Give the carrier the controller instead.`);
+      const motion = MOTION_NODE_KINDS.includes(node.kind as never), owners = `${String(node.kind)}s`;
+      if (motion && node.route !== undefined) add(pointer(base, index, 'route'), 'attachment-conflict', `Attached ${owners} cannot own a route.`, `Remove the route from ${id}; it moves with its carrier. Give the carrier the route instead.`);
+      if (motion && node.controller !== undefined) add(pointer(base, index, 'controller'), 'attachment-conflict', `Attached ${owners} cannot own a controller.`, `Remove the controller from ${id}; it moves with its carrier. Give the carrier the controller instead.`);
       // A cycle through at least one attachment; pure parentId cycles are reported as parent-cycle.
       const seen = new Set([id]); let step = link(node), attached = false;
       while (step) {

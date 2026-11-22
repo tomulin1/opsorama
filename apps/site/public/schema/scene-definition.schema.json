@@ -44,6 +44,15 @@
         },
         {
           "$ref": "#/definitions/MarkerNode"
+        },
+        {
+          "$ref": "#/definitions/ShapeNode"
+        },
+        {
+          "$ref": "#/definitions/LineNode"
+        },
+        {
+          "$ref": "#/definitions/GroupNode"
         }
       ],
       "description": "One visual node of a scene; `kind` selects its fields."
@@ -59,7 +68,7 @@
         },
         "parentId": {
           "type": "string",
-          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -197,7 +206,7 @@
         },
         "parentId": {
           "type": "string",
-          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -285,6 +294,18 @@
     "AssetNode": {
       "type": "object",
       "properties": {
+        "route": {
+          "$ref": "#/definitions/NodeRoute",
+          "description": "Visual route that owns the root transform while present."
+        },
+        "controller": {
+          "$ref": "#/definitions/NodeController",
+          "description": "Per-frame controller that owns the root position and heading; exclusive with `route`."
+        },
+        "transfer": {
+          "$ref": "#/definitions/NodeTransfer",
+          "description": "Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`."
+        },
         "id": {
           "type": "string",
           "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
@@ -293,7 +314,7 @@
         },
         "parentId": {
           "type": "string",
-          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -355,10 +376,6 @@
           "type": "boolean",
           "description": "Disable built-in model animation only; scene/reduced-motion gates always win."
         },
-        "transfer": {
-          "$ref": "#/definitions/NodeTransfer",
-          "description": "Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`."
-        },
         "materials": {
           "$ref": "#/definitions/MaterialOverrides",
           "description": "Per-instance semantic colors for models that declare palette support, keyed by material role."
@@ -400,14 +417,6 @@
         "footprint": {
           "$ref": "#/definitions/Footprint",
           "description": "Sized surface assets only (floor, terrain, sidewalk): width × depth in metres."
-        },
-        "route": {
-          "$ref": "#/definitions/NodeRoute",
-          "description": "Visual route that owns the root transform while present."
-        },
-        "controller": {
-          "$ref": "#/definitions/NodeController",
-          "description": "Per-frame controller that owns the root position and heading; exclusive with `route`."
         }
       },
       "required": [
@@ -417,162 +426,6 @@
       ],
       "additionalProperties": false,
       "description": "A model from the renderer's asset registry, such as a catalog object from `@opsorama/objects`."
-    },
-    "NodeTransfer": {
-      "type": "object",
-      "properties": {
-        "seconds": {
-          "type": "number",
-          "description": "Visual seconds, 0.05–5.",
-          "minimum": 0.05,
-          "maximum": 5
-        },
-        "arc": {
-          "type": "number",
-          "description": "Peak lift in metres, 0–2. Default 0.25.",
-          "minimum": 0,
-          "maximum": 2
-        }
-      },
-      "required": [
-        "seconds"
-      ],
-      "additionalProperties": false,
-      "description": "Animation of a node that changes `attachment` or `parentId`, e.g. a parcel handed from a shelf to a picker. The new placement is authoritative at once; the renderer moves the node from its previous world pose to the new one over `seconds` of the visual clock (speed and pause apply), lifting it up to `arc` metres midway. Motion-off and reduced motion skip the animation. A node that first appears, or keeps its parent, does not animate."
-    },
-    "MaterialOverrides": {
-      "type": "object",
-      "properties": {
-        "surface": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "structure": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "trim": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "accent": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "glass": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "liquid": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "screen": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "text": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "skin": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "hair": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "wood": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "foliage": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "normal": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "busy": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "warning": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "critical": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "inactive": {
-          "type": "string",
-          "description": "A six-digit hex color, #RRGGBB.",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        }
-      },
-      "additionalProperties": false,
-      "description": "#RRGGBB colors for some material roles; omitted roles keep their defaults."
-    },
-    "NodeView": {
-      "type": "string",
-      "enum": [
-        "closed",
-        "peek",
-        "open"
-      ],
-      "description": "Container view of an asset; see `AssetNode.view`. Default `'closed'`."
-    },
-    "AssetOptions": {
-      "type": "object",
-      "additionalProperties": {},
-      "description": "Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays, strings, finite numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's value rules, belong to the asset's factory (`AssetFactory.validate` in `@opsorama/three`). A model package declares its typed options by augmenting this interface (`declare module '@opsorama/core' { interface AssetOptions { ... } }`), as `@opsorama/objects` does for its catalog. Custom assets may use any keys."
-    },
-    "CountLayout": {
-      "type": "string",
-      "enum": [
-        "compact",
-        "reserved"
-      ],
-      "description": "Reserved layouts keep each part in its maximum-capacity slot as count changes."
-    },
-    "Footprint": {
-      "type": "array",
-      "minItems": 2,
-      "items": [
-        {
-          "type": "number",
-          "description": "Metres, greater than 0.",
-          "exclusiveMinimum": 0,
-          "title": "width"
-        },
-        {
-          "type": "number",
-          "description": "Metres, greater than 0.",
-          "exclusiveMinimum": 0,
-          "title": "depth"
-        }
-      ],
-      "maxItems": 2,
-      "description": "Width along local x and depth along local z, in metres. Patterns keep their real size; geometric scale would stretch them."
     },
     "NodeRoute": {
       "type": "object",
@@ -732,7 +585,7 @@
         "kind"
       ],
       "additionalProperties": false,
-      "description": "A per-frame motion controller assigned to an asset node by name. The scene definition stays serializable; the renderer resolves `kind` in its controller registry (`basicControllers` plus the host's own)."
+      "description": "A per-frame motion controller assigned to an asset, shape or group node by name. The scene definition stays serializable; the renderer resolves `kind` in its controller registry (`basicControllers` plus the host's own)."
     },
     "ControllerValue": {
       "anyOf": [
@@ -763,6 +616,162 @@
       ],
       "description": "JSON data accepted in controller options, so scene definitions stay serializable."
     },
+    "NodeTransfer": {
+      "type": "object",
+      "properties": {
+        "seconds": {
+          "type": "number",
+          "description": "Visual seconds, 0.05–5.",
+          "minimum": 0.05,
+          "maximum": 5
+        },
+        "arc": {
+          "type": "number",
+          "description": "Peak lift in metres, 0–2. Default 0.25.",
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      "required": [
+        "seconds"
+      ],
+      "additionalProperties": false,
+      "description": "Animation of a node that changes `attachment` or `parentId`, e.g. a parcel handed from a shelf to a picker. The new placement is authoritative at once; the renderer moves the node from its previous world pose to the new one over `seconds` of the visual clock (speed and pause apply), lifting it up to `arc` metres midway. Motion-off and reduced motion skip the animation. A node that first appears, or keeps its parent, does not animate."
+    },
+    "MaterialOverrides": {
+      "type": "object",
+      "properties": {
+        "surface": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "structure": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "trim": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "accent": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "glass": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "liquid": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "screen": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "text": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "skin": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "hair": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "wood": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "foliage": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "normal": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "busy": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "warning": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "critical": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "inactive": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      },
+      "additionalProperties": false,
+      "description": "#RRGGBB colors for some material roles; omitted roles keep their defaults."
+    },
+    "NodeView": {
+      "type": "string",
+      "enum": [
+        "closed",
+        "peek",
+        "open"
+      ],
+      "description": "Container view of an asset; see `AssetNode.view`. Default `'closed'`."
+    },
+    "AssetOptions": {
+      "type": "object",
+      "additionalProperties": {},
+      "description": "Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays, strings, finite numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's value rules, belong to the asset's factory (`AssetFactory.validate` in `@opsorama/three`). A model package declares its typed options by augmenting this interface (`declare module '@opsorama/core' { interface AssetOptions { ... } }`), as `@opsorama/objects` does for its catalog. Custom assets may use any keys."
+    },
+    "CountLayout": {
+      "type": "string",
+      "enum": [
+        "compact",
+        "reserved"
+      ],
+      "description": "Reserved layouts keep each part in its maximum-capacity slot as count changes."
+    },
+    "Footprint": {
+      "type": "array",
+      "minItems": 2,
+      "items": [
+        {
+          "type": "number",
+          "description": "Metres, greater than 0.",
+          "exclusiveMinimum": 0,
+          "title": "width"
+        },
+        {
+          "type": "number",
+          "description": "Metres, greater than 0.",
+          "exclusiveMinimum": 0,
+          "title": "depth"
+        }
+      ],
+      "maxItems": 2,
+      "description": "Width along local x and depth along local z, in metres. Patterns keep their real size; geometric scale would stretch them."
+    },
     "PathNode": {
       "type": "object",
       "properties": {
@@ -774,7 +783,7 @@
         },
         "parentId": {
           "type": "string",
-          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -893,7 +902,7 @@
         },
         "parentId": {
           "type": "string",
-          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
           "minLength": 1,
           "pattern": "\\S"
         },
@@ -1038,6 +1047,376 @@
         "medium",
         "large"
       ]
+    },
+    "ShapeNode": {
+      "type": "object",
+      "properties": {
+        "route": {
+          "$ref": "#/definitions/NodeRoute",
+          "description": "Visual route that owns the root transform while present."
+        },
+        "controller": {
+          "$ref": "#/definitions/NodeController",
+          "description": "Per-frame controller that owns the root position and heading; exclusive with `route`."
+        },
+        "transfer": {
+          "$ref": "#/definitions/NodeTransfer",
+          "description": "Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "shape"
+        },
+        "shape": {
+          "$ref": "#/definitions/ShapeGeometry",
+          "description": "The geometry: `{ type: 'box', size }`, `{ type: 'sphere', radius }` or `{ type: 'cylinder', radiusTop, radiusBottom, height }`."
+        },
+        "color": {
+          "type": "string",
+          "description": "Surface color, a CSS color. Default: the palette color described on `ShapeNode`."
+        },
+        "opacity": {
+          "type": "number",
+          "description": "Opacity from 0 (invisible, still pickable) to 1 (opaque, default).",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "shape"
+      ],
+      "additionalProperties": false,
+      "description": "A box, sphere or cylinder with a plain material, for charts, markers of your own and simple models. The shape stands on its origin (its bottom centre is `position`), so a bar of height h at y = 0 rises from the ground. Equal geometry types and proportions share one unit geometry scaled per node, so many shapes draw as one instanced batch. Without `color` the shape shows the scene palette: its `state` color for `busy`, `warning`, `critical` and `inactive`, the `accent` role otherwise. `opacity` below 1 makes it transparent: it casts no shadow and is never instanced."
+    },
+    "ShapeGeometry": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/BoxShape"
+        },
+        {
+          "$ref": "#/definitions/SphereShape"
+        },
+        {
+          "$ref": "#/definitions/CylinderShape"
+        }
+      ],
+      "description": "Geometry of a shape node; `type` selects its fields."
+    },
+    "BoxShape": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "box"
+        },
+        "size": {
+          "type": "array",
+          "minItems": 3,
+          "items": [
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "width"
+            },
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "height"
+            },
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "depth"
+            }
+          ],
+          "maxItems": 3,
+          "description": "Width (x), height (y) and depth (z) in metres, each greater than 0."
+        }
+      },
+      "required": [
+        "type",
+        "size"
+      ],
+      "additionalProperties": false,
+      "description": "A box standing on the node origin: `size` is width (x), height (y) and depth (z) in metres."
+    },
+    "SphereShape": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "sphere"
+        },
+        "radius": {
+          "type": "number",
+          "description": "Radius in metres, greater than 0.",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "type",
+        "radius"
+      ],
+      "additionalProperties": false,
+      "description": "A sphere resting on the node origin: its centre is `radius` above it."
+    },
+    "CylinderShape": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "cylinder"
+        },
+        "radiusTop": {
+          "type": "number",
+          "description": "Radius of the top face in metres, 0 or more.",
+          "minimum": 0
+        },
+        "radiusBottom": {
+          "type": "number",
+          "description": "Radius of the bottom face in metres, 0 or more.",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in metres, greater than 0.",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "type",
+        "radiusTop",
+        "radiusBottom",
+        "height"
+      ],
+      "additionalProperties": false,
+      "description": "A cylinder, cone or frustum standing on the node origin along +y. One radius may be 0 (a cone), not both."
+    },
+    "LineNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "line"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Vec3"
+          },
+          "description": "Points in metres in the node's local coordinates, at least two.",
+          "minItems": 2
+        },
+        "color": {
+          "type": "string",
+          "description": "Line color, a CSS color. Default: the palette `structure` role."
+        },
+        "width": {
+          "type": "number",
+          "description": "Tube diameter in metres from 0 to 5; 0 (default) draws a 1-pixel line.",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "dashed": {
+          "type": "boolean",
+          "description": "Draw dashes instead of a continuous line. Default false."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "points"
+      ],
+      "additionalProperties": false,
+      "description": "A polyline through `points` in the node's local coordinates (`position`, `rotation` and `scale` apply; with `parentId`, the container's). With `width` greater than 0 it is a solid tube of that diameter, lit like a shape, and pointer events and selection hit it; with `width` 0 (default) it is a 1-pixel line that the pointer passes through. Without `color` it uses the palette's `structure` role. Its label sits 0.3 m above its origin."
+    },
+    "GroupNode": {
+      "type": "object",
+      "properties": {
+        "route": {
+          "$ref": "#/definitions/NodeRoute",
+          "description": "Visual route that owns the root transform while present."
+        },
+        "controller": {
+          "$ref": "#/definitions/NodeController",
+          "description": "Per-frame controller that owns the root position and heading; exclusive with `route`."
+        },
+        "transfer": {
+          "$ref": "#/definitions/NodeTransfer",
+          "description": "Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "group"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "A container without geometry: its children (nodes whose `parentId` names it) use its local coordinates, so moving, turning or scaling the group moves them together. A group is always open: its children show while the group shows. Selection bubbles through groups: a click on a node that is not selectable selects its nearest selectable group ancestor. A group does not make its children indoor (shadows); only asset containers do. Its label sits at its origin."
     }
   }
 }

@@ -3,18 +3,18 @@ import { throwOnErrors } from './scene-problems';
 import { parentProblems } from './validate-scene';
 
 /**
- * Generic containment. Any asset node can contain other nodes: a child names it with `parentId` and uses
- * the container's local coordinates. The container's `AssetNode.view` decides whether its children show:
+ * Generic containment. Any asset or group node can contain other nodes: a child names it with `parentId` and uses
+ * the container's local coordinates. An asset container's `AssetNode.view` decides whether its children show:
  * `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models decide what a view looks like
- * (a building lowers its walls, for example); core only decides visibility.
+ * (a building lowers its walls, for example); core only decides visibility. A group is always open.
  */
 export const NODE_VIEWS = Object.freeze(['closed', 'peek', 'open'] as const);
 /** Container view of an asset; see `AssetNode.view`. Default `'closed'`. */
 export type NodeView = typeof NODE_VIEWS[number];
 
-/** The effective view of a node: its `view` for assets, `'closed'` for every other kind and for missing nodes. */
+/** The effective view of a node: its `view` for assets, `'open'` for groups, `'closed'` for every other kind and for missing nodes. */
 export function nodeView(node: SceneNode | undefined): NodeView {
-  return node?.kind === 'asset' ? node.view ?? 'closed' : 'closed';
+  return node?.kind === 'asset' ? node.view ?? 'closed' : node?.kind === 'group' ? 'open' : 'closed';
 }
 
 /**
@@ -29,7 +29,7 @@ export function setNodeView(store: SceneStore, id: string, view: NodeView): void
 }
 
 /**
- * Validate the `parentId` graph. A parent must be an asset node and the chain must not form a cycle. Missing parents
+ * Validate the `parentId` graph. A parent must be an asset or group node and the chain must not form a cycle. Missing parents
  * are dormant, not errors, so nodes can be registered in any order: a child of a missing parent is hidden until the
  * parent appears. The scene store runs this on `replace` and `upsert`. Throws `SceneValidationError`; problem paths are
  * relative to `nodes` (`/3/parentId`).
@@ -40,7 +40,7 @@ export function validateParents(nodes: readonly SceneNode[]): void {
 
 /**
  * Whether a node is visible in the scene. A node is visible when every container on its chain shows its children:
- * each `parentId` must resolve to an asset whose view is not `'closed'`. An attached node (`attachment`) follows its
+ * each `parentId` must resolve to a group or to an asset whose view is not `'closed'`. An attached node (`attachment`) follows its
  * carrier and is visible while the carrier is. Missing parents and cycles make a node invisible. Pass `byId` to avoid
  * a linear search per step when checking many nodes.
  */
@@ -56,15 +56,22 @@ export function isNodeVisible(node: SceneNode, nodes: readonly SceneNode[], byId
 }
 
 /**
- * Whether a node sits inside a container: it declares `parentId`, or it is attached (carried) by a node that does.
- * Attachments inherit their carrier's placement, so an object attached to a top-level container stays outside unless
- * that container is itself contained. The renderer uses this for the indoor shadow policy; it does not depend on the view.
+ * Whether a node sits inside an asset container: its `parentId` names an asset (or a missing node), or it is attached
+ * (carried) by a node that is contained. Groups do not count: a node in a group takes the group's own placement, so a
+ * group at the top level keeps its contents outside and a group inside a building makes them indoor. Attachments inherit
+ * their carrier's placement, so an object attached to a top-level container stays outside unless that container is itself
+ * contained. The renderer uses this for the indoor shadow policy; it does not depend on the view.
  */
 export function isContained(node: SceneNode, byId: ReadonlyMap<string, SceneNode>): boolean {
   let current: SceneNode | undefined = node; const seen = new Set<string>();
   while (current && !seen.has(current.id)) {
-    if (current.parentId !== undefined) return true;
-    seen.add(current.id); current = current.attachment ? byId.get(current.attachment.nodeId) : undefined;
+    seen.add(current.id);
+    if (current.parentId !== undefined) {
+      const parent = byId.get(current.parentId);
+      if (parent?.kind !== 'group') return true;
+      current = parent; continue;
+    }
+    current = current.attachment ? byId.get(current.attachment.nodeId) : undefined;
   }
   return false;
 }

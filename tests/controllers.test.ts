@@ -114,7 +114,7 @@ describe('controller specs in the scene store', () => {
     expect(bad({ controller: { kind: 'x', options: { n: Number.NaN } } })).toThrow('plain JSON');
     expect(bad({ controller: { kind: 'approach' }, route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 } })).toThrow('both a route and a controller');
     expect(() => store.upsert({ id: 'held', kind: 'asset', asset: 'parcel', attachment: { nodeId: 'robot' }, controller: { kind: 'approach' } })).toThrow('cannot own a controller');
-    expect(() => store.upsert({ id: 'z', kind: 'zone', size: [1, 1], controller: { kind: 'approach' } } as never)).toThrow('Only asset nodes');
+    expect(() => store.upsert({ id: 'z', kind: 'zone', size: [1, 1], controller: { kind: 'approach' } } as never)).toThrow('Only asset, shape and group nodes');
     store.dispose();
   });
 

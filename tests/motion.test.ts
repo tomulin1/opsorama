@@ -120,7 +120,7 @@ describe('route sampling', () => {
     expect(bad({ ...line, loop: true })).toThrow('end at its first point');
     expect(bad({ ...line, stops: [{ index: 3, seconds: 1 }] })).toThrow('unique point index');
     expect(bad({ ...line, stops: [{ index: 1, seconds: 0 }] })).toThrow('duration');
-    expect(() => store.upsert({ id: 'z', kind: 'zone', size: [1, 1], route: line } as never)).toThrow('Only asset nodes');
+    expect(() => store.upsert({ id: 'z', kind: 'zone', size: [1, 1], route: line } as never)).toThrow('Only asset, shape and group nodes');
   });
 });
 

@@ -1,5 +1,4 @@
 import { validateMaterialOverrides, type MaterialOverrides } from './palette';
-import type { Attachment, NodeTransfer } from './attachment';
 export * from './attachment';
 export * from './carry';
 export * from './palette';
@@ -9,8 +8,11 @@ export * from './marker';
 import type { MarkerFields } from './marker';
 export * from './footprint';
 export * from './interior';
-import { cloneNodeRoute, type NodeRoute } from './route';
-import { cloneNodeController, type NodeController } from './controller';
+import { cloneNodeRoute } from './route';
+import { cloneNodeController } from './controller';
+import type { NodeBase } from './node-base';
+import { isMotionNode, type GroupNode, type LineNode, type MotionFields, type ShapeNode } from './shapes';
+export * from './shapes';
 import { isNodeVisible, type NodeView } from './containment';
 import { attachmentProblems, nodeListProblems, nodeProblems, parentProblems, validateScene } from './validate-scene';
 import { pointer, throwOnErrors } from './scene-problems';
@@ -42,39 +44,6 @@ type PositiveMetres = number;
  * JSDoc tags such as @minimum, @maximum, @minLength, @pattern and @asType on these types are copied into the scene JSON
  * Schema (pnpm schema:generate). They must state the same limits as the checks in validate-scene.ts.
  */
-interface NodeBase {
-  /**
-   * Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.
-   * @minLength 1
-   * @pattern \S
-   */
-  id: string;
-  /**
-   * Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any
-   * asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.
-   * @minLength 1
-   * @pattern \S
-   */
-  parentId?: string;
-  /** Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`. */
-  attachment?: Attachment;
-  /** ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it. */
-  entityId?: string;
-  /** Projected HTML label text, escaped safely. */
-  label?: string;
-  /** `always` (default) shows the label at all times; `active` only while the node is hovered or selected. */
-  labelMode?: 'always' | 'active';
-  /** Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]. */
-  position?: Vec3;
-  /** Euler rotation in radians. Default [0, 0, 0]. */
-  rotation?: Vec3;
-  /** Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`. */
-  scale?: Vec3;
-  /** Host visual alert. Default `normal`. */
-  state?: VisualState;
-  /** Makes the node selectable without an `entityId`. Default false. */
-  selectable?: boolean;
-}
 /** A shadow-receiving platform under the scene. */
 export interface GroundNode extends NodeBase {
   kind: 'ground';
@@ -104,7 +73,7 @@ export interface ZoneNode extends NodeBase {
  */
 export interface AssetOptions { readonly [key: string]: unknown }
 /** A model from the renderer's asset registry, such as a catalog object from `@opsorama/objects`. */
-export interface AssetNode extends NodeBase {
+export interface AssetNode extends NodeBase, MotionFields {
   kind: 'asset';
   /**
    * Name of a model in the renderer's asset registry.
@@ -116,8 +85,6 @@ export interface AssetNode extends NodeBase {
   interior?: boolean;
   /** Disable built-in model animation only; scene/reduced-motion gates always win. */
   localMotion?: boolean;
-  /** Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`. */
-  transfer?: NodeTransfer;
   /** Per-instance semantic colors for models that declare palette support, keyed by material role. */
   materials?: MaterialOverrides;
   /** Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`. */
@@ -146,10 +113,6 @@ export interface AssetNode extends NodeBase {
   countLayout?: CountLayout;
   /** Sized surface assets only (floor, terrain, sidewalk): width × depth in metres. */
   footprint?: Footprint;
-  /** Visual route that owns the root transform while present. */
-  route?: NodeRoute;
-  /** Per-frame controller that owns the root position and heading; exclusive with `route`. */
-  controller?: NodeController;
 }
 /** A low-profile visual route with a dashed center line. */
 export interface PathNode extends NodeBase {
@@ -174,7 +137,7 @@ export interface MarkerNode extends NodeBase, MarkerFields {
   label: string;
 }
 /** One visual node of a scene; `kind` selects its fields. */
-export type SceneNode = GroundNode | ZoneNode | AssetNode | PathNode | MarkerNode;
+export type SceneNode = GroundNode | ZoneNode | AssetNode | PathNode | MarkerNode | ShapeNode | LineNode | GroupNode;
 /**
  * A scene file: visual nodes only. Settings, camera and host data are not part of it. Check one with `validateScene`, or
  * against the published JSON Schema `@opsorama/core/scene-definition.schema.json`.
@@ -239,11 +202,14 @@ function freezeJson<T>(value: T): T {
 }
 function cloneNode(node: SceneNode): SceneNode {
   node = { ...node, ...(node.attachment ? { attachment: Object.freeze({ ...node.attachment }) } : {}) };
-  const transform = { ...node, ...(node.kind === 'asset' && node.transfer ? { transfer: Object.freeze({ ...node.transfer }) } : {}), ...(node.kind === 'asset' && node.materials ? { materials: Object.freeze({ ...node.materials }) } : {}), ...(node.kind === 'asset' && node.options ? { options: freezeJson(node.options) } : {}), position: node.position && Object.freeze([...node.position]) as Vec3, rotation: node.rotation && Object.freeze([...node.rotation]) as Vec3, scale: node.scale && Object.freeze([...node.scale]) as Vec3 };
+  const motion = isMotionNode(node) ? { ...(node.transfer ? { transfer: Object.freeze({ ...node.transfer }) } : {}), ...(node.route ? { route: cloneNodeRoute(node.route) } : {}), ...(node.controller ? { controller: cloneNodeController(node.controller) } : {}) } : {};
+  const transform = { ...node, ...motion, ...(node.kind === 'asset' && node.materials ? { materials: Object.freeze({ ...node.materials }) } : {}), ...(node.kind === 'asset' && node.options ? { options: freezeJson(node.options) } : {}), position: node.position && Object.freeze([...node.position]) as Vec3, rotation: node.rotation && Object.freeze([...node.rotation]) as Vec3, scale: node.scale && Object.freeze([...node.scale]) as Vec3 };
   if (node.kind === 'marker') return Object.freeze({ ...transform, ...(typeof node.icon === 'object' ? { icon: Object.freeze({ paths: Object.freeze([...node.icon.paths]) }) } : {}) }) as MarkerNode;
-  if (node.kind === 'path') return Object.freeze({ ...transform, kind: 'path', points: Object.freeze(node.points.map(p => Object.freeze([...p]) as Vec3)) }) as PathNode;
+  if (node.kind === 'path' || node.kind === 'line') return Object.freeze({ ...transform, points: Object.freeze(node.points.map(p => Object.freeze([...p]) as Vec3)) }) as PathNode | LineNode;
   if (node.kind === 'ground' || node.kind === 'zone') return Object.freeze({ ...transform, size: Object.freeze([...node.size]) }) as GroundNode | ZoneNode;
-  return Object.freeze({ ...transform, ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}), ...(node.route ? { route: cloneNodeRoute(node.route) } : {}), ...(node.controller ? { controller: cloneNodeController(node.controller) } : {}) }) as AssetNode;
+  if (node.kind === 'shape') return Object.freeze({ ...transform, shape: Object.freeze(node.shape.type === 'box' ? { ...node.shape, size: Object.freeze([...node.shape.size]) } : { ...node.shape }) }) as ShapeNode;
+  if (node.kind === 'group') return Object.freeze(transform) as GroupNode;
+  return Object.freeze({ ...transform, ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}) }) as AssetNode;
 }
 /**
  * Validates one node on its own and throws `SceneValidationError` (message: the first error) when it has an error. It checks

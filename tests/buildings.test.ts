@@ -17,7 +17,7 @@ describe('building containers', () => {
       expect(() => store.upsert({ ...building, ...fields } as AssetNode)).toThrow(); expect(store.getSnapshot()).toBe(before);
     }
     expect(() => store.upsert({ ...child, parentId: child.id })).toThrow('Invalid parent ID');
-    expect(() => store.replace([{ ...child, parentId: 'floor' }, { id: 'floor', kind: 'ground', size: [4, 4] }])).toThrow('must be an asset node');
+    expect(() => store.replace([{ ...child, parentId: 'floor' }, { id: 'floor', kind: 'ground', size: [4, 4] }])).toThrow('must be an asset or group node');
     expect(() => store.replace([{ ...building, parentId: 'nested' }, { ...building, id: 'nested', parentId: building.id }])).toThrow('cycle');
     expect(() => setNodeView(store, 'missing', 'open')).toThrow('Unknown scene node');
     store.dispose();

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { nodeView, type SceneNode, type SceneStore } from '@opsorama/core';
+import { isMotionNode, nodeView, type SceneNode, type SceneStore } from '@opsorama/core';
 import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
-import { buildPrimitive } from './primitives';
+import { buildNodeObject } from './nodes';
 
 /** Default `NodePreviewOptions.maxNodes`: the copied node plus at most 239 visible descendants. */
 export const NODE_PREVIEW_MAX_NODES = 240;
@@ -29,7 +29,7 @@ export function previewNodes(nodes: readonly SceneNode[], rootId: string, maxNod
   }
   const strip = (node: SceneNode): SceneNode => {
     const copy = { ...node };
-    if (copy.kind === 'asset') { delete copy.route; delete copy.controller; delete copy.transfer; }
+    if (isMotionNode(copy)) { delete copy.route; delete copy.controller; delete copy.transfer; }
     return copy;
   };
   const placedRoot = { ...strip(root), position: [0, 0, 0] } as SceneNode; delete placedRoot.parentId; delete placedRoot.attachment;
@@ -112,9 +112,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
     for (const node of nodes) {
       if (node.kind === 'marker') continue;
       if (node.kind === 'asset' && !Object.hasOwn(options.assets, node.asset)) throw new Error(`Unknown asset: ${node.asset}. Pass the scene renderer's asset registry to the preview, for example catalogAssets from @opsorama/objects.`);
-      const factory = node.kind === 'asset' ? options.assets[node.asset] : undefined;
-      if (node.kind === 'asset') factory!.validate?.(node);
-      const object = node.kind === 'asset' ? factory!(node, { theme, palette }) : buildPrimitive(node);
+      const object = buildNodeObject(node, { assets: options.assets, theme, palette });
       built.push({ node, object });
       object.position.set(...(node.position ?? [0, 0, 0])); if (node.rotation) object.rotation.set(...node.rotation); if (node.scale) object.scale.set(...node.scale);
       const ownerId = node.attachment?.nodeId ?? node.parentId, owner = ownerId === undefined ? undefined : objects.get(ownerId);

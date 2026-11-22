@@ -1,4 +1,5 @@
-import type { AssetNode, Vec3 } from './index';
+import type { Vec3 } from './index';
+import type { MotionNode } from './shapes';
 import { collectProblems, throwOnErrors } from './scene-problems';
 import { controllerChecks } from './validate-scene';
 
@@ -6,7 +7,7 @@ import { controllerChecks } from './validate-scene';
 export type ControllerValue = string | number | boolean | null | readonly ControllerValue[] | { readonly [key: string]: ControllerValue };
 
 /**
- * A per-frame motion controller assigned to an asset node by name. The scene
+ * A per-frame motion controller assigned to an asset, shape or group node by name. The scene
  * definition stays serializable; the renderer resolves `kind` in its controller
  * registry (`basicControllers` plus the host's own).
  */
@@ -30,8 +31,8 @@ export interface ControllerOutput extends ControllerPose {
 /** Visual seconds after scene speed; `time` is the shared animation clock. */
 export interface ControllerFrame { delta: number; time: number; }
 export interface ControllerContext {
-  /** The latest node; `node.position` is the host's record position. */
-  readonly node: AssetNode;
+  /** The latest node (an asset, shape or group); `node.position` is the host's record position. */
+  readonly node: MotionNode;
   /** Current visual pose of another node in this node's parent space, or null when it is missing or hidden. */
   pose(id: string): ControllerPose | null;
 }
@@ -50,7 +51,8 @@ export interface MotionController {
   settle?(pose: ControllerPose, context: ControllerContext): ControllerOutput;
   cancel?(reason: ControllerStopReason): void;
 }
-export type ControllerFactory = (options: Readonly<Record<string, ControllerValue>>, node: AssetNode) => MotionController;
+/** Creates a controller for `node` (an asset, shape or group) from its options; throws an actionable error for invalid options. */
+export type ControllerFactory = (options: Readonly<Record<string, ControllerValue>>, node: MotionNode) => MotionController;
 export type ControllerRegistry = Readonly<Record<string, ControllerFactory>>;
 
 /** Throws `SceneValidationError` unless `kind` is nonempty and `options`, when given, is plain JSON data with finite numbers. */
@@ -67,7 +69,7 @@ export const controllerKey = (controller: NodeController | undefined) => control
 export interface ControllerSlot {
   readonly active: boolean;
   /** Start, replace or clear the controller for `node.controller`. A spec that failed stays stopped until it changes. */
-  assign(node: AssetNode, registry: ControllerRegistry): void;
+  assign(node: MotionNode, registry: ControllerRegistry): void;
   /** Run one frame; a controller that throws is cancelled with `error` and the error is rethrown. */
   advance(frame: ControllerFrame, pose: ControllerPose, context: ControllerContext): ControllerOutput | null;
   settle(pose: ControllerPose, context: ControllerContext): ControllerOutput | null;
@@ -135,8 +137,8 @@ function seeker(kind: string, options: Readonly<Record<string, ControllerValue>>
 function approach(options: Readonly<Record<string, ControllerValue>>): MotionController {
   const seek = seeker('approach', options), arriveYaw = options.arriveYaw ?? 'travel';
   if (arriveYaw !== 'travel' && arriveYaw !== 'record') throw new Error('Controller approach option arriveYaw must be travel or record.');
-  const goal = (node: AssetNode): Vec3 => node.position ?? [0, 0, 0];
-  const finalYaw = (node: AssetNode, pose: ControllerPose) => arriveYaw === 'record' ? node.rotation?.[1] ?? 0 : pose.yaw;
+  const goal = (node: MotionNode): Vec3 => node.position ?? [0, 0, 0];
+  const finalYaw = (node: MotionNode, pose: ControllerPose) => arriveYaw === 'record' ? node.rotation?.[1] ?? 0 : pose.yaw;
   return {
     update: ({ delta }, pose, { node }) => seek.step(delta, pose, goal(node), arriveYaw === 'record' ? node.rotation?.[1] ?? 0 : undefined),
     settle: (pose, { node }) => { seek.reset(); return { position: goal(node), yaw: finalYaw(node, pose), moving: false }; },

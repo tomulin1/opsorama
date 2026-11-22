@@ -142,6 +142,32 @@ function onPointer(event: ScenePointerEvent) {
 </template>
 ```
 
+### Shapes, lines and groups
+
+`Group`, `Shape` and `Line` take the node fields as props (`shape`, `opacity`, `width` and `dashed` among them); children of a group name it in `parentId`. A click on a bar that is not selectable selects its group.
+
+```vue
+<script setup lang="ts">
+import { createSceneStore } from '@opsorama/core';
+import { DashboardProvider, Group, Line, SceneCanvas, Shape } from '@opsorama/vue';
+
+const store = createSceneStore();
+const assets = {}; // shapes, lines and groups need no models
+const values = [42, 65, 30];
+</script>
+
+<template>
+  <DashboardProvider :store="store">
+    <SceneCanvas :assets="assets" style="height: 360px" />
+    <Group id="series-north" label="North" entity-id="series:north" />
+    <Shape v-for="(value, column) in values" :key="column" :id="`bar-${column}`" parent-id="series-north"
+      :position="[column * 1.2, 0, 0]" :shape="{ type: 'box', size: [0.8, value / 20, 0.8] }" color="#4f7fd8" />
+    <Line id="trend" parent-id="series-north" :width="0.05" dashed
+      :points="values.map((value, column) => [column * 1.2, value / 20 + 0.1, 0])" />
+  </DashboardProvider>
+</template>
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.
