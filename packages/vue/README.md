@@ -68,6 +68,31 @@ export const CameraButton = defineComponent({
 });
 ```
 
+Following a node and camera paths are renderer methods; call them through `useSceneRenderer()` and keep the returned promise or playback for state and stopping:
+
+```ts
+import { defineComponent, h, shallowRef, type PropType } from 'vue';
+import type { CameraPath } from '@opsorama/core';
+import type { CameraPathPlayback } from '@opsorama/three';
+import { useSceneRenderer } from '@opsorama/vue';
+
+export const TourButtons = defineComponent({
+  props: { nodeId: { type: String, required: true }, tour: { type: Object as PropType<CameraPath>, required: true } },
+  setup(props) {
+    const renderer = useSceneRenderer(), playback = shallowRef<CameraPathPlayback | null>(null);
+    const play = () => {
+      const next = renderer.value?.playCameraPath(props.tour) ?? null;
+      playback.value = next; void next?.finished.then(() => { if (playback.value === next) playback.value = null; });
+    };
+    return () => [
+      h('button', { disabled: !renderer.value, onClick: () => void renderer.value?.followNode(props.nodeId, { heading: 'behind' }) }, `Follow ${props.nodeId}`),
+      h('button', { disabled: !renderer.value, onClick: play }, 'Play tour'),
+      h('button', { disabled: !playback.value, onClick: () => playback.value?.stop() }, 'Stop tour'),
+    ];
+  },
+});
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

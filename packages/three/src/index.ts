@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import type { CameraEasing, CameraTransition, CameraTransitionResult, CameraView, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay, Vec3 } from '@opsorama/core';
-import { DEFAULT_CAMERA_TRANSITION, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
-import { applyOrthographic, applyPerspective, ease, fitBounds, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
+import type { CameraFollowEnd, CameraFollowHeading, CameraFollowOptions, CameraKeyframe, CameraPath, CameraTransition, CameraTransitionResult, CameraView, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay, Vec3 } from '@opsorama/core';
+import { DEFAULT_CAMERA_TRANSITION, validateCameraFollow, validateCameraPath, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
+import { applyOrthographic, applyPerspective, clampPitch, ease, fitBounds, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
+import { createCameraPathPlayer } from './camera-path';
 import { assetFactory, disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
@@ -42,6 +43,13 @@ export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
 export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
+/** A playing camera path, returned by `renderer.playCameraPath`. */
+export interface CameraPathPlayback {
+  /** Stops the path where the camera is; `finished` resolves `'interrupted'`. No effect once the path has ended. */
+  stop(): void;
+  /** `'completed'` after the last keyframe's hold (never for a loop), `'interrupted'` when stopped or taken over. */
+  finished: Promise<CameraTransitionResult>;
+}
 export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; /**
    * Clear the selection and return to the overview: the overview target (`CameraSettings.overview`), the settings' `yaw` and
    * `pitch`, and the overview scale. Without `transition` the target glides there (angles and scale change at once) and the
@@ -65,7 +73,26 @@ export interface SceneRenderer { /** Resolves once the whole initial scene is bu
    */
   setCameraView(view: Partial<CameraView>, transition?: CameraTransition): Promise<CameraTransitionResult>;
   /** Calls `listener` with the new view after a rendered frame in which the view changed, at most once per frame. Returns the unsubscribe function. Listener errors go to `onError`. */
-  onCameraChange(listener: (view: CameraView) => void): () => void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+  onCameraChange(listener: (view: CameraView) => void): () => void;
+  /**
+   * Keep the camera on a node: every frame the target moves to the node's world position (routes, controllers, transfers
+   * and carriers included), gliding there like a framed node and snapping with reduced motion. `heading: 'behind'` also
+   * turns the yaw, smoothed, to look along the node's heading; an orbit drag turns around the followed node and keeps the
+   * follow. A pan, `frame`, `overview`, `setCameraView`, a camera path or a selection change that moves the camera ends it
+   * (`'interrupted'`); removing or hiding the node ends it (`'removed'`, also at once for a node that is unknown or not
+   * built yet: await `loaded` first); `followNode(null)`, another call and `dispose` end it (`'stopped'`). The promise
+   * resolves with that reason. Throws an actionable error for invalid options.
+   */
+  followNode(id: string | null, options?: CameraFollowOptions): Promise<CameraFollowEnd>;
+  /** ID of the node the camera follows, or null. */
+  getFollowedNode(): string | null;
+  /**
+   * Play a camera path from the current view on real seconds; see `CameraPath`. It interrupts a running move and ends
+   * following. A drag, `frame`, `overview`, `setCameraView`, `followNode`, a yaw or pitch setting change, a zoom change from
+   * elsewhere or a new path interrupts it where it is. A changed zoom is written to `SceneSettings.zoom` when it ends.
+   * Throws an actionable error for an invalid path (`validateCameraPath`).
+   */
+  playCameraPath(path: CameraPath): CameraPathPlayback; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -102,9 +129,17 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const overviewTarget = () => overviewFit ? overviewFit.target.clone() : groundTarget(store.getSnapshot().nodes);
   /** `target` is where the camera is heading, `currentTarget` what it shows; `yaw` and `pitch` are the drawn direction. */
   const target = overviewTarget(), currentTarget = target.clone(); let yaw = cameraSettings.yaw, pitch = cameraSettings.pitch;
-  /** A timed camera move; see `CameraTransition`. On completion the camera takes `to` and the framing state it carries. */
-  type Transition = { from: CameraPose; to: CameraPose; fittedExtent: number | undefined; overviewFit: OverviewFit | null; seconds: number; easing: CameraEasing; start: number | null; storeZoom: number; resolve(result: CameraTransitionResult): void };
-  let transition: Transition | null = null, transitionPose: CameraPose | null = null, cameraMoved = false;
+  /**
+   * A timed camera move: a `CameraTransition` or a camera path. `step` returns the pose at frame `time` (ms, real time) and,
+   * once the move has ended, how; `arrive` applies the final pose of a completed move with the framing state it carries.
+   */
+  type CameraMove = { storeZoom: number; startExtent: number; step(time: number, cut: boolean): { pose: CameraPose; end?: CameraTransitionResult }; arrive(pose: CameraPose): void; resolve(result: CameraTransitionResult): void };
+  let transition: CameraMove | null = null, transitionPose: CameraPose | null = null, cameraMoved = false;
+  /** The followed node; `offset` is the yaw an orbit added to a `behind` follow. */
+  let follow: { id: string; heading: CameraFollowHeading; offset: number; resolve(end: CameraFollowEnd): void } | null = null;
+  const endFollow = (end: CameraFollowEnd) => { const active = follow; follow = null; active?.resolve(end); };
+  /** Another move takes the camera: a running move is interrupted, following ends and a drag is released. */
+  function takeCamera() { interruptTransition(); endFollow('interrupted'); pan?.cancel(); cameraMoved = true; }
   const ambient = new THREE.HemisphereLight('#f7faff', '#c2ccd9', 2); scene.add(ambient);
   const sun = new THREE.DirectionalLight('#ffffff', 2.6); sun.position.set(-12, 25, 16); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -24; sun.shadow.camera.right = 24; sun.shadow.camera.top = 24; sun.shadow.camera.bottom = -24; sun.shadow.normalBias = .035; scene.add(sun);
   // The frame loop updates world matrices once, before copying them into instance batches.
@@ -232,9 +267,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       for (const entry of [...buildPending, ...built]) if (entries.get(entry.node.id) === entry) instancing?.add(entry.object);
       buildPending = []; sliceSnapshot = null; sliceDeferred = new Set();
     }
+    if (follow && !entries.has(follow.id)) endFollow('removed');
     const selectedId = snapshot.selection?.nodeId || null;
     for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && entry?.bounds ? entry.object : null, selectionColor(entry?.node.state, snapshot.settings.palette)); }
-    if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); target.copy(overviewTarget()); } } }
+    if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); endFollow('interrupted'); target.copy(overviewTarget()); } } }
     if (building) {
       const total = visibleNodes.length;
       if (deferred.size) { reportLoad({ phase: 'building', built: total - deferred.size, total }); sliceTimer ??= setTimeout(() => { sliceTimer = undefined; if (!disposed) safeSync(); }, 0); }
@@ -261,7 +297,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   function frameAt(id: string, fit: boolean, zoom: number, transition?: CameraTransition): Promise<CameraTransitionResult> {
     const entry = entries.get(id); if (!entry) return Promise.resolve('interrupted');
-    pan?.cancel(); cameraMoved = true;
+    pan?.cancel(); cameraMoved = true; endFollow('interrupted');
     let nextTarget: THREE.Vector3, nextExtent = fittedExtent;
     if (fit) { const fitted = fitBounds(new THREE.Box3().setFromObject(entry.object), yaw, pitch); nextExtent = fitted.extent * zoom; nextTarget = fitted.target; }
     else nextTarget = frameTarget(entry.object.getWorldPosition(new THREE.Vector3()), cameraSettings.projection, fittedExtent !== undefined);
@@ -281,16 +317,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   function overviewExtent() { return overviewFit?.extent ?? groundExtent(store.getSnapshot().nodes); }
   /** The pose drawn now: the eased pose of a running transition, otherwise the current target and direction at the zoom setting. */
   function currentPose(): CameraPose { return transitionPose ?? { target: currentTarget.toArray(), yaw, pitch, zoom: store.getSnapshot().settings.zoom, extent: fittedExtent ?? overviewExtent() }; }
-  /** Ends a running transition where it is: the target stops, a changing scale becomes the fitted scale and an eased zoom is written to the store. */
+  /** Ends a running move where it is: the target stops, a changed scale becomes the fitted scale and a changed zoom is written to the store. */
   function interruptTransition() {
     const active = transition; if (!active) return;
     const pose = transitionPose; transition = null; transitionPose = null;
     if (pose) {
       target.copy(currentTarget);
-      if (active.from.extent !== active.to.extent) fittedExtent = pose.extent;
+      if (pose.extent !== active.startExtent) fittedExtent = pose.extent;
       // This may run inside a store notification; the zoom is written after it.
       const zoom = Math.min(ZOOM_RANGE.max, Math.max(ZOOM_RANGE.min, Math.round(pose.zoom * 1e4) / 1e4));
-      if (active.from.zoom !== active.to.zoom && zoom !== active.storeZoom) queueMicrotask(() => { if (!disposed && store.getSnapshot().settings.zoom === active.storeZoom) store.configure({ zoom }); });
+      if (Math.abs(pose.zoom - active.storeZoom) > 1e-9 && zoom !== active.storeZoom) queueMicrotask(() => { if (!disposed && store.getSnapshot().settings.zoom === active.storeZoom) store.configure({ zoom }); });
     }
     active.resolve('interrupted');
   }
@@ -300,28 +336,52 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   /** Starts a camera move. `plan` runs after a running transition is interrupted, so it starts where the camera stopped. */
   function startTransition(plan: () => { to: CameraPose; fittedExtent: number | undefined; overviewFit: OverviewFit | null }, options: CameraTransition | undefined): Promise<CameraTransitionResult> {
-    interruptTransition(); pan?.cancel(); cameraMoved = true;
+    takeCamera();
     const { to, ...framing } = plan(), seconds = options ? options.seconds ?? DEFAULT_CAMERA_TRANSITION.seconds : 0, settings = store.getSnapshot().settings;
     // Reduced motion, motion off, a zero duration and the initial load make it a cut.
     if (seconds === 0 || reducedMotion.matches || !settings.motion || loadState.phase !== 'loaded') { arrive(to, framing); return Promise.resolve('completed'); }
-    const from = currentPose();
-    return new Promise(resolve => { transition = { from, to, ...framing, seconds, easing: options?.easing ?? DEFAULT_CAMERA_TRANSITION.easing, start: null, storeZoom: settings.zoom, resolve }; });
+    const from = currentPose(), easing = options?.easing ?? DEFAULT_CAMERA_TRANSITION.easing; let start: number | null = null;
+    return new Promise(resolve => { transition = { storeZoom: settings.zoom, startExtent: from.extent, resolve, arrive: () => arrive(to, framing), step: (time, cut) => {
+      start ??= time; const t = cut ? 1 : (time - start) / 1000 / seconds;
+      return { pose: interpolatePose(from, to, ease(t, easing)), ...(t >= 1 ? { end: 'completed' as const } : {}) };
+    } }; });
+  }
+  /** Pose of a path keyframe: `frame` sets the target (and with `fit` the scale) from the node now; `view` fields override. */
+  function resolveKeyframe(keyframe: CameraKeyframe, previous: CameraPose): CameraPose | null {
+    const view = keyframe.view ?? {}, yaw = view.yaw ?? previous.yaw, pitch = view.pitch ?? previous.pitch, zoom = view.zoom ?? previous.zoom;
+    let target: Vec3 = view.target ? [...view.target] as unknown as Vec3 : previous.target, extent = previous.extent;
+    if (keyframe.frame) {
+      const entry = entries.get(keyframe.frame.nodeId); if (!entry) return null;
+      if (keyframe.frame.fit) { const fitted = fitBounds(new THREE.Box3().setFromObject(entry.object), yaw, pitch); target = fitted.target.toArray(); extent = fitted.extent * zoom; }
+      else target = entry.object.getWorldPosition(new THREE.Vector3()).setY(0).toArray();
+    }
+    return { target, yaw, pitch, zoom, extent };
+  }
+  const followPosition = new THREE.Vector3(), followForward = new THREE.Vector3(), followQuaternion = new THREE.Quaternion();
+  /** Moves the target to the followed node and, for a `behind` follow, turns the yaw toward its heading. */
+  function advanceFollow(dt: number) {
+    const followed = follow && entries.get(follow.id);
+    if (!follow || !followed) return;
+    target.copy(followed.object.getWorldPosition(followPosition));
+    if (follow.heading === 'behind') {
+      followForward.set(0, 0, 1).applyQuaternion(followed.object.getWorldQuaternion(followQuaternion));
+      yaw = followYaw(yaw, Math.atan2(followForward.x, followForward.z), follow.offset, dt, reducedMotion.matches);
+    }
   }
   /** Advances the camera by `dt` seconds at frame `time` (ms, real time) and places the drawn camera. */
   function advanceCamera(dt: number, time: number) {
     const settings = store.getSnapshot().settings, active = transition;
     if (active) {
-      // A zoom change from elsewhere (wheel, a control) interrupts; motion turned off or reduced finishes at once.
+      // A zoom change from elsewhere (wheel, a control) interrupts; with motion off or reduced a transition finishes at once and a path cuts.
       if (settings.zoom !== active.storeZoom) interruptTransition();
       else {
-        active.start ??= time;
-        const t = reducedMotion.matches || !settings.motion ? 1 : (time - active.start) / 1000 / active.seconds;
-        transitionPose = interpolatePose(active.from, active.to, ease(t, active.easing));
-        currentTarget.set(...transitionPose.target); target.copy(currentTarget); yaw = transitionPose.yaw; pitch = transitionPose.pitch;
-        if (t >= 1) { transition = null; transitionPose = null; arrive(active.to, active); active.resolve('completed'); }
+        const { pose, end } = active.step(time, reducedMotion.matches || !settings.motion);
+        transitionPose = pose; currentTarget.set(...pose.target); target.copy(currentTarget); yaw = pose.yaw; pitch = pose.pitch;
+        if (end === 'completed') { transition = null; transitionPose = null; active.arrive(pose); active.resolve('completed'); }
+        else if (end) interruptTransition();
       }
     }
-    else currentTarget.lerp(target, glideStep(dt, reducedMotion.matches));
+    else { advanceFollow(dt); currentTarget.lerp(target, glideStep(dt, reducedMotion.matches)); }
     updateCamera();
   }
   /** Places the camera of the current projection for the drawn pose and viewport. */
@@ -360,7 +420,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (!sample) return; entry.object.position.set(...sample.position); entry.moving = sample.moving;
     const delta = Math.atan2(Math.sin(sample.yaw - entry.object.rotation.y), Math.cos(sample.yaw - entry.object.rotation.y)); entry.object.rotation.y += delta * turn;
   };
-  function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (cameraSettings.frameOnSelect) { if (id) void frame(id); else target.copy(overviewTarget()); } options.onSelect?.(store.getSnapshot().selection); }
+  function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (cameraSettings.frameOnSelect) { if (id) void frame(id); else if (!follow) target.copy(overviewTarget()); } options.onSelect?.(store.getSnapshot().selection); }
   const aim = (event: PointerEvent) => { const rect = renderer.domElement.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / width * 2 - 1, -(event.clientY - rect.top) / height * 2 + 1); raycaster.setFromCamera(pointer, camera); };
   /** Index of the pick target under the pointer, nearest first, or null. */
   function pickTargetAt(event: PointerEvent): number | null {
@@ -433,7 +493,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   };
   const leave = () => { changePeek(null); if (hovered) { hovered = null; safeSync(); } };
   container.addEventListener('pointerleave', leave); labelLayer.addEventListener('pointermove', onMove);
-  pan = bindCameraPan(renderer.domElement, () => camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); cameraMoved = true; target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove, canDrag: () => cameraSettings.controls !== 'none', onDragStart: () => { const moving = transition !== null; interruptTransition(); if (moving) updateCamera(); return moving; } });
+  pan = bindCameraPan(renderer.domElement, () => camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); cameraMoved = true; target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove, canDrag: () => cameraSettings.controls !== 'none', canOrbit: () => cameraSettings.controls === 'orbit',
+    // An orbit turns around the current target and keeps following; a pan ends it.
+    orbit: (deltaYaw, deltaPitch) => { changePeek(null); cameraMoved = true; yaw += deltaYaw; pitch = clampPitch(pitch + deltaPitch); if (follow) follow.offset += deltaYaw; },
+    onDragStart: mode => { const moving = transition !== null || mode === 'pan' && follow !== null; interruptTransition(); if (mode === 'pan') endFollow('interrupted'); if (moving) updateCamera(); return moving; } });
   const wheelZoom = options.wheelZoom ? bindWheelZoom([renderer.domElement, labelLayer], { getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }) }) : null;
   const onContextLost = (event: Event) => { event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; options.onError?.(new Error('Graphics context lost. Reload the scene to recover; records remain available in the host HTML view.')); };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
@@ -449,7 +512,6 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       raf = requestAnimationFrame(animate); return;
     }
     if (!document.hidden) {
-      advanceCamera(dt, time);
       const animated = settings.motion && !reducedMotion.matches;
       for (const entry of entries.values()) {
         // Routes own the root transform; motion-off and reduced motion show the confirmed result without travel.
@@ -473,6 +535,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         for (const entry of entries.values()) if (entry.node.kind !== 'asset' || entry.node.localMotion !== false) animateAsset(entry.object, { time: animationTime, delta: animationDelta, ...(entry.follower.route || entry.controller.active ? { locomotion: { moving: entry.moving } } : {}) });
       }
       for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
+      // The camera moves after the nodes, so a followed node is met at this frame's pose.
+      advanceCamera(dt, time);
       const labelRects: { x: number; y: number; width: number }[] = [];
       const selectionId = store.getSnapshot().selection?.nodeId;
       // Markers are placed first and never move or hide; other labels make way for them.
@@ -518,6 +582,28 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       return startTransition(() => { const pose = currentPose(); return { to: { target: view.target ? [...view.target] as unknown as Vec3 : pose.target, yaw: view.yaw ?? pose.yaw, pitch: view.pitch ?? pose.pitch, zoom: view.zoom ?? pose.zoom, extent: pose.extent }, fittedExtent, overviewFit }; }, transition);
     },
     onCameraChange: listener => { if (disposed) return () => undefined; cameraListeners.add(listener); return () => { cameraListeners.delete(listener); }; },
+    followNode: (id, followOptions = {}) => {
+      validateCameraFollow(followOptions);
+      if (disposed) return Promise.resolve('stopped');
+      endFollow('stopped');
+      if (id === null) return Promise.resolve('stopped');
+      if (!entries.has(id)) return Promise.resolve('removed');
+      settleDeferredFrame('interrupted'); takeCamera();
+      if (followOptions.distance !== undefined) fittedExtent = followExtent(followOptions.distance, store.getSnapshot().settings.zoom, width / height, cameraSettings.fov);
+      return new Promise(resolve => { follow = { id, heading: followOptions.heading ?? 'fixed', offset: 0, resolve }; });
+    },
+    getFollowedNode: () => follow?.id ?? null,
+    playCameraPath: path => {
+      validateCameraPath(path);
+      if (disposed) return { stop: () => undefined, finished: Promise.resolve('interrupted') };
+      settleDeferredFrame('interrupted'); takeCamera();
+      const start = currentPose(), player = createCameraPathPlayer(path, start, resolveKeyframe); let last: number | null = null;
+      const move: CameraMove = { storeZoom: store.getSnapshot().settings.zoom, startExtent: start.extent, resolve: player.finish,
+        arrive: pose => arrive(pose, { fittedExtent: pose.extent !== start.extent ? pose.extent : fittedExtent, overviewFit }),
+        step: (time, cut) => { const pose = player.advance(last === null ? 0 : (time - last) / 1000, cut); last = time; return { pose, ...(player.result ? { end: player.result } : {}) }; } };
+      if (!player.result) transition = move;
+      return { stop: () => { if (transition === move) interruptTransition(); else player.finish('interrupted'); }, finished: player.finished };
+    },
     getAnchor: (id, name) => { if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null; scene.updateMatrixWorld(true); const rotation = new THREE.Euler().setFromQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion())); return { position: anchor.getWorldPosition(new THREE.Vector3()).toArray() as [number, number, number], rotation: [rotation.x, rotation.y, rotation.z] }; },
     setPickTargets: (targets, onPick) => {
       if (disposed) return;
@@ -538,7 +624,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     overview: (overviewOptions = {}) => {
       if (overviewOptions.transition) validateCameraTransition(overviewOptions.transition);
       if (disposed) return Promise.resolve('interrupted');
-      settleDeferredFrame('interrupted'); interruptTransition(); pan?.cancel(); cameraMoved = true;
+      settleDeferredFrame('interrupted'); takeCamera();
       const fit = cameraSettings.overview === 'bounds' ? boundsOverview() : null;
       if (!overviewOptions.transition) {
         fittedExtent = undefined; overviewFit = fit; yaw = cameraSettings.yaw; pitch = cameraSettings.pitch; target.copy(overviewTarget()); store.select(null); options.onSelect?.(null);
@@ -549,7 +635,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       return startTransition(() => ({ to: { target: (fit?.target ?? groundTarget(nodes)).toArray(), yaw: cameraSettings.yaw, pitch: cameraSettings.pitch, zoom: store.getSnapshot().settings.zoom, extent: fit?.extent ?? groundExtent(nodes) }, fittedExtent: undefined, overviewFit: fit }), overviewOptions.transition);
     },
     getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearPickTargets(); interruptTransition(); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    dispose: () => { if (disposed) return; clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
 }
 

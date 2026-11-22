@@ -46,7 +46,7 @@ The JSON Schema of a scene definition ships as `@opsorama/core/scene-definition.
 
 ## Camera settings
 
-`SceneSettings.camera` (`CameraSettings`) configures the camera: `projection` (`'orthographic'`, the default, or `'perspective'`), `controls` (`'pan'` or `'none'`), `fov` (degrees 20–75, perspective only), `yaw` and `pitch` (overview direction in radians), `overview` (`'ground'` or `'bounds'`) and `frameOnSelect`. The defaults reproduce the classic orthographic overview from the offset [16, 22, 30]. Replacing `camera` resets omitted fields to `DEFAULT_CAMERA_SETTINGS`, like `palette`; spread the current value to change one field. `SceneSettings.zoom` stays the single zoom for both projections.
+`SceneSettings.camera` (`CameraSettings`) configures the camera: `projection` (`'orthographic'`, the default, or `'perspective'`), `controls` (`'pan'`, `'orbit'` or `'none'`), `fov` (degrees 20–75, perspective only), `yaw` and `pitch` (overview direction in radians), `overview` (`'ground'` or `'bounds'`) and `frameOnSelect`. The defaults reproduce the classic orthographic overview from the offset [16, 22, 30]. Replacing `camera` resets omitted fields to `DEFAULT_CAMERA_SETTINGS`, like `palette`; spread the current value to change one field. `SceneSettings.zoom` stays the single zoom for both projections.
 
 ```ts
 import { createSceneStore } from '@opsorama/core';
@@ -55,7 +55,21 @@ const store = createSceneStore(undefined, { camera: { projection: 'perspective',
 store.configure({ camera: { ...store.getSnapshot().settings.camera, yaw: Math.PI / 2 } });
 ```
 
-`CameraView` and `CameraTransition` describe what the renderer's camera API in `@opsorama/three` reads and sets; `validateCameraView` and `validateCameraTransition` check them with actionable errors.
+`CameraView` and `CameraTransition` describe what the renderer's camera API in `@opsorama/three` reads and sets; `validateCameraView` and `validateCameraTransition` check them with actionable errors. `CameraFollowOptions` (`distance` in metres, `heading` `'fixed'` or `'behind'`) configure `renderer.followNode`, checked by `validateCameraFollow`.
+
+A `CameraPath` is a list of 1–64 `CameraKeyframe`s for `renderer.playCameraPath`: each gives a `view`, a node to `frame` or both, the travel time in `seconds` (0–60, 0 is a cut), an optional `hold` and `easing`, and the path may `loop`. Paths are host data for the renderer, not part of a scene definition. `validateCameraPath` throws an error that names the JSON Pointer of the offending value and the fix:
+
+```ts
+import { validateCameraPath, type CameraPath } from '@opsorama/core';
+
+const tour: CameraPath = { keyframes: [
+  { frame: { nodeId: 'dock', fit: true }, view: { yaw: -0.6 }, seconds: 1.5, hold: 0.5 },
+  { view: { target: [0, 0, 0], zoom: 1 }, seconds: 1.5, easing: 'linear' },
+], loop: true };
+validateCameraPath(tour);
+try { validateCameraPath({ keyframes: [{ view: { yaw: 0 }, seconds: 90 }] }); }
+catch (error) { console.log((error as Error).message); } // Camera path /keyframes/0/seconds: set the travel time in seconds from 0 to 60; 0 is a cut.
+```
 
 ## Links
 
