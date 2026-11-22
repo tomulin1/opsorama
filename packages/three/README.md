@@ -1,6 +1,6 @@
 # @opsorama/three
 
-The Opsorama renderer: one Three.js scene renderer for every framework, with camera framing, panning and wheel zoom, labels and markers, selection styles, motion playback, shadows, static merging, instancing and explicit disposal. It ships **no models**: you pass an asset registry, usually kits from `@opsorama/objects`.
+The Opsorama renderer: one Three.js scene renderer for every framework, with orthographic and perspective cameras, timed camera transitions, framing, panning and wheel zoom, labels and markers, selection styles, motion playback, shadows, static merging, instancing and explicit disposal. It ships **no models**: you pass an asset registry, usually kits from `@opsorama/objects`.
 
 ## Install
 
@@ -31,6 +31,33 @@ const renderer = createSceneRenderer(container, store, { assets: createAssetRegi
 - `disposeObject` releases a model; `addObjectRelease` registers extra cleanup (image requests, object URLs) for custom factories.
 - Large scenes load in slices of `buildBudget` milliseconds (default 12) with a loading indicator over the scene until the first frame. `onLoad` reports progress, `renderer.loaded` resolves after the first frame, and `loadingIndicator: false` hides the built-in indicator.
 - `three` is a peer dependency.
+
+### Camera
+
+The camera follows `SceneSettings.camera` (projection, controls, field of view, overview direction; see `@opsorama/core`) and `SceneSettings.zoom`. The renderer reads and moves it:
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry, createSceneRenderer } from '@opsorama/three';
+import { vehiclesKit } from '@opsorama/objects/vehicles';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'floor', kind: 'ground', size: [20, 12] },
+  { id: 'truck', kind: 'asset', asset: 'truck', position: [-3, 0, 0] },
+] }, { camera: { projection: 'perspective' } });
+const renderer = createSceneRenderer(container, store, { assets: createAssetRegistry(vehiclesKit) });
+const stop = renderer.onCameraChange(view => console.log(view.target, view.yaw, view.pitch, view.zoom));
+await renderer.loaded;
+const result = await renderer.frame('truck', { fit: true, transition: { seconds: 1 } });
+if (result === 'completed') await renderer.setCameraView({ yaw: Math.PI / 4 }, { seconds: 0.8, easing: 'linear' });
+await renderer.overview({ transition: {} });
+stop();
+```
+
+- `getCameraView()` returns the drawn view (`target`, `yaw`, `pitch`, `zoom`); `setCameraView(view, transition?)` moves it (omitted fields stay; a cut without a transition) and writes a changed zoom to the store when the camera arrives.
+- `frame(id, { fit?, transition? })` and `overview({ transition? })` move on the transition's timing when given one and behave as before without. Every move resolves `'completed'` or `'interrupted'`.
+- Transitions run on real time. Reduced motion, `motion: false` and the initial load make them cuts; a drag, another move, clearing the selection or a zoom change from elsewhere interrupts them.
+- `onCameraChange` calls its listener at most once per rendered frame while the view changes. Labels behind the perspective camera are hidden.
 
 ### Node preview
 

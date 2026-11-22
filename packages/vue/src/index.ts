@@ -1,10 +1,26 @@
-import { computed, defineComponent, h, inject, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType } from 'vue';
-import type { MarkerIcon, MarkerShape, MarkerSize, MarkerTone, Attachment, AssetOptions, SceneNode, SceneStore, SceneSnapshot, Selection, NodeRoute, CountLayout, NodeView, MaterialOverrides, Footprint, NodeController, NodeTransfer, ControllerRegistry } from '@opsorama/core';
-import { createNodePreview, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type AssetRegistry, type NodePreview as NodePreviewHandle, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import { computed, defineComponent, h, inject, shallowReadonly, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType, type ShallowRef } from 'vue';
+import type { CameraView, MarkerIcon, MarkerShape, MarkerSize, MarkerTone, Attachment, AssetOptions, SceneNode, SceneStore, SceneSnapshot, Selection, NodeRoute, CountLayout, NodeView, MaterialOverrides, Footprint, NodeController, NodeTransfer, ControllerRegistry } from '@opsorama/core';
+import { createNodePreview, createRendererSlot, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type AssetRegistry, type NodePreview as NodePreviewHandle, type RendererSlot, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const storeKey: InjectionKey<SceneStore> = Symbol('dashboard-store');
-export const DashboardProvider = defineComponent({ name: 'DashboardProvider', props: { store: { type: Object as PropType<SceneStore>, required: true } }, setup(props, { slots }) { provide(storeKey, props.store); return () => slots.default?.(); } });
+const rendererKey: InjectionKey<{ slot: RendererSlot; renderer: Readonly<ShallowRef<SceneRenderer | null>> }> = Symbol('dashboard-renderer');
+/** Provides the scene store to every component below it, and a slot for the renderer of its one `SceneCanvas` (see `useSceneRenderer`). */
+export const DashboardProvider = defineComponent({ name: 'DashboardProvider', props: { store: { type: Object as PropType<SceneStore>, required: true } }, setup(props, { slots }) {
+  provide(storeKey, props.store);
+  const slot = createRendererSlot(), renderer = shallowRef<SceneRenderer | null>(null), stop = slot.subscribe(() => { renderer.value = slot.get(); });
+  onUnmounted(stop); provide(rendererKey, { slot, renderer: shallowReadonly(renderer) });
+  return () => slots.default?.();
+} });
 export function useSceneStore(): SceneStore { const store = inject(storeKey); if (!store) throw new Error('A DashboardProvider is required.'); return store; }
+/** The renderer of the provider's `SceneCanvas` as a read-only shallow ref: null before it mounts, after it unmounts and during server rendering. Use it for the camera API (`frame`, `overview`, `setCameraView`) from any component under the provider. */
+export function useSceneRenderer(): Readonly<ShallowRef<SceneRenderer | null>> { const context = inject(rendererKey, null); if (!context) throw new Error('A DashboardProvider is required.'); return context.renderer; }
+/** The current camera view of the provider's renderer, updated at most once per rendered frame while the view changes; null without a mounted renderer. */
+export function useCameraView(): Readonly<ShallowRef<CameraView | null>> {
+  const renderer = useSceneRenderer(), view = shallowRef<CameraView | null>(null); let stop: (() => void) | undefined;
+  onMounted(() => watch(renderer, value => { stop?.(); stop = undefined; view.value = value?.getCameraView() ?? null; if (value) stop = value.onCameraChange(next => { view.value = next; }); }, { immediate: true }));
+  onUnmounted(() => stop?.());
+  return shallowReadonly(view);
+}
 export function useScene() { const store = useSceneStore(); const snapshot = shallowRef<SceneSnapshot>(store.getSnapshot()); const unsubscribe = store.subscribe(() => { snapshot.value = store.getSnapshot(); }); onUnmounted(unsubscribe); return snapshot; }
 /** Controlled ZoomControl options bound to the provider's scene zoom setting. */
 export function useSceneZoom() { const store = useSceneStore(), snapshot = useScene(); return computed<SceneZoom>(() => ({ value: snapshot.value.settings.zoom, min: ZOOM_RANGE.min, max: ZOOM_RANGE.max, onChange: zoom => store.configure({ zoom }) })); }
@@ -22,12 +38,13 @@ export function useRendererFps(renderer: MaybeRefOrGetter<SceneRenderer | null |
 export const SceneCanvas = defineComponent({
   name: 'SceneCanvas', inheritAttrs: false, props: { assets: { type: Object as PropType<AssetRegistry>, required: true }, controllers: Object as PropType<ControllerRegistry>, instancing: { type: Boolean, default: true }, wheelZoom: { type: Boolean, default: false }, /** Milliseconds of model building per slice of the initial load; see `RendererOptions.buildBudget`. Mount-time. */ buildBudget: Number, /** Show the loading indicator until the first frame. The `loading` slot, given `{ state }`, replaces its content. */ loading: { type: Boolean, default: true } }, emits: { select: (selection: Selection | null) => selection === null || typeof selection.nodeId === 'string', ready: (renderer: SceneRenderer) => typeof renderer.dispose === 'function', load: (state: SceneLoadState) => typeof state.phase === 'string', error: (error: Error) => error instanceof Error },
   setup(props, { slots, attrs, emit }) {
-    const store = useSceneStore(), container = ref<HTMLDivElement>(), error = ref<string | null>(null), load = shallowRef<SceneLoadState | null>(null), theme = ref(store.getSnapshot().settings.theme); let renderer: SceneRenderer | undefined;
+    const store = useSceneStore(), rendererContext = inject(rendererKey, null), container = ref<HTMLDivElement>(), error = ref<string | null>(null), load = shallowRef<SceneLoadState | null>(null), theme = ref(store.getSnapshot().settings.theme); let renderer: SceneRenderer | undefined, unregister: (() => void) | undefined;
     const unsubscribe = store.subscribe(() => { theme.value = store.getSnapshot().settings.theme; });
-    const mount = () => { if (!container.value) return; error.value = null; load.value = null; try { renderer = createSceneRenderer(container.value, store, { assets: props.assets, controllers: props.controllers, instancing: props.instancing, wheelZoom: props.wheelZoom, buildBudget: props.buildBudget, loadingIndicator: false, onLoad: state => { load.value = state; emit('load', state); }, onSelect: selection => emit('select', selection), onError: err => { error.value = err.message; emit('error', err); } }); emit('ready', renderer); } catch (err) { const failure = err instanceof Error ? err : new Error(String(err)); error.value = failure.message; emit('error', failure); } };
+    const unmount = () => { unregister?.(); unregister = undefined; renderer?.dispose(); renderer = undefined; };
+    const mount = () => { if (!container.value) return; error.value = null; load.value = null; try { renderer = createSceneRenderer(container.value, store, { assets: props.assets, controllers: props.controllers, instancing: props.instancing, wheelZoom: props.wheelZoom, buildBudget: props.buildBudget, loadingIndicator: false, onLoad: state => { load.value = state; emit('load', state); }, onSelect: selection => emit('select', selection), onError: err => { error.value = err.message; emit('error', err); } }); unregister = rendererContext?.slot.register(renderer); emit('ready', renderer); } catch (err) { unmount(); const failure = err instanceof Error ? err : new Error(String(err)); error.value = failure.message; emit('error', failure); } };
     let stop: (() => void) | undefined;
-    onMounted(() => { mount(); stop = watch(() => [props.instancing, props.wheelZoom, props.buildBudget], () => { renderer?.dispose(); mount(); }); });
-    onUnmounted(() => { stop?.(); unsubscribe(); renderer?.dispose(); });
+    onMounted(() => { mount(); stop = watch(() => [props.instancing, props.wheelZoom, props.buildBudget], () => { unmount(); mount(); }); });
+    onUnmounted(() => { stop?.(); unsubscribe(); unmount(); });
     const defaultLoading = (state: SceneLoadState | null) => [h('span', { class: SCENE_LOADING_CLASSES.spinner, 'aria-hidden': 'true' }), h('span', { class: SCENE_LOADING_CLASSES.title, 'aria-hidden': 'true' }, 'Loading scene'), h('span', { class: SCENE_LOADING_CLASSES.bar, 'aria-hidden': 'true' }, [h('span', { style: { transform: `scaleX(${loadProgress(state)})` } })]), h('span', { class: SCENE_LOADING_CLASSES.detail, 'aria-hidden': 'true' }, loadStateText(state))];
     const indicator = () => props.loading && !error.value && load.value?.phase !== 'loaded' ? h('div', { class: SCENE_LOADING_CLASSES.root, 'data-theme': theme.value, ...loadingIndicatorAttributes(load.value) }, [h('style', SCENE_LOADING_STYLES), ...(slots.loading?.({ state: load.value }) ?? defaultLoading(load.value))]) : null;
     return () => h('div', { ...attrs, style: [{ position: 'relative', width: '100%', height: '100%', minHeight: '240px' }, attrs.style || {}] }, [h('div', { ref: container, style: { position: 'absolute', inset: 0 } }), slots.default?.(), indicator(), error.value ? h('div', { class: 'kit-scene-error', role: 'alert' }, [h('strong', 'Scene unavailable'), h('p', error.value), h('span', 'Use the HTML record list to continue working.')]) : null]);

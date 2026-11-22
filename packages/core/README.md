@@ -44,6 +44,19 @@ Pass `{ validateAsset: assetValidator(registry) }` (from `@opsorama/three`) to a
 
 The JSON Schema of a scene definition ships as `@opsorama/core/scene-definition.schema.json` (draft-07, generated from these types, for editors and JSON Schema validators). It checks structure, types and ranges; rules across nodes (unique IDs, parents, attachments) and model options are checked by `validateScene` only.
 
+## Camera settings
+
+`SceneSettings.camera` (`CameraSettings`) configures the camera: `projection` (`'orthographic'`, the default, or `'perspective'`), `controls` (`'pan'` or `'none'`), `fov` (degrees 20–75, perspective only), `yaw` and `pitch` (overview direction in radians), `overview` (`'ground'` or `'bounds'`) and `frameOnSelect`. The defaults reproduce the classic orthographic overview from the offset [16, 22, 30]. Replacing `camera` resets omitted fields to `DEFAULT_CAMERA_SETTINGS`, like `palette`; spread the current value to change one field. `SceneSettings.zoom` stays the single zoom for both projections.
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+
+const store = createSceneStore(undefined, { camera: { projection: 'perspective', fov: 40 } });
+store.configure({ camera: { ...store.getSnapshot().settings.camera, yaw: Math.PI / 2 } });
+```
+
+`CameraView` and `CameraTransition` describe what the renderer's camera API in `@opsorama/three` reads and sets; `validateCameraView` and `validateCameraTransition` check them with actionable errors.
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.
