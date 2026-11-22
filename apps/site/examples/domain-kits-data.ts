@@ -1,4 +1,5 @@
-import { createSceneStore, personHairColor, type SceneDefinition, type SceneNode, type SceneStore } from '@opsorama/core';
+import { createSceneStore, type SceneDefinition, type SceneNode, type SceneStore } from '@opsorama/core';
+import { personHairColor } from '@opsorama/objects';
 
 const zone = (id: string, label: string, center: readonly [number, number], size: readonly [number, number], color: string): SceneNode => ({ id, kind: 'zone', label, position: [center[0], .02, center[1]], size, color });
 const asset = (id: string, type: string, position: readonly [number, number], label?: string, extra: Partial<Extract<SceneNode, { kind: 'asset' }>> = {}): SceneNode =>
@@ -34,13 +35,13 @@ export const domainKitsDefinition: SceneDefinition = { schemaVersion: 1, nodes: 
   asset('booth-2', 'exhibition-booth', [25.5, 13], undefined, { color: '#e26d5a' }),
   // Illustrative people from the person catalog; they carry no staff, patient or visitor records.
   person('person-crane', 'construction-worker', [-3.6, -10.2], { variant: 'working', rotation: [0, -Math.PI / 2, 0] }),
-  person('person-port', 'construction-worker', [7.6, -6], { variant: 'idle', person: { figure: 'feminine' }, rotation: [0, -Math.PI / 2, 0] }),
+  person('person-port', 'construction-worker', [7.6, -6], { variant: 'idle', options: { person: { figure: 'feminine' } }, rotation: [0, -Math.PI / 2, 0] }),
   person('person-doctor', 'doctor', [-5.5, 11.2], { variant: 'idle', rotation: [0, Math.PI, 0] }),
-  person('person-nurse', 'nurse', [-3.25, 9], { variant: 'working', person: { figure: 'feminine' }, rotation: [0, -Math.PI / 2, 0] }),
+  person('person-nurse', 'nurse', [-3.25, 9], { variant: 'working', options: { person: { figure: 'feminine' } }, rotation: [0, -Math.PI / 2, 0] }),
   person('person-chef-1', 'chef', [2.5, 8.6], { variant: 'working', rotation: [0, Math.PI, 0] }),
-  person('person-chef-2', 'chef', [6, 8], { variant: 'working', person: { figure: 'feminine' }, rotation: [0, Math.PI, 0], color: '#a33b3b' }),
+  person('person-chef-2', 'chef', [6, 8], { variant: 'working', options: { person: { figure: 'feminine' } }, rotation: [0, Math.PI, 0], color: '#a33b3b' }),
   person('person-guard', 'security-guard', [17.6, 3.2], { variant: 'idle', rotation: [0, Math.PI / 2, 0] }),
-  person('person-visitor-1', 'visitor', [16, 15.4], { variant: 'idle', person: { figure: 'feminine' }, rotation: [0, Math.PI, 0] }),
+  person('person-visitor-1', 'visitor', [16, 15.4], { variant: 'idle', options: { person: { figure: 'feminine' } }, rotation: [0, Math.PI, 0] }),
   person('person-visitor-2', 'visitor', [25, 15.6], { variant: 'walking', rotation: [0, Math.PI, 0], color: '#4f7fbf' }),
   person('person-visitor-3', 'office-worker', [26.2, 15.4], { variant: 'idle', rotation: [0, Math.PI, 0] }),
 ] };

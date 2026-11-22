@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { isPersonAsset, routeDuration, routeTimes, sampleRoute, type AssetNode, type SceneNode } from '@opsorama/core';
+import { routeDuration, routeTimes, sampleRoute, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
-import { catalogAssets } from '@opsorama/objects';
+import { catalogAssets, isPersonAsset } from '@opsorama/objects';
 import { CARRY_AHEAD, PICKUP_CAPACITY, SCENARIOS, SERVICE_PERIOD, STATIONS, TABLE_LAYOUT, TABLE_STATUS, applyRestaurantSnapshot, createRestaurantStore, isOccupied, restaurantMetrics, restaurantNodes, serviceLoop, stationTickets, type RestaurantScenario } from '../apps/site/src/features/restaurant/model';
 import { HAND_OFF, WASH_SECONDS, actorPose, compileService, platesAt, positionAt, standingPoint, trackServicePhase, type PlateRest, type PlateState, type ServiceCycle, type ServicePlan } from '../apps/site/src/features/restaurant/service';
 
@@ -62,7 +62,7 @@ describe('restaurant dashboard model', () => {
     const obstacles = (nodes: readonly SceneNode[]) => nodes.flatMap(node => {
       if (node.kind !== 'asset' || node.attachment || isPersonAsset(node.asset) || node.footprint) return [];
       // Surface labels need a DOM canvas and add no standing geometry.
-      const object = catalogAssets[node.asset]({ ...node, surfaceLabel: undefined }), boxes: THREE.Box3[] = [];
+      const object = catalogAssets[node.asset]({ ...node, options: { ...node.options, surfaceLabel: undefined } }), boxes: THREE.Box3[] = [];
       object.position.fromArray(node.position ?? [0, 0, 0]); object.rotation.set(...(node.rotation ?? [0, 0, 0])); object.scale.fromArray(node.scale ?? [1, 1, 1]); object.updateMatrixWorld(true);
       object.traverse(child => { if (!(child instanceof THREE.Mesh)) return; const box = new THREE.Box3().setFromObject(child); if (box.min.y < 1.2 && box.max.y > .15) boxes.push(box); });
       disposeObject(object);
@@ -89,7 +89,7 @@ describe('restaurant dashboard model', () => {
   const STEP = .1, phases = Array.from({ length: Math.round(SERVICE_PERIOD / STEP) }, (_, i) => i * STEP);
   /** World point of a plate rest, from the catalog model of the node it rests on. */
   const restPoint = (nodes: readonly SceneNode[], rest: PlateRest) => {
-    const owner = asset(nodes, rest.node), model = catalogAssets[owner.asset]({ ...owner, surfaceLabel: undefined });
+    const owner = asset(nodes, rest.node), model = catalogAssets[owner.asset]({ ...owner, options: { ...owner.options, surfaceLabel: undefined } });
     model.position.fromArray(owner.position ?? [0, 0, 0]); model.rotation.set(...(owner.rotation ?? [0, 0, 0])); model.updateMatrixWorld(true);
     const point = (rest.anchor ? model.getObjectByName(`anchor-${rest.anchor}`)! : model).localToWorld(new THREE.Vector3(...rest.offset));
     disposeObject(model);

@@ -140,7 +140,7 @@ describe('e-commerce dashboard model', () => {
     // Surface labels draw on a DOM canvas, so this Node test builds the models without them.
     for (const original of startNodes('peak')) {
       if (original.kind !== 'asset') continue;
-      const node: AssetNode = { ...original, surfaceLabel: undefined, attachment: undefined };
+      const node: AssetNode = { ...original, options: { ...original.options, surfaceLabel: undefined }, attachment: undefined };
       const object = catalogAssets[node.asset](node);
       expect(object, node.id).toBeDefined(); disposeObject(object);
     }

@@ -1,4 +1,4 @@
-import { validateOperatingProperties } from '@opsorama/core';
+import { validateOperatingProperties } from './operating';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
 import { setAssetAnimator } from '@opsorama/three';
@@ -258,7 +258,7 @@ export function createDeckShower(node: AssetNode, context?: MaterialContext): TH
   block(shower, [.1, .14, .03], [0, 1.3, -.22], p.trim, 'shower-button-panel', { bevel: .008 });
   const button = cylinder(shower, .025, .02, 0, p.structure, 'shower-button', { segments: 14 }); button.rotation.x = Math.PI / 2; button.position.set(0, 1.32, -.2);
   anchor(shower, 'stand', [0, .04, .15]); anchor(shower, 'top', [0, 2.3, 0]);
-  if (node.waterRunning === false) return shower;
+  if (node.options?.waterRunning === false) return shower;
   const stream = part(shower, new THREE.CylinderGeometry(.1, .17, 2.12, 20, 1, true), p.liquid, 'shower-water', { opacity: .28, roughness: .1 }); stream.position.set(0, 1.1, .18);
   (stream.material as THREE.Material).side = THREE.DoubleSide;
   const drops = Array.from({ length: 10 }, () => part(shower, new THREE.SphereGeometry(.018, 8, 6), p.liquid, 'shower-drop', { opacity: .7 }));

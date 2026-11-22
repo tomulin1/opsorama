@@ -1,4 +1,4 @@
-import { validateOperatingProperties } from '@opsorama/core';
+import { validateOperatingProperties } from './operating';
 import * as THREE from 'three';
 import { resolveFootprint, type AssetNode, type FootprintDefinition } from '@opsorama/core';
 import type { MaterialContext } from '@opsorama/three';
@@ -141,7 +141,7 @@ const FEED_TROUGH_TONES = { structure: '#8c6a4a', trim: '#6e5038', surface: '#c9
 export function createTrough(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   validateOperatingProperties(node);
   const variant = variantOf(node, ['water', 'feed'] as const, 'trough'), p = objectPalette(node, context, 'structure', variant === 'water' ? WATER_TROUGH_TONES : FEED_TROUGH_TONES);
-  const level = node.fillLevel ?? 1, empty = level === 0, trough = new THREE.Group(); trough.name = `trough-${variant}`;
+  const level = node.options?.fillLevel ?? 1, empty = level === 0, trough = new THREE.Group(); trough.name = `trough-${variant}`;
   if (variant === 'water') {
     // Oval tank: a unit circle stretched to 2.4 × 1.0 m.
     const oval = (geometry: THREE.BufferGeometry) => geometry.scale(1.2, 1, .5);

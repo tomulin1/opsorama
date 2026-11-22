@@ -21,7 +21,7 @@ Opsorama is a toolkit for declarative 3D scenes in web applications that AI codi
 
 ## Before the first release (0.1)
 
-- A domain-free core: `@opsorama/core` keeps the scene model, store, selection, events, placement, routes, movement and behaviors, while handling, move mode, forks, carry, operating and building rules move to an optional package. Model-specific node props (such as `heatEnabled`, `fillLevel` or `forks`) become one typed options field that each model's descriptor validates. This changes package exports, so it lands before the first publication.
+- A domain-free core: `@opsorama/core` keeps the scene model, store, selection, events, placement, routes, movement and behaviors. Done: containment is generic for any asset, and model-specific node props (such as `heatEnabled`, `fillLevel` or `forks`) live in one `AssetNode.options` field that `@opsorama/objects` types and validates per catalog asset. Remaining: handling rules and move mode move out of core. This changes package exports, so it lands before the first publication.
 - Publication of the packages on npm and of the documentation at opsorama.dev (the release and deployment workflows exist and are switched off until then).
 
 ## After the first release

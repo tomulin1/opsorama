@@ -135,7 +135,7 @@ export const startingBlockDescriptor = aquatic({
     { role: 'text', parts: 'Number plate' },
     { role: 'screen', parts: 'Placeholder number without label artwork' },
   ],
-  options: [{ field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front number plate, such as the lane number; it replaces the placeholder number.' }],
+  options: [{ field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front number plate, such as the lane number; it replaces the placeholder number.' }],
   states: noStatus('starting block'),
   motion: { animation: 'none', staticPose: 'Always static.' },
   anchors: [
@@ -221,7 +221,7 @@ export const deckShowerDescriptor = aquatic({
     { role: 'liquid', parts: 'Water stream and droplets' },
   ],
   states: noStatus('shower'),
-  options: [localMotionOption('the droplets'), { field: 'waterRunning', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible water on/off; false removes water and its animator. Independent of status.', samples: [{ waterRunning: false }] }],
+  options: [localMotionOption('the droplets'), { field: 'options.waterRunning', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible water on/off; false removes water and its animator. Independent of status.', samples: [{ options: { waterRunning: false } }] }],
   motion: { animation: 'local', staticPose: 'The stream stands still with droplets at rest; waterRunning: false shows no water and never animates.' },
   anchors: [
     { name: 'stand', purpose: 'Tray point under the rose, where a person stands.' },
@@ -246,7 +246,7 @@ export const lifeRingPostDescriptor = aquatic({
     { role: 'screen', parts: 'Placeholder ring mark without label artwork' },
   ],
   fixed: 'The throw line is natural rope.',
-  options: [{ field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the sign plate, such as a rescue point number; it replaces the placeholder mark.' }],
+  options: [{ field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the sign plate, such as a rescue point number; it replaces the placeholder mark.' }],
   states: noStatus('life ring post'),
   motion: { animation: 'none', staticPose: 'Always static.' },
   anchors: [
@@ -274,7 +274,7 @@ export const dosingStationDescriptor = aquatic({
     { role: 'accent', parts: 'Chemical canisters' },
   ],
   fixed: 'The display background is dark, tubing is pale, and the two cap tones are decorative: they do not identify chemicals.',
-  options: [{ field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the controller display, such as host-supplied pH and chlorine readings; it replaces the placeholder digits.' }],
+  options: [{ field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the controller display, such as host-supplied pH and chlorine readings; it replaces the placeholder digits.' }],
   states: noStatus('dosing station'),
   motion: { animation: 'none', staticPose: 'Always static.' },
   anchors: [

@@ -1,5 +1,5 @@
 'use client';
-import { formatDisplay, type DisplayReading } from '@opsorama/core';
+import { formatDisplay, type DisplayReading } from '@opsorama/objects';
 
 export function ObjectDisplayControls({ reading, onChange }: { reading: DisplayReading; onChange(reading: DisplayReading): void }) {
   return <div className="object-display-controls">

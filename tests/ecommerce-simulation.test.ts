@@ -150,7 +150,7 @@ describe('e-commerce mock feed', () => {
     let highest = 0, attached = false, reached = 0;
     for (let i = 0; i < 8000; i++) {
       simulation.advance(.1);
-      const nodes = assets(simulation.nodes()), truck = nodes.find(node => node.id === 'reach-truck')!, moves = truck.forks?.moves ?? [];
+      const nodes = assets(simulation.nodes()), truck = nodes.find(node => node.id === 'reach-truck')!, moves = truck.options?.forks?.moves ?? [];
       for (const move of moves) { highest = Math.max(highest, move.height); reached = Math.max(reached, move.reach ?? 0); }
       if (moves.some(move => move.height > 1)) attached ||= nodes.some(node => node.attachment?.nodeId === 'reach-truck' && node.attachment.anchor === 'load');
       if (truck.route?.reverseSegments) expect(truck.route.points.length).toBeGreaterThan(1);
@@ -175,7 +175,7 @@ describe('e-commerce mock feed', () => {
     const simulation = createEcommerceSimulation('peak'); run(simulation, 200);
     for (const original of assets(simulation.nodes())) {
       if (/^(pallet|tote|carton|parcel|bag):/.test(original.id)) expect(assetHandling[original.asset], original.id).toBeDefined();
-      const object = catalogAssets[original.asset]({ ...original, surfaceLabel: undefined, attachment: undefined, route: undefined, controller: undefined });
+      const object = catalogAssets[original.asset]({ ...original, options: { ...original.options, surfaceLabel: undefined }, attachment: undefined, route: undefined, controller: undefined });
       expect(object, original.id).toBeDefined(); disposeObject(object);
     }
     const store = createSceneStore({ schemaVersion: 1, nodes: simulation.nodes() });

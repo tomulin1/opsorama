@@ -67,7 +67,7 @@ function siteNodes(): SceneNode[] {
     ...perimeterFence(),
     siteFixture('entrance-gate-in', 'gate', SITE_X + 1.5, FENCE.south),
     siteFixture('entrance-gate-out', 'gate', SITE_X - 1.5, FENCE.south, { rotation: [0, HALF_TURN, 0] }),
-    siteFixture('entrance-sign', 'sign', SITE_X + 6.5, 38.9, { surfaceLabel: { kind: 'text', text: 'DATACENTER', color: '#ffffff', background: '#2a6a85' } }),
+    siteFixture('entrance-sign', 'sign', SITE_X + 6.5, 38.9, { options: { surfaceLabel: { kind: 'text', text: 'DATACENTER', color: '#ffffff', background: '#2a6a85' } } }),
     ...treeRow.flatMap(z => [FENCE.west + 3, FENCE.east - 3].map(x => siteFixture(`tree-${x}-${z}`, z % 24 ? 'tree' : 'tree-pine', x, z))),
     ...lampRow.flatMap(z => [RING.west + 3.6, RING.east - 3.6].map(x => siteFixture(`lamp-${x}-${z}`, 'lamp-post', x, z, { rotation: [0, x < SITE_X ? -QUARTER_TURN : QUARTER_TURN, 0] }))),
   ];
@@ -76,7 +76,7 @@ function siteNodes(): SceneNode[] {
 export function createFacilityNodes(records: readonly DatacenterRecord[]): SceneNode[] {
   const nodes: SceneNode[] = [
     { id: 'floor', kind: 'ground', size: [106, 90], position: [SITE_X, 0, -4], color: '#a9bca7' },
-    { id: 'facility-shell', kind: 'asset', asset: 'building', position: [2, 0, 0], view: 'open', building: { size: [68, 5.5, 48], colors: { wall: '#8fa4b4', floor: '#c7d3dd' } } },
+    { id: 'facility-shell', kind: 'asset', asset: 'building', position: [2, 0, 0], view: 'open', options: { building: { size: [68, 5.5, 48], colors: { wall: '#8fa4b4', floor: '#c7d3dd' } } } },
     { id: 'main-spine', kind: 'zone', size: [4, 47], position: [2, .1, 0], color: '#b6d8d5' },
     { id: 'cross-corridor', kind: 'zone', size: [44, 8], position: [2, .09, 0], color: '#b6d8d5' },
     ...siteNodes(),
@@ -84,7 +84,7 @@ export function createFacilityNodes(records: readonly DatacenterRecord[]): Scene
   for (const room of datacenterRooms) {
     const hall = room.kind === 'hall';
     nodes.push({ id: room.id, entityId: room.id.toUpperCase(), kind: 'asset', asset: 'building', position: [room.center[0], .12, room.center[1]], label: hall ? `${room.name} · 32 racks` : room.name, selectable: true, view: 'open',
-      building: { size: [room.size[0], 4.2, room.size[1]], colors: { floor: hall ? '#d8e2e8' : room.kind === 'power' || room.kind === 'battery' ? '#d4d5e3' : room.kind === 'network' ? '#c8d9e2' : '#d6dfd5', wall: '#a7b7c6' } } });
+      options: { building: { size: [room.size[0], 4.2, room.size[1]], colors: { floor: hall ? '#d8e2e8' : room.kind === 'power' || room.kind === 'battery' ? '#d4d5e3' : room.kind === 'network' ? '#c8d9e2' : '#d6dfd5', wall: '#a7b7c6' } } } });
     if (hall) {
       for (const z of [-2.43, 2.43]) {
         nodes.push({ id: `${room.id}-cold-${z}`, parentId: room.id, kind: 'zone', size: [9.6, 1.8], position: [-2.7, .04, z], color: '#69afc7' });
@@ -93,7 +93,7 @@ export function createFacilityNodes(records: readonly DatacenterRecord[]): Scene
       }
       for (const z of [-4.86, 0, 4.86]) nodes.push({ id: `${room.id}-warm-${z}`, parentId: room.id, kind: 'zone', size: [9.6, 1.2], position: [-2.7, .035, z], color: '#d5b995' });
       nodes.push({ id: `${room.id}-growth`, parentId: room.id, kind: 'zone', size: [4, 13], position: [6.2, .03, 0], color: '#dce3e7' });
-      nodes.push({ id: `${room.id}-growth-sign`, parentId: room.id, kind: 'asset', asset: 'order-ticket', position: [6.2, .12, 5], surfaceLabel: { kind: 'text', text: 'RESERVED' }, color: '#8ca3b5' });
+      nodes.push({ id: `${room.id}-growth-sign`, parentId: room.id, kind: 'asset', asset: 'order-ticket', position: [6.2, .12, 5], options: { surfaceLabel: { kind: 'text', text: 'RESERVED' } }, color: '#8ca3b5' });
       const hallRecords = records.filter(record => record.roomId === room.id);
       hallRecords.forEach((record, slot) => nodes.push({ id: record.id, parentId: room.id, entityId: record.id === 'rack' ? 'RACK-A01' : record.id.toUpperCase(), kind: 'asset', asset: 'equipment-cabinet', variant: 'overview', count: record.mountedUnits,
         position: rackLocalPosition(slot), rotation: [0, Math.floor(slot / 8) % 2 ? Math.PI : 0, 0], label: record.name, labelMode: 'active', selectable: true }));
@@ -108,7 +108,7 @@ export function createFacilityNodes(records: readonly DatacenterRecord[]): Scene
       for (let i = 0; i < 4; i++) nodes.push({ id: `${room.id}-rack-${i}`, parentId: room.id, kind: 'asset', asset: 'equipment-cabinet', variant: 'overview', count: 6, position: [-2.4 + i * 1.6, .12, -1], label: `${room.name} network cabinet ${i + 1}`, labelMode: 'active', selectable: true });
     } else if (room.id === 'noc') {
       nodes.push({ id: 'noc-desks', parentId: room.id, kind: 'asset', asset: 'desk-pod', count: 4, position: [0, .12, .5] });
-      nodes.push({ id: 'noc-display', parentId: room.id, kind: 'asset', asset: 'information-board', position: [0, .12, -2.5], surfaceLabel: { kind: 'text', layout: 'multiline', text: 'OPERATIONS\n4 IT HALLS\n128 RACKS\nMOCK DATA' } });
+      nodes.push({ id: 'noc-display', parentId: room.id, kind: 'asset', asset: 'information-board', position: [0, .12, -2.5], options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'OPERATIONS\n4 IT HALLS\n128 RACKS\nMOCK DATA' } } });
       nodes.push({ id: 'noc-plant', parentId: room.id, kind: 'asset', asset: 'potted-plant', position: [-4.3, .12, 2.3] });
     } else {
       nodes.push({ id: 'staging-shelf', parentId: room.id, kind: 'asset', asset: 'shelf', count: 4, position: [-2.5, .12, -2] });

@@ -8,13 +8,22 @@ export interface MaterialContext { theme: 'light' | 'midnight'; palette?: Materi
  * Builds one model for an asset node. The returned object and every geometry, material and texture under it belong to that instance;
  * the renderer releases them with `disposeObject` when the node is removed or rebuilt. A factory that throws must release what it allocated.
  *
+ * Optional `validate` checks a node without building it and throws an actionable error, for example for `AssetNode.options` the
+ * model does not accept. The renderer calls it before building, and `assetValidator` lets a scene store call it before accepting a node.
+ *
  * Optional hints the renderer reads from the returned object's `userData`:
- * - `labelHeight: number`: model-local height in metres of the floating label anchor. Default 1.65; nodes with a surface label or a
- *   measurement use their bounds plus 0.35 instead.
+ * - `labelHeight: number`: model-local height in metres of the floating label anchor. Default 1.65.
+ * - `labelText: string`: text of the floating label instead of `AssetNode.label`, for example a summary of the model's options.
+ *   The factory decides how it combines with `AssetNode.label`. Default: `AssetNode.label`.
+ * - `labelWrap: boolean`: wrap long label text at 220 px instead of keeping it on one line. Default false.
  * - `containerBounds: THREE.Box3`: model-local bounds of a container that stay the same in every `view`. With `AssetNode.peekOnHover`,
  *   hovering inside them peeks the container's children.
  */
-export type AssetFactory = (node: AssetNode, context?: MaterialContext) => THREE.Object3D;
+export interface AssetFactory {
+  (node: AssetNode, context?: MaterialContext): THREE.Object3D;
+  /** Throws when the node is not valid for this model, without building it. */
+  validate?: (node: AssetNode) => void;
+}
 /**
  * Asset factories keyed by `AssetNode.asset`. The renderer has no built-in models: pass the registry your scene uses, for example
  * `catalogAssets` from `@opsorama/objects`, or your own factories, or both merged with `createAssetRegistry`.
@@ -32,6 +41,21 @@ export function createAssetRegistry(...registries: readonly AssetRegistry[]): As
     merged[key] = factory;
   }
   return Object.freeze(merged);
+}
+
+/** Internal to the renderer: the factory of `asset`; throws an actionable error for an asset name the registry does not contain. */
+export function assetFactory(registry: AssetRegistry, asset: string): AssetFactory {
+  if (!Object.hasOwn(registry, asset)) throw new Error(`Unknown asset: ${asset}. Add its AssetFactory to the renderer's assets option, for example catalogAssets from @opsorama/objects.`);
+  return registry[asset];
+}
+
+/**
+ * A validator for `createSceneStore(definition, settings, { validateAsset })`: it rejects asset names the registry does not
+ * contain and runs the factory's `validate`, so the store refuses the nodes the renderer would fail to build. Pass the same
+ * registry as the renderer's `assets` option.
+ */
+export function assetValidator(registry: AssetRegistry): (node: AssetNode) => void {
+  return node => { assetFactory(registry, node.asset).validate?.(node); };
 }
 
 const releases = new WeakMap<THREE.Object3D, (() => void)[]>();

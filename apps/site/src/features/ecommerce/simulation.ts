@@ -1,5 +1,5 @@
-import { behaviorNode, createBehaviorRunner, createHandlingState, createSceneStore, finalForkPose, forkMoveSeconds, itemNode, personHairColor, type AgentState, type AssetHandling, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type FloorPlacement, type ForkMotion, type ForkMove, type ForkPose, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
-import { assetHandling, handlingProfiles } from '@opsorama/objects';
+import { behaviorNode, createBehaviorRunner, createHandlingState, createSceneStore, itemNode, type AgentState, type AssetHandling, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type FloorPlacement, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
+import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import {
   CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, stagedFor,
   type ActivityEvent, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
@@ -639,7 +639,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function agentNodes(state: AgentState, time: number): SceneNode[] {
     const definition = definitions.find(item => item.id === state.id)!, shopper = shoppers.get(state.id);
     if (shopper && !shopper.inside) return [];
-    const motion = forks.get(state.id), node = behaviorNode(state, { ...definition.node, ...(motion ? { forks: motion } : {}) }, { time }), attached: AssetNode[] = [];
+    const motion = forks.get(state.id), node = behaviorNode(state, { ...definition.node, ...(motion ? { options: { ...definition.node.options, forks: motion } } : {}) }, { time }), attached: AssetNode[] = [];
     if (state.id.startsWith('picker:')) attached.push({ id: `${state.id}:cart`, kind: 'asset', asset: 'picking-cart', position: [0, 0, 0], count: carts[state.id], selectable: false, attachment: { nodeId: state.id, anchor: 'cart' } });
     if (shopper?.basket) attached.push({ id: `${state.id}:basket`, kind: 'asset', asset: 'hand-basket', position: [0, 0, 0], count: Math.min(4, shopper.items), selectable: false, attachment: { nodeId: state.id, anchor: 'hand' } });
     return [node, ...attached];

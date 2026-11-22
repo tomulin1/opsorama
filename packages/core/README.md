@@ -23,7 +23,7 @@ unsubscribe();
 store.dispose();
 ```
 
-Nodes are visual records only; your application keeps business data and links nodes to it through `entityId`. Render the store with `@opsorama/three` directly or through `@opsorama/react` / `@opsorama/vue`.
+Nodes are visual records only; your application keeps business data and links nodes to it through `entityId`. Model-specific settings go in an asset node's `options` (`AssetOptions`): core accepts any plain JSON-like object and freezes it, model packages such as `@opsorama/objects` type and validate their options, and `createSceneStore(definition, settings, { validateAsset })` can reject invalid asset nodes before the store accepts them. Render the store with `@opsorama/three` directly or through `@opsorama/react` / `@opsorama/vue`.
 
 ## Links
 

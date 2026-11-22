@@ -1,5 +1,7 @@
 import type { AssetRegistry } from '@opsorama/three';
 import { catalogEntries } from '../catalog-entry';
+// Brings the catalog's typed AssetOptions (module augmentation of @opsorama/core) to every consumer of this kit.
+import '../options';
 import { createOrderTicket, createPolyMailer } from '../fulfillment';
 import { createBag } from '../generic-models';
 import { createTote } from '../handling';

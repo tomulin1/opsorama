@@ -1,5 +1,5 @@
-import { createNavGraph, personHairColor, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
-import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles } from '@opsorama/objects';
+import { createNavGraph, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
+import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
   AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
   areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
@@ -25,7 +25,7 @@ export const SHOPPERS = ['#6489d6', '#d08b5b', '#7fae8e', '#b07cc6', '#e0b44c', 
 const person = (id: string, position: Vec3, heading: number, variant: string, color: string, label?: string, extra: Partial<AssetNode> = {}): AssetNode =>
   ({ id, kind: 'asset', asset: 'worker', variant, color, position, rotation: yaw(heading), selectable: false, materials: { hair: personHairColor(id) }, ...(label ? { label, labelMode: 'active' as const } : {}), ...extra });
 /** Mixed crews and shoppers: every other person uses the feminine figure. */
-export const FEMININE = { person: { figure: 'feminine' } } as const satisfies Partial<AssetNode>;
+export const FEMININE = { options: { person: { figure: 'feminine' } } } as const satisfies Partial<AssetNode>;
 
 /* ── Fixed layout ───────────────────────────────────────────────────────── */
 
@@ -142,8 +142,8 @@ export const ecommerceBase: readonly SceneNode[] = closeWallJoints([
   wall('partition-4', -8.5, -15.5, 'solid', { rotation: yaw(HALF), scale: [1, .42, 1], color: '#cfd8e1' }),
   wall('partition-5', -8.5, -19.25, 'solid', { rotation: yaw(HALF), scale: [.875, .42, 1], color: '#cfd8e1' }),
   // Shop decoration.
-  fixture('shop-board', 'information-board', p(-12.4, -20), { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'ORDER ONLINE\nCOLLECT IN 2 H\n\nCounter by\nthe entrance', color: '#eef4f8' } }),
-  fixture('shop-sign', 'sign', [-14.4, WALK_Y, 5.4], { surfaceLabel: { kind: 'text', text: 'HEARTH & FIELD', color: '#ffffff', background: '#2f6f8f' } }),
+  fixture('shop-board', 'information-board', p(-12.4, -20), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'ORDER ONLINE\nCOLLECT IN 2 H\n\nCounter by\nthe entrance', color: '#eef4f8' } } }),
+  fixture('shop-sign', 'sign', [-14.4, WALK_Y, 5.4], { options: { surfaceLabel: { kind: 'text', text: 'HEARTH & FIELD', color: '#ffffff', background: '#2f6f8f' } } }),
   ...[[-10.3, -2.6], [-10.3, -9.6], [-25.2, 4.2], [-14.3, -20], [-10.3, -16.5]].map(([x, z], i) => fixture(`shop-plant-${i}`, 'potted-plant', p(x, z))),
   ...[0, 1].map(i => fixture(`shop-cart-${i}`, 'shopping-cart', p(-10.4, -5.8 + i * .55), { count: 0, rotation: yaw(-HALF) })),
   // Warehouse decoration: bollards at the aisle ends, overflow pallets and a parked pallet jack.
@@ -317,22 +317,22 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
   for (const gondola of GONDOLAS) {
     const label = DEPARTMENTS.find(item => item.id === gondola.department)!.label;
-    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department))[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } }));
+    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department))[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
   }
 
   // Checkouts face the shop floor; the queue forms toward it.
   for (const lane of snapshot.shop.checkouts) {
     const x = CHECKOUT_X[lane.id], open = snapshot.shopOpen && lane.open;
-    nodes.push(selectable(`checkout:${lane.id}`, lane.id, 'checkout-counter', p(x, CHECKOUT_Z), `Checkout ${lane.id.slice(1)} · ${open ? `queue ${lane.queue}` : 'closed'}`, { rotation: yaw(BACK), state: open ? lane.queue > 2 ? 'busy' : 'normal' : 'inactive', surfaceLabel: { kind: 'text', text: lane.id.slice(1), color: '#ffffff', background: open ? '#2f8a62' : '#8a96a3' } }));
+    nodes.push(selectable(`checkout:${lane.id}`, lane.id, 'checkout-counter', p(x, CHECKOUT_Z), `Checkout ${lane.id.slice(1)} · ${open ? `queue ${lane.queue}` : 'closed'}`, { rotation: yaw(BACK), state: open ? lane.queue > 2 ? 'busy' : 'normal' : 'inactive', options: { surfaceLabel: { kind: 'text', text: lane.id.slice(1), color: '#ffffff', background: open ? '#2f8a62' : '#8a96a3' } } }));
     if (open) nodes.push(person(`cashier:${lane.id}`, p(x - .55, CHECKOUT_Z + .7), BACK, 'working', SHOP_STAFF, lane.cashier, lane.id === 'C2' ? {} : FEMININE));
   }
 
   // Click & collect: one parcel per ready order on the counter, lockers and the returns box on the sidewalk.
   const ready = ordersIn(snapshot, 'collect').length;
   nodes.push(
-    selectable('collect:counter', 'collect', 'click-collect-counter', COLLECT, `Click & collect · ${ready} ready`, { count: Math.min(COLLECT_CAPACITY, ready), state: snapshot.shopOpen ? ready ? 'busy' : 'normal' : 'inactive', surfaceLabel: { kind: 'text', text: 'CLICK & COLLECT', color: '#ffffff', background: '#b0603a' } }),
-    selectable('collect:lockers', 'lockers', 'parcel-locker', [-19.5, WALK_Y, 6.25], `Parcel lockers · ${snapshot.shop.lockers} occupied`, { count: snapshot.shop.lockers, surfaceLabel: { kind: 'text', text: 'PARCEL LOCKERS', color: '#ffffff', background: '#b0603a' } }),
-    selectable('returns:dropbox', 'dropbox', 'returns-drop-box', [-16.6, WALK_Y, 6.2], 'Returns drop box', { surfaceLabel: { kind: 'text', text: 'RETURNS', color: '#ffffff', background: '#9b4d5c' } }),
+    selectable('collect:counter', 'collect', 'click-collect-counter', COLLECT, `Click & collect · ${ready} ready`, { count: Math.min(COLLECT_CAPACITY, ready), state: snapshot.shopOpen ? ready ? 'busy' : 'normal' : 'inactive', options: { surfaceLabel: { kind: 'text', text: 'CLICK & COLLECT', color: '#ffffff', background: '#b0603a' } } }),
+    selectable('collect:lockers', 'lockers', 'parcel-locker', [-19.5, WALK_Y, 6.25], `Parcel lockers · ${snapshot.shop.lockers} occupied`, { count: snapshot.shop.lockers, options: { surfaceLabel: { kind: 'text', text: 'PARCEL LOCKERS', color: '#ffffff', background: '#b0603a' } } }),
+    selectable('returns:dropbox', 'dropbox', 'returns-drop-box', [-16.6, WALK_Y, 6.2], 'Returns drop box', { options: { surfaceLabel: { kind: 'text', text: 'RETURNS', color: '#ffffff', background: '#9b4d5c' } } }),
   );
   if (snapshot.shopOpen) {
     nodes.push(person('collect:staff', p(COLLECT[0] + .6, COLLECT[2] - .55), 0, 'working', SHOP_STAFF, 'Click & collect desk'));
@@ -347,7 +347,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   }
   for (const node of pickFaceNodes) {
     const id = node.entityId as LocationId, value = LOCATIONS.find(item => item.id === id)!, count = snapshot.occupancy[id], state = locationState(snapshot, id);
-    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, ...(value.kind === 'flow' ? { surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } : {}) });
+    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, ...(value.kind === 'flow' ? { options: { ...node.options, surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } } : {}) });
   }
   nodes.push(fixture('pallet-stack', 'pallet-stack', PALLET_STACK, { count: snapshot.emptyPallets, rotation: yaw(HALF) }));
   if (!snapshot.crew.storage) nodes.push(fixture('reach-truck', 'reach-truck', p(-5.2, AISLE_RETURN_Z), { rotation: yaw(HALF), state: 'inactive' }));
@@ -355,7 +355,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Sortation: put walls show one cubby per order.
   for (const [id, x] of Object.entries(PUT_WALL_X) as [PutWallId, number][]) {
     const held = snapshot.orders.filter(value => value.at === id).length;
-    nodes.push(selectable(`putwall:${id}`, id, 'put-wall', p(x, PUT_WALL_Z), `Put wall ${id} · ${held} orders`, { count: Math.min(PUT_WALL_CAPACITY, held), state: held ? 'busy' : undefined, surfaceLabel: { kind: 'text', text: `PUT WALL ${id}`, color: '#ffffff', background: '#2c7a8c' } }));
+    nodes.push(selectable(`putwall:${id}`, id, 'put-wall', p(x, PUT_WALL_Z), `Put wall ${id} · ${held} orders`, { count: Math.min(PUT_WALL_CAPACITY, held), state: held ? 'busy' : undefined, options: { surfaceLabel: { kind: 'text', text: `PUT WALL ${id}`, color: '#ffffff', background: '#2c7a8c' } } }));
   }
 
   // Packing: an open carton shows the order being packed.
@@ -381,7 +381,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
     const z = DOCK_Z[dock.id], active = dock.status === 'unloading' || dock.status === 'loading';
     nodes.push(selectable(`dock:${dock.id}`, dock.id, 'loading-dock', [DOCK_X, 0, z], `Dock ${dock.id} · ${dock.status}`, { variant: active ? 'open' : 'closed', rotation: yaw(HALF), state: dock.late ? 'warning' : active ? 'busy' : 'normal' }));
   }
-  if (snapshot.parceloVan) nodes.push(fixture('van:parcelo', 'delivery-van', [29.6, APRON_Y, -2.4], { color: '#f2c14e', surfaceLabel: { kind: 'text', text: 'PARCELO', color: '#2a3646' } }));
+  if (snapshot.parceloVan) nodes.push(fixture('van:parcelo', 'delivery-van', [29.6, APRON_Y, -2.4], { color: '#f2c14e', options: { surfaceLabel: { kind: 'text', text: 'PARCELO', color: '#2a3646' } } }));
 
   // Receiving check beside the staging lane.
   nodes.push(selectable('qa:station', 'receiving', 'station', p(STAGING_X, -6), 'Receiving check', { variant: 'inspection', state: snapshot.crew.receiving > 1 ? 'busy' : 'inactive' }));
@@ -390,7 +390,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Returns: the incoming tote shows items to inspect, the hold cage shows quarantined items.
   nodes.push(
     selectable('returns:station', 'returns', 'station', p(-4.5, PACK_Z), 'Returns inspection', { variant: 'inspection', rotation: yaw(BACK), state: snapshot.crew.returns ? 'busy' : 'inactive' }),
-    selectable('returns:hold', 'hold', 'hold-cage', p(.3, 3.5), `Quarantine · ${snapshot.returns.held} held`, { count: Math.min(HOLD_CAPACITY, snapshot.returns.held), state: snapshot.returns.held ? 'warning' : undefined, surfaceLabel: { kind: 'text', text: 'HOLD', color: '#ffffff', background: '#9b4d5c' } }),
+    selectable('returns:hold', 'hold', 'hold-cage', p(.3, 3.5), `Quarantine · ${snapshot.returns.held} held`, { count: Math.min(HOLD_CAPACITY, snapshot.returns.held), state: snapshot.returns.held ? 'warning' : undefined, options: { surfaceLabel: { kind: 'text', text: 'HOLD', color: '#ffffff', background: '#9b4d5c' } } }),
     fixture('returns:tote', 'tote', p(-7, 1.2), { count: Math.min(RETURNS_TOTE_CAPACITY, snapshot.returns.awaiting), scale: [.5, .5, .5] }),
   );
   if (snapshot.crew.returns) nodes.push(person('returns:inspector', p(-4.5, PACK_Z - 1.05), 0, 'working', STAFF, 'Returns'));

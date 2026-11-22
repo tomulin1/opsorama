@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { bindChildren, isPersonAsset, PERSON_FIGURES, PERSON_HAIR_COLORS, resolveFootprint, type PersonFigure, type PersonHairColor, type Footprint, createSceneStore, type DisplayReading, type Vec3, type SceneStore, type SurfaceLabel, type Measurement, type VisualState, type CountLayout } from '@opsorama/core';
+import { bindChildren, resolveFootprint, type Footprint, createSceneStore, type Vec3, type SceneStore, type VisualState, type CountLayout } from '@opsorama/core';
 import { type SceneRenderer } from '@opsorama/three';
-import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces, BUILDING_SIZE, BUILDING_TYPE_LABELS, type BuildingOptions, type BuildingType } from '@opsorama/objects';
+import { assetCountLayoutDefaults, assetDescriptors, assetLabelSurfaces, BUILDING_SIZE, BUILDING_TYPE_LABELS, type BuildingOptions, type BuildingType, isPersonAsset, PERSON_FIGURES, PERSON_HAIR_COLORS, type PersonFigure, type PersonHairColor, type DisplayReading, type SurfaceLabel, type Measurement } from '@opsorama/objects';
 import { ArrowLeft, ArrowRight, ArrowUpRight, RotateCcw } from 'lucide-react';
 import { ZoomControl } from '@opsorama/react/ui';
 import '@opsorama/ui/styles.css';

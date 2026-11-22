@@ -49,7 +49,7 @@ describe('generic containment', () => {
   });
 
   it('takes label heights and container bounds from factory hints', () => {
-    const worker = catalogAssets.worker({ id: 'w', kind: 'asset', asset: 'worker' }), hall = catalogAssets.building({ id: 'h', kind: 'asset', asset: 'building', building: { size: [10, 5, 8] } });
+    const worker = catalogAssets.worker({ id: 'w', kind: 'asset', asset: 'worker' }), hall = catalogAssets.building({ id: 'h', kind: 'asset', asset: 'building', options: { building: { size: [10, 5, 8] } } });
     expect(worker.userData.labelHeight).toBe(2.15); expect(worker.userData.containerBounds).toBeUndefined();
     expect(hall.userData.labelHeight).toBeCloseTo(5.4); expect(hall.userData.containerBounds).toBeDefined();
     disposeObject(worker); disposeObject(hall);

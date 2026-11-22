@@ -33,7 +33,7 @@ export function BuildingExample() {
     {error && <p role="alert">{error}</p>}
     <div className="building-controls">{snapshot?.nodes.filter(isBuilding).map(node => <article key={node.id}>
       <h2>{node.label}</h2><p data-testid={`${node.id}-state`}>{nodeView(node)} · {states[node.id] ?? 'idle'}</p>
-      <label>Building type<select aria-label={`${node.label} building type`} value={node.building?.type ?? 'generic'} disabled={!mounted} onChange={event => session.current?.store.upsert({ ...node, building: { ...node.building, type: event.target.value as BuildingType } })}>{BUILDING_TYPES.map(type => <option key={type} value={type}>{BUILDING_TYPE_LABELS[type]}</option>)}</select></label>
+      <label>Building type<select aria-label={`${node.label} building type`} value={node.options?.building?.type ?? 'generic'} disabled={!mounted} onChange={event => session.current?.store.upsert({ ...node, options: { ...node.options, building: { ...node.options?.building, type: event.target.value as BuildingType } } })}>{BUILDING_TYPES.map(type => <option key={type} value={type}>{BUILDING_TYPE_LABELS[type]}</option>)}</select></label>
       <button disabled={!mounted} aria-expanded={nodeView(node) !== 'closed'} onClick={() => { if (session.current) setNodeView(session.current.store, node.id, node.view === 'open' ? 'closed' : 'open'); }}>{node.view === 'open' ? 'Close' : 'Open'} {node.label}</button>
       <ul>{snapshot.nodes.filter(child => child.parentId === node.id).map(child => <li key={child.id}><button disabled={!mounted || !isNodeVisible(child, snapshot.nodes)} onClick={() => session.current?.store.select(child.id, 'keyboard')}>{child.label}</button></li>)}</ul>
     </article>)}</div>

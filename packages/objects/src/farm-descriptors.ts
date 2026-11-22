@@ -111,7 +111,7 @@ export const troughDescriptor = farm({
     { role: 'liquid', parts: 'Water surface' },
     { role: 'surface', parts: 'Feed in the trough', when: { variant: 'feed' } },
   ],
-  options: [{ field: 'variant', type: "'water' | 'feed'", default: 'water', update: 'rebuild', description: 'An oval water tank, or a wooden feed trough on legs.', samples: [{ variant: 'feed' }] }, { field: 'fillLevel', type: 'number 0–1', default: '1', update: 'rebuild', description: 'Visible fill fraction; zero removes water or feed. Independent of alerts.', samples: [{ fillLevel: 0 }, { fillLevel: .25 }, { variant: 'feed', fillLevel: .5 }] }],
+  options: [{ field: 'variant', type: "'water' | 'feed'", default: 'water', update: 'rebuild', description: 'An oval water tank, or a wooden feed trough on legs.', samples: [{ variant: 'feed' }] }, { field: 'options.fillLevel', type: 'number 0–1', default: '1', update: 'rebuild', description: 'Visible fill fraction; zero removes water or feed. Independent of alerts.', samples: [{ options: { fillLevel: 0 } }, { options: { fillLevel: .25 } }, { variant: 'feed', options: { fillLevel: .5 } }] }],
   states: noStatus('trough'),
   anchors: [
     { name: 'front', purpose: 'Ground point at the +z side, where an animal stands to drink or eat facing −z.' },
@@ -119,7 +119,7 @@ export const troughDescriptor = farm({
     { name: 'top', purpose: 'Above the trough, for a label.' },
   ],
   hit: 'Every visible mesh of the trough, including the water or feed.',
-  relationships: 'Place animals at the front and back anchors facing the trough. Levels, refill schedules and float-valve faults are host data; fillLevel controls contents and host markers carry alerts.',
+  relationships: 'Place animals at the front and back anchors facing the trough. Levels, refill schedules and float-valve faults are host data; options.fillLevel controls contents and host markers carry alerts.',
   limits: ['fillLevel is a visual fraction, not a measured volume or feeding recommendation.'],
 });
 

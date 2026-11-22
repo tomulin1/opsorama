@@ -101,7 +101,7 @@ describe('distribution centre dashboard', () => {
     for (const scenario of scenarios) for (const original of warehouseNodes(SCENARIOS[scenario])) {
       if (original.kind !== 'asset' || built.has(`${original.asset}:${original.variant}:${original.count}`)) continue;
       built.add(`${original.asset}:${original.variant}:${original.count}`);
-      const node: AssetNode = { ...original, surfaceLabel: undefined, attachment: undefined, route: undefined };
+      const node: AssetNode = { ...original, options: { ...original.options, surfaceLabel: undefined }, attachment: undefined, route: undefined };
       const object = catalogAssets[node.asset](node);
       expect(object, node.id).toBeDefined(); disposeObject(object);
     }

@@ -1,5 +1,5 @@
-import { BOOTH, DINING_SEATS, DINING_TABLE, SERVING_PLATES } from '@opsorama/objects';
-import { personHairColor, createSceneStore, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
+import { BOOTH, DINING_SEATS, DINING_TABLE, SERVING_PLATES, personHairColor } from '@opsorama/objects';
+import { createSceneStore, type AssetNode, type NodeRoute, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
 import { closeWallJoints } from '../example-walls';
 import { HAND_OFF, actorPose, compileService, platesAt, routeAtPhase, type FloorPoint, type PlateRest, type ServiceActor, type ServiceCycle, type ServicePlan, type ServiceStop } from './service';
 
@@ -141,7 +141,7 @@ const person = (id: string, asset: string, position: Vec3, rotation: number, var
 const worker = (id: string, position: Vec3, rotation: number, variant: string, color: string, label?: string) => person(id, 'worker', position, rotation, variant, color, label);
 const chef = (id: string, position: Vec3, rotation: number, variant: string, label: string, extra: Partial<AssetNode> = {}) => person(id, 'chef', position, rotation, variant, undefined, label, extra);
 /** Mixed crews and guests: some people use the feminine figure. */
-const FEMININE = { person: { figure: 'feminine' } } as const satisfies Partial<AssetNode>;
+const FEMININE = { options: { person: { figure: 'feminine' } } } as const satisfies Partial<AssetNode>;
 const decor = (id: string, asset: string, position: Vec3, extra: Partial<AssetNode> = {}): AssetNode => ({ id, kind: 'asset', asset, position, selectable: false, ...extra });
 
 /** A floor point `[x, z]` walked through, or `[x, z, yaw, seconds]` where the person pauses facing `yaw` (0 faces +z). */
@@ -393,7 +393,7 @@ export const restaurantBase: readonly SceneNode[] = closeWallJoints([
   decor('umbrella-1', 'patio-umbrella', v(-9.25, 6.1), { color: '#d9644a' }),
   decor('umbrella-2', 'patio-umbrella', v(-4.75, 6.1), { color: '#3d8a6e' }),
   decor('umbrella-3', 'patio-umbrella', v(-13.9, 6.1), { variant: 'closed', color: '#d9644a' }),
-  { id: 'menu-board', kind: 'asset', asset: 'menu-board', position: v(3.6, 6.2), rotation: [0, -.35, 0], label: 'Menu board', labelMode: 'active', selectable: true, surfaceLabel: { kind: 'text', layout: 'multiline', text: "TODAY'S SPECIALS\nBurrata  9.5\nRibeye  29\nDiavola  13\nTiramisu  7", color: '#eef1f2' } },
+  { id: 'menu-board', kind: 'asset', asset: 'menu-board', position: v(3.6, 6.2), rotation: [0, -.35, 0], label: 'Menu board', labelMode: 'active', selectable: true, options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: "TODAY'S SPECIALS\nBurrata  9.5\nRibeye  29\nDiavola  13\nTiramisu  7", color: '#eef1f2' } } },
   decor('cargo-bike', 'cargo-bike', v(8.5, 7.4), { rotation: [0, Math.PI / 2, 0] }),
   ...([[.7, 3.4], [-14.4, 3.4], [14.4, 3.4], [14.4, -4.2], [.6, -10.6], [3.4, -1.6], [7.4, -1.6]] as const).map(([x, z], i) => decor(`plant-${i}`, 'potted-plant', v(x, z))),
   decor('lamp-1', 'lamp-post', v(1.2, 7.6)), decor('lamp-2', 'lamp-post', v(-15.6, 7.6)),
@@ -431,13 +431,13 @@ export function restaurantNodes(snapshot: RestaurantSnapshot, phase = 0): SceneN
   const pickupReady = stationTickets(snapshot, 'pickup').length;
   nodes.push(
     station('grill', 'kitchen-station', v(-12, -10.2), { variant: 'cooking' }),
-    station('pizza', 'pizza-oven', v(-8.2, -9.8), { heatEnabled: snapshot.open }),
+    station('pizza', 'pizza-oven', v(-8.2, -9.8), { options: { heatEnabled: snapshot.open } }),
     station('cold', 'kitchen-station', v(-4.4, -10.2), { variant: 'prep', color: '#d9e8e1' }),
-    station('pass', 'heated-pass', v(-6.5, -5.4), { heatEnabled: snapshot.open, count: 0, color: '#3a4c60' }),
+    station('pass', 'heated-pass', v(-6.5, -5.4), { options: { heatEnabled: snapshot.open }, count: 0, color: '#3a4c60' }),
     station('bar', 'bar-counter', v(7, -8.6)),
-    station('pickup', 'pickup-shelf', v(14, .6), { rotation: [0, -Math.PI / 2, 0], count: Math.min(PICKUP_CAPACITY, pickupReady), color: '#3d8a6e', surfaceLabel: { kind: 'text', text: 'PICKUP', color: '#ffffff' } }),
-    { id: 'equipment:espresso', kind: 'asset', asset: 'espresso-machine', attachment: { nodeId: 'station:bar', anchor: 'top' }, heatEnabled: snapshot.open, selectable: false },
-    { id: 'equipment:cooler', entityId: 'cooler', kind: 'asset', asset: 'walk-in-cooler', position: v(-1.5, -9.6), state: snapshot.cooler.celsius > snapshot.cooler.limit ? 'warning' : 'normal', label: 'Walk-in cooler', labelMode: 'active', selectable: true, surfaceLabel: { kind: 'text', text: `${snapshot.cooler.celsius.toFixed(1)} °C`, color: snapshot.cooler.celsius > snapshot.cooler.limit ? '#ffd27a' : '#bff3df', background: '#102438' } },
+    station('pickup', 'pickup-shelf', v(14, .6), { rotation: [0, -Math.PI / 2, 0], count: Math.min(PICKUP_CAPACITY, pickupReady), color: '#3d8a6e', options: { surfaceLabel: { kind: 'text', text: 'PICKUP', color: '#ffffff' } } }),
+    { id: 'equipment:espresso', kind: 'asset', asset: 'espresso-machine', attachment: { nodeId: 'station:bar', anchor: 'top' }, options: { heatEnabled: snapshot.open }, selectable: false },
+    { id: 'equipment:cooler', entityId: 'cooler', kind: 'asset', asset: 'walk-in-cooler', position: v(-1.5, -9.6), state: snapshot.cooler.celsius > snapshot.cooler.limit ? 'warning' : 'normal', label: 'Walk-in cooler', labelMode: 'active', selectable: true, options: { surfaceLabel: { kind: 'text', text: `${snapshot.cooler.celsius.toFixed(1)} °C`, color: snapshot.cooler.celsius > snapshot.cooler.limit ? '#ffd27a' : '#bff3df', background: '#102438' } } },
     { id: 'host-stand', kind: 'asset', asset: 'host-stand', position: v(9.2, 2.6), label: 'Host stand', labelMode: 'active', selectable: true },
   );
   if (!snapshot.open) { nodes.push(walking(worker('staff:closing', v(-6.5, PASS_SERVER_Z), S, 'walking', SERVER), CLOSING_WALK)); return nodes; }

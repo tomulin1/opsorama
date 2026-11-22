@@ -81,7 +81,7 @@ export const officeBase: readonly SceneNode[] = closeWallJoints([
   partition('partition-x5-0', -5, -9, 4, 'z'), partition('partition-x5-1', -5, -6, 2, 'z'),
   // Kitchen and reception.
   fixture('kitchen:waste', 'waste-bin', p(.6, -10.4), { variant: 'recycling', scale: [.8, .8, .8] }),
-  fixture('reception:welcome', 'information-board', p(10.6, -10.5), { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'WELCOME TO\nFERNHILL\nSTUDIO\n\nCheck in at\nthe tablet', color: '#eef4f8' } }),
+  fixture('reception:welcome', 'information-board', p(10.6, -10.5), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'WELCOME TO\nFERNHILL\nSTUDIO\n\nCheck in at\nthe tablet', color: '#eef4f8' } } }),
   benchNode,
   ...([[-17.3, -10.3], [.5, -5.6], [8.5, -10.3], [17.3, -6], [-17.3, 6.3], [-10, 6.3], [-2, 6.3], [6, 6.3], [14, 6.3], [17.3, 6.3]] as const).map(([x, z], i) => fixture(`plant-${i}`, 'potted-plant', p(x, z))),
 ]);
@@ -147,7 +147,7 @@ export function officeNodes(snapshot: OfficeSnapshot): SceneNode[] {
   }
   for (const value of TEAMS) {
     const x = TEAM_X[value.id], notes = boardNotes(snapshot, value.id), status = areaStatus(snapshot, value.id);
-    nodes.push(selectable(`board:${value.id}`, value.id, 'whiteboard', p(x - 2.6, BOARD_Z), `${value.label} board · ${notes} active`, { count: notes, state: status.tone === 'critical' || status.tone === 'warning' ? 'warning' : undefined, surfaceLabel: { kind: 'text', text: `${value.label.toUpperCase()} · SPRINT BOARD`, color: '#2a3646' } }));
+    nodes.push(selectable(`board:${value.id}`, value.id, 'whiteboard', p(x - 2.6, BOARD_Z), `${value.label} board · ${notes} active`, { count: notes, state: status.tone === 'critical' || status.tone === 'warning' ? 'warning' : undefined, options: { surfaceLabel: { kind: 'text', text: `${value.label.toUpperCase()} · SPRINT BOARD`, color: '#2a3646' } } }));
     // A stand-up gathers in front of the board, facing it.
     const huddle = peopleAt(snapshot, 'huddle').filter(person => person.team === value.id);
     huddle.forEach((person, i) => nodes.push(personNode(snapshot, person, p(x - 2.6 + (i - (huddle.length - 1) / 2) * .78, HUDDLE_Z + Math.abs(i - (huddle.length - 1) / 2) * -.18), BACK, 'idle')));
@@ -162,7 +162,7 @@ export function officeNodes(snapshot: OfficeSnapshot): SceneNode[] {
     visitors.slice(0, Math.max(0, slots.length - inRoom.length)).forEach((visitor, i) => nodes.push(visitorNode(`visitor:${id}:${i}`, visitor.name, visitor.company, slots[inRoom.length + i])));
     nodes.push(selectable(`roomboard:${id}`, id, 'information-board', p(TABLE_X[id] + (id === 'M1' ? 2.6 : 2.2), -5.6), `${name} booking screen`, {
       rotation: yaw(-.35), scale: [.8, .8, .8],
-      surfaceLabel: { kind: 'text', layout: 'multiline', text: booking ? `${name.toUpperCase()}\nIN USE\n\n${booking.title}\n${booking.from}–${booking.to}` : `${name.toUpperCase()}\nFREE\n\nNext:\n${nextLabel(snapshot, id)}`, color: booking ? '#ffd9a8' : '#bff3df', background: '#14283c' },
+      options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: booking ? `${name.toUpperCase()}\nIN USE\n\n${booking.title}\n${booking.from}–${booking.to}` : `${name.toUpperCase()}\nFREE\n\nNext:\n${nextLabel(snapshot, id)}`, color: booking ? '#ffd9a8' : '#bff3df', background: '#14283c' } },
     }));
   }
 

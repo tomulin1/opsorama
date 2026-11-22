@@ -1,5 +1,5 @@
-import { createSceneStore, personHairColor, type AssetNode, type MarkerNode, type MotionProfile, type NodeRoute, type RouteStop, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
-import { TRUCK, assetMotionProfiles } from '@opsorama/objects';
+import { createSceneStore, type AssetNode, type MarkerNode, type MotionProfile, type NodeRoute, type RouteStop, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
+import { TRUCK, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
   AISLES, AREAS, DOCKS, LANE_CAPACITY, SCENARIOS, STALLS,
   areaState, aisleOf, bayCount, chilledState, dockOf, dockState, issueAt, locationCode, locationState, stagedPallets, truckAt, warehouseAlerts,
@@ -27,7 +27,7 @@ const text = (value: string, background: string, color = '#ffffff') => ({ kind: 
 const STAFF = '#e59a32', OFFICE = '#5d6fae', SECURITY = '#36455f';
 /** A person in a hi-vis vest; every other one uses the feminine figure. */
 const person = (id: string, position: Vec3, heading: number, variant: string, index: number, extra: Partial<AssetNode> = {}): AssetNode =>
-  ({ id, kind: 'asset', asset: 'worker', variant, color: STAFF, position, rotation: yaw(heading), selectable: false, materials: { hair: personHairColor(id) }, ...(index % 2 ? { person: { figure: 'feminine' as const } } : {}), ...extra });
+  ({ id, kind: 'asset', asset: 'worker', variant, color: STAFF, position, rotation: yaw(heading), selectable: false, materials: { hair: personHairColor(id) }, ...(index % 2 ? { options: { person: { figure: 'feminine' as const } } } : {}), ...extra });
 /** Deterministic jitter in [0, 1) so a snapshot always draws the same loads. */
 const hash = (value: string) => { let h = 7; for (const char of value) h = (h * 31 + char.charCodeAt(0)) % 2147483647; return (h * 16807 % 2147483647) / 2147483647; };
 
@@ -113,7 +113,7 @@ export const warehouseBase: readonly SceneNode[] = closeWallJoints([
   ...fence('hazmat-fence-east', [-39, -21], [-39, -33]).map(node => ({ ...node, position: [node.position![0], FLOOR_Y, node.position![2]] as Vec3 })),
   ...[-46.6, -45.2, -43.8, -42.4].flatMap((x, i) => [fixture(`ibc-${i}`, 'ibc-tank', p(x, -24.2)), fixture(`ibc-${i + 4}`, 'ibc-tank', p(x, -25.6))]),
   ...[-46.6, -45.2, -43.8].flatMap((x, i) => [fixture(`drums-${i}`, 'drum-pallet', p(x, -30.2), { count: 4 }), fixture(`drums-${i + 3}`, 'drum-pallet', p(x, -31.6), { count: 4 - (i % 2) })]),
-  fixture('hazmat-sign', 'sign', p(-41, -20.4), { surfaceLabel: text('HAZARDOUS GOODS', '#c0392b') }),
+  fixture('hazmat-sign', 'sign', p(-41, -20.4), { options: { surfaceLabel: text('HAZARDOUS GOODS', '#c0392b') } }),
 
   // Bulk floor: block-stacked fast movers two high and the empty pallet store.
   ...[-37.6, -36.2, -34.8, -33.4, -32].flatMap((x, i) => [-23.2, -24.6].flatMap((z, j) => [
@@ -133,7 +133,7 @@ export const warehouseBase: readonly SceneNode[] = closeWallJoints([
   ...[18, 22, 26, 30].map((x, i) => fixture(`vas-${i}`, 'station', p(x, -27.5), { variant: 'packing' })),
   ...[17.6, 20.8, 24, 27.2].map((x, i) => fixture(`consumables-${i}`, 'shelf', p(x, -32.9), { count: 12 - i * 2 })),
   ...[35, 36.4, 37.8].map((x, i) => fixture(`packaging-pallet-${i}`, 'pallet', p(x, -32.6), { count: 18 + i * 3 })),
-  fixture('high-value-sign', 'sign', p(44.2, -24.6), { surfaceLabel: text('HIGH VALUE', '#7a4fa0') }),
+  fixture('high-value-sign', 'sign', p(44.2, -24.6), { options: { surfaceLabel: text('HIGH VALUE', '#7a4fa0') } }),
   ...[0, 1].map(i => fixture(`chilled-pallet-${i}`, 'pallet', p(-32.6, -4 - i * 1.4), { count: 18, rotation: yaw(HALF) })),
 
   // Charging and service: chargers on the front wall and a service bench.
@@ -147,10 +147,10 @@ export const warehouseBase: readonly SceneNode[] = closeWallJoints([
   fixture('receiving-desk', 'station', p(-15.2, 8.2), { variant: 'inspection', rotation: yaw(-HALF) }),
 
   // Outside: gatehouse, office and welfare block, sprinkler tank, waste point, lights and trees.
-  fixture('gatehouse', 'building', g(37, 43.4), { building: { type: 'office', size: [3, 3.2, 3] } }),
-  fixture('office-block', 'building', g(-57, -15), { building: { type: 'office', size: [14, 7.5, 18] } }),
+  fixture('gatehouse', 'building', g(37, 43.4), { options: { building: { type: 'office', size: [3, 3.2, 3] } } }),
+  fixture('office-block', 'building', g(-57, -15), { options: { building: { type: 'office', size: [14, 7.5, 18] } } }),
   fixture('sprinkler-tank', 'storage-tank', g(56, -29)), fixture('sprinkler-pump', 'pump-unit', g(56, -23.4)),
-  fixture('sprinkler-sign', 'sign', g(52.8, -23.4), { surfaceLabel: text('SPRINKLER TANK', '#b03a2e') }),
+  fixture('sprinkler-sign', 'sign', g(52.8, -23.4), { options: { surfaceLabel: text('SPRINKLER TANK', '#b03a2e') } }),
   ...[0, 1, 2, 3].map(i => fixture(`waste-${i}`, 'waste-bin', g(52.2 + i * 1.3, -6), { variant: i < 2 ? 'recycling' : 'general' })),
   ...[0, 1].map(i => fixture(`waste-bales-${i}`, 'bulk-bag', g(52.6 + i * 1.3, -3.8))),
   ...[0, 1].map(i => fixture(`staff-charger-${i}`, 'ev-charger', g(-50.6, 10 + i * 2.4), { rotation: yaw(-HALF) })),
@@ -199,7 +199,7 @@ export const YARD_TRUCK_ROUTE: readonly Vec3[] = [g(62, 53.5), g(34, 53.5), g(34
 const truckLabel = (truck: Truck) => `${truck.id} · ${truck.carrier}${truck.stall !== undefined ? ` · stall ${truck.stall + 1}` : ''}`;
 function truckNode(truck: Truck): AssetNode {
   const color = CARRIER_COLOR[truck.carrier] ?? '#5f7488', position = truck.dock ? g(dockOf(truck.dock).x, TRUCK_AT_DOCK_Z) : stallSpot(truck.stall ?? 0);
-  return selectable(`truck:${truck.id}`, truck.id, 'truck', position, truckLabel(truck), { color, surfaceLabel: text(truck.carrier.toUpperCase(), color) });
+  return selectable(`truck:${truck.id}`, truck.id, 'truck', position, truckLabel(truck), { color, options: { surfaceLabel: text(truck.carrier.toUpperCase(), color) } });
 }
 
 /** Where a parked vehicle stands: charging and idle trucks on the chargers, tagged-out trucks in the service bay, idle robots on their pads. */
@@ -298,7 +298,7 @@ export function warehouseNodes(snapshot: WarehouseSnapshot): SceneNode[] {
   // Reserve and chilled racking: one node per bay with its exact pallet count.
   for (const aisle of AISLES) {
     const place = aislePlace(aisle.id);
-    nodes.push(selectable(`aisle:${aisle.id}`, aisle.id, 'sign', p(aisle.zone === 'chilled' ? place.center : place.left, aisle.zone === 'chilled' ? -.4 : -.15), aisle.label, { surfaceLabel: text(aisle.id, aisle.zone === 'chilled' ? '#2b7a99' : '#41566b') }));
+    nodes.push(selectable(`aisle:${aisle.id}`, aisle.id, 'sign', p(aisle.zone === 'chilled' ? place.center : place.left, aisle.zone === 'chilled' ? -.4 : -.15), aisle.label, { options: { surfaceLabel: text(aisle.id, aisle.zone === 'chilled' ? '#2b7a99' : '#41566b') } }));
     for (let bay = 0; bay < aisle.bays; bay++) for (const side of ['L', 'R'] as const) {
       const issue = issueAt(snapshot, aisle.id, bay, side), count = bayCount(snapshot, aisle.id, bay, side), { position, heading } = bayPlace(aisle.id, bay, side);
       nodes.push(selectable(`rack:${aisle.id}:${bay}:${side}`, locationCode(aisle.id, bay, side), 'pallet-rack', position, `${locationCode(aisle.id, bay, side)} · ${count}/6`, {
@@ -309,7 +309,7 @@ export function warehouseNodes(snapshot: WarehouseSnapshot): SceneNode[] {
 
   // Chilled chamber: a door display with the reading and a beacon beside the door.
   const chilled = chilledState(snapshot);
-  nodes.push(selectable('chilled:display', 'chilled', 'led-display', p(-31, .9), `Chilled chamber · ${snapshot.chilled.temperature.toFixed(1)} °C`, { variant: 'standing', display: { kind: 'number', value: snapshot.chilled.temperature, decimals: 1 }, state: chilled === 'normal' ? undefined : chilled }));
+  nodes.push(selectable('chilled:display', 'chilled', 'led-display', p(-31, .9), `Chilled chamber · ${snapshot.chilled.temperature.toFixed(1)} °C`, { variant: 'standing', options: { display: { kind: 'number', value: snapshot.chilled.temperature, decimals: 1 } }, state: chilled === 'normal' ? undefined : chilled }));
   nodes.push(fixture('chilled:beacon', 'status-beacon', p(-34.6, .6), { state: chilled }));
 
   // Each picking: flow racks and shelves empty through the day and fill again at night.
@@ -350,11 +350,11 @@ export function warehouseNodes(snapshot: WarehouseSnapshot): SceneNode[] {
     if (i < inspectors) nodes.push(person(`returns:${i}`, p(x, 8.55), 0, 'working', i));
   });
   for (let i = 0; i < 4; i++) nodes.push(fixture(`returns-tote-${i}`, 'tote', p(-11.8 + i * 1.4, 6.7), { count: Math.max(0, Math.min(9, snapshot.returns.awaiting - i * 9)), scale: [.6, .6, .6] }));
-  nodes.push(selectable('returns:hold', 'returns', 'hold-cage', p(-5.4, 5.2), `Quarantine · ${snapshot.returns.held} held`, { count: Math.min(8, snapshot.returns.held), state: snapshot.returns.held ? 'warning' : undefined, surfaceLabel: text('HOLD', '#9b4d5c') }));
+  nodes.push(selectable('returns:hold', 'returns', 'hold-cage', p(-5.4, 5.2), `Quarantine · ${snapshot.returns.held} held`, { count: Math.min(8, snapshot.returns.held), state: snapshot.returns.held ? 'warning' : undefined, options: { surfaceLabel: text('HOLD', '#9b4d5c') } }));
   const schedule = DOCKS.filter(value => dockState(snapshot, value.id).status !== 'free').slice(0, 6).map(value => `${value.id} ${dockState(snapshot, value.id).ref ?? dockState(snapshot, value.id).status.toUpperCase()}`).join('\n');
-  nodes.push(fixture('office-board', 'information-board', p(-2.6, 11.3), { surfaceLabel: { kind: 'text', layout: 'multiline', text: schedule || 'NO TRUCKS\nAT THE DOORS', color: '#eef4f8' } }));
+  nodes.push(fixture('office-board', 'information-board', p(-2.6, 11.3), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: schedule || 'NO TRUCKS\nAT THE DOORS', color: '#eef4f8' } } }));
   const [hours, minutes] = snapshot.time.split(':').map(Number);
-  nodes.push(fixture('office-clock', 'digital-clock', p(2.4, 11.3), { variant: 'hours-minutes', display: { kind: 'clock', seconds: hours * 3600 + minutes * 60, running: true } }));
+  nodes.push(fixture('office-clock', 'digital-clock', p(2.4, 11.3), { variant: 'hours-minutes', options: { display: { kind: 'clock', seconds: hours * 3600 + minutes * 60, running: true } } }));
   for (let i = 0; i < Math.min(3, snapshot.crew.office ?? 0); i++) nodes.push(person(`office:${i}`, p(-1.6 + i * 1.6, 6.6), 0, i === 1 ? 'idle' : 'working', i, { color: OFFICE }));
   if (snapshot.crew.chilled) nodes.push(person('chilled:worker', p(-33.4, -6.6), BACK, 'working', 0));
   // A chilled delivery waits by the chamber door.

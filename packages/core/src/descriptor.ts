@@ -66,7 +66,7 @@ export interface PaletteDescriptor {
 }
 
 export interface OptionDescriptor {
-  /** `AssetNode` field. */
+  /** `AssetNode` field, or `options.<name>` for a model option in `AssetNode.options` (e.g. `options.measurement`). */
   field: string;
   type: string;
   default: string;

@@ -32,6 +32,24 @@ All 21 kits: `datacenter`, `displays`, `buildings`, `indicators`, `work-items`, 
 - `@opsorama/objects/catalog.json` lists every kit and asset with its descriptor (palette roles, options, counts, anchors, motion, interaction) for tools and AI agents that cannot run WebGL.
 - `assetDescriptors` and `checkAssetDescriptor` verify a descriptor against the model it builds.
 
+### Model options
+
+Settings that belong to one model go in the node's `options`. Importing any kit types them on `AssetNode.options` (`forks`, `person`, `heatEnabled`, `waterRunning`, `fillLevel`, `building`, `contents`, `display`, `measurement`, `surfaceLabel`), and each catalog factory's `validate` rejects an option the asset does not accept, naming the assets that accept it. `CATALOG_OPTION_ASSETS` lists them; descriptors list them as `options.<name>` customization fields.
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { assetValidator, createAssetRegistry } from '@opsorama/three';
+import { indicatorsKit } from '@opsorama/objects/indicators';
+import { buildingsKit } from '@opsorama/objects/buildings';
+
+const assets = createAssetRegistry(indicatorsKit, buildingsKit);
+// validateAsset makes upsert and replace reject invalid options instead of failing when the renderer builds the node.
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'load', kind: 'asset', asset: 'ring-gauge', options: { measurement: { value: 72.5, unit: '%' } } },
+  { id: 'depot', kind: 'asset', asset: 'building', options: { building: { type: 'warehouse', size: [12, 5, 9] } } },
+] }, {}, { validateAsset: assetValidator(assets) });
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

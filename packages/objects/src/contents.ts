@@ -1,4 +1,4 @@
-/** Host-supplied line quantities; generic shapes do not imply physical unit identities. */
+/** `AssetNode.options.contents` of the parcel and shopping-cart: host-supplied line quantities; generic shapes do not imply physical unit identities. */
 export interface ContentLine { id: string; title: string; quantity: number; color?: string; }
 export interface ContainerContents { lines: readonly ContentLine[]; }
 export function validateContents(contents: ContainerContents): void {

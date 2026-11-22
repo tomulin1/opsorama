@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { projectContents, type MaterialPalette } from '@opsorama/core';
+import type { MaterialPalette } from '@opsorama/core';
+import { projectContents } from './contents';
 import { objectPalette, resolveObjectColor } from './object-palette';
 import type { MaterialContext } from '@opsorama/three';
 import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
@@ -42,7 +43,7 @@ export function createParcel(node: AssetNode, context?: MaterialContext): THREE.
   for (const z of [-.385, .385]) block(carton, [1.02, .68, .06], [0, .42, z], color, 'carton-wall');
   for (const x of [-.51, .51]) { const flap = new THREE.Group(); flap.name = x < 0 ? 'flap-left' : 'flap-right'; flap.position.set(x, .76, 0); flap.rotation.z = x < 0 ? -.55 : .55; block(flap, [.31, .045, .83], [x < 0 ? -.15 : .15, 0, 0], color, 'carton-flap'); carton.add(flap); }
   for (const z of [-.415, .415]) { const flap = new THREE.Group(); flap.name = z < 0 ? 'flap-back' : 'flap-front'; flap.position.set(0, .76, z); flap.rotation.x = z < 0 ? .5 : -.5; block(flap, [1.02, .045, .24], [0, 0, z < 0 ? -.12 : .12], color, 'carton-flap'); carton.add(flap); }
-  if (node.contents) projectContents(node.contents, 9).visible.forEach((line, i) => block(carton, [.24, .38, .2], [(i % 3 - 1) * .28, .34, (Math.floor(i / 3) - 1) * .23], line.color ?? palette.accent, `content-part-${i}`));
+  if (node.options?.contents) projectContents(node.options.contents, 9).visible.forEach((line, i) => block(carton, [.24, .38, .2], [(i % 3 - 1) * .28, .34, (Math.floor(i / 3) - 1) * .23], line.color ?? palette.accent, `content-part-${i}`));
   block(carton, [.42, .19, .01], [0, .46, .421], palette.text, 'parcel-sticker');
   anchor(group, 'contents', [0, .12 - OPEN_LIFT, 0]); anchor(group, 'top', [0, OPEN_TOP, 0]); anchor(group, 'front', [0, OPEN_FRONT, .43]);
   return group;

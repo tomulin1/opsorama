@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { isPersonAsset, PERSON_ASSETS, validatePersonOptions, type AssetNode } from '@opsorama/core';
+import type { AssetNode } from '@opsorama/core';
 import { anchor } from './parts';
 import { objectPalette } from './object-palette';
 import type { MaterialContext } from '@opsorama/three';
 import { setAssetAnimator } from '@opsorama/three';
-import { createHairCap, createLongHair, fabric as box, FEMININE_NARROWING, FEMININE_SCALE, personLooks } from './people';
+import { createHairCap, createLongHair, fabric as box, FEMININE_NARROWING, FEMININE_SCALE, isPersonAsset, personLooks, PERSON_ASSETS, validatePersonOptions } from './people';
 /** Poses shared by every person asset (`PERSON_ASSETS`). */
 export const WORKER_VARIANTS = ['working', 'carrying', 'holding', 'walking', 'idle', 'seated', 'pushing', 'picking', 'placing'] as const;
 /** `holding` has the carrying arms without the built-in box, for items attached at the `carry` anchor. */
@@ -36,8 +36,8 @@ export function createPerson(node: AssetNode, context?: MaterialContext): THREE.
   if (!isPersonAsset(node.asset)) throw new Error(`Unknown person asset: ${node.asset}. Use one of ${PERSON_ASSETS.join(', ')}.`);
   const variant = (node.variant || 'working') as WorkerVariant;
   if (!(WORKER_VARIANTS as readonly string[]).includes(variant)) throw new Error(`Unknown ${node.asset} variant: ${node.variant}. Use one of ${WORKER_VARIANTS.join(', ')}.`);
-  if (node.person !== undefined) validatePersonOptions(node.person);
-  const look = personLooks[node.asset], feminine = node.person?.figure === 'feminine', narrow = feminine ? FEMININE_NARROWING : 0;
+  if (node.options?.person !== undefined) validatePersonOptions(node.options.person);
+  const look = personLooks[node.asset], feminine = node.options?.person?.figure === 'feminine', narrow = feminine ? FEMININE_NARROWING : 0;
   const object = new THREE.Group(), rig = new THREE.Group(); rig.name = 'worker-rig'; object.add(rig);
   const seated = variant === 'seated'; if (seated) rig.position.y = WORKER_SEAT_HEIGHT - .77;
   const p = objectPalette(node, context, look.colorRole, look.defaults), skin = p.skin, clothes = look.clothes(p, feminine ? 'feminine' : 'masculine'), { shoes } = clothes;

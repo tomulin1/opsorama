@@ -112,7 +112,9 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
     for (const node of nodes) {
       if (node.kind === 'marker') continue;
       if (node.kind === 'asset' && !Object.hasOwn(options.assets, node.asset)) throw new Error(`Unknown asset: ${node.asset}. Pass the scene renderer's asset registry to the preview, for example catalogAssets from @opsorama/objects.`);
-      const object = node.kind === 'asset' ? options.assets[node.asset](node, { theme, palette }) : buildPrimitive(node);
+      const factory = node.kind === 'asset' ? options.assets[node.asset] : undefined;
+      if (node.kind === 'asset') factory!.validate?.(node);
+      const object = node.kind === 'asset' ? factory!(node, { theme, palette }) : buildPrimitive(node);
       built.push({ node, object });
       object.position.set(...(node.position ?? [0, 0, 0])); if (node.rotation) object.rotation.set(...node.rotation); if (node.scale) object.scale.set(...node.scale);
       const ownerId = node.attachment?.nodeId ?? node.parentId, owner = ownerId === undefined ? undefined : objects.get(ownerId);

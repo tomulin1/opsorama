@@ -117,10 +117,10 @@ describe('restaurant objects', () => {
       const model = build(asset, { state: 'critical' }, { theme: 'light', palette: { critical: '#fedcba' } });
       expect(colored(model, 'fedcba'), asset).toEqual(new Set()); disposeObject(model);
     }
-    const cold = build('pizza-oven', { heatEnabled: false }); expect(named(cold, 'oven-fire')).toHaveLength(0); expect(named(cold, 'oven-flame')).toHaveLength(0);
+    const cold = build('pizza-oven', { options: { heatEnabled: false } }); expect(named(cold, 'oven-fire')).toHaveLength(0); expect(named(cold, 'oven-flame')).toHaveLength(0);
     const before = transforms(cold); animateAsset(cold, { time: 2, delta: 1 }); expect(transforms(cold)).toEqual(before); disposeObject(cold);
-    const idle = build('espresso-machine', { heatEnabled: false }); expect(named(idle, 'espresso-steam')).toHaveLength(0); disposeObject(idle);
-    const off = build('heated-pass', { heatEnabled: false }); expect(named(off, 'pass-heat-lamp').every(mesh => (mesh.material as THREE.MeshStandardMaterial).emissive.getHex() === 0)).toBe(true); disposeObject(off);
+    const idle = build('espresso-machine', { options: { heatEnabled: false } }); expect(named(idle, 'espresso-steam')).toHaveLength(0); disposeObject(idle);
+    const off = build('heated-pass', { options: { heatEnabled: false } }); expect(named(off, 'pass-heat-lamp').every(mesh => (mesh.material as THREE.MeshStandardMaterial).emissive.getHex() === 0)).toBe(true); disposeObject(off);
   });
 
   it('declares interaction slots and label surfaces on the matching faces', () => {

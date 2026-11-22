@@ -15,7 +15,7 @@ describe('complete catalog descriptors', () => {
       expect(descriptor.asset).toBe(asset);
       expect(() => validateObjectDescriptor(descriptor), asset).not.toThrow();
       expect(JSON.parse(JSON.stringify(descriptor))).toEqual(descriptor);
-      for (const [registry, field] of [[assetCountDefinitions, 'count'], [assetDisplayDefinitions, 'display'], [assetFootprintDefinitions, 'footprint'], [assetLabelSurfaces, 'surfaceLabel'], [assetMeasurementDefinitions, 'measurement']] as const) {
+      for (const [registry, field] of [[assetCountDefinitions, 'count'], [assetDisplayDefinitions, 'options.display'], [assetFootprintDefinitions, 'footprint'], [assetLabelSurfaces, 'options.surfaceLabel'], [assetMeasurementDefinitions, 'options.measurement']] as const) {
         expect(descriptor.customization.some(option => option.field === field), `${asset}.${field}`).toBe(Object.hasOwn(registry, asset));
       }
     }

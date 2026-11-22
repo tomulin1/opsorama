@@ -3,7 +3,7 @@ import { createSceneStore, placeSceneNodes, type SceneNode } from '@opsorama/cor
 
 const scene: readonly SceneNode[] = [
   { id: 'ground', kind: 'ground', size: [10, 10] },
-  { id: 'hall', kind: 'asset', asset: 'building', position: [1, 0, 2], building: { size: [6, 4, 6] } },
+  { id: 'hall', kind: 'asset', asset: 'building', position: [1, 0, 2], options: { building: { size: [6, 4, 6] } } },
   { id: 'rack', kind: 'asset', asset: 'pallet-rack', parentId: 'hall', position: [.5, 0, .5], entityId: 'R1' },
   { id: 'cart', kind: 'asset', asset: 'picking-cart', position: [0, 0, 0], route: { points: [[0, 0, 0], [4, 0, 0]], speed: 1 } },
   { id: 'tote', kind: 'asset', asset: 'tote', position: [0, .2, 0], attachment: { nodeId: 'cart', anchor: 'top' } },

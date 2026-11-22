@@ -1,4 +1,5 @@
-import { PERSON_ASSETS, type NavAgentRule } from '@opsorama/core';
+import type { NavAgentRule } from '@opsorama/core';
+import { PERSON_ASSETS } from './people';
 
 const TURN_ANY = Math.PI / 4, TURN_SHARP = Math.PI * 2 / 3, TURN_NEVER = Math.PI;
 

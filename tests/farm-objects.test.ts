@@ -60,7 +60,7 @@ describe('farm objects', () => {
     for (const variant of ['water', 'feed']) {
       const model = build('trough', { variant, state: 'critical' }, { theme: 'light', palette: { critical: '#fedcba' } });
       expect(colored(model, 'fedcba'), variant).toEqual(new Set()); disposeObject(model);
-      const empty = build('trough', { variant, fillLevel: 0 });
+      const empty = build('trough', { variant, options: { fillLevel: 0 } });
       expect(named(empty, variant === 'water' ? 'trough-water' : 'trough-feed'), variant).toHaveLength(0);
       expect(named(empty, 'trough-status')).toHaveLength(0); disposeObject(empty);
     }

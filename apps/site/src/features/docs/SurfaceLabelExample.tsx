@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { AssetNode, SurfaceLabel } from '@opsorama/core';
+import type { AssetNode } from '@opsorama/core';
 import { type SceneRenderer } from '@opsorama/three';
-import { assetLabelSurfaces } from '@opsorama/objects';
+import { assetLabelSurfaces, type SurfaceLabel } from '@opsorama/objects';
 import { ObjectLabelControls } from './ObjectLabelControls';
 
 type Adapter = 'React' | 'Vue' | 'JavaScript';
@@ -13,7 +13,7 @@ export function SurfaceLabelExample() {
   const [adapter, setAdapter] = useState<Adapter>('React'), [mounted, setMounted] = useState(true), [surfaceLabel, setSurfaceLabel] = useState<SurfaceLabel>();
   const [error, setError] = useState(''), [diagnostics, setDiagnostics] = useState({ objects: 0, textures: 0, geometries: 0 });
   const container = useRef<HTMLDivElement>(null), mount = useRef<Mount | undefined>(undefined);
-  const node: AssetNode = { id: 'branch', kind: 'asset', asset: 'storefront', selectable: true, label: 'North branch', scale: [1.8, 1.8, 1.8], surfaceLabel };
+  const node: AssetNode = { id: 'branch', kind: 'asset', asset: 'storefront', selectable: true, label: 'North branch', scale: [1.8, 1.8, 1.8], options: { surfaceLabel } };
   const latest = useRef(node); latest.current = node;
   useEffect(() => {
     if (!mounted) return;
