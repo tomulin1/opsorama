@@ -1,5 +1,6 @@
-import { behaviorNode, createBehaviorRunner, createHandlingState, createSceneStore, itemNode, type AgentState, type AssetHandling, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type FloorPlacement, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
+import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type AgentState, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
+import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement } from '@opsorama/objects/handling';
 import {
   CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, stagedFor,
   type ActivityEvent, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
@@ -228,7 +229,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   for (const id of shopperIds) shoppers.set(id, { inside: false, items: 0, basket: false });
 
   const runner = createBehaviorRunner({
-    graph: warehouseNavigation, slots: ecommerceSlots, seed, handling,
+    graph: warehouseNavigation, slots: ecommerceSlots, seed, itemPolicy: handlingItemPolicy(handling),
     agents: definitions.map(({ id, agent, start, travelPose, idlePose, carry, backOut }) => ({ id, agent, start, travelPose, idlePose, carry, backOut, steps: [] })),
     onItemEvent: event => { tasks.get(event.agent)?.items?.[event.step]?.(); touchRecords(); },
   });

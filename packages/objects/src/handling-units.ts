@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { HANDLING_FIT_TOLERANCE, receptacleAnchors, validateAssetHandling, validateHandlingProfile, handlingVocabulary, type AssetHandling, type AssetNode, type HandlingClass, type HandlingProfile, type LoadPattern, type InteractionSlotSource, type Receptacle } from '@opsorama/core';
+import type { AssetNode, InteractionSlotSource } from '@opsorama/core';
+import { HANDLING_FIT_TOLERANCE, receptacleAnchors, validateAssetHandling, validateHandlingProfile, handlingVocabulary, type AssetHandling, type HandlingClass, type HandlingProfile, type LoadPattern, type Receptacle } from './handling/rules';
 import type { AssetFactory } from '@opsorama/three';
 import { disposeObject } from '@opsorama/three';
 import { SHELF_SLOTS } from './generic-models';

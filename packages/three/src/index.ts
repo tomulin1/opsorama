@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { ResolvedTarget, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
+import type { SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
 import { assetFactory, disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
@@ -12,7 +12,7 @@ import { applyShadowPolicy } from './shadows';
 import { mergeStaticParts } from './static-merge';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
-import { createMoveTargetObject, highlightMoveTarget, type MoveTargetMarker } from './move-targets';
+import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
 import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildPrimitive } from './primitives';
@@ -26,8 +26,8 @@ export { createInstanceBatcher, INSTANCING_MIN_COUNT, INSTANCED_BATCH_NAME } fro
 export type { InstanceBatcher, InstancingStats } from './instancing';
 export { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker } from './selection-marker';
 export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection-marker';
-export { bindMoveMode, createMoveTargetObject, highlightMoveTarget } from './move-targets';
-export type { MoveTargetMarker } from './move-targets';
+export { createPickTargetObject, highlightPickTarget } from './pick-targets';
+export type { PickTarget, PickTargetMarker } from './pick-targets';
 export { createOverlayObject } from './overlay';
 export { addObjectRelease, assetValidator, createAssetRegistry, disposeObject } from './assets';
 export type { AssetFactory, AssetRegistry, MaterialContext } from './assets';
@@ -38,7 +38,7 @@ export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
 export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
-export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; overview(): void; /** Centre (or with `fit`, fit) a node. During the initial load a node that is not built yet is framed when the build finishes, at the zoom of this call. */ frame(id: string, options?: { fit?: boolean }): void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable move targets, positioned once from current anchors; a click on one calls `onPick` instead of selecting. Null removes them. Hosts usually use `bindMoveMode`. */ setMoveTargets(targets: readonly ResolvedTarget[] | null, onPick?: (target: ResolvedTarget) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; overview(): void; /** Centre (or with `fit`, fit) a node. During the initial load a node that is not built yet is framed when the build finishes, at the zoom of this call. */ frame(id: string, options?: { fit?: boolean }): void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -96,7 +96,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const assets = options.assets, controllers: ControllerRegistry = { ...basicControllers, ...options.controllers };
   type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: the node or its carrier chain has a parent container (`isContained`). */ contained: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
-  let moveTargets: { object: THREE.Group; targets: readonly ResolvedTarget[]; onPick?: (target: ResolvedTarget) => void } | null = null;
+  let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
   let fittedExtent: number | undefined; let shadowExtent = 24; let areas: InteriorArea[] = [];
   const pivot: [number, number, number] = [0, 0, 0];
@@ -232,12 +232,12 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   };
   function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (id) frame(id); else target.copy(overviewTarget()); options.onSelect?.(store.getSnapshot().selection); }
   const aim = (event: PointerEvent) => { const rect = renderer.domElement.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / width * 2 - 1, -(event.clientY - rect.top) / height * 2 + 1); raycaster.setFromCamera(pointer, camera); };
-  /** Index of the move target under the pointer, nearest first, or null. */
-  function moveTargetAt(event: PointerEvent): number | null {
-    if (!moveTargets) return null;
+  /** Index of the pick target under the pointer, nearest first, or null. */
+  function pickTargetAt(event: PointerEvent): number | null {
+    if (!pickTargets) return null;
     aim(event);
-    const hit = raycaster.intersectObjects(moveTargets.object.children, false)[0];
-    return hit ? hit.object.userData.moveTarget as number : null;
+    const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
+    return hit ? hit.object.userData.pickTarget as number : null;
   }
   function pick(event: PointerEvent) {
     aim(event);
@@ -282,15 +282,15 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const onClick = (event: PointerEvent) => {
     // The canvas is transparent until the first frame; a click must not select what nobody can see yet.
     if (loadState.phase !== 'loaded') return;
-    const index = moveTargetAt(event);
-    if (index !== null) { moveTargets!.onPick?.(moveTargets!.targets[index]); return; }
+    const index = pickTargetAt(event);
+    if (index !== null) { pickTargets!.onPick?.(pickTargets!.targets[index], index); return; }
     select(pick(event) || null, 'pointer');
   };
   const onMove = (event: PointerEvent) => {
     if (loadState.phase !== 'loaded') return;
-    if (moveTargets) {
-      const index = moveTargetAt(event);
-      highlightMoveTarget(moveTargets.object, index);
+    if (pickTargets) {
+      const index = pickTargetAt(event);
+      highlightPickTarget(pickTargets.object, index);
       if (index !== null) { renderer.domElement.style.cursor = 'pointer'; return; }
     }
     const labelId = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-node-id]')?.dataset.nodeId : undefined;
@@ -375,23 +375,22 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   raf = requestAnimationFrame(animate);
   let overlayObject: THREE.Object3D | null = null;
-  const clearMoveTargets = () => { if (moveTargets) { scene.remove(moveTargets.object); disposeObject(moveTargets.object); moveTargets = null; } };
+  const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposeObject(pickTargets.object); pickTargets = null; } };
   const clearOverlay = () => { if (overlayObject) { scene.remove(overlayObject); disposeObject(overlayObject); overlayObject = null; } };
   return {
     frame,
     getAnchor: (id, name) => { if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null; scene.updateMatrixWorld(true); const rotation = new THREE.Euler().setFromQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion())); return { position: anchor.getWorldPosition(new THREE.Vector3()).toArray() as [number, number, number], rotation: [rotation.x, rotation.y, rotation.z] }; },
-    setMoveTargets: (targets, onPick) => {
+    setPickTargets: (targets, onPick) => {
       if (disposed) return;
-      clearMoveTargets();
+      clearPickTargets();
       if (!targets) return;
       scene.updateMatrixWorld(true);
-      const markers = targets.flatMap((target, index): MoveTargetMarker[] => {
-        const { container, anchor: name, offset } = target.placement, entry = entries.get(container);
-        const anchor = name ? entry?.object.getObjectByName(`anchor-${name}`) : entry?.object;
-        return anchor ? [{ index, position: anchor.localToWorld(new THREE.Vector3(...offset)), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size }] : [];
+      const markers = targets.flatMap((target, index): PickTargetMarker[] => {
+        const entry = entries.get(target.node), anchor = target.anchor ? entry?.object.getObjectByName(`anchor-${target.anchor}`) : entry?.object;
+        return anchor ? [{ index, position: anchor.localToWorld(new THREE.Vector3(...target.offset ?? [0, 0, 0])), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size }] : [];
       });
-      const object = createMoveTargetObject(markers);
-      moveTargets = { object, targets, ...(onPick ? { onPick } : {}) };
+      const object = createPickTargetObject(markers);
+      pickTargets = { object, targets, ...(onPick ? { onPick } : {}) };
       scene.add(object);
     },
     setOverlay: overlay => { if (disposed) return; const next = overlay ? createOverlayObject(overlay) : null; clearOverlay(); if (next) { overlayObject = next; scene.add(next); } },
@@ -399,7 +398,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     getLoadState: () => loadState,
     overview: () => { deferredFrame = null; fittedExtent = undefined; pan?.cancel(); target.copy(overviewTarget()); store.select(null); options.onSelect?.(null); },
     getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearMoveTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    dispose: () => { if (disposed) return; clearPickTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
 }
 

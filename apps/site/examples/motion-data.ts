@@ -1,5 +1,6 @@
-import { behaviorNode, commandSteps, createBehaviorRunner, createHandlingState, itemNode, createNavGraph, navGraphOverlay, resolveSceneSlots, slotNavPoints, toNodeRoute, type AgentCommand, type AgentState, type AssetNode, type CarryRule, type ControllerFactory, type ControllerRegistry, type BehaviorStep, type RouteViolation, type SceneNode, type SceneOverlay, type Vec3 } from '@opsorama/core';
+import { behaviorNode, commandSteps, createBehaviorRunner, itemNode, createNavGraph, navGraphOverlay, resolveSceneSlots, slotNavPoints, toNodeRoute, type AgentCommand, type AgentState, type AssetNode, type CarryRule, type ControllerFactory, type ControllerRegistry, type BehaviorStep, type RouteViolation, type SceneNode, type SceneOverlay, type Vec3 } from '@opsorama/core';
 import { assetHandling, assetInteractionSlots, assetMotionProfiles, handlingProfiles } from '@opsorama/objects';
+import { createHandlingState, handlingItemPolicy } from '@opsorama/objects/handling';
 
 /** Walkway tiles are 9.5 cm tall; agents and graph points stand on top of them. */
 const Y = .1;
@@ -125,7 +126,7 @@ export function createShift(seed = 3) {
   let nextOrder = 1;
   const addOrder = () => { const id = `order-${nextOrder++}`; handling.register([{ id, asset: 'parcel' }]); handling.move([{ unit: id, to: onShelf }]); };
   for (let i = 0; i < SHELF_ORDERS; i++) addOrder();
-  return createBehaviorRunner({ graph: motionGraph, slots: motionSlots, seed, handling,
+  return createBehaviorRunner({ graph: motionGraph, slots: motionSlots, seed, itemPolicy: handlingItemPolicy(handling),
     // Host rules run at the event's simulation time, so the shift is the same at any frame rate.
     onItemEvent: (event, items) => {
       if (event.type === 'picked-up' && event.node === 'shelf-unit') event.items.forEach(addOrder);

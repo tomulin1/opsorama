@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { createHandlingState, createSceneStore, type AssetHandling, type AssetNode, type HandlingEvent, type HandlingProfile, type HandlingTarget, type HandlingViolationCode, type ReceptaclePlacement } from '@opsorama/core';
+import { createSceneStore, type AssetNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { assetHandling, catalogAssets, handlingProfiles, logisticsProfile } from '@opsorama/objects';
+import { createHandlingState, type AssetHandling, type HandlingEvent, type HandlingProfile, type HandlingTarget, type HandlingViolationCode, type ReceptaclePlacement } from '@opsorama/objects/handling';
 
 const instances = [
   ...['p1', 'p2'].map(id => ({ id, asset: 'pallet' })),
@@ -356,8 +357,8 @@ describe('handling state (H1)', () => {
   });
 
   it('stays free of DOM, framework and Three.js imports', () => {
-    const source = readFileSync('packages/core/src/handling-state.ts', 'utf8');
-    expect([...source.matchAll(/from '([^']+)'/g)].map(match => match[1]).sort()).toEqual(['./attachment', './handling', './index']);
+    const source = readFileSync('packages/objects/src/handling/state.ts', 'utf8');
+    expect([...source.matchAll(/from '([^']+)'/g)].map(match => match[1]).sort()).toEqual(['./rules', '@opsorama/core']);
     expect(logisticsProfile.id).toBe('logistics');
   });
 });

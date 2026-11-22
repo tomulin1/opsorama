@@ -3,7 +3,10 @@ import type { NavEdge, NavGraph, PlannedRoute, RouteRequest, RouteViolation } fr
 import type { ResolvedSlot } from './interaction';
 import { joinRoutes, motionProfileOf, routeDuration, routeJoin, routeTimes, sampleRoute, type NodeRoute, type RouteSample } from './route';
 import { DEFAULT_STACK_HEIGHT, validateCarryRule, validateItemRest, type CarryRule, type ItemPlacement, type ItemRest } from './carry';
-import type { FloorPlacement, HandlingMove, HandlingState, HandlingTarget, ReceptacleTarget, UnitPlacement } from './handling-state';
+import type { ItemDestination, ItemPlace, ItemPolicy, ItemPolicyPlacement } from './item-policy';
+
+/** A put-down on the floor: world metres and a heading in radians. */
+type FloorPut = { position: Vec3; yaw: number };
 
 /** Seconds, or a `[min, max]` range drawn from the runner's seeded random source. */
 export type BehaviorDuration = number | readonly [number, number];
@@ -46,7 +49,7 @@ export interface InteractDetails {
   /**
    * Items to take: their IDs, or a number of items resting on this object
    * (oldest first, fewer when fewer are there). Requires the agent's `carry` rule.
-   * With handling state, a count skips units it cannot reach or hold.
+   * With an item policy, a count skips items the policy refuses.
    */
   pickUp?: number | readonly string[];
   /** Carried items to put down: their IDs, or `all`. */
@@ -54,15 +57,16 @@ export interface InteractDetails {
   /**
    * Where put-down items rest on this object. Without it they rest on the floor
    * 0.45 m ahead of the slot.
-   * - Without handling state: a named anchor and/or a local offset; items on one
+   * - Without an item policy: a named anchor and/or a local offset; items on one
    *   spot stack by the agent's stack height.
-   * - With handling state: a `receptacle` of this object, checked like any move;
-   *   omitted fields resolve to the next free place.
+   * - With an item policy: a named place (`ItemPlace`) of this object, checked by
+   *   the policy. With the handling policy of `@opsorama/objects/handling` it is a
+   *   `receptacle` whose omitted fields resolve to the next free place.
    * - In both modes: a floor placement, `{ position, yaw }` in world metres and
    *   radians, for loads the agent sets down further away than 0.45 m, such as a
    *   pallet at the tips of a forklift's forks. Every item of the put-down lands there.
    */
-  putOn?: { anchor?: string; offset?: Vec3 } | Omit<ReceptacleTarget, 'container'> | FloorPlacement;
+  putOn?: { anchor?: string; offset?: Vec3 } | ItemPlace | FloorPut;
 }
 
 export interface BehaviorAgent {
@@ -223,18 +227,19 @@ export interface BehaviorRunnerOptions {
   agents: readonly BehaviorAgent[];
   /** Seed for `[min, max]` durations. Default 1. */
   seed?: number;
-  /** Items present at the start and where they rest. Not used with `handling`, which already knows them. */
+  /** Items present at the start and where they rest. Not used with `itemPolicy`, which already knows them. */
   items?: readonly { id: string; at: ItemRest }[];
   /**
-   * Shared handling state. Every placed unit is then an item, and pick-ups and
-   * put-downs are checked moves: a blocked exchange reports the same codes as
-   * `HandlingState.move`. Each agent with a `carry` rule must be registered, with
-   * a receptacle at the rule's anchor. Move, add or remove units through the
-   * state, also inside `onItemEvent`; `placeItem` and `removeItem` throw. Without
-   * it, items are plain placements with no compatibility check, for scenes
-   * without handling declarations. The runner subscribes until `dispose`.
+   * Shared item rules, e.g. `handlingItemPolicy(handling)` from
+   * `@opsorama/objects/handling`. Every item the policy places is then an item
+   * of the runner, and pick-ups and put-downs are checked by the policy: a
+   * blocked exchange reports the policy's violation codes. The policy must accept
+   * each agent with a `carry` rule (`ItemPolicy.addCarrier`). Change items
+   * through the policy's owner, also inside `onItemEvent`; `placeItem` and
+   * `removeItem` throw. Without it, items are plain placements with no
+   * compatibility check. The runner subscribes until `dispose`.
    */
-  handling?: HandlingState;
+  itemPolicy?: ItemPolicy;
   /**
    * Host item rules, called synchronously at the simulation time of each
    * `picked-up` or `put-down`, before any other agent acts. Use it to restock or
@@ -302,7 +307,7 @@ function random(seed: number) {
 }
 const POSITION_EPSILON = 1e-9;
 const TIME_EPSILON = 1e-9;
-const isFloorPut = (putOn: NonNullable<InteractDetails['putOn']>): putOn is FloorPlacement => 'position' in putOn && !('receptacle' in putOn);
+const isFloorPut = (putOn: NonNullable<InteractDetails['putOn']>): putOn is FloorPut => 'position' in putOn && !('receptacle' in putOn);
 const isPositionTarget = (target: MoveTarget): target is { position: Vec3 } => typeof target === 'object' && 'position' in target;
 const finiteVec = (value: unknown): value is Vec3 => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
 const validDuration = (value: BehaviorDuration) => typeof value === 'number' ? Number.isFinite(value) && value >= 0 : Array.isArray(value) && value.length === 2 && value.every(Number.isFinite) && value[0] >= 0 && value[1] >= value[0];
@@ -338,8 +343,8 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
         }
         if (step.putOn !== undefined) {
           const named = 'receptacle' in step.putOn, floor = isFloorPut(step.putOn);
-          if (named && !options.handling) throw new Error(`Agent ${id}: putOn names a receptacle, which needs the runner's handling state. Pass handling, or use an anchor and offset.`);
-          if (!named && !floor && options.handling) throw new Error(`Agent ${id}: with handling state, putOn needs a receptacle of ${step.node} or a floor placement; an anchor or offset would skip the compatibility check.`);
+          if (named && !options.itemPolicy) throw new Error(`Agent ${id}: putOn names a receptacle, which needs the runner's item policy. Pass itemPolicy, or use an anchor and offset.`);
+          if (!named && !floor && options.itemPolicy) throw new Error(`Agent ${id}: with an item policy, putOn needs a receptacle of ${step.node} or a floor placement; an anchor or offset would skip the policy's check.`);
           if (isFloorPut(step.putOn)) { if (!Number.isFinite(step.putOn.yaw)) throw new Error(`Agent ${id}: a floor putOn needs a finite heading.`); validateItemRest(step.putOn, `Agent ${id}: putOn`); }
           else if (!named) validateItemRest({ node: step.node, ...step.putOn as { anchor?: string; offset?: Vec3 } }, `Agent ${id}: putOn`);
         }
@@ -703,20 +708,20 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
     const holder = agents.get(at.holder);
     if (holder) restack(holder, (holder.state.carrying ?? []).filter(item => item !== id));
   }
-  /** Carried stacks of agents with handling state, by agent ID: receptacle name at the carry anchor. */
-  const carryReceptacles = new Map<string, string>();
-  const asItem = (at: UnitPlacement): ItemPlacement => {
-    if (!('container' in at)) return { position: at.position, yaw: at.yaw };
-    const turn = at.turn ? { yaw: at.turn * Math.PI / 180 } : {}, holder = agents.get(at.container);
-    if (holder?.def.carry) return { holder: at.container, anchor: at.anchor ?? holder.def.carry.anchor, offset: at.offset, ...turn };
-    return { node: at.container, ...(at.anchor ? { anchor: at.anchor } : {}), offset: at.offset, ...turn };
+  /** Agents with a carry rule that the item policy accepted. */
+  const carriers = new Set<string>();
+  const asItem = (at: ItemPolicyPlacement): ItemPlacement => {
+    if (!('node' in at)) return { position: at.position, yaw: at.yaw };
+    const turn = at.yaw ? { yaw: at.yaw } : {}, holder = agents.get(at.node);
+    if (holder?.def.carry) return { holder: at.node, anchor: at.anchor ?? holder.def.carry.anchor, offset: at.offset, ...turn };
+    return { node: at.node, ...(at.anchor ? { anchor: at.anchor } : {}), offset: at.offset, ...turn };
   };
-  /** Mirror the shared state into the item map and each agent's carried stack. */
-  function mirrorHandling(state: HandlingState) {
+  /** Mirror the policy's placements into the item map and each agent's carried stack. */
+  function mirrorPolicy(policy: ItemPolicy) {
     items.clear();
-    for (const [id, at] of state.placements()) items.set(id, Object.freeze(asItem(at)));
-    for (const id of carryReceptacles.keys()) {
-      const agent = agents.get(id)!, held = state.contents(id), before = agent.state.carrying ?? [];
+    for (const [id, at] of policy.placements()) items.set(id, Object.freeze(asItem(at)));
+    for (const id of carriers) {
+      const agent = agents.get(id)!, held = policy.carried(id), before = agent.state.carrying ?? [];
       if (held.length !== before.length || held.some((item, index) => item !== before[index])) update(agent, { carrying: held.length ? held : undefined });
     }
     changed = true;
@@ -728,14 +733,14 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
   const itemRules: ItemRules = {
     get time() { return time; },
     getItems: () => new Map(items),
-    placeItem(id, at) { if (options.handling) throw new Error('With handling state, place units with handling.move.'); if (typeof id !== 'string' || !id.trim()) throw new Error('Item ID must not be empty.'); validateItemRest(at, `Item ${id}`); rest(id, at); },
-    removeItem(id) { if (options.handling) throw new Error('With handling state, remove units with handling.unregister.'); if (!items.has(id)) return; letGo(id); items.delete(id); changed = true; },
+    placeItem(id, at) { if (options.itemPolicy) throw new Error(`With an item policy, ${options.itemPolicy.itemChanges}; placeItem is not used.`); if (typeof id !== 'string' || !id.trim()) throw new Error('Item ID must not be empty.'); validateItemRest(at, `Item ${id}`); rest(id, at); },
+    removeItem(id) { if (options.itemPolicy) throw new Error(`With an item policy, ${options.itemPolicy.itemChanges}; removeItem is not used.`); if (!items.has(id)) return; letGo(id); items.delete(id); changed = true; },
   };
   const itemEvent = (agent: Internal, event: Extract<BehaviorEventDetail, { type: 'picked-up' | 'put-down' }>) => { const recorded = emit(agent, event); options.onItemEvent?.(recorded as Extract<BehaviorEvent, { type: 'picked-up' | 'put-down' }>, itemRules); };
   /** Put down, then pick up, when an interaction ends. Returns why it could not, without changing anything then. */
   function exchange(agent: Internal, step: Extract<BehaviorStep, { kind: 'interact' }>, slot: ResolvedSlot): RouteViolation[] {
     if (step.putDown === undefined && step.pickUp === undefined) return [];
-    if (options.handling) return exchangeHandled(options.handling, agent, step, slot);
+    if (options.itemPolicy) return exchangeWithPolicy(options.itemPolicy, agent, step, slot);
     const rule = agent.def.carry!, capacity = rule.capacity ?? 1, carried = [...agent.state.carrying ?? []];
     const dropping = step.putDown === undefined ? [] : step.putDown === 'all' ? carried : [...step.putDown];
     const missing = dropping.filter(id => !carried.includes(id));
@@ -778,9 +783,9 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
     }
     return [];
   }
-  /** The same exchange through the shared state: one atomic move for what is named, then a count pick-up one unit at a time. */
-  function exchangeHandled(state: HandlingState, agent: Internal, step: Extract<BehaviorStep, { kind: 'interact' }>, slot: ResolvedSlot): RouteViolation[] {
-    const rule = agent.def.carry!, capacity = rule.capacity ?? 1, carried = [...agent.state.carrying ?? []], hold: HandlingTarget = { container: agent.def.id, receptacle: carryReceptacles.get(agent.def.id)!, ...(rule.turn !== undefined ? { turn: rule.turn } : {}) };
+  /** The same exchange through the item policy: one atomic exchange for what is named, then a count pick-up one item at a time. */
+  function exchangeWithPolicy(policy: ItemPolicy, agent: Internal, step: Extract<BehaviorStep, { kind: 'interact' }>, slot: ResolvedSlot): RouteViolation[] {
+    const rule = agent.def.carry!, capacity = rule.capacity ?? 1, carried = [...agent.state.carrying ?? []];
     const dropping = step.putDown === undefined ? [] : step.putDown === 'all' ? carried : [...step.putDown];
     const missing = dropping.filter(id => !carried.includes(id));
     if (missing.length) return [{ code: 'not-carrying', message: `${agent.def.id} is not carrying ${missing.join(', ')}.` }];
@@ -798,20 +803,20 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
       if (kept.length + named.length > capacity) return [{ code: 'carry-full', message: `${agent.def.id} can carry ${capacity} item${capacity === 1 ? '' : 's'}.` }];
     }
     const forward: Vec3 = [Math.sin(slot.yaw), 0, Math.cos(slot.yaw)];
-    const putTo: HandlingTarget = step.putOn && 'receptacle' in step.putOn ? { container: step.node, ...step.putOn } : step.putOn && isFloorPut(step.putOn) ? step.putOn : { position: [slot.position[0] + forward[0] * .45, slot.position[1], slot.position[2] + forward[2] * .45], yaw: slot.yaw };
+    const putTo: ItemDestination = step.putOn && 'receptacle' in step.putOn ? { node: step.node, place: step.putOn } : step.putOn && isFloorPut(step.putOn) ? step.putOn : { position: [slot.position[0] + forward[0] * .45, slot.position[1], slot.position[2] + forward[2] * .45], yaw: slot.yaw };
     // The top of the stack leaves first; a put-down has to clear what it is holding.
-    const moves: HandlingMove[] = [...carried].reverse().filter(id => dropping.includes(id)).map(unit => ({ unit, to: putTo })).concat(named.map(unit => ({ unit, to: hold })));
-    if (moves.length) {
-      const checks = state.move(moves), last = checks[checks.length - 1];
-      if (!last.ok) return last.violations.map(({ code, message }) => ({ code, message }));
+    const putDown = [...carried].reverse().filter(id => dropping.includes(id));
+    if (putDown.length || named.length) {
+      const check = policy.exchange({ agent: agent.def.id, putDown, ...(putDown.length ? { to: putTo } : {}), pickUp: named });
+      if (!check.ok) return check.violations.map(({ code, message }) => ({ code, message }));
     }
     if (dropping.length) itemEvent(agent, { type: 'put-down', node: step.node, items: Object.freeze([...dropping]) });
     const taken = [...named];
     if (typeof step.pickUp === 'number') {
       const wanted = Math.min(step.pickUp, capacity - kept.length);
-      for (const [id, at] of state.placements()) {
+      for (const [id, at] of policy.placements()) {
         if (taken.length >= wanted) break;
-        if ('container' in at && at.container === step.node && !dropping.includes(id) && state.move([{ unit: id, to: hold }])[0].ok) taken.push(id);
+        if ('node' in at && at.node === step.node && !dropping.includes(id) && policy.exchange({ agent: agent.def.id, putDown: [], pickUp: [id] }).ok) taken.push(id);
       }
     }
     if (taken.length) itemEvent(agent, { type: 'picked-up', node: step.node, items: Object.freeze(taken) });
@@ -873,15 +878,15 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
     validateSteps(def.id, def.steps);
     agents.set(def.id, { def, steps: def.steps, loop: def.loop ?? false, nextAt: Infinity, onDue: null, loopStartedAt: -1, state: { id: def.id, agent: def.agent, phase: 'idle', step: -1, at: def.start, pose: def.idlePose ?? 'idle', position: point.position, yaw: def.yaw ?? 0 } });
   }
-  if (options.handling) {
-    if (options.items?.length) throw new Error('With handling state, place units with handling.move before creating the runner; items is not used.');
+  if (options.itemPolicy) {
+    if (options.items?.length) throw new Error(`With an item policy, ${options.itemPolicy.itemChanges} before creating the runner; items is not used.`);
     for (const agent of agents.values()) {
       if (!agent.def.carry) continue;
-      const hold = options.handling.receptacleAt(agent.def.id, agent.def.carry.anchor);
-      if (!hold) throw new Error(`Agent ${agent.def.id}: handling state has no receptacle at anchor ${agent.def.carry.anchor}. Register the agent's node and declare one in assetHandling.`);
-      carryReceptacles.set(agent.def.id, hold);
+      const check = options.itemPolicy.addCarrier(agent.def.id, agent.def.carry);
+      if (!check.ok) throw new Error(`Agent ${agent.def.id}: ${check.violations.map(violation => violation.message).join(' ')}`);
+      carriers.add(agent.def.id);
     }
-    mirrorHandling(options.handling);
+    mirrorPolicy(options.itemPolicy);
   }
   for (const item of options.items ?? []) {
     if (typeof item?.id !== 'string' || !item.id.trim()) throw new Error('Item ID must not be empty.');
@@ -899,7 +904,7 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
   };
   notify();
   // Moves the host makes between ticks show at once; inside `advance` the tick's own notify covers them.
-  const stopHandling = options.handling?.subscribe(() => { mirrorHandling(options.handling!); if (!advancing) notify(); });
+  const stopPolicy = options.itemPolicy?.subscribe(() => { mirrorPolicy(options.itemPolicy!); if (!advancing) notify(); });
   const runner: BehaviorRunner = {
     get time() { return time; },
     advance(seconds) {
@@ -942,7 +947,7 @@ export function createBehaviorRunner(options: BehaviorRunnerOptions): BehaviorRu
     removeItem(id) { if (disposed) throw new Error('Behavior runner has been disposed.'); itemRules.removeItem(id); notify(); },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     subscribeEvents(listener) { eventListeners.add(listener); return () => { eventListeners.delete(listener); }; },
-    dispose() { disposed = true; stopHandling?.(); listeners.clear(); eventListeners.clear(); pending = []; holds.clear(); agents.forEach(agent => schedule(agent, Infinity, null)); },
+    dispose() { disposed = true; stopPolicy?.(); listeners.clear(); eventListeners.clear(); pending = []; holds.clear(); agents.forEach(agent => schedule(agent, Infinity, null)); },
   };
   return runner;
 }

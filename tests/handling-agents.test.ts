@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createBehaviorRunner, createHandlingState, createNavGraph, itemNode, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type InteractionSlotSource } from '@opsorama/core';
+import { createBehaviorRunner, createNavGraph, itemNode, resolveSceneSlots, slotNavPoints, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type InteractionSlotSource } from '@opsorama/core';
 import { assetHandling, assetInteractionSlots, handlingProfiles } from '@opsorama/objects';
 import { createShift, PACKED_ON_BENCH } from '../apps/site/examples/motion-data';
+import { createHandlingState, handlingItemPolicy } from '@opsorama/objects/handling';
 
 const objects: AssetNode[] = [
   { id: 'shelf', kind: 'asset', asset: 'shelf', position: [0, 0, -2] },
@@ -27,7 +28,7 @@ const picker = (steps: readonly BehaviorStep[], extra: Partial<BehaviorAgent> = 
 const pick = (pickUp: number | readonly string[]): BehaviorStep => ({ kind: 'interact', node: 'shelf', slot: 'pick-0', seconds: 1, pickUp });
 const palletPick = (pickUp: number | readonly string[]): BehaviorStep => ({ kind: 'interact', node: 'pallet', slot: 'side', seconds: 1, pickUp });
 const pack: BehaviorStep = { kind: 'interact', node: 'desk', seconds: 1, putDown: 'all', putOn: { receptacle: 'surface' } };
-const runnerFor = (handling: ReturnType<typeof setup>, steps: readonly BehaviorStep[], extra: Partial<Parameters<typeof createBehaviorRunner>[0]> = {}, agent: Partial<BehaviorAgent> = {}) => createBehaviorRunner({ graph, slots, handling, agents: [picker(steps, agent)], ...extra });
+const runnerFor = (handling: ReturnType<typeof setup>, steps: readonly BehaviorStep[], extra: Partial<Parameters<typeof createBehaviorRunner>[0]> = {}, agent: Partial<BehaviorAgent> = {}) => createBehaviorRunner({ graph, slots, itemPolicy: handlingItemPolicy(handling), agents: [picker(steps, agent)], ...extra });
 const load = (handling: ReturnType<typeof setup>, ...ids: string[]) => expect(handling.move(ids.map(unit => ({ unit, to: shelfSpot }))).every(check => check.ok)).toBe(true);
 
 describe('agents with handling state (H2)', () => {
@@ -150,7 +151,7 @@ describe('agents with handling state (H2)', () => {
   it('keeps the runner checks for held and distant units', () => {
     const handling = setup(); load(handling, 'c0');
     handling.move([{ unit: 'c1', to: { container: 'b', receptacle: 'carry' } }, { unit: 'c2', to: { position: [9, 0, 9], yaw: 0 } }]);
-    const unavailable = createBehaviorRunner({ graph, slots, handling, agents: [picker([pick(['c1'])]), { id: 'b', agent: 'person', start: 'desk-aisle', carry, steps: [] }] });
+    const unavailable = createBehaviorRunner({ graph, slots, itemPolicy: handlingItemPolicy(handling), agents: [picker([pick(['c1'])]), { id: 'b', agent: 'person', start: 'desk-aisle', carry, steps: [] }] });
     unavailable.advance(4);
     expect(unavailable.getAgent('a')).toMatchObject({ phase: 'blocked', violations: [{ code: 'item-unavailable' }] });
     expect(unavailable.getAgent('b')?.carrying).toEqual(['c1']);
@@ -192,7 +193,7 @@ describe('agents with handling state (H2)', () => {
       const handling = setup(units(40)), onShelf = () => [...handling.placements().values()].filter(at => 'container' in at && at.container === 'shelf').length;
       let next = 3; load(handling, 'c0', 'c1', 'c2');
       const log: string[] = [];
-      const runner = createBehaviorRunner({ graph, slots, handling, seed: 7, agents: [picker([pick(1), pack], { loop: true }), { id: 'b', agent: 'person', start: 'desk-aisle', carry, steps: [{ kind: 'interact', node: 'desk', seconds: [1, 3], pickUp: 1 }, { kind: 'interact', node: 'desk', seconds: 1, putDown: 'all' }], loop: true }],
+      const runner = createBehaviorRunner({ graph, slots, itemPolicy: handlingItemPolicy(handling), seed: 7, agents: [picker([pick(1), pack], { loop: true }), { id: 'b', agent: 'person', start: 'desk-aisle', carry, steps: [{ kind: 'interact', node: 'desk', seconds: [1, 3], pickUp: 1 }, { kind: 'interact', node: 'desk', seconds: 1, putDown: 'all' }], loop: true }],
         onItemEvent: (event, items) => {
           log.push(`${items.time.toFixed(4)} ${event.type} ${event.items.join()}`);
           if (event.type === 'picked-up' && event.node === 'shelf' && onShelf() < 3) handling.move([{ unit: `c${next++}`, to: shelfSpot }]);
@@ -221,10 +222,10 @@ describe('agents with handling state (H2)', () => {
   it('explains wrong setups before the shift starts', () => {
     const handling = setup();
     expect(() => runnerFor(handling, [], { items: [{ id: 'x', at: { position: [0, 0, 0] } }] })).toThrow(/place units with handling\.move/);
-    expect(() => createBehaviorRunner({ graph, slots, handling, agents: [picker([], { id: 'nobody' })] })).toThrow(/no receptacle at anchor carry/);
+    expect(() => createBehaviorRunner({ graph, slots, itemPolicy: handlingItemPolicy(handling), agents: [picker([], { id: 'nobody' })] })).toThrow(/no receptacle at anchor carry/);
     expect(() => runnerFor(handling, [], {}, { carry: { ...carry, anchor: 'hand' } })).toThrow(/no receptacle at anchor hand/);
     expect(() => runnerFor(handling, [{ kind: 'interact', node: 'desk', seconds: 1, putDown: 'all', putOn: { anchor: 'surface' } }])).toThrow(/putOn needs a receptacle of desk/);
-    expect(() => createBehaviorRunner({ graph, slots, agents: [picker([{ kind: 'interact', node: 'desk', seconds: 1, putDown: 'all', putOn: { receptacle: 'surface' } }])] })).toThrow(/needs the runner's handling state/);
+    expect(() => createBehaviorRunner({ graph, slots, agents: [picker([{ kind: 'interact', node: 'desk', seconds: 1, putDown: 'all', putOn: { receptacle: 'surface' } }])] })).toThrow(/needs the runner's item policy/);
     const runner = runnerFor(handling, []);
     expect(() => runner.placeItem('c0', { position: [0, 0, 0] })).toThrow(/handling\.move/);
     expect(() => runner.removeItem('c0')).toThrow(/handling\.unregister/);

@@ -4,7 +4,7 @@ import { catalogEntries } from '../catalog-entry';
 import '../options';
 import { createOrderTicket, createPolyMailer } from '../fulfillment';
 import { createBag } from '../generic-models';
-import { createTote } from '../handling';
+import { createTote } from '../material-handling';
 import { createPallet, createParcel, createParcelBase } from '../parcels';
 import { createHandBasket, createShoppingCart } from '../retail';
 import { createBulkBag, createDrumPallet, createIbcTank, createPalletStack } from '../warehouse';

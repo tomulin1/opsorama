@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { createHandlingState, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type ReceptaclePlacement } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { assetHandling, catalogAssets, checkAssetHandling, datacenterProfile, handlingProfiles, laboratoryProfile, logisticsProfile, retailProfile } from '@opsorama/objects';
 import { catalogObjects } from '../apps/site/src/features/docs/objects';
+import { createHandlingState, handlingFits, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingProfile, type ReceptaclePlacement } from '@opsorama/objects/handling';
 
 const state = (instances: readonly { id: string; asset: string; variant?: string }[]) => createHandlingState({ handling: assetHandling, profiles: handlingProfiles, instances });
 const cabinet = { container: 'cabinet', receptacle: 'rail' };

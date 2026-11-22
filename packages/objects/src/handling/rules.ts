@@ -1,5 +1,4 @@
-import type { Vec3 } from './index';
-import type { NodeSample } from './descriptor';
+import type { NodeSample, Vec3 } from '@opsorama/core';
 
 /**
  * Handling compatibility (phase H0 of docs/CONTAINMENT.md): declared data that says which
@@ -227,7 +226,7 @@ export function fitOrientation(size: HandlingSize, envelope: HandlingSize, turna
 /**
  * Structural checks of one asset's declaration against the profiles' vocabulary: names, anchors,
  * known classes, accepted families, capacities and load patterns that fit inside their deck.
- * `checkAssetHandling` in the renderer package checks the declaration against the built model.
+ * `checkAssetHandling` from `@opsorama/objects` checks the declaration against the built model.
  */
 export function validateAssetHandling(asset: string, handling: AssetHandling, profiles: readonly HandlingProfile[]): void {
   const label = `Handling of ${asset}`, { classes, patterns } = handlingVocabulary(profiles);

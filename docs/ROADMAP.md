@@ -4,9 +4,9 @@ Opsorama is pre-release. This page lists what is implemented, what comes before 
 
 ## Implemented
 
-- **Core** (`@opsorama/core`): framework-free scene model with immutable snapshots, validated settings, selection, subscriptions, movement graphs and route planning, interaction slots, behaviors, handling state and move mode.
+- **Core** (`@opsorama/core`): framework-free, domain-free scene model with immutable snapshots, validated settings, selection, subscriptions, generic containment, typed asset options, movement graphs and route planning, interaction slots, behaviors with carried items and a generic item policy.
 - **Renderer** (`@opsorama/three`): one Three.js renderer for every framework, without built-in models; camera framing, panning and wheel zoom, labels and markers, selection styles, motion playback, shadows, static merging, instancing, a sliced initial load with a loading indicator, a live node preview for detail panels, and explicit disposal.
-- **Object catalog** (`@opsorama/objects`): 161 procedural models with checked descriptors, split into 21 kits that mirror the object browser categories, plus `catalogAssets` and a machine-readable `catalog.json`.
+- **Object catalog** (`@opsorama/objects`): 161 procedural models with checked descriptors, split into 21 kits that mirror the object browser categories, plus `catalogAssets`, a machine-readable `catalog.json`, and handling rules, handling state and optional move mode in `@opsorama/objects/handling`.
 - **Adapters**: native React (`@opsorama/react`) and Vue (`@opsorama/vue`) components with the same scene contract, and plain JavaScript through the renderer.
 - **UI** (`@opsorama/ui`): optional framework-neutral panels (metric cards, data panels, inspectors, lists, meters) with native React and Vue components.
 - **Website**: documentation, a searchable object browser with live previews and usage snippets, and full-viewport domain examples (e-commerce, distribution centre, office, datacenter, restaurant, farm, aquatics) whose inspectors show a live 3D copy of the selected object.
@@ -21,7 +21,7 @@ Opsorama is a toolkit for declarative 3D scenes in web applications that AI codi
 
 ## Before the first release (0.1)
 
-- A domain-free core: `@opsorama/core` keeps the scene model, store, selection, events, placement, routes, movement and behaviors. Done: containment is generic for any asset, and model-specific node props (such as `heatEnabled`, `fillLevel` or `forks`) live in one `AssetNode.options` field that `@opsorama/objects` types and validates per catalog asset. Remaining: handling rules and move mode move out of core. This changes package exports, so it lands before the first publication.
+- Done: a domain-free core. `@opsorama/core` keeps the scene model, store, selection, events, placement, routes, movement and behaviors. Containment is generic for any asset; model-specific node props (such as `heatEnabled`, `fillLevel` or `forks`) live in one `AssetNode.options` field that `@opsorama/objects` types and validates per catalog asset; handling rules, handling state and move mode live in `@opsorama/objects/handling`, and the behavior runner checks carried items through a generic `ItemPolicy`; the renderer draws generic pick targets. A unit test keeps core and the renderer free of handling and catalog model names.
 - Publication of the packages on npm and of the documentation at opsorama.dev (the release and deployment workflows exist and are switched off until then).
 
 ## After the first release

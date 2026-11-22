@@ -1,6 +1,8 @@
 # Handling units, receptacles and moves
 
-Status: **H0–H3 implemented; H5 is a proposal**. Written October 29, 2026, to unify boxes, totes, bags, crates and pallets so they behave as in reality: a pallet carries several exactly specified box types, racks and shelves accept what their domain allows, and a parcel or item can move from place to place between compatible places, containers and pallets. H0 implemented the vocabulary, declarations, model check and catalog view: `HANDLING_FAMILIES`, `HandlingProfile`, `AssetHandling`, `validateHandlingProfile`, `validateAssetHandling` and `handlingFits` in core; `logisticsProfile`, `assetHandling` and `checkAssetHandling` in the renderer package; documented at `/docs/handling`. H1 implemented `createHandlingState` in core. H2 connected the behavior runner through its `handling` option. H3 added optional move mode. H4 added `rail` and `bulk`, unit variants and three more profiles. H5 is still a proposal.
+Status: **H0–H3 implemented; H5 is a proposal**. Written October 29, 2026, to unify boxes, totes, bags, crates and pallets so they behave as in reality: a pallet carries several exactly specified box types, racks and shelves accept what their domain allows, and a parcel or item can move from place to place between compatible places, containers and pallets. H0 implemented the vocabulary, declarations, model check and catalog view: `HANDLING_FAMILIES`, `HandlingProfile`, `AssetHandling`, `validateHandlingProfile`, `validateAssetHandling` and `handlingFits`; `logisticsProfile`, `assetHandling` and `checkAssetHandling` for the catalog; documented at `/docs/handling`. H1 implemented `createHandlingState`. H2 connected the behavior runner, now through its generic `itemPolicy` option and `handlingItemPolicy`. H3 added optional move mode. H4 added `rail` and `bulk`, unit variants and three more profiles. H5 is still a proposal.
+
+**Where it lives.** The rules, the state, the item policy and move mode are exported by `@opsorama/objects/handling`, an entry that loads no Three.js code; the catalog's declarations (`assetHandling`, `handlingProfiles`, `checkAssetHandling`) come from the `@opsorama/objects` root. `@opsorama/core` stays domain-free: the behavior runner knows only the generic `ItemPolicy` interface (`itemPolicy` option), and `handlingItemPolicy(handling)` implements it. `@opsorama/three` knows only generic pick targets (`setPickTargets`), which `bindMoveMode` fills from move mode.
 
 ## Problem
 
@@ -45,7 +47,7 @@ A unit can also be a container. A pallet is a unit (class `logistics/industrial-
 
 ### Families
 
-A closed, generic enum in core. Domain profiles add classes inside these families; they do not add families.
+A closed, generic enum, `HANDLING_FAMILIES` in `@opsorama/objects/handling`. Domain profiles add classes inside these families; they do not add families.
 
 | Family | Meaning | Examples |
 | --- | --- | --- |
@@ -122,7 +124,7 @@ Proposed built-in profiles, all generic and free of business meaning:
 
 ### Placement and state
 
-Implemented in H1; `packages/core/src/handling-state.ts` documents each type. `createHandlingState` tracks registered nodes. A `HandlingTarget` is what a caller asks for, and a `UnitPlacement` is the resolved place with its anchor and local offset. `check`, `move`, `targets`, `sync`, `placement`, `contents`, `path`, `nodePatches` and `subscribe` are the API. Compared with the original proposal: `rank` replaces `near`, because the state does not know world positions; mass and the `over-mass` code are left out; targets and placements are separate types. See `/docs/handling` for runnable usage.
+Implemented in H1; `packages/objects/src/handling/state.ts` documents each type. `createHandlingState` tracks registered nodes. A `HandlingTarget` is what a caller asks for, and a `UnitPlacement` is the resolved place with its anchor and local offset. `check`, `move`, `targets`, `sync`, `placement`, `contents`, `path`, `nodePatches` and `subscribe` are the API. Compared with the original proposal: `rank` replaces `near`, because the state does not know world positions; mass and the `over-mass` code are left out; targets and placements are separate types. See `/docs/handling` for runnable usage.
 
 Two operating modes, chosen per call rather than by a global flag:
 
@@ -135,18 +137,18 @@ Moving a container moves its contents automatically, because units are attached 
 
 | Existing | Proposed role |
 | --- | --- |
-| `ObjectDescriptor` | Implemented in H0 as a separate data registry, `assetHandling`, like `assetInteractionSlots`, because most declared assets have no descriptor yet. `checkAssetHandling` verifies anchors, unit size, envelopes inside the model footprint, slot clearance and the reaching slot group; core validation checks patterns inside their deck without overlap |
+| `ObjectDescriptor` | Implemented in H0 as a separate data registry, `assetHandling`, like `assetInteractionSlots`, because most declared assets have no descriptor yet. `checkAssetHandling` verifies anchors, unit size, envelopes inside the model footprint, slot clearance and the reaching slot group; `validateAssetHandling` checks patterns inside their deck without overlap |
 | Anchors | Unchanged; receptacles reference them. Repeated decorative parts still get no identities |
 | `Attachment` and `NodeTransfer` | The output of a move: `nodePatches` sets attachment and offset, an optional transfer animates it under the scene motion policy |
-| `ItemPlacement` and `CarryRule` | With the runner's `handling` option, a carry rule resolves to the receptacle at its anchor (worker `carry`, pallet-jack and reach-truck `load`, forklift forks), and `pickUp`, `putDown` and `putOn` are checked moves. Without it, items stay plain placements, because most assets have no declaration yet. `ItemPlacement` remains the shape `getItems` and `itemNode` use in both modes |
+| `ItemPlacement` and `CarryRule` | With the runner's `itemPolicy` option set to `handlingItemPolicy(handling)`, a carry rule resolves to the receptacle at its anchor (worker `carry`, pallet-jack and reach-truck `load`, forklift forks), and `pickUp`, `putDown` and `putOn` are checked moves. Without it, items stay plain placements, because most assets have no declaration yet. `ItemPlacement` remains the shape `getItems` and `itemNode` use in both modes |
 | `ContainerContents` (`options.contents`) | The `bulk` arrangement: lines with quantities, no identities, no moves per line. A line becomes movable only when the host gives it a unit node |
 | Decorative `count` | Decorative fill uses only positions that no tracked unit occupies, in order, so it can never overlap real units. Shelf and pallet documentation keep saying it is decoration, not inventory |
 | Interaction slots | Unchanged; a receptacle names the slot group from which it is reached, so `targets` results can become agent goals |
-| Behavior runner | With `handling`, the shared `HandlingState` owns the units and the runner mirrors them, so agents, UI and host see the same placements |
+| Behavior runner | With `itemPolicy: handlingItemPolicy(handling)`, the shared `HandlingState` owns the units and the runner mirrors them, so agents, UI and host see the same placements. Core knows only the generic `ItemPolicy` interface; its violations carry the handling codes as strings |
 
 ## Interaction design
 
-**Move mode in the UI** (implemented in H3). Move mode is optional interactivity, not a part of domain dashboards; `/examples/move-mode` is its only example. `createMoveMode` offers a unit's compatible free places, and `bindMoveMode` draws them as ghost boxes the viewer can click. Each choice reaches the host as a request with a current check; the host runs its command and calls `move`. The toolkit never moves a unit because of a click. The same targets belong in an HTML list, and `refusals` explains in text why other places are not offered.
+**Move mode in the UI** (implemented in H3). Move mode is optional interactivity, not a part of domain dashboards; `/examples/move-mode` is its only example. `createMoveMode` offers a unit's compatible free places, and `bindMoveMode` draws them as ghost boxes the viewer can click, through the renderer's generic `setPickTargets`. Each choice reaches the host as a request with a current check; the host runs its command and calls `move`. The toolkit never moves a unit because of a click. The same targets belong in an HTML list, and `refusals` explains in text why other places are not offered.
 
 **Agents.** An `interact` step can name a receptacle instead of an offset, or a floor placement for loads set down further away: `putOn: { receptacle: 'deck' }` takes the next free position under the arrangement's access rule, and `pickUp` honours access, so a picker cannot pull the bottom carton out of a full pallet layer. A blocked exchange reports the same violation codes as UI moves.
 
@@ -207,9 +209,9 @@ Small complete slices, each with JS, React and Vue parity where it adds public A
 | Phase | Scope | Acceptance |
 | --- | --- | --- |
 | H0 — vocabulary and declarations (implemented) | Families enum, handling-class and load-pattern types, the `logistics` profile as data, the `assetHandling` registry. Declare it for `parcel`, `tote`, `pallet`, `shelf`, `pallet-rack`, `worker`, `pallet-jack` | `checkAssetHandling` verifies anchors, unit size, envelopes and slot clearance; validation verifies patterns. The catalog shows the Compatibility section, card tags, the "Compatible with" filter and the matrix, all derived through `handlingFits` and labelled as declared, not runtime-checked. No runtime change. Done |
-| H1 — core handling state (implemented) | `createHandlingState`, `check`, `move`, `targets`, `sync`, `contents`, `path`, `nodePatches`, events, all violation codes | Unit tests for every code, mixed pallet layers, support and access rules, atomic multi-moves, sync of impossible data, container moves carrying contents, no DOM or Three.js imports. Done |
+| H1 — handling state (implemented) | `createHandlingState`, `check`, `move`, `targets`, `sync`, `contents`, `path`, `nodePatches`, events, all violation codes | Unit tests for every code, mixed pallet layers, support and access rules, atomic multi-moves, sync of impossible data, container moves carrying contents, no DOM or Three.js imports. Done |
 | H2 — agents (implemented) | Carry rules as `stack` receptacles; `pickUp`/`putDown`/`putOn` through `check`; runner shares the state | `/examples/motion` unchanged visually; tests for blocked exchanges with the new codes and tick-size independence. Done |
-| H3 — move mode (implemented) | `createMoveMode`, `bindMoveMode`, `setMoveTargets`, `refusals`, HTML target list; documented at `/docs/handling` | Native React, Vue and JS sample at `/examples/move-mode` only, not in domain examples; keyboard-accessible target list; panel clicks do not pick objects behind. Done |
+| H3 — move mode (implemented) | `createMoveMode`, `bindMoveMode`, `setPickTargets`, `refusals`, HTML target list; documented at `/docs/handling` | Native React, Vue and JS sample at `/examples/move-mode` only, not in domain examples; keyboard-accessible target list; panel clicks do not pick objects behind. Done |
 | H4 — more domains (implemented) | `rail` and `bulk`, unit variants, `retail`, `datacenter` and `laboratory` profiles, 31 declared assets, a profile selector in the matrix. E-commerce stays without agents, because the scene projects confirmed records; no `restaurant` profile, because no movable restaurant model exists | Profiles add classes only. Done |
 | H5 — drag and drop | Optional pointer dragging with snapping | Same checks and events as move mode |
 

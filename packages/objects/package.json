@@ -1,13 +1,14 @@
 {
   "name": "@opsorama/objects",
   "version": "0.0.1",
-  "description": "Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, and the catalogAssets registry for @opsorama/three.",
+  "description": "Opsorama object catalog: procedural Three.js model factories, their descriptors and definitions, the catalogAssets registry for @opsorama/three, and handling rules for movable units (@opsorama/objects/handling).",
   "license": "MIT",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./handling": "./src/handling/index.ts",
     "./datacenter": "./src/kits/datacenter.ts",
     "./displays": "./src/kits/displays.ts",
     "./buildings": "./src/kits/buildings.ts",
@@ -38,6 +39,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./handling": {
+        "types": "./dist/handling/index.d.ts",
+        "import": "./dist/handling/index.js"
       },
       "./datacenter": {
         "types": "./dist/kits/datacenter.d.ts",

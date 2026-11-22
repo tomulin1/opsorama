@@ -53,6 +53,11 @@ fs.writeFileSync(path.join(consumer, 'index.ts'), [
   `import type { AssetNode } from '@opsorama/core';`,
   `const truck: AssetNode = { id: 'truck', kind: 'asset', asset: 'forklift', options: { forks: { height: 1 } } };`,
   `export const forkHeight: number | undefined = truck.options?.forks?.height;`,
+  // The handling subpath's ItemPlace augmentation must reach consumers: without it, a receptacle position in putOn is an excess property.
+  `import { handlingItemPolicy, type HandlingState } from '@opsorama/objects/handling';`,
+  `import type { BehaviorStep, ItemPolicy } from '@opsorama/core';`,
+  `export const policyOf = (state: HandlingState): ItemPolicy => handlingItemPolicy(state);`,
+  `export const putOnDeck: BehaviorStep = { kind: 'interact', node: 'rack', seconds: 1, putDown: 'all', putOn: { receptacle: 'level-0', position: 1 } };`,
 ].join('\n'));
 for (const resolution of ['bundler', 'node16']) {
   const options = { strict: true, noEmit: true, skipLibCheck: false, types: [], lib: ['dom', 'esnext'], target: 'es2022', jsx: 'react-jsx', module: resolution === 'bundler' ? 'esnext' : 'node16', moduleResolution: resolution };

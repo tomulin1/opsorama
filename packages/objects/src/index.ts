@@ -37,7 +37,7 @@ export type { BuildingType, BuildingOptions, BuildingPalette, BuildingNode } fro
 export type { WorkerVariant } from './worker';
 export { WORKER_SEAT_HEIGHT, WORKER_VARIANTS } from './worker';
 export type { VehicleOperatorPose } from './worker';
-export type { ConveyorVariant, GateVariant } from './handling';
+export type { ConveyorVariant, GateVariant } from './material-handling';
 export type { WallVariant, EquipmentCabinetVariant } from './structures';
 export type { RackServerVariant } from './datacenter';
 export type { MobileRobotVariant, RobotArmVariant, SecurityCameraVariant } from './automation';
