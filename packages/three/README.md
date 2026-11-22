@@ -82,6 +82,44 @@ const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 'floor', kind: 
 const renderer = createSceneRenderer(container, store, { assets: createAssetRegistry(vehiclesKit), touchGestures: true, wheelZoom: true });
 ```
 
+### Engine hooks
+
+Pointer events, a frame hook and plugins extend the renderer from host code:
+
+```ts
+import * as THREE from 'three';
+import { createSceneStore, type AssetNode } from '@opsorama/core';
+import { createAssetRegistry, createSceneRenderer, type RendererPlugin } from '@opsorama/three';
+import { vehiclesKit } from '@opsorama/objects/vehicles';
+
+const robot: AssetNode = { id: 'robot', kind: 'asset', asset: 'mobile-robot', position: [0, 0, 0] };
+const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 'yard', kind: 'ground', size: [20, 12] }, robot] });
+// A plugin owns what it adds: it removes and disposes it in its cleanup.
+const ring: RendererPlugin = {
+  name: 'destination-ring',
+  setup(context) {
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(.55, .78, 48), new THREE.MeshBasicMaterial({ color: '#2f6fde' }));
+    mesh.rotation.x = -Math.PI / 2; context.scene.add(mesh);
+    const stop = context.onFrame(frame => mesh.scale.setScalar(1 + .1 * Math.sin(frame.time * 5)));
+    return () => { stop(); mesh.removeFromParent(); mesh.geometry.dispose(); mesh.material.dispose(); };
+  },
+};
+const renderer = createSceneRenderer(container, store, {
+  assets: createAssetRegistry(vehiclesKit), plugins: [ring],
+  onPointer: event => {
+    if (event.type !== 'click' || event.nodeId !== 'yard' || !event.point) return;
+    event.preventSelection(); // keep the selection and the camera
+    store.upsert({ ...robot, route: { points: [robot.position!, event.point], speed: 2.4 } });
+  },
+});
+const stop = renderer.onFrame(frame => console.log(frame.frame, frame.time), { step: 1 / 60 });
+// Later: stop(); renderer.dispose(); // runs the plugin cleanup first
+```
+
+- `onPointer` receives `down`, `up`, `click`, `enter`, `leave` and `move` (at most once per animation frame) with the nearest node under the pointer, selectable or not (grounds included), its `parentId` `ancestors` nearest first, the world `point` (on a miss, the ground plane y = 0), `pointerType`, `button`, the modifier keys and `source` (`'canvas'` or `'label'`). In a `click`, `preventSelection()` skips the default selection and framing; without it selection is unchanged. Pick targets (`setPickTargets`) take their input first.
+- `onFrame(listener, { step?, maxSteps? })` runs once per rendered frame after node motion (`delta` = frame seconds × speed, 0 while paused), or with `step` (1/240–1/10 s) on a fixed simulation step before node motion: never while paused or hidden, still with motion off, at most `maxSteps` (default 4) steps per frame with the rest reported in `frame.dropped`. Listener errors go to `onError`; unsubscribing inside a listener is safe.
+- `plugins` (mount-time) are set up in order after the first scene sync and cleaned up in reverse order when the renderer is disposed. The context gives `scene`, `renderer`, `container`, `store`, `camera()`, `nodeObject(id)` (read only), `loaded`, `onFrame`, `onCameraChange` and `reportError`. Duplicate names throw; a throwing setup disposes the renderer and `createSceneRenderer` throws an error naming the plugin.
+
 ### Node preview
 
 `createNodePreview` shows a live copy of one scene node in its own small canvas, for an inspector or detail panel:

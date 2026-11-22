@@ -30,9 +30,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * gestures (one-finger pan, pinch zoom, two-finger orbit; `gestures.ts` replaced the mouse-only pan module, 2.2 → 6.0 KiB
  * minified on its own) grew every renderer entry by 3.9 KiB (gzip 1.4): the engine from 79.8 to 83.7, the catalog from 337.6
  * to 341.6 and the largest kit (vehicles) from 145.9 to 149.8, so the engine, catalog and kit budgets were each raised by 6,
- * the measured growth plus a margin of about 2. Raise a budget only with a note that explains the growth.
+ * the measured growth plus a margin of about 2. On November 22, 2026 the engine hooks (pointer events with node and world
+ * point, the frame hook with fixed simulation steps and renderer plugins, with their validation messages; the new modules are
+ * frame-clock.ts 2.0, plugins.ts 1.3 and pointer.ts 1.1 KiB minified) grew every renderer entry by 6.8 KiB (gzip 2.5): the
+ * engine from 83.7 to 90.5, the catalog from 341.6 to 348.4 and the largest kit (vehicles) from 149.8 to 156.6, so the engine,
+ * catalog and kit budgets were each raised by 9, the measured growth plus a margin of about 2. Raise a budget only with a note
+ * that explains the growth.
  */
-const BUDGETS_KIB = { engine: 88, catalog: 346, kit: 152, handling: 30 };
+const BUDGETS_KIB = { engine: 97, catalog: 355, kit: 161, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));
