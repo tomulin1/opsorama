@@ -22,6 +22,8 @@ flowchart TD
 
 Contains data types, the node model, identifiers and relationships, update application, selection, and the event contract. It imports neither React, Vue, Three.js, DOM, Next.js, nor Zustand. This allows updates and mapping to be tested outside the browser.
 
+Core is also domain-free: no logistics, restaurant or other domain rules and no fields that belong to one catalog model. Before the first release, handling, move mode, forks, carry, operating and building rules move from core to an optional package, and model-specific node props become one typed options field validated by the model's descriptor; see the [roadmap](ROADMAP.md).
+
 Core uses plain TypeScript and a small subscription interface. Hosts can use Zustand, Redux, Pinia, or custom state. Framework wrappers connect subscriptions to their native lifecycle.
 
 ### 2. Shared renderer

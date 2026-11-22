@@ -1,16 +1,28 @@
 # Opsorama: project vision
 
-Recorded: **October 8, 2026**. The name **Opsorama** and local `@opsorama/*` namespace were selected on October 28, 2026. Opsorama combines operations + panorama and is pronounced “ops-oh-RAH-ma”. See the [brand guide](BRAND.md). npm scope ownership and publication remain unverified. The original warehouse prototype was retired on October 12, 2026.
+Recorded: **October 8, 2026**. The name **Opsorama** and local `@opsorama/*` namespace were selected on October 28, 2026. Opsorama combines operations + panorama and is pronounced “ops-oh-RAH-ma”. See the [brand guide](BRAND.md). npm scope ownership and publication remain unverified. The original warehouse prototype was retired on October 12, 2026. The direction was broadened on November 22, 2026 from operational dashboards to declarative 3D scenes in web applications, with dashboards as the flagship use.
 
 ## Goal
 
-Build an open-source, framework-agnostic toolkit that lets developers assemble a complete animated operational “game board” and embed it in their own administration interface. The first official integrations will support **React and Vue**. Developers must be able to connect their own data, use their own HTML interface, add objects, and customize behavior without modifying the library's core.
+Build an open-source, framework-agnostic toolkit for declarative, data-driven 3D scenes in web applications. Its flagship use is a complete animated operational “game board” embedded in an existing administration interface. The first official integrations will support **React and Vue**. Developers must be able to connect their own data, use their own HTML interface, add objects, and customize behavior without modifying the library's core.
 
 The toolkit is designed to be built and used with AI coding agents. Its logic, architecture, APIs and documentation must be explicit enough that an agent reading only the repository can choose the right building blocks, compose a dashboard and verify it.
 
 The spatial scene should improve awareness of status, relationships, workflows, and problems. It should serve e-commerce, logistics, HR, and other domains. The strategy-game inspiration applies to spatial navigation, object selection, progressive detail, and animated changes; the result should remain a credible professional tool.
 
-**Product = shared core + framework adapters + building blocks + data and motion contracts + documentation and runnable examples.**
+## Target uses
+
+The same scene model, renderer, catalog and adapters serve three kinds of use:
+
+1. **Operational dashboards and lightweight digital twins** (flagship): warehouses, shops, offices, datacenters, restaurants and other operational spaces, driven by the host's data.
+2. **Management, simulation and board-style games, and interactive explainers:** stylized scenes with agents, routes and deterministic behavior.
+3. **Spatial visualizations:** process maps, networks, 3D charts and flows.
+
+Out of scope: action and physics-driven games, large geospatial datasets, photorealistic rendering and product configurators. Opsorama does not try to be a general game engine or a geospatial framework; its strengths are a ready object catalog, data binding, the same API in React, Vue and plain JavaScript, and contracts that AI agents can read.
+
+Dashboards are fully supported today. Games and visualizations need the engine capabilities listed in the [roadmap](ROADMAP.md) (cameras, primitives, a frame hook, pointer events, plugins, glTF), which follow the first release.
+
+**Product = domain-free core + shared renderer + framework adapters + object catalog and optional domain packages + data and motion contracts + documentation and runnable examples.**
 
 ## Developer experience
 
@@ -38,7 +50,7 @@ Target for the first public release: a developer with basic React or Vue knowled
 - **Readable by AI agents:** typed, declarative contracts, descriptive names, one obvious way per task, documented defaults and limits, actionable errors and complete runnable examples. Docs, decisions and code stay consistent so an agent never has to guess which is current.
 - **Documentation evolves with the API:** a component is complete only when it has a definition, example, edge cases, and relevant verification.
 - **Visual quality is functional:** calm materials, readable hierarchy, useful camera behavior, clear states, and working interactions matter.
-- **One toolkit, many domains:** generic elements belong in shared layers; warehouse models, vehicles, and team-capacity assets belong in optional packages.
+- **One toolkit, many domains and uses:** generic elements belong in shared layers; warehouse models, vehicles, team-capacity assets and domain rules such as handling compatibility belong in optional packages. The core scene model does not change when a catalog model or a domain is added.
 
 ## First public MVP
 
@@ -77,7 +89,7 @@ Native React Three Fiber components are not a portable core. The retired warehou
 2. Developers can embed the toolkit in an existing administration interface without rebuilding the application.
 3. A mock source can be replaced with a custom API while preserving the scene and UI.
 4. Custom models, motion, and inspectors do not require a library fork.
-5. At least one building block is reused in two meaningfully different recipes.
+5. At least one building block is reused in two meaningfully different recipes, including at least one recipe that is not a dashboard (a game or a visualization).
 6. Components have discoverable contracts, examples, and documented limitations.
 7. Both overview and precise values are accessible without relying exclusively on animation or color.
 8. Reference examples publish measured performance and verified mount/unmount behavior.
