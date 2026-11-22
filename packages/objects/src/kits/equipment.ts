@@ -4,7 +4,7 @@ import { catalogEntries } from '../catalog-entry';
 import '../options';
 import { createMachineTool, createRobotArm, createSecurityCamera } from '../automation';
 import { createKitchenStation } from '../care';
-import { createConveyor } from '../handling';
+import { createConveyor } from '../material-handling';
 import { createGantryCrane, createTowerCrane } from '../industry';
 import { createEquipmentCabinet } from '../structures';
 import { createStretchWrapper } from '../warehouse';

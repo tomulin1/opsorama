@@ -113,9 +113,9 @@ Complete projects for plain TypeScript, Vite + React, Vite + Vue and Next.js are
 
 | Package | Purpose |
 | --- | --- |
-| `@opsorama/core` | Framework-free scene model: nodes, settings, selection, subscriptions, movement and handling rules. No DOM or graphics. |
+| `@opsorama/core` | Framework-free, domain-free scene model: nodes, settings, selection, subscriptions, containment, movement and behaviors. No DOM or graphics. |
 | `@opsorama/three` | The Three.js renderer: camera, selection, labels, markers, motion playback, instancing and disposal. Ships no models. |
-| `@opsorama/objects` | The object catalog: 21 kits on subpaths such as `@opsorama/objects/vehicles`, `catalogAssets` with every model, descriptors and `catalog.json`. |
+| `@opsorama/objects` | The object catalog: 21 kits on subpaths such as `@opsorama/objects/vehicles`, `catalogAssets` with every model, descriptors and `catalog.json`; handling rules and move mode in `@opsorama/objects/handling`. |
 | `@opsorama/react` | Native React adapter: `DashboardProvider`, `SceneCanvas`, hooks and scene components. `@opsorama/react/ui` adds panels. |
 | `@opsorama/vue` | Native Vue adapter with the same contract (no React runtime). `@opsorama/vue/ui` adds panels. |
 | `@opsorama/ui` | Optional framework-neutral panel builders, a DOM mount and scoped CSS. |

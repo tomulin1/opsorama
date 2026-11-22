@@ -20,9 +20,9 @@ export type ItemRest = { node: string; anchor?: string; offset?: Vec3 } | { posi
 export interface CarryRule {
   /** Named anchor on the agent's model where items attach, e.g. `carry` on a worker or `load` on a pallet jack. */
   anchor: string;
-  /** Items carried at once. Default 1. With handling state, the receptacle's capacity applies as well. */
+  /** Items carried at once. Default 1. With an item policy, the policy's own limit (such as a receptacle's capacity) applies as well. */
   capacity?: number;
-  /** Vertical spacing of stacked items in metres, for carried items and items put on the same spot. Default 0.4. Unused with handling state, where real unit heights apply. */
+  /** Vertical spacing of stacked items in metres, for carried items and items put on the same spot. Default 0.4. Unused with an item policy, which places items itself. */
   stackHeight?: number;
   /** Pose while travelling with at least one item, e.g. `holding` for a worker. Default: the agent's travel pose. */
   travelPose?: string;
@@ -43,10 +43,10 @@ export interface CarryRule {
    */
   reach?: number;
   /**
-   * Quarter turn in degrees of a unit held at the anchor, with handling state.
+   * Quarter turn in degrees of a unit held at the anchor, with an item policy that turns items (the handling policy of `@opsorama/objects/handling`).
    * Use 90 for a pallet whose fork pockets open on its short side, so its long
    * side lies along the forks. Default: as declared, or 90 when only that fits.
-   * Ignored without handling state.
+   * Ignored without such a policy.
    */
   turn?: 0 | 90;
 }

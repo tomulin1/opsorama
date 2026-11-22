@@ -1,6 +1,6 @@
-import { HANDLING_FAMILY_LABELS, handlingFits, handlingVocabulary, receptacleAnchors, type HandlingAccepts, type HandlingFit, type HandlingSize, type Receptacle } from '@opsorama/core';
 import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { catalogObjects, type CatalogObject } from './objects';
+import { HANDLING_FAMILY_LABELS, handlingFits, handlingVocabulary, receptacleAnchors, type HandlingAccepts, type HandlingFit, type HandlingSize, type Receptacle } from '@opsorama/objects/handling';
 
 /**
  * Catalog view of the declared handling compatibility. Everything here is derived from

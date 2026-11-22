@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { MoveModeSnapshot } from '@opsorama/core';
 import { moveModeUnits, targetLabel, type MoveModeSession } from '../../../examples/move-mode-data';
+import type { MoveModeSnapshot } from '@opsorama/objects/handling';
 
 const OFF: MoveModeSnapshot = { unit: null, targets: [], refusals: [] };
 

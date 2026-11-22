@@ -13,6 +13,28 @@ describe('engine and catalog packages', () => {
     for (const [file, code] of source('packages/three/src')) for (const [, target] of code.matchAll(/from\s+'\.\/([a-z0-9-]+)'/g)) expect(engine.has(target), `${file} imports ./${target}`).toBe(true);
   });
 
+  it('keeps the handling subpath free of Three.js and model code', () => {
+    const manifest = JSON.parse(readFileSync('packages/objects/package.json', 'utf8'));
+    expect(manifest.exports['./handling']).toBe('./src/handling/index.ts');
+    // Follow every relative import from the entry: none may load three, renderer code or a model module.
+    const seen = new Set<string>(), queue = ['packages/objects/src/handling/index.ts'];
+    while (queue.length) {
+      const file = queue.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const code = readFileSync(file, 'utf8');
+      for (const [statement, type, specifier] of code.matchAll(/^(?:import|export)\s+(type\s+)?[^;]*?from\s+'([^']+)'/gm)) {
+        expect(specifier, `${file}: ${statement}`).not.toMatch(/^three($|\/)/);
+        if (specifier === '@opsorama/three') expect(type, `${file} may import only types from @opsorama/three`).toBeTruthy();
+        if (specifier.startsWith('.')) {
+          expect(specifier, `${file} imports ${specifier} outside the handling folder`).toMatch(/^\.\/[a-z0-9-]+$/);
+          queue.push(`packages/objects/src/handling/${specifier.slice(2)}.ts`);
+        } else expect(['@opsorama/core', '@opsorama/three'], `${file} imports ${specifier}`).toContain(specifier);
+      }
+    }
+    expect([...seen].length).toBeGreaterThanOrEqual(5);
+  });
+
   it('lists every catalog model once, matching the descriptors', () => {
     expect(Object.isFrozen(catalogAssets)).toBe(true);
     expect(Object.keys(catalogAssets).sort()).toEqual(Object.keys(assetDescriptors).sort());

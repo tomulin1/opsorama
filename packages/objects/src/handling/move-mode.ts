@@ -1,4 +1,4 @@
-import type { HandlingState, MoveCheck, MoveRefusal, ResolvedTarget, UnitPlacement } from './handling-state';
+import type { HandlingState, MoveCheck, MoveRefusal, ResolvedTarget, UnitPlacement } from './state';
 
 /**
  * Move mode (phase H3 of docs/CONTAINMENT.md): optional interactivity that offers a unit's compatible

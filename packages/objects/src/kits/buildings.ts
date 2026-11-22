@@ -5,7 +5,7 @@ import '../options';
 import { createGrainSilo } from '../agriculture';
 import { createBuilding } from '../building';
 import { createPavilion } from '../generic-models';
-import { createGate } from '../handling';
+import { createGate } from '../material-handling';
 import { createLoadingDock, createShippingContainer } from '../logistics';
 import { createCustomerHouse, createStorefront } from '../retail';
 import { createWallSegment } from '../structures';

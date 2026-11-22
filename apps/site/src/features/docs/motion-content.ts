@@ -108,7 +108,11 @@ const nodes = [
     { height: 1.45, reach: 1, seconds: 1 },
     { height: 1.33, reach: 1, seconds: .25 },
   ] } } }`, language: 'typescript' },
-    { id: 'carry-handling', title: 'Carrying with compatibility checks', paragraphs: ['Vehicles reach further than people, so putOn also takes a floor placement, { position, yaw } in world metres and radians, in both runner modes: a forklift sets a pallet down at the tips of its forks instead of 0.45 m ahead of the slot.', 'Pass a shared HandlingState as the handling option and every pick-up and put-down becomes a checked move: a worker cannot lift a pallet or pull the bottom carton out of a load, and a blocked agent reports the same codes as any other move. Each agent with a carry rule must be registered, with a receptacle at the rule\'s anchor. putOn then names a receptacle of the object. Move, add and remove units through the state, also inside onItemEvent; placeItem and removeItem throw, and the items option is not used. A count pickUp takes the oldest units it can reach. See the handling guide at /docs/handling. Without the option, items stay plain placements with no check, for scenes without handling declarations.'], code: `const handling = createHandlingState({
+    { id: 'carry-handling', title: 'Carrying with compatibility checks', paragraphs: ['Vehicles reach further than people, so putOn also takes a floor placement, { position, yaw } in world metres and radians, in both runner modes: a forklift sets a pallet down at the tips of its forks instead of 0.45 m ahead of the slot.', 'Pass an item policy as the itemPolicy option to check every pick-up and put-down. ItemPolicy (core) is a generic interface: it owns where items are, accepts each carrying agent and applies an exchange all or nothing, reporting violations with its own codes. handlingItemPolicy(handling) from @opsorama/objects/handling implements it over a shared HandlingState, so every pick-up and put-down becomes a checked move: a worker cannot lift a pallet or pull the bottom carton out of a load, and a blocked agent reports the same codes as any other move. Each agent with a carry rule must be registered, with a receptacle at the rule\'s anchor. putOn then names a receptacle of the object. Move, add and remove units through the state, also inside onItemEvent; placeItem and removeItem throw, and the items option is not used. A count pickUp takes the oldest units it can reach. See the handling guide at /docs/handling. Without the option, items stay plain placements with no check, for scenes without handling declarations.'], code: `import { createBehaviorRunner } from '@opsorama/core';
+import { assetHandling, handlingProfiles } from '@opsorama/objects';
+import { createHandlingState, handlingItemPolicy } from '@opsorama/objects/handling';
+
+const handling = createHandlingState({
   handling: assetHandling, profiles: handlingProfiles,
   instances: [
     { id: 'shelf', asset: 'shelf' }, { id: 'desk', asset: 'station' },
@@ -117,7 +121,7 @@ const nodes = [
 });
 handling.move([{ unit: 'order-1', to: { container: 'shelf', receptacle: 'level-1' } }]);
 
-const runner = createBehaviorRunner({ graph, slots, handling, agents: [{
+const runner = createBehaviorRunner({ graph, slots, itemPolicy: handlingItemPolicy(handling), agents: [{
   id: 'alex', agent: 'person', start: 'aisle',
   carry: { anchor: 'carry', travelPose: 'holding', idlePose: 'holding' },
   steps: [

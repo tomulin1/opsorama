@@ -1,5 +1,4 @@
 import type { Vec3 } from './index';
-import type { HandlingViolationCode } from './handling-state';
 import { motionProfileOf, validateMotionProfile, type MotionProfile, type NodeRoute, type RouteStop } from './route';
 
 /**
@@ -44,9 +43,10 @@ export interface NavGraphDefinition {
   agents?: Readonly<Record<string, NavAgentRule>>;
 }
 
-/** Route codes, plus item and handling codes the behavior runner reports when a pick-up or put-down cannot happen. */
-export type RouteViolationCode = 'unknown-agent' | 'unknown-point' | 'missing-edge' | 'wrong-direction' | 'agent-not-allowed' | 'no-route' | 'unknown-item' | 'item-unavailable' | 'item-out-of-reach' | 'carry-full' | 'not-carrying' | HandlingViolationCode;
-export interface RouteViolation { code: RouteViolationCode; message: string; from?: string; to?: string; }
+/** Route codes, plus the item codes the behavior runner reports when a pick-up or put-down cannot happen. */
+export type RouteViolationCode = 'unknown-agent' | 'unknown-point' | 'missing-edge' | 'wrong-direction' | 'agent-not-allowed' | 'no-route' | 'unknown-item' | 'item-unavailable' | 'item-out-of-reach' | 'carry-full' | 'not-carrying';
+/** `code` is a `RouteViolationCode`, or the code of an `ItemViolation` when the runner's item policy refused a pick-up or put-down. */
+export interface RouteViolation { code: RouteViolationCode | (string & {}); message: string; from?: string; to?: string; }
 
 export interface NavStep { from: string; to: string; lane?: string; length: number; speed: number; }
 export interface PlannedRoute {

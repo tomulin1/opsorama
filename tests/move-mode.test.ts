@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { createHandlingState, createMoveMode, type MoveRequest } from '@opsorama/core';
-import { bindMoveMode, createMoveTargetObject, disposeObject, highlightMoveTarget, type MoveTargetMarker } from '@opsorama/three';
+import { createPickTargetObject, disposeObject, highlightPickTarget, type PickTargetMarker } from '@opsorama/three';
 import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { createMoveModeSession, moveModeDefinition, moveModeUnits, targetLabel } from '../apps/site/examples/move-mode-data';
+import { bindMoveMode, createHandlingState, createMoveMode, moveTargetPick, type MoveRequest } from '@opsorama/objects/handling';
 
 const state = () => {
   const handling = createHandlingState({ handling: assetHandling, profiles: handlingProfiles, instances: [
@@ -14,7 +14,7 @@ const state = () => {
   handling.move([{ unit: 'c0', to: { container: 'pallet', receptacle: 'deck' } }]);
   return handling;
 };
-const marker = (index: number, x: number): MoveTargetMarker => ({ index, position: new THREE.Vector3(x, 1, 0), quaternion: new THREE.Quaternion(), size: { footprint: [1.2, 1], height: .6 } });
+const marker = (index: number, x: number): PickTargetMarker => ({ index, position: new THREE.Vector3(x, 1, 0), quaternion: new THREE.Quaternion(), size: [1.2, .6, 1] });
 const boxes = (group: THREE.Group) => group.children as THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>[];
 
 describe('move mode (H3)', () => {
@@ -91,40 +91,45 @@ describe('move mode (H3)', () => {
 
   it('builds static pickable markers that own their resources', () => {
     const rotated = { ...marker(4, 3), quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2) };
-    const group = createMoveTargetObject([marker(0, 0), rotated]), [first, second] = boxes(group);
+    const group = createPickTargetObject([marker(0, 0), rotated]), [first, second] = boxes(group);
     expect(first.position.toArray()).toEqual([0, 1.3, 0]);
     expect(first.geometry.parameters).toMatchObject({ width: 1.2, height: .6, depth: 1 });
-    expect(second.userData.moveTarget).toBe(4);
+    expect(second.userData.pickTarget).toBe(4);
     expect(second.quaternion.equals(rotated.quaternion)).toBe(true);
     expect(first.material.depthTest).toBe(false);
     expect(first.castShadow).toBe(false);
     const dispose = vi.spyOn(first.geometry, 'dispose'), material = vi.spyOn(first.material, 'dispose');
-    highlightMoveTarget(group, 4);
+    highlightPickTarget(group, 4);
     expect(second.material.opacity).toBeGreaterThan(first.material.opacity);
-    highlightMoveTarget(group, null);
+    highlightPickTarget(group, null);
     expect(second.material.opacity).toBe(first.material.opacity);
     disposeObject(group);
     expect(dispose).toHaveBeenCalled(); expect(material).toHaveBeenCalled();
   });
 
   it('a ray finds the nearest marker', () => {
-    const group = createMoveTargetObject([marker(0, 0), marker(1, 3)]);
+    const group = createPickTargetObject([marker(0, 0), marker(1, 3)]);
     group.updateMatrixWorld(true);
     const ray = new THREE.Raycaster(new THREE.Vector3(3, 10, 0), new THREE.Vector3(0, -1, 0));
-    expect(ray.intersectObjects(group.children, false)[0].object.userData.moveTarget).toBe(1);
+    expect(ray.intersectObjects(group.children, false)[0].object.userData.pickTarget).toBe(1);
     disposeObject(group);
   });
 
   it('binds markers to the snapshot and clears them', () => {
-    const handling = state(), mode = createMoveMode({ handling, onRequest: () => {} }), renderer = { setMoveTargets: vi.fn() };
+    const requests: MoveRequest[] = [], handling = state(), mode = createMoveMode({ handling, onRequest: request => requests.push(request) }), renderer = { setPickTargets: vi.fn() };
     const stop = bindMoveMode(renderer, mode);
-    expect(renderer.setMoveTargets).toHaveBeenLastCalledWith(null, mode.request);
+    expect(renderer.setPickTargets).toHaveBeenLastCalledWith(null, expect.any(Function));
     mode.begin('c1');
-    expect(renderer.setMoveTargets).toHaveBeenLastCalledWith(mode.getSnapshot().targets, mode.request);
+    const { targets } = mode.getSnapshot(), [picks, onPick] = renderer.setPickTargets.mock.lastCall!;
+    expect(picks).toEqual(targets.map(moveTargetPick));
+    const shelf = targets.findIndex(target => target.target.container === 'shelf');
+    expect(picks[shelf]).toEqual({ node: 'shelf', anchor: targets[shelf].placement.anchor, offset: targets[shelf].placement.offset, size: [targets[shelf].size.footprint[0], targets[shelf].size.height, targets[shelf].size.footprint[1]] });
+    onPick(picks[shelf], shelf);
+    expect(requests.map(request => request.target)).toEqual([targets[shelf]]);
     stop();
-    expect(renderer.setMoveTargets).toHaveBeenLastCalledWith(null);
+    expect(renderer.setPickTargets).toHaveBeenLastCalledWith(null);
     mode.cancel();
-    expect(renderer.setMoveTargets).toHaveBeenCalledTimes(3);
+    expect(renderer.setPickTargets).toHaveBeenCalledTimes(3);
     mode.dispose();
   });
 
@@ -151,6 +156,7 @@ describe('move mode (H3)', () => {
   it('stays out of domain examples', () => {
     expect(moveModeDefinition.nodes.length).toBeGreaterThan(10);
     for (const file of ['apps/site/src/features/ecommerce/scene.ts', 'apps/site/src/features/office/scene.ts', 'apps/site/src/features/farm/scene.ts']) expect(readFileSync(file, 'utf8')).not.toMatch(/createMoveMode|bindMoveMode/);
-    expect([...readFileSync('packages/core/src/move-mode.ts', 'utf8').matchAll(/from '([^']+)'/g)].map(match => match[1])).toEqual(['./handling-state']);
+    expect([...readFileSync('packages/objects/src/handling/move-mode.ts', 'utf8').matchAll(/from '([^']+)'/g)].map(match => match[1])).toEqual(['./state']);
+    expect([...readFileSync('packages/objects/src/handling/bind-move-mode.ts', 'utf8').matchAll(/^import (type )?.* from '([^']+)'/gm)].map(match => `${match[1] ?? ''}${match[2]}`)).toEqual(['type @opsorama/three', 'type ./move-mode', 'type ./state']);
   });
 });

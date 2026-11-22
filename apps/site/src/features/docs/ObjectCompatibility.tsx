@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { HandlingFit } from '@opsorama/core';
 import { catalogEntryForAsset, fitConditions, fitDetail, handlingFacts } from './object-handling';
+import type { HandlingFit } from '@opsorama/objects/handling';
 
 const ObjectLink = ({ asset }: { asset: string }) => { const entry = catalogEntryForAsset(asset); return entry ? <Link href={`/docs/objects/${entry.slug}`}>{entry.name}</Link> : <code>{asset}</code>; };
 
@@ -10,7 +10,7 @@ export function ObjectCompatibility({ asset }: { asset: string }) {
   return <section className="object-contract object-compatibility" aria-labelledby="object-compatibility-title">
     <h2 id="object-compatibility-title">Compatibility</h2>
     {!facts ? <p>Handling compatibility is not declared for this object yet. See <Link href="/docs/handling">handling compatibility</Link> for the objects that declare it.</p> : <>
-      <p>Declared compatibility (<code>assetHandling[&apos;{asset}&apos;]</code>{facts.unit ? <>, class of the {facts.unit.profile} profile</> : null}), derived with <code>handlingFits</code> and checked against the model by <code>checkAssetHandling</code>. <code>createHandlingState</code> checks moves against these declarations, also for agents with its <code>handling</code> option and for optional move mode. See the <Link href="/docs/handling">compatibility matrix</Link>.</p>
+      <p>Declared compatibility (<code>assetHandling[&apos;{asset}&apos;]</code>{facts.unit ? <>, class of the {facts.unit.profile} profile</> : null}), derived with <code>handlingFits</code> and checked against the model by <code>checkAssetHandling</code>. <code>createHandlingState</code> checks moves against these declarations, also for agents through <code>handlingItemPolicy</code> and for optional move mode. See the <Link href="/docs/handling">compatibility matrix</Link>.</p>
       {facts.unit && <>
         <h3>Handling unit</h3>
         <table><tbody>

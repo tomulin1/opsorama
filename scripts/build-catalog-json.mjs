@@ -13,7 +13,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const objects = path.join(root, 'packages/objects');
 const manifest = JSON.parse(fs.readFileSync(path.join(objects, 'package.json'), 'utf8'));
-const kitNames = Object.keys(manifest.exports).filter(key => key !== '.').map(key => key.slice(2));
+// Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
+const kitNames = Object.entries(manifest.exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 const contents = [
   `export { assetDescriptors, CATALOG_KITS } from './src/index.ts';`,

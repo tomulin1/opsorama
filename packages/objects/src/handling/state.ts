@@ -1,6 +1,5 @@
-import type { Attachment } from './attachment';
-import type { Vec3 } from './index';
-import { HANDLING_FIT_TOLERANCE, acceptsClass, fitOrientation, handlingVocabulary, lengthAlong, railSpan, receptacleAnchors, turnedFootprint, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingClass, type HandlingProfile, type HandlingSize, type Receptacle } from './handling';
+import type { Attachment, Vec3 } from '@opsorama/core';
+import { HANDLING_FIT_TOLERANCE, acceptsClass, fitOrientation, handlingVocabulary, lengthAlong, railSpan, receptacleAnchors, turnedFootprint, validateAssetHandling, validateHandlingProfile, type AssetHandling, type HandlingClass, type HandlingProfile, type HandlingSize, type Receptacle } from './rules';
 
 /**
  * Handling state (phase H1 of docs/CONTAINMENT.md): which registered unit sits where, and checked
@@ -110,9 +109,9 @@ export type HandlingEvent =
 export interface HandlingNodePatch { id: string; attachment: Attachment | undefined; position: Vec3; rotation: Vec3; scale: Vec3; }
 
 export interface HandlingStateOptions {
-  /** Declarations by asset key, usually `assetHandling` from the renderer package. */
+  /** Declarations by asset key, usually `assetHandling` from `@opsorama/objects`. */
   handling: Readonly<Record<string, AssetHandling>>;
-  /** Domain profiles, usually `handlingProfiles` from the renderer package. */
+  /** Domain profiles, usually `handlingProfiles` from `@opsorama/objects`. */
   profiles: readonly HandlingProfile[];
   instances?: readonly HandlingInstance[];
   /** Business veto, run on physically valid moves and targets, never on `sync`. Return the reason to refuse, or undefined to allow. */
