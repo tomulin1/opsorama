@@ -5,7 +5,7 @@ import '../options';
 import { createOrderTicket, createPolyMailer } from '../fulfillment';
 import { createBag } from '../generic-models';
 import { createTote } from '../material-handling';
-import { createPallet, createParcel, createParcelBase } from '../parcels';
+import { createPallet, createParcel, createParcelBase, validateParcelNode } from '../parcels';
 import { createHandBasket, createShoppingCart } from '../retail';
 import { createBulkBag, createDrumPallet, createIbcTank, createPalletStack } from '../warehouse';
 
@@ -27,4 +27,4 @@ export const workItemsKit: AssetRegistry = catalogEntries({
   'ibc-tank': createIbcTank,
   'drum-pallet': createDrumPallet,
   'bulk-bag': createBulkBag,
-});
+}, { parcel: validateParcelNode });

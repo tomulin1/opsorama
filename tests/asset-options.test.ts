@@ -66,6 +66,34 @@ describe('asset options', () => {
     expect(() => createSceneStore({ schemaVersion: 1, nodes: [{ id: 'gauge', kind: 'asset', asset: 'parcel', options: { measurement: { value: 40 } } }] }, {}, { validateAsset })).toThrow('Asset parcel does not accept options.measurement');
   });
 
+  it('rejects in the store what the factory would reject: reading kind, unsupported counts, footprint range and model rules', () => {
+    const store = createSceneStore({ schemaVersion: 1, nodes: [] }, {}, { validateAsset });
+    const before = store.getSnapshot();
+    const cases: [AssetNode, string][] = [
+      [{ id: 'clock', kind: 'asset', asset: 'digital-clock', options: { display: { kind: 'number', value: 12 } } }, 'Asset digital-clock requires a clock display reading'],
+      [{ id: 'clock', kind: 'asset', asset: 'digital-clock', variant: 'sundial' }, 'Unknown digital-clock variant'],
+      [{ id: 'truck', kind: 'asset', asset: 'truck', count: 1 }, 'Asset truck has no count configuration'],
+      [{ id: 'floor', kind: 'asset', asset: 'floor', footprint: [1000, 1000] }, 'Footprint must be'],
+      [{ id: 'box', kind: 'asset', asset: 'parcel', count: 3 }, 'use parcel-base'],
+      [{ id: 'ring', kind: 'asset', asset: 'ring-gauge', count: 2 }, 'Measured gauges do not accept counts'],
+    ];
+    for (const [node, message] of cases) {
+      expect(() => validateAsset(node)).toThrow(message);
+      expect(() => store.upsert(node)).toThrow(message);
+      // The factory throws the same error, so store and renderer agree.
+      expect(() => catalogAssets[node.asset](node)).toThrow(message);
+    }
+    expect(store.getSnapshot()).toBe(before);
+    store.dispose();
+  });
+
+  it('rejects non-finite numbers in options, which JSON cannot represent', () => {
+    const node = (value: number) => ({ id: 'n', kind: 'asset', asset: 'my-model', options: { reading: { value } } }) as AssetNode;
+    expect(() => validateNode(node(Number.NaN))).toThrow('n.options.reading.value is NaN');
+    expect(() => validateNode(node(Number.POSITIVE_INFINITY))).toThrow('n.options.reading.value is Infinity');
+    expect(() => validateNode(node(-Number.MAX_VALUE))).not.toThrow();
+  });
+
   it('leaves label text and height to catalog factory hints', () => {
     const parcel = catalogAssets.parcel({ id: 'box', kind: 'asset', asset: 'parcel', variant: 'open', label: 'Order 7', options: { contents: { lines: [{ id: 'a', title: 'Mug', quantity: 12 }] } } });
     expect(parcel.userData.labelText).toBe('Order 7 · 12 items · 9 shown +3 in detail'); disposeObject(parcel);

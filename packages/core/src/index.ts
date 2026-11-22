@@ -32,7 +32,7 @@ export interface GroundNode extends NodeBase { kind: 'ground'; size: readonly [n
 export interface ZoneNode extends NodeBase { kind: 'zone'; size: readonly [number, number]; color?: string; /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */ interior?: boolean; }
 /**
  * Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays,
- * strings, numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's
+ * strings, finite numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's
  * value rules, belong to the asset's factory (`AssetFactory.validate` in `@opsorama/three`). A model package declares its
  * typed options by augmenting this interface (`declare module '@opsorama/core' { interface AssetOptions { ... } }`), as
  * `@opsorama/objects` does for its catalog. Custom assets may use any keys.
@@ -91,10 +91,12 @@ function freezeJson<T>(value: T): T {
   if (value && typeof value === 'object') return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freezeJson(item)]))) as T;
   return value;
 }
-const JSON_LIKE = 'options must be plain JSON-like data (objects, arrays, strings, numbers, booleans, null)';
-/** Throws unless `value` is plain JSON-like data: null, strings, numbers, booleans, arrays and plain objects (undefined properties are allowed). */
+const JSON_LIKE = 'options must be plain JSON-like data (objects, arrays, strings, finite numbers, booleans, null)';
+/** Throws unless `value` is plain JSON-like data: null, strings, finite numbers, booleans, arrays and plain objects (undefined properties are allowed). */
 function validateJsonLike(value: unknown, path: string, seen: Set<object>): void {
-  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return;
+  // JSON has no NaN or Infinity: both serialize as null, and the renderer compares serialized options to decide rebuilds.
+  if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error(`${path} is ${value}; ${JSON_LIKE}.`); return; }
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
   if (typeof value !== 'object') throw new Error(`${path} is a ${typeof value}; ${JSON_LIKE}.`);
   if (seen.has(value)) throw new Error(`${path} refers to itself; ${JSON_LIKE} without cycles.`);
   const prototype = Object.getPrototypeOf(value);

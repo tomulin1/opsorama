@@ -2,7 +2,7 @@ import type { AssetRegistry } from '@opsorama/three';
 import { catalogEntries } from '../catalog-entry';
 // Brings the catalog's typed AssetOptions (module augmentation of @opsorama/core) to every consumer of this kit.
 import '../options';
-import { createBatteryIndicator, createDialGauge, createRingGauge } from '../gauges';
+import { createBatteryIndicator, createDialGauge, createRingGauge, validateGaugeNode } from '../gauges';
 import { createCapacityGauge, createMapPin, createSign, createStatusBeacon } from '../signals';
 
 /**
@@ -17,4 +17,4 @@ export const indicatorsKit: AssetRegistry = catalogEntries({
   'capacity-gauge': createCapacityGauge,
   'map-pin': createMapPin,
   sign: createSign,
-});
+}, { 'ring-gauge': validateGaugeNode, 'dial-gauge': validateGaugeNode, 'battery-indicator': validateGaugeNode });

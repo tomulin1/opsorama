@@ -27,10 +27,14 @@ const OPEN_LIFT = .045, OPEN_TOP = .78 - OPEN_LIFT, OPEN_FRONT = .42 - OPEN_LIFT
 const PART_LIFT = .08;
 
 /** Exactly one carton: closed and taped, or open with optional real contents. Counted parcels are `parcel-base` or `pallet`. */
-export function createParcel(node: AssetNode, context?: MaterialContext): THREE.Object3D {
-  const palette = objectPalette(node, context), group = new THREE.Group(), color = palette.surface;
+/** Validates a parcel node: its variant and the absence of counts. */
+export function validateParcelNode(node: AssetNode): void {
   if (node.variant !== undefined && !['open', 'closed'].includes(node.variant)) throw new Error('Parcel variant must be open or closed.');
   if (node.count !== undefined || node.multiplier !== undefined) throw new Error('A parcel is exactly one carton; use parcel-base (0–27 parcels on a base) or pallet (0–27 boxes) for counted parcels.');
+}
+export function createParcel(node: AssetNode, context?: MaterialContext): THREE.Object3D {
+  validateParcelNode(node);
+  const palette = objectPalette(node, context), group = new THREE.Group(), color = palette.surface;
   if (node.variant !== 'open') {
     const box = parcelPart(color, 0, palette); box.position.y = -PART_LIFT; group.add(box);
     anchor(group, 'top', [0, .905 - PART_LIFT, 0]); anchor(group, 'front', [0, .48 - PART_LIFT, .43]);

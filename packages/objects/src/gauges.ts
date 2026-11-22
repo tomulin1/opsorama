@@ -56,10 +56,15 @@ export const assetMeasurementDefinitions: Readonly<Record<string, AssetMeasureme
 });
 const FRAME = '#74869a', TRACK = '#e2e9ef', DARK = '#354658';
 const bandColor = (state: 'normal' | 'warning' | 'critical') => state === 'normal' ? '#3fb38c' : STATE_COLORS[state];
-function input(node: AssetNode, context?: MaterialContext) {
+/** Validates a measured gauge node (`assetMeasurementDefinitions`): its variant and the absence of counts. Returns the variant. */
+export function validateGaugeNode(node: AssetNode): string {
   const definition = assetMeasurementDefinitions[node.asset], variant = node.variant ?? definition.variants[0];
   if (!definition.variants.includes(variant)) throw new Error(`Unknown ${node.asset} variant: ${variant}.`);
   if (node.count !== undefined || node.multiplier !== undefined) throw new Error('Measured gauges do not accept counts or multipliers.');
+  return variant;
+}
+function input(node: AssetNode, context?: MaterialContext) {
+  const definition = assetMeasurementDefinitions[node.asset], variant = validateGaugeNode(node);
   const reading = resolveMeasurement(node.options?.measurement ?? definition.default);
   const fill = reading.state ? bandColor(reading.state) : resolveObjectColor(node, context, 'accent', '#409e96');
   return { reading, variant, fill: node.asset === 'battery-indicator' ? resolveObjectStateColor(node, context, fill) : fill };

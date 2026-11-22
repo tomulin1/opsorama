@@ -5,7 +5,7 @@ Implemented October 10, 2026. Website reference: `/docs/measurements`; native ex
 ## Shared input
 
 ```ts
-import type { Measurement } from '@opsorama/core';
+import type { Measurement } from '@opsorama/objects';
 const load: Measurement = {
   value: 72.5, min: 0, max: 100, unit: '%', target: 80,
   bands: [
