@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OrthographicCamera, Vector3 } from 'three';
+import { OrthographicCamera, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { bindCameraPan } from '../packages/three/src/camera-pan';
 
 class TestCanvas extends EventTarget {
@@ -59,5 +59,48 @@ describe('camera drag input', () => {
     canvas.send('pointerdown'); canvas.send('pointermove', { clientX: 400 }); const last = target.clone();
     canvas.send('pointermove', { clientX: 450, buttons: 0 }); canvas.send('pointerup');
     expect(target.equals(last)).toBe(true); expect(canvas.captured.size).toBe(0); expect(click).not.toHaveBeenCalled(); pan.dispose();
+  });
+});
+
+describe('camera drag input in perspective and with controls none', () => {
+  function perspectiveSetup(callbacks: { canDrag?: () => boolean; onDragStart?: () => boolean } = {}) {
+    const canvas = new TestCanvas(), camera = new PerspectiveCamera(30, 600 / 400, .1, 500);
+    const target = new Vector3(), offset = new Vector3(16, 22, 30);
+    const updateCamera = () => { camera.position.copy(target).add(offset); camera.lookAt(target); camera.updateMatrixWorld(true); };
+    updateCamera();
+    const click = vi.fn();
+    const pan = bindCameraPan(canvas as unknown as HTMLCanvasElement, () => camera, { getTarget: () => target, setTarget: value => { target.copy(value); updateCamera(); }, onClick: click, onHover: vi.fn(), ...callbacks });
+    return { canvas, camera, target, pan, click, updateCamera };
+  }
+  it('keeps the grabbed ground point under the pointer with a perspective camera', () => {
+    const { canvas, camera, target, pan } = perspectiveSetup();
+    canvas.send('pointerdown', { clientX: 250, clientY: 260 });
+    const grabbed = new Vector3(0, 0, 0).project(camera);
+    const ray = new Raycaster(); ray.setFromCamera(new Vector2(250 / 300 - 1, 1 - 260 / 200), camera);
+    const anchor = ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), new Vector3())!;
+    canvas.send('pointermove', { clientX: 330, clientY: 300 });
+    const moved = anchor.clone().project(camera);
+    expect((moved.x + 1) * 300).toBeCloseTo(330, 8); expect((1 - moved.y) * 200).toBeCloseTo(300, 8);
+    expect(target.y).toBe(0); expect(target.length()).toBeGreaterThan(0);
+    canvas.send('pointermove', { clientX: 250, clientY: 260 });
+    expect(target.length()).toBeCloseTo(0, 10);
+    // Back at the press point, the view is where it started: the ground origin projects where it did.
+    const back = new Vector3(0, 0, 0).project(camera); expect(back.x).toBeCloseTo(grabbed.x, 10); expect(back.y).toBeCloseTo(grabbed.y, 10); pan.dispose();
+  });
+  it('lets clicks through but never drags with controls none', () => {
+    const { canvas, target, pan, click } = perspectiveSetup({ canDrag: () => false });
+    expect(canvas.style.cursor).toBe('');
+    canvas.send('pointerdown'); canvas.send('pointermove', { clientX: 400 }); canvas.send('pointerup');
+    expect(target.length()).toBe(0); expect(click).not.toHaveBeenCalled();
+    canvas.send('pointerdown'); canvas.send('pointerup'); expect(click).toHaveBeenCalledTimes(1); pan.dispose();
+  });
+  it('continues from the current view when a drag interrupts a camera transition', () => {
+    let moved = false;
+    const setup = perspectiveSetup({ onDragStart: () => { if (moved) return false; moved = true; setup.target.set(5, 0, 0); setup.updateCamera(); return true; } });
+    const { canvas, target, pan } = setup;
+    canvas.send('pointerdown'); canvas.send('pointermove', { clientX: 310 });
+    // Re-anchored at the drag start: the view stays where the transition left it.
+    expect(target.x).toBeCloseTo(5, 10);
+    canvas.send('pointermove', { clientX: 330 }); expect(target.x).not.toBeCloseTo(5, 3); pan.dispose();
   });
 });

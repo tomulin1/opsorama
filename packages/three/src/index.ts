@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
+import type { CameraEasing, CameraTransition, CameraTransitionResult, CameraView, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay, Vec3 } from '@opsorama/core';
+import { DEFAULT_CAMERA_TRANSITION, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
+import { applyOrthographic, applyPerspective, ease, fitBounds, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
 import { assetFactory, disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
@@ -17,6 +19,8 @@ import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildPrimitive } from './primitives';
 export { createNodePreview, previewNodes, NODE_PREVIEW_MAX_NODES, NODE_PREVIEW_SPIN } from './preview';
+export { createRendererSlot } from './renderer-slot';
+export type { RendererSlot } from './renderer-slot';
 export type { NodePreview, NodePreviewOptions, NodePreviewState } from './preview';
 export { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, loadingIndicatorAttributes, loadProgress, loadStateText, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES } from './loading';
 export type { LoadingIndicator, SceneLoadPhase, SceneLoadState } from './loading';
@@ -38,7 +42,30 @@ export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
 export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
-export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; overview(): void; /** Centre (or with `fit`, fit) a node. During the initial load a node that is not built yet is framed when the build finishes, at the zoom of this call. */ frame(id: string, options?: { fit?: boolean }): void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; /**
+   * Clear the selection and return to the overview: the overview target (`CameraSettings.overview`), the settings' `yaw` and
+   * `pitch`, and the overview scale. Without `transition` the target glides there (angles and scale change at once) and the
+   * promise resolves at once; with `transition` the whole view moves on the transition's timing.
+   */
+  overview(options?: { transition?: CameraTransition }): Promise<CameraTransitionResult>;
+  /**
+   * Centre (or with `fit`, fit) a node from the current direction. During the initial load a node that is not built yet is
+   * framed when the build finishes, at the zoom of this call. Without `transition` a centred node is glided to and a fitted one
+   * is cut to, as before; with `transition` the view moves on its timing. The promise resolves `'completed'` when the camera
+   * arrives (at once without a transition) and `'interrupted'` when something interrupts it or the node is unknown or hidden.
+   * The orthographic camera at the overview scale moves only 0.48 of the way to a centred node, keeping more of the scene in view.
+   */
+  frame(id: string, options?: { fit?: boolean; transition?: CameraTransition }): Promise<CameraTransitionResult>;
+  /** The view as drawn in the last frame: target, yaw within (−π, π], pitch and zoom (`SceneSettings.zoom`, or the eased zoom during a transition). */
+  getCameraView(): CameraView;
+  /**
+   * Move the camera to a view; omitted fields keep their current values, and the scale at zoom 1 (overview or fitted node)
+   * stays. Without `transition` it is a cut. A changed `zoom` is written to `SceneSettings.zoom` when the camera arrives (or,
+   * when interrupted, where it stopped). Throws an actionable error for an invalid view or transition.
+   */
+  setCameraView(view: Partial<CameraView>, transition?: CameraTransition): Promise<CameraTransitionResult>;
+  /** Calls `listener` with the new view after a rendered frame in which the view changed, at most once per frame. Returns the unsubscribe function. Listener errors go to `onError`. */
+  onCameraChange(listener: (view: CameraView) => void): () => void; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -66,9 +93,18 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.16;
   renderer.domElement.setAttribute('aria-label', 'Interactive 3D operational scene'); renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;';
   // The orthographic near plane lies behind the camera, which stands only 40 m from its target: at low zoom a long scene reaches past it on the camera side.
-  const scene = new THREE.Scene(); const camera = new THREE.OrthographicCamera(-20, 20, 12, -12, -150, 150);
-  const overviewTarget = () => { const ground = store.getSnapshot().nodes.find(node => node.kind === 'ground'); return new THREE.Vector3(...(ground?.position ?? [0, 0, -.5])).setY(0); };
-  const target = overviewTarget(), currentTarget = target.clone(), cameraOffset = new THREE.Vector3(16, 22, 30);
+  // Both cameras exist from the start; `CameraSettings.projection` picks the one drawn, and switching keeps target and angles.
+  const scene = new THREE.Scene(), orthographic = new THREE.OrthographicCamera(-20, 20, 12, -12, -150, 150), perspective = new THREE.PerspectiveCamera(30, 1, .1, 1000);
+  let cameraSettings = store.getSnapshot().settings.camera, camera: THREE.OrthographicCamera | THREE.PerspectiveCamera = cameraSettings.projection === 'perspective' ? perspective : orthographic;
+  /** A `bounds` overview: target and extent fitted to the built content when the overview was applied. Null for the live `ground` overview. */
+  type OverviewFit = { target: THREE.Vector3; extent: number };
+  let overviewFit: OverviewFit | null = null;
+  const overviewTarget = () => overviewFit ? overviewFit.target.clone() : groundTarget(store.getSnapshot().nodes);
+  /** `target` is where the camera is heading, `currentTarget` what it shows; `yaw` and `pitch` are the drawn direction. */
+  const target = overviewTarget(), currentTarget = target.clone(); let yaw = cameraSettings.yaw, pitch = cameraSettings.pitch;
+  /** A timed camera move; see `CameraTransition`. On completion the camera takes `to` and the framing state it carries. */
+  type Transition = { from: CameraPose; to: CameraPose; fittedExtent: number | undefined; overviewFit: OverviewFit | null; seconds: number; easing: CameraEasing; start: number | null; storeZoom: number; resolve(result: CameraTransitionResult): void };
+  let transition: Transition | null = null, transitionPose: CameraPose | null = null, cameraMoved = false;
   const ambient = new THREE.HemisphereLight('#f7faff', '#c2ccd9', 2); scene.add(ambient);
   const sun = new THREE.DirectionalLight('#ffffff', 2.6); sun.position.set(-12, 25, 16); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -24; sun.shadow.camera.right = 24; sun.shadow.camera.top = 24; sun.shadow.camera.bottom = -24; sun.shadow.normalBias = .035; scene.add(sun);
   // The frame loop updates world matrices once, before copying them into instance batches.
@@ -82,7 +118,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const buildBudget = options.buildBudget ?? DEFAULT_BUILD_BUDGET;
   let loadState: SceneLoadState = { phase: 'building', built: 0, total: 0 }, compileStarted = false, compiled = false, sliceTimer: ReturnType<typeof setTimeout> | undefined;
   /** A `frame` call made before its node was built, replayed when the build finishes. */
-  let deferredFrame: { id: string; fit: boolean; zoom: number } | null = null;
+  let deferredFrame: { id: string; fit: boolean; zoom: number; resolve(result: CameraTransitionResult): void } | null = null;
+  const settleDeferredFrame = (result: CameraTransitionResult) => { const pending = deferredFrame; deferredFrame = null; pending?.resolve(result); };
   /** Between build slices: entries waiting for instancing, and the snapshot and nodes the last slice left unbuilt. */
   let buildPending: Entry[] = [], sliceSnapshot: SceneSnapshot | null = null, sliceDeferred = new Set<string>();
   let resolveLoaded: () => void = () => undefined; const loaded = new Promise<void>(resolve => { resolveLoaded = resolve; });
@@ -122,6 +159,12 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   function sync() {
     const snapshot = store.getSnapshot();
+    // A new yaw or pitch setting turns the camera at once and keeps its target.
+    if (snapshot.settings.camera !== cameraSettings) {
+      const previous = cameraSettings; cameraSettings = snapshot.settings.camera;
+      if (cameraSettings.yaw !== previous.yaw || cameraSettings.pitch !== previous.pitch) { interruptTransition(); yaw = cameraSettings.yaw; pitch = cameraSettings.pitch; }
+      if (cameraSettings.controls !== previous.controls) { pan?.cancel(); renderer.domElement.style.cursor = cameraSettings.controls === 'none' ? '' : 'grab'; }
+    }
     scene.background = new THREE.Color(snapshot.settings.theme === 'midnight' ? '#17243b' : '#edf2fa'); ambient.intensity = snapshot.settings.theme === 'midnight' ? 1.05 : 2;
     grid.visible = snapshot.settings.grid; renderer.shadowMap.enabled = snapshot.settings.shadows;
     labelLayer.dataset.motion = snapshot.settings.motion && !snapshot.settings.paused ? 'on' : 'off';
@@ -191,27 +234,114 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
     const selectedId = snapshot.selection?.nodeId || null;
     for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && entry?.bounds ? entry.object : null, selectionColor(entry?.node.state, snapshot.settings.palette)); }
-    if (selectedId !== previousSelection) { previousSelection = selectedId; if (selectedId) frame(selectedId); else { pan?.cancel(); target.copy(overviewTarget()); } }
+    if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); target.copy(overviewTarget()); } } }
     if (building) {
       const total = visibleNodes.length;
       if (deferred.size) { reportLoad({ phase: 'building', built: total - deferred.size, total }); sliceTimer ??= setTimeout(() => { sliceTimer = undefined; if (!disposed) safeSync(); }, 0); }
       else {
         reportLoad({ phase: 'compiling', built: total, total });
-        if (deferredFrame) { const { id, fit, zoom } = deferredFrame; deferredFrame = null; frameAt(id, fit, zoom); currentTarget.copy(target); }
+        if (deferredFrame) { const { id, fit, zoom } = deferredFrame; void frameAt(id, fit, zoom); currentTarget.copy(target); settleDeferredFrame(entries.has(id) ? 'completed' : 'interrupted'); }
+        // A `bounds` overview fits the content once it is built, unless the camera was already moved.
+        else if (!cameraMoved && cameraSettings.overview === 'bounds') { overviewFit = boundsOverview(); target.copy(overviewTarget()); currentTarget.copy(target); }
       }
     }
   }
   const safeSync = () => { try { sync(); } catch (error) { if (loadState.phase !== 'loaded') { indicator?.dispose(); indicator = null; } options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
   const unsubscribe = store.subscribe(safeSync);
   try { sync(); } catch (error) { clearTimeout(sliceTimer); unsubscribe(); entries.forEach(cleanEntry); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); container.replaceChildren(); throw error; }
-  const resize = () => { pan?.cancel(); const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height); renderer.setSize(width, height, false); camera.left = -width / 2; camera.right = width / 2; camera.top = height / 2; camera.bottom = -height / 2; camera.updateProjectionMatrix(); };
+  const resize = () => { pan?.cancel(); const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height); renderer.setSize(width, height, false); updateCamera(); };
   const observer = new ResizeObserver(resize); observer.observe(container); resize();
-  function frame(id: string, options?: { fit?: boolean }) {
+  function frame(id: string, options: { fit?: boolean; transition?: CameraTransition } = {}): Promise<CameraTransitionResult> {
+    if (options.transition) validateCameraTransition(options.transition);
+    if (disposed) return Promise.resolve('interrupted');
     const zoom = store.getSnapshot().settings.zoom;
-    if (entries.has(id)) { deferredFrame = null; frameAt(id, Boolean(options?.fit), zoom); }
-    else if (loadState.phase === 'building') deferredFrame = { id, fit: Boolean(options?.fit), zoom };
+    if (entries.has(id)) { settleDeferredFrame('interrupted'); return frameAt(id, Boolean(options.fit), zoom, options.transition); }
+    if (loadState.phase === 'building') { settleDeferredFrame('interrupted'); cameraMoved = true; return new Promise(resolve => { deferredFrame = { id, fit: Boolean(options.fit), zoom, resolve }; }); }
+    return Promise.resolve('interrupted');
   }
-  function frameAt(id: string, fit: boolean, zoom: number) { const entry = entries.get(id); if (entry) { pan?.cancel(); if (fit) { const bounds = new THREE.Box3().setFromObject(entry.object), size = bounds.getSize(new THREE.Vector3()), direction = cameraOffset.clone().normalize(), right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize(), up = direction.clone().cross(right); const span = (axis: THREE.Vector3) => Math.abs(axis.x) * size.x + Math.abs(axis.y) * size.y + Math.abs(axis.z) * size.z; fittedExtent = Math.max(.3, (span(right) + 4) / 34, (span(up) + 4) / 21) * zoom; target.copy(bounds.getCenter(new THREE.Vector3())); currentTarget.copy(target); } else { target.copy(entry.object.getWorldPosition(new THREE.Vector3())).multiplyScalar(fittedExtent === undefined ? .48 : 1).setY(0); } } }
+  function frameAt(id: string, fit: boolean, zoom: number, transition?: CameraTransition): Promise<CameraTransitionResult> {
+    const entry = entries.get(id); if (!entry) return Promise.resolve('interrupted');
+    pan?.cancel(); cameraMoved = true;
+    let nextTarget: THREE.Vector3, nextExtent = fittedExtent;
+    if (fit) { const fitted = fitBounds(new THREE.Box3().setFromObject(entry.object), yaw, pitch); nextExtent = fitted.extent * zoom; nextTarget = fitted.target; }
+    else nextTarget = frameTarget(entry.object.getWorldPosition(new THREE.Vector3()), cameraSettings.projection, fittedExtent !== undefined);
+    if (transition) return startTransition(() => ({ to: { target: nextTarget.toArray(), yaw, pitch, zoom: store.getSnapshot().settings.zoom, extent: nextExtent ?? overviewExtent() }, fittedExtent: nextExtent, overviewFit }), transition);
+    interruptTransition();
+    // A fitted node is cut to; a centred one is glided to.
+    if (fit) { fittedExtent = nextExtent; target.copy(nextTarget); currentTarget.copy(target); } else target.copy(nextTarget);
+    return Promise.resolve('completed');
+  }
+  /** The `bounds` overview of the built content seen from the settings' direction, or null when nothing has bounds yet. */
+  function boundsOverview(): OverviewFit | null {
+    const bounds = new THREE.Box3();
+    for (const entry of entries.values()) if (!entry.node.parentId && !entry.node.attachment && entry.node.kind !== 'marker') bounds.expandByObject(entry.object);
+    return bounds.isEmpty() ? null : fitBounds(bounds, cameraSettings.yaw, cameraSettings.pitch);
+  }
+  /** Scale at zoom 1 when no node is fitted: the `bounds` overview, or the live ground extent. */
+  function overviewExtent() { return overviewFit?.extent ?? groundExtent(store.getSnapshot().nodes); }
+  /** The pose drawn now: the eased pose of a running transition, otherwise the current target and direction at the zoom setting. */
+  function currentPose(): CameraPose { return transitionPose ?? { target: currentTarget.toArray(), yaw, pitch, zoom: store.getSnapshot().settings.zoom, extent: fittedExtent ?? overviewExtent() }; }
+  /** Ends a running transition where it is: the target stops, a changing scale becomes the fitted scale and an eased zoom is written to the store. */
+  function interruptTransition() {
+    const active = transition; if (!active) return;
+    const pose = transitionPose; transition = null; transitionPose = null;
+    if (pose) {
+      target.copy(currentTarget);
+      if (active.from.extent !== active.to.extent) fittedExtent = pose.extent;
+      // This may run inside a store notification; the zoom is written after it.
+      const zoom = Math.min(ZOOM_RANGE.max, Math.max(ZOOM_RANGE.min, Math.round(pose.zoom * 1e4) / 1e4));
+      if (active.from.zoom !== active.to.zoom && zoom !== active.storeZoom) queueMicrotask(() => { if (!disposed && store.getSnapshot().settings.zoom === active.storeZoom) store.configure({ zoom }); });
+    }
+    active.resolve('interrupted');
+  }
+  function arrive(to: CameraPose, framing: { fittedExtent: number | undefined; overviewFit: OverviewFit | null }) {
+    target.set(...to.target); currentTarget.copy(target); yaw = to.yaw; pitch = to.pitch; fittedExtent = framing.fittedExtent; overviewFit = framing.overviewFit;
+    if (to.zoom !== store.getSnapshot().settings.zoom) store.configure({ zoom: to.zoom });
+  }
+  /** Starts a camera move. `plan` runs after a running transition is interrupted, so it starts where the camera stopped. */
+  function startTransition(plan: () => { to: CameraPose; fittedExtent: number | undefined; overviewFit: OverviewFit | null }, options: CameraTransition | undefined): Promise<CameraTransitionResult> {
+    interruptTransition(); pan?.cancel(); cameraMoved = true;
+    const { to, ...framing } = plan(), seconds = options ? options.seconds ?? DEFAULT_CAMERA_TRANSITION.seconds : 0, settings = store.getSnapshot().settings;
+    // Reduced motion, motion off, a zero duration and the initial load make it a cut.
+    if (seconds === 0 || reducedMotion.matches || !settings.motion || loadState.phase !== 'loaded') { arrive(to, framing); return Promise.resolve('completed'); }
+    const from = currentPose();
+    return new Promise(resolve => { transition = { from, to, ...framing, seconds, easing: options?.easing ?? DEFAULT_CAMERA_TRANSITION.easing, start: null, storeZoom: settings.zoom, resolve }; });
+  }
+  /** Advances the camera by `dt` seconds at frame `time` (ms, real time) and places the drawn camera. */
+  function advanceCamera(dt: number, time: number) {
+    const settings = store.getSnapshot().settings, active = transition;
+    if (active) {
+      // A zoom change from elsewhere (wheel, a control) interrupts; motion turned off or reduced finishes at once.
+      if (settings.zoom !== active.storeZoom) interruptTransition();
+      else {
+        active.start ??= time;
+        const t = reducedMotion.matches || !settings.motion ? 1 : (time - active.start) / 1000 / active.seconds;
+        transitionPose = interpolatePose(active.from, active.to, ease(t, active.easing));
+        currentTarget.set(...transitionPose.target); target.copy(currentTarget); yaw = transitionPose.yaw; pitch = transitionPose.pitch;
+        if (t >= 1) { transition = null; transitionPose = null; arrive(active.to, active); active.resolve('completed'); }
+      }
+    }
+    else currentTarget.lerp(target, glideStep(dt, reducedMotion.matches));
+    updateCamera();
+  }
+  /** Places the camera of the current projection for the drawn pose and viewport. */
+  function updateCamera() {
+    const snapshot = store.getSnapshot(), view = { width, height, fov: snapshot.settings.camera.fov, radius: Math.max(groundRadius(snapshot.nodes), (overviewFit?.extent ?? 0) * 34) };
+    camera = snapshot.settings.camera.projection === 'perspective' ? perspective : orthographic;
+    if (camera === perspective) applyPerspective(perspective, currentPose(), view); else applyOrthographic(orthographic, currentPose(), view);
+  }
+  const cameraListeners = new Set<(view: CameraView) => void>(); let emittedView: CameraView | null = null;
+  function getCameraView(): CameraView {
+    const pose = currentPose();
+    return Object.freeze({ target: Object.freeze(currentTarget.toArray()) as Vec3, yaw: normalizeAngle(pose.yaw), pitch: pose.pitch, zoom: pose.zoom });
+  }
+  function emitCameraChange() {
+    if (!cameraListeners.size) { emittedView = null; return; }
+    const view = getCameraView(), last = emittedView;
+    if (last && Math.abs(view.yaw - last.yaw) < 1e-9 && Math.abs(view.pitch - last.pitch) < 1e-9 && Math.abs(view.zoom - last.zoom) < 1e-9 && view.target.every((value, axis) => Math.abs(value - last.target[axis]) < 1e-6)) return;
+    emittedView = view;
+    for (const listener of [...cameraListeners]) try { listener(view); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
+  }
   /** Other nodes' live poses in the controlled node's parent space. */
   const controllerContext = (entry: Entry): ControllerContext => ({
     node: entry.node as ControllerContext['node'],
@@ -230,7 +360,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (!sample) return; entry.object.position.set(...sample.position); entry.moving = sample.moving;
     const delta = Math.atan2(Math.sin(sample.yaw - entry.object.rotation.y), Math.cos(sample.yaw - entry.object.rotation.y)); entry.object.rotation.y += delta * turn;
   };
-  function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (id) frame(id); else target.copy(overviewTarget()); options.onSelect?.(store.getSnapshot().selection); }
+  function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (cameraSettings.frameOnSelect) { if (id) void frame(id); else target.copy(overviewTarget()); } options.onSelect?.(store.getSnapshot().selection); }
   const aim = (event: PointerEvent) => { const rect = renderer.domElement.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / width * 2 - 1, -(event.clientY - rect.top) / height * 2 + 1); raycaster.setFromCamera(pointer, camera); };
   /** Index of the pick target under the pointer, nearest first, or null. */
   function pickTargetAt(event: PointerEvent): number | null {
@@ -299,11 +429,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     let labelNode = labelId ? entries.get(labelId)?.node : undefined;
     while (labelNode && !isContainer(labelNode.id)) labelNode = labelNode.parentId ? entries.get(labelNode.parentId)?.node : undefined;
     if (event.pointerType === 'mouse') changePeek(labelNode?.kind === 'asset' && labelNode.peekOnHover ? labelNode.id : hoveredContainer());
-    renderer.domElement.style.cursor = next ? 'pointer' : 'grab'; if (next !== hovered) { hovered = next; safeSync(); }
+    renderer.domElement.style.cursor = next ? 'pointer' : cameraSettings.controls === 'none' ? '' : 'grab'; if (next !== hovered) { hovered = next; safeSync(); }
   };
   const leave = () => { changePeek(null); if (hovered) { hovered = null; safeSync(); } };
   container.addEventListener('pointerleave', leave); labelLayer.addEventListener('pointermove', onMove);
-  pan = bindCameraPan(renderer.domElement, camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove });
+  pan = bindCameraPan(renderer.domElement, () => camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); cameraMoved = true; target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove, canDrag: () => cameraSettings.controls !== 'none', onDragStart: () => { const moving = transition !== null; interruptTransition(); if (moving) updateCamera(); return moving; } });
   const wheelZoom = options.wheelZoom ? bindWheelZoom([renderer.domElement, labelLayer], { getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }) }) : null;
   const onContextLost = (event: Event) => { event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; options.onError?.(new Error('Graphics context lost. Reload the scene to recover; records remain available in the host HTML view.')); };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
@@ -319,8 +449,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       raf = requestAnimationFrame(animate); return;
     }
     if (!document.hidden) {
-      const extent = fittedExtent ?? store.getSnapshot().nodes.reduce((value, node) => node.kind === 'ground' ? Math.max(value, node.size[0] / 32, node.size[1] / 19) : value, 1);
-      currentTarget.lerp(target, reducedMotion.matches ? 1 : 1 - Math.exp(-dt * 5)); camera.position.copy(currentTarget).add(cameraOffset); camera.lookAt(currentTarget); camera.zoom = Math.min(width / (34 * extent), height / (21 * extent)) * settings.zoom; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+      advanceCamera(dt, time);
       const animated = settings.motion && !reducedMotion.matches;
       for (const entry of entries.values()) {
         // Routes own the root transform; motion-off and reduced motion show the confirmed result without travel.
@@ -354,6 +483,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       for (const entry of ordered) {
         if (!entry.label || entry.label.hidden) continue;
         projected.set(0, entry.node.kind === 'zone' ? .3 : entry.labelHeight, entry.node.kind === 'zone' ? -entry.node.size[1] / 2 - 2 : 0); entry.object.localToWorld(projected); projected.project(camera);
+        // Behind the camera or outside its depth range: hide the label instead of mirroring it into the view.
+        if (Math.abs(projected.z) > 1) { entry.label.style.visibility = 'hidden'; continue; }
         const x = (projected.x + 1) * width / 2, labelWidth = labelWidths.get(entry.node.id) ?? 0;
         let y = (1 - projected.y) * height / 2 - (entry.node.kind === 'zone' ? 35 : 0);
         const collides = () => labelRects.some(rect => Math.abs(x - rect.x) < (labelWidth + rect.width) / 2 + 5 && Math.abs(y - rect.y) < 27);
@@ -366,7 +497,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         entry.label.style.visibility = overlaps ? 'hidden' : 'visible';
         entry.label.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
         if (!overlaps) labelRects.push({ x, y, width: labelWidth });
-      } if (areas.length) updatePlacements(); scene.updateMatrixWorld(); instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++;
+      } if (areas.length) updatePlacements(); scene.updateMatrixWorld(); instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
       if (loadState.phase !== 'loaded') {
         renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
         reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
@@ -379,6 +510,14 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const clearOverlay = () => { if (overlayObject) { scene.remove(overlayObject); disposeObject(overlayObject); overlayObject = null; } };
   return {
     frame,
+    getCameraView,
+    setCameraView: (view, transition) => {
+      validateCameraView(view); if (transition) validateCameraTransition(transition);
+      if (disposed) return Promise.resolve('interrupted');
+      settleDeferredFrame('interrupted');
+      return startTransition(() => { const pose = currentPose(); return { to: { target: view.target ? [...view.target] as unknown as Vec3 : pose.target, yaw: view.yaw ?? pose.yaw, pitch: view.pitch ?? pose.pitch, zoom: view.zoom ?? pose.zoom, extent: pose.extent }, fittedExtent, overviewFit }; }, transition);
+    },
+    onCameraChange: listener => { if (disposed) return () => undefined; cameraListeners.add(listener); return () => { cameraListeners.delete(listener); }; },
     getAnchor: (id, name) => { if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null; scene.updateMatrixWorld(true); const rotation = new THREE.Euler().setFromQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion())); return { position: anchor.getWorldPosition(new THREE.Vector3()).toArray() as [number, number, number], rotation: [rotation.x, rotation.y, rotation.z] }; },
     setPickTargets: (targets, onPick) => {
       if (disposed) return;
@@ -396,9 +535,21 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     setOverlay: overlay => { if (disposed) return; const next = overlay ? createOverlayObject(overlay) : null; clearOverlay(); if (next) { overlayObject = next; scene.add(next); } },
     loaded,
     getLoadState: () => loadState,
-    overview: () => { deferredFrame = null; fittedExtent = undefined; pan?.cancel(); target.copy(overviewTarget()); store.select(null); options.onSelect?.(null); },
+    overview: (overviewOptions = {}) => {
+      if (overviewOptions.transition) validateCameraTransition(overviewOptions.transition);
+      if (disposed) return Promise.resolve('interrupted');
+      settleDeferredFrame('interrupted'); interruptTransition(); pan?.cancel(); cameraMoved = true;
+      const fit = cameraSettings.overview === 'bounds' ? boundsOverview() : null;
+      if (!overviewOptions.transition) {
+        fittedExtent = undefined; overviewFit = fit; yaw = cameraSettings.yaw; pitch = cameraSettings.pitch; target.copy(overviewTarget()); store.select(null); options.onSelect?.(null);
+        return Promise.resolve('completed');
+      }
+      store.select(null); options.onSelect?.(null);
+      const nodes = store.getSnapshot().nodes;
+      return startTransition(() => ({ to: { target: (fit?.target ?? groundTarget(nodes)).toArray(), yaw: cameraSettings.yaw, pitch: cameraSettings.pitch, zoom: store.getSnapshot().settings.zoom, extent: fit?.extent ?? groundExtent(nodes) }, fittedExtent: undefined, overviewFit: fit }), overviewOptions.transition);
+    },
     getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearPickTargets(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    dispose: () => { if (disposed) return; clearPickTargets(); interruptTransition(); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
 }
 

@@ -52,6 +52,22 @@ defineProps<{ assets: AssetRegistry }>();
 </template>
 ```
 
+`useSceneRenderer()` returns a read-only shallow ref of the renderer of the provider's `SceneCanvas` (null before it mounts and during server rendering), so any component under the provider can move the camera; `useCameraView()` returns a read-only shallow ref of the current camera view, updated at most once per rendered frame. One provider drives one canvas: a second `SceneCanvas` under the same provider shows an error naming the fix.
+
+```ts
+import { defineComponent, h } from 'vue';
+import { useCameraView, useSceneRenderer } from '@opsorama/vue';
+
+export const CameraButton = defineComponent({
+  props: { nodeId: { type: String, required: true } },
+  setup(props) {
+    const renderer = useSceneRenderer(), view = useCameraView();
+    return () => h('button', { disabled: !renderer.value, onClick: () => void renderer.value?.frame(props.nodeId, { fit: true, transition: { seconds: 1 } }) },
+      `Go to ${props.nodeId} (yaw ${view.value ? view.value.yaw.toFixed(2) : '–'})`);
+  },
+});
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

@@ -7,6 +7,7 @@ import { catalogAssets } from '@opsorama/objects';
 import { NESTED_KEYS, NODE_KEYS } from '../packages/core/src/validate-scene';
 import { generateSceneSchema, SCHEMA_OUTPUTS } from '../scripts/build-scene-schema.mjs';
 import { buildingContents, buildingDefinition } from '../apps/site/examples/building-data';
+import { camerasDefinition } from '../apps/site/examples/cameras-data';
 import { datacenterDefinition } from '../apps/site/examples/datacenter-data';
 import { domainKitsDefinition } from '../apps/site/examples/domain-kits-data';
 import { logisticsDefinition } from '../apps/site/examples/logistics-data';
@@ -36,6 +37,7 @@ const scene = (nodes: readonly unknown[]): SceneDefinition => ({ schemaVersion: 
 
 const examples: Record<string, SceneDefinition> = {
   building: scene([...buildingDefinition.nodes, ...(['workshop', 'office'] as const).flatMap(id => buildingContents(id).map(node => ({ ...node, parentId: id })))]),
+  cameras: camerasDefinition,
   datacenter: datacenterDefinition,
   'domain-kits': domainKitsDefinition,
   logistics: logisticsDefinition,

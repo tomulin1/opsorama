@@ -27,6 +27,8 @@ export * from './item-policy';
 export * from './behavior';
 export * from './overlay';
 export * from './placement';
+export * from './camera';
+import { DEFAULT_CAMERA_SETTINGS, validateCameraSettings, ZOOM_RANGE, type CameraSettings } from './camera';
 /** `[x, y, z]`: metres for positions (Y is up), radians for Euler rotations, factors for scale. */
 export type Vec3 = readonly [number, number, number];
 /** Optional host visual alert. Model-native support is opt-in; neutral geometry ignores it. */
@@ -187,10 +189,13 @@ export interface Selection { nodeId: string; entityId?: string; origin: 'pointer
 /** `corners`: floor brackets around the model footprint, hidden where objects cover them. `glow`: colored tint over the model. */
 export const SELECTION_STYLES = Object.freeze(['corners', 'glow'] as const);
 export type SelectionStyle = typeof SELECTION_STYLES[number];
-export interface SceneSettings { theme: 'light' | 'midnight'; labels: boolean; grid: boolean; shadows: boolean; motion: boolean; paused: boolean; speed: number; zoom: number; /** How the selected and hovered node are marked. */ selectionStyle: SelectionStyle; palette?: MaterialOverrides; }
-export const DEFAULT_SETTINGS: Readonly<SceneSettings> = Object.freeze({ theme: 'light', labels: true, grid: false, shadows: true, motion: true, paused: false, speed: 1, zoom: 1, selectionStyle: 'corners', palette: Object.freeze({}) });
-/** Bounds validated for SceneSettings.zoom. Host controls may use a narrower range. */
-export const ZOOM_RANGE: Readonly<{ min: number; max: number }> = Object.freeze({ min: .65, max: 5 });
+export interface SceneSettings { theme: 'light' | 'midnight'; labels: boolean; grid: boolean; shadows: boolean; motion: boolean; paused: boolean; speed: number; /** Zoom multiplier of both projections, within `ZOOM_RANGE`. */ zoom: number; /** How the selected and hovered node are marked. */ selectionStyle: SelectionStyle; palette?: MaterialOverrides; /** Projection, controls, overview direction and framing; see `CameraSettings`. Replacing it resets omitted fields to `DEFAULT_CAMERA_SETTINGS`. */ camera: CameraSettings; }
+/**
+ * Settings accepted by `createSceneStore` and `SceneStore.configure`: any subset of `SceneSettings`, where `camera` may also be
+ * partial. A given `camera` replaces the current one, and its omitted fields take their `DEFAULT_CAMERA_SETTINGS` values.
+ */
+export type SceneSettingsPatch = Partial<Omit<SceneSettings, 'camera'>> & { camera?: Partial<CameraSettings> };
+export const DEFAULT_SETTINGS: Readonly<SceneSettings> = Object.freeze({ theme: 'light', labels: true, grid: false, shadows: true, motion: true, paused: false, speed: 1, zoom: 1, selectionStyle: 'corners', palette: Object.freeze({}), camera: DEFAULT_CAMERA_SETTINGS });
 export const SETTING_DEFINITIONS = {
   palette: { type: 'MaterialOverrides', description: 'Semantic colors for assets that declare palette support; replacing the map resets omitted roles to theme defaults.' },
   theme: { type: "'light' | 'midnight'", description: 'Canvas palette and environment lighting.' },
@@ -200,8 +205,9 @@ export const SETTING_DEFINITIONS = {
   motion: { type: 'boolean', description: 'Interpolate target positions and run asset animations. Disabled for reduced motion.' },
   paused: { type: 'boolean', description: 'Freeze interpolation and asset animation without discarding target updates.' },
   speed: { type: 'number (0.25–3)', description: 'Multiplier for interpolation and asset animation; does not change business-event time.' },
-  zoom: { type: 'number (0.65–5)', description: 'Orthographic camera zoom multiplier.' },
+  zoom: { type: 'number (0.65–5)', description: 'Camera zoom multiplier for both projections: the orthographic zoom, or the perspective distance divided by it.' },
   selectionStyle: { type: "'corners' | 'glow'", description: 'How the selected and hovered node are marked: floor brackets around the model footprint, hidden where objects cover them, or a colored tint over the model.' },
+  camera: { type: 'CameraSettings', description: "Camera: projection ('orthographic' or 'perspective'), controls ('pan' or 'none'), fov (degrees 20–75, perspective only), yaw and pitch (overview direction in radians), overview ('ground' or 'bounds') and frameOnSelect. Replacing it resets omitted fields to DEFAULT_CAMERA_SETTINGS." },
 } as const satisfies Record<keyof SceneSettings, { type: string; description: string }>;
 export interface SceneSnapshot { nodes: readonly SceneNode[]; selection: Selection | null; settings: Readonly<SceneSettings>; revision: number; }
 /** Options of `createSceneStore`. */
@@ -221,7 +227,8 @@ export interface SceneStore {
   remove(id: string): void;
   replace(nodes: readonly SceneNode[]): void;
   select(id: string | null, origin?: Selection['origin']): void;
-  configure(settings: Partial<SceneSettings>): void;
+  /** Validates and merges settings; a given `camera` replaces the current one (omitted fields take their defaults). */
+  configure(settings: SceneSettingsPatch): void;
   dispose(): void;
 }
 /** Deep copy and freeze of plain JSON-like data (objects and arrays); other values are returned as they are. */
@@ -254,6 +261,14 @@ function validateSettings(settings: SceneSettings) {
   if (!SELECTION_STYLES.includes(settings.selectionStyle)) throw new Error(`Unknown selection style: ${settings.selectionStyle}. Use ${SELECTION_STYLES.join(', ')}.`);
   for (const key of ['labels', 'grid', 'shadows', 'motion', 'paused'] as const) if (typeof settings[key] !== 'boolean') throw new Error(`Setting ${key} must be boolean.`);
   for (const [key, min, max] of [['speed', .25, 3], ['zoom', ZOOM_RANGE.min, ZOOM_RANGE.max]] as const) if (!Number.isFinite(settings[key]) || settings[key] < min || settings[key] > max) throw new Error(`Setting ${key} must be between ${min} and ${max}.`);
+  validateCameraSettings(settings.camera);
+}
+/** Merges a settings patch: a given `palette` or `camera` replaces the current one; camera fields it omits take their defaults. */
+function mergeSettings(current: Readonly<SceneSettings>, patch: SceneSettingsPatch): SceneSettings {
+  if (patch.camera !== undefined && (typeof patch.camera !== "object" || patch.camera === null || Array.isArray(patch.camera))) throw new Error("Setting camera must be an object such as { projection: 'perspective' }; omitted fields use DEFAULT_CAMERA_SETTINGS.");
+  const next: SceneSettings = { ...current, ...patch, camera: patch.camera ? { ...DEFAULT_CAMERA_SETTINGS, ...Object.fromEntries(Object.entries(patch.camera).filter(([, value]) => value !== undefined)) } : current.camera };
+  validateSettings(next);
+  return { ...next, ...(next.palette ? { palette: Object.freeze({ ...next.palette }) } : {}), camera: next.camera === current.camera && Object.isFrozen(current.camera) ? current.camera : Object.freeze({ ...next.camera }) };
 }
 function selectionFor(node: SceneNode, origin: Selection['origin']): Selection {
   return Object.freeze({ nodeId: node.id, entityId: node.entityId, origin });
@@ -263,12 +278,12 @@ function selectionFor(node: SceneNode, origin: Selection['origin']): Selection {
  * `SceneValidationError` (message: the first error, `problems`: every problem) without changing the store; invalid
  * settings throw an `Error`.
  */
-export function createSceneStore(definition: SceneDefinition = { schemaVersion: 1, nodes: [] }, initialSettings: Partial<SceneSettings> = {}, storeOptions: SceneStoreOptions = {}): SceneStore {
+export function createSceneStore(definition: SceneDefinition = { schemaVersion: 1, nodes: [] }, initialSettings: SceneSettingsPatch = {}, storeOptions: SceneStoreOptions = {}): SceneStore {
   throwOnErrors(validateScene(definition, storeOptions));
   const listeners = new Set<() => void>(); let disposed = false;
   const checked = (nodes: readonly SceneNode[]) => { throwOnErrors(Array.isArray(nodes) ? nodeListProblems(nodes, '/nodes', storeOptions) : validateScene({ schemaVersion: 1, nodes }, storeOptions)); return Object.freeze(nodes.map(cloneNode)); };
   if (initialSettings.palette !== undefined) validateMaterialOverrides(initialSettings.palette);
-  const settings = { ...DEFAULT_SETTINGS, ...initialSettings, ...(initialSettings.palette ? { palette: Object.freeze({ ...initialSettings.palette }) } : {}) }; validateSettings(settings);
+  const settings = mergeSettings(DEFAULT_SETTINGS, initialSettings);
   let snapshot: SceneSnapshot = Object.freeze({ nodes: Object.freeze(definition.nodes.map(cloneNode)), selection: null, settings: Object.freeze(settings), revision: 0 });
   const commit = (patch: Partial<SceneSnapshot>) => { if (disposed) throw new Error('Scene store has been disposed.'); const next = { ...snapshot, ...patch }; const selected = next.selection && next.nodes.find(node => node.id === next.selection!.nodeId); if (selected && !isNodeVisible(selected, next.nodes)) next.selection = null; snapshot = Object.freeze({ ...next, revision: snapshot.revision + 1 }); listeners.forEach(fn => fn()); };
   return {
@@ -283,7 +298,7 @@ export function createSceneStore(definition: SceneDefinition = { schemaVersion: 
     remove: id => { if (!snapshot.nodes.some(n => n.id === id)) return; const removed = new Set([id]); let changed = true; while (changed) { changed = false; for (const node of snapshot.nodes) if ((node.parentId || node.attachment?.nodeId) && removed.has((node.parentId ?? node.attachment?.nodeId)!) && !removed.has(node.id)) { removed.add(node.id); changed = true; } } commit({ nodes: Object.freeze(snapshot.nodes.filter(n => !removed.has(n.id))), selection: snapshot.selection && removed.has(snapshot.selection.nodeId) ? null : snapshot.selection }); },
     replace: nodes => { const next = checked(nodes); const selected = snapshot.selection && next.find(n => n.id === snapshot.selection!.nodeId); commit({ nodes: next, selection: selected && snapshot.selection ? selectionFor(selected, snapshot.selection.origin) : null }); },
     select: (id, origin = 'api') => { const node = id ? snapshot.nodes.find(n => n.id === id) : null; if (id && !node) throw new Error(`Unknown scene node: ${id}.`); commit({ selection: node ? selectionFor(node, origin) : null }); },
-    configure: patch => { const next = { ...snapshot.settings, ...patch }; validateSettings(next); commit({ settings: Object.freeze({ ...next, ...(next.palette ? { palette: Object.freeze({ ...next.palette }) } : {}) }) }); },
+    configure: patch => { commit({ settings: Object.freeze(mergeSettings(snapshot.settings, patch)) }); },
     dispose: () => { disposed = true; listeners.clear(); },
   };
 }

@@ -46,6 +46,19 @@ export function SelectedObject({ assets }: { assets: AssetRegistry }) {
 }
 ```
 
+`useSceneRenderer()` returns the renderer of the provider's `SceneCanvas` (null before it mounts and during server rendering), so any component under the provider can move the camera; `useCameraView()` returns the current camera view and updates at most once per rendered frame. One provider drives one canvas: a second `SceneCanvas` under the same provider shows an error naming the fix.
+
+```tsx
+import { useCameraView, useSceneRenderer } from '@opsorama/react';
+
+export function CameraButton({ nodeId }: { nodeId: string }) {
+  const renderer = useSceneRenderer(), view = useCameraView();
+  return <button disabled={!renderer} onClick={() => void renderer?.frame(nodeId, { fit: true, transition: { seconds: 1 } })}>
+    Go to {nodeId} (yaw {view ? view.yaw.toFixed(2) : '–'})
+  </button>;
+}
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

@@ -1,0 +1,8 @@
+/* Camera example: the scene host and the readout every adapter draws over it. */
+.camera-example-canvas { position: relative; height: 420px; }
+.camera-example .camera-readout { position: absolute; left: 10px; bottom: 10px; z-index: 2; max-width: calc(100% - 20px); padding: 5px 8px; border-radius: 5px; background: color-mix(in srgb, var(--opsorama-surface-raised) 90%, transparent); color: var(--opsorama-text); font: 500 11px/1.4 "Cascadia Code", Consolas, monospace; pointer-events: none; }
+.camera-example .indicator-controls { border-top: 1px solid var(--opsorama-border); }
+.camera-example .indicator-controls button { padding: 6px 10px; border: 1px solid var(--opsorama-border); border-radius: 5px; font-size: 12px; color: var(--opsorama-link); background: var(--opsorama-surface-raised); }
+.camera-example .indicator-controls button:disabled { opacity: .5; }
+.camera-moves { min-height: 24px; margin: 0; padding: 8px 16px 8px 34px; font-size: 12px; color: var(--opsorama-text); }
+.camera-example .camera-example-hint { padding: 0 16px; font-size: 12px; color: var(--opsorama-text); }
