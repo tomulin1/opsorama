@@ -14,10 +14,10 @@ const CameraReadout = defineComponent({
   },
 });
 
-/** Native Vue: the scene and its readout under one `DashboardProvider`. */
-export function mountCamerasVue(container: HTMLElement, camera: CameraSettings, ready: (renderer: SceneRenderer) => void): CameraSession {
+/** Native Vue: the scene and its readout under one `DashboardProvider`. `touchGestures` is mount-time. */
+export function mountCamerasVue(container: HTMLElement, camera: CameraSettings, ready: (renderer: SceneRenderer) => void, touchGestures = false): CameraSession {
   const store = makeCamerasStore(camera);
-  const app = createApp({ render: () => h(DashboardProvider, { store }, { default: () => h(SceneCanvas, { assets: catalogAssets, wheelZoom: true, style: { height: '420px' }, onReady: ready }, { default: () => h(CameraReadout) }) }) });
+  const app = createApp({ render: () => h(DashboardProvider, { store }, { default: () => h(SceneCanvas, { assets: catalogAssets, wheelZoom: true, touchGestures, style: { height: '420px' }, onReady: ready }, { default: () => h(CameraReadout) }) }) });
   app.mount(container);
   return { store, dispose: () => { app.unmount(); store.dispose(); } };
 }

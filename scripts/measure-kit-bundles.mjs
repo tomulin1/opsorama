@@ -25,9 +25,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * budget from 130 to 146, about 10% above the new measurements. On November 22, 2026 the camera API (camera settings and view
  * checks in core, the camera rig, perspective projection, timed transitions and change events in the renderer) grew the engine
  * from 66.9 to 74.6 (gzip 25.3 to 27.8), the catalog from 324.6 to 332.4 and the largest kit (vehicles) from 133.0 to 140.7, so
- * the engine budget was raised from 74 to 82, about 10% above the new measurement. Raise a budget only with a note that explains the growth.
+ * the engine budget was raised from 74 to 82, about 10% above the new measurement. Every kit and catalog entry bundles the
+ * renderer (`createSceneRenderer`) as well, so renderer growth adds the same amount to each of them. On November 22, 2026 touch
+ * gestures (one-finger pan, pinch zoom, two-finger orbit; `gestures.ts` replaced the mouse-only pan module, 2.2 → 6.0 KiB
+ * minified on its own) grew every renderer entry by 3.9 KiB (gzip 1.4): the engine from 79.8 to 83.7, the catalog from 337.6
+ * to 341.6 and the largest kit (vehicles) from 145.9 to 149.8, so the engine, catalog and kit budgets were each raised by 6,
+ * the measured growth plus a margin of about 2. Raise a budget only with a note that explains the growth.
  */
-const BUDGETS_KIB = { engine: 82, catalog: 340, kit: 146, handling: 30 };
+const BUDGETS_KIB = { engine: 88, catalog: 346, kit: 152, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));

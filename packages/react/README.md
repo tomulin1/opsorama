@@ -33,6 +33,19 @@ export function Dashboard() {
 
 `SceneCanvas` creates the renderer on mount and disposes it on unmount; the store belongs to your component. Pass a stable `assets` registry: replacing it remounts the renderer.
 
+Touch input stays with the page by default, so an embedded scene never blocks scrolling (a tap still selects). The mount-time `touchGestures` prop hands touch to the scene: one finger pans, two fingers pinch-zoom around their midpoint (writing `SceneSettings.zoom`), and with `camera.controls: 'orbit'` a two-finger twist or vertical drag turns the view. It sets `touch-action: none` on the canvas; changing the prop remounts the renderer.
+
+```tsx
+import type { ReactNode } from 'react';
+import type { SceneStore } from '@opsorama/core';
+import { catalogAssets } from '@opsorama/objects';
+import { DashboardProvider, SceneCanvas } from '@opsorama/react';
+
+export function FullScreenScene({ store, children }: { store: SceneStore; children?: ReactNode }) {
+  return <DashboardProvider store={store}><SceneCanvas assets={catalogAssets} touchGestures style={{ height: '100dvh' }}>{children}</SceneCanvas></DashboardProvider>;
+}
+```
+
 Until the first frame `SceneCanvas` shows a loading indicator, also in server-rendered HTML. Replace its content with `loading={state => ...}` or turn it off with `loading={false}`; `onLoad` reports progress.
 
 `NodePreview` shows a live copy of one node from the provider's scene in its own canvas, for example the selected node in an inspector. It mirrors the node's state, counts and animation and turns slowly; dragging or the arrow keys turn it by hand. It is 160 px high unless `className` or `style` sizes it. `assets`, `spin` and `maxNodes` are mount-time; changing `nodeId` keeps the canvas. See `createNodePreview` in `@opsorama/three`.

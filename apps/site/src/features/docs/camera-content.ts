@@ -3,16 +3,16 @@ import type { DocArticle } from './content';
 
 const rounded = (value: number) => String(Math.round(value * 1000) / 1000);
 
-/** The camera: settings, projection, views and transitions, framing, orbit, following, camera paths, events and the adapter hooks. */
+/** The camera: settings, projection, views and transitions, framing, orbit, touch gestures, following, camera paths, events and the adapter hooks. */
 export const cameraArticle: DocArticle = {
   slug: 'camera', title: 'Camera', category: 'FOUNDATIONS',
-  description: 'Orthographic or perspective projection, the overview direction, pan and orbit controls and framing in SceneSettings.camera, and the renderer camera API: read and set views, timed transitions, frame and overview, following a node, camera paths, change events and the React and Vue hooks.',
+  description: 'Orthographic or perspective projection, the overview direction, pan and orbit controls and framing in SceneSettings.camera, opt-in touch gestures, and the renderer camera API: read and set views, timed transitions, frame and overview, following a node, camera paths, change events and the React and Vue hooks.',
   sections: [
     { id: 'settings', title: 'Camera settings', paragraphs: [
       'SceneSettings.camera configures the camera. The defaults draw the orthographic overview every scene has always had: the camera looks at its target from the offset [16, 22, 30]. store.configure({ camera }) replaces the whole camera object and resets omitted fields to DEFAULT_CAMERA_SETTINGS, like palette; spread the current value to change one field. Invalid values throw an error that names the field and the allowed values.',
     ], headers: ['Field', 'Type', 'Default', 'Behavior'], rows: [
       ['projection', CAMERA_PROJECTIONS.map(value => `'${value}'`).join(' | '), `'${DEFAULT_CAMERA_SETTINGS.projection}'`, 'Applied on the next frame; the target and angles stay.'],
-      ['controls', CAMERA_CONTROLS.map(value => `'${value}'`).join(' | '), `'${DEFAULT_CAMERA_SETTINGS.controls}'`, 'pan: the primary mouse button drags the view over the ground. orbit: panning as with pan, and a right-button drag or a Ctrl + primary-button drag turns the view around its target. none: no dragging; clicks and taps still select. Wheel zoom is the separate wheelZoom option.'],
+      ['controls', CAMERA_CONTROLS.map(value => `'${value}'`).join(' | '), `'${DEFAULT_CAMERA_SETTINGS.controls}'`, 'pan: the primary mouse button drags the view over the ground. orbit: panning as with pan, and a right-button drag or a Ctrl + primary-button drag turns the view around its target. none: no dragging; clicks and taps still select. Wheel zoom and touch gestures are the separate wheelZoom and touchGestures options.'],
       ['fov', `number (${CAMERA_FOV_RANGE.min}–${CAMERA_FOV_RANGE.max})`, String(DEFAULT_CAMERA_SETTINGS.fov), 'Vertical field of view in degrees, perspective only.'],
       ['yaw', 'number (radians, finite)', `${rounded(DEFAULT_CAMERA_SETTINGS.yaw)} (atan2(16, 30))`, 'Overview heading: 0 looks from +Z toward −Z, π/2 from +X toward −X. A change turns the camera at once and keeps its target.'],
       ['pitch', `number (radians, ${CAMERA_PITCH_RANGE.min}–${CAMERA_PITCH_RANGE.max})`, `${rounded(DEFAULT_CAMERA_SETTINGS.pitch)} (atan2(22, 34))`, 'Overview elevation, from almost level to almost straight down. Changes like yaw.'],
@@ -46,7 +46,7 @@ stop();`, language: 'typescript' },
 await renderer.overview({ transition: { seconds: 1.2, easing: 'linear' } });`, language: 'typescript' },
     { id: 'orbit', title: 'Orbit', paragraphs: [
       'With controls: \'orbit\', a right-button drag or a Ctrl + primary-button drag on the canvas turns the view around its current target: dragging sideways changes the yaw (half a turn per viewport height dragged) and dragging up or down changes the pitch, kept within 0.05–1.55 radians. A plain primary drag still pans. The browser context menu over the canvas is suppressed only while orbit is set; with pan or none a right click behaves as usual. A Ctrl click without movement still selects.',
-      'An orbit changes the drawn view like setCameraView, not the yaw and pitch settings, so overview() returns to the settings. It interrupts a running transition or camera path and keeps following. The canvas takes no keyboard focus: give keyboard users controls of their own that call setCameraView, for example buttons that turn the yaw by 15 degrees. Touch orbit is not implemented yet.',
+      'An orbit changes the drawn view like setCameraView, not the yaw and pitch settings, so overview() returns to the settings. It interrupts a running transition or camera path and keeps following. The canvas takes no keyboard focus: give keyboard users controls of their own that call setCameraView, for example buttons that turn the yaw by 15 degrees. On touch screens a two-finger twist and a two-finger vertical drag orbit (see Touch).',
     ], code: `store.configure({ camera: { ...store.getSnapshot().settings.camera, controls: 'orbit' } });
 
 // A keyboard-accessible host control that turns the view.
@@ -54,6 +54,14 @@ turnLeft.addEventListener('click', () => {
   const view = renderer.getCameraView();
   void renderer.setCameraView({ yaw: view.yaw + Math.PI / 12 }, { seconds: 0.3 });
 });`, language: 'typescript' },
+    { id: 'touch', title: 'Touch', paragraphs: [
+      'Touch gestures are a mount-time renderer option: touchGestures (createSceneRenderer options, or the touchGestures prop of SceneCanvas in React and Vue; changing the prop remounts the renderer). The default false leaves touch input with the page: the canvas sets no touch-action, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. true sets touch-action: none on the canvas, restores the previous value on dispose, and handles touch itself.',
+      `One finger pans the view over the ground, like a mouse drag, and ends following. Two fingers pinch-zoom: SceneSettings.zoom follows the finger distance within ZOOM_RANGE (${ZOOM_RANGE.min}–${ZOOM_RANGE.max}), written to the store at most once per animation frame, and the ground point between the fingers stays between them, so moving both fingers also pans. While following a node a pinch zooms around the followed node and following continues. With controls: 'orbit', twisting two fingers turns the yaw (after a twist of about 9 degrees, so a plain pinch does not turn the view) and dragging two fingers up or down together changes the pitch, kept within ${CAMERA_PITCH_RANGE.min}–${CAMERA_PITCH_RANGE.max} radians; both keep following. With controls: 'none', one finger does nothing and two fingers only zoom.`,
+      'A touch that moves less than 5 px is a tap and selects, as before; lifting a finger after a two-finger gesture never taps. A gesture interrupts a running transition or camera path like a mouse drag. pointercancel, a lost pointer capture, another camera move (frame, overview, setCameraView, followNode, a path) and dispose end a gesture where it is. Pens behave like a mouse whether or not touchGestures is set. Labels over the canvas keep the browser default: a gesture that starts on a label scrolls the page.',
+    ], code: `const renderer = createSceneRenderer(container, store, { assets: catalogAssets, touchGestures: true });
+
+// React: <SceneCanvas assets={catalogAssets} touchGestures />
+// Vue:   h(SceneCanvas, { assets: catalogAssets, touchGestures: true })`, language: 'typescript' },
     { id: 'follow', title: 'Follow a node', paragraphs: [
       `renderer.followNode(id, { distance?, heading? }) keeps the camera on a node: every frame the target moves to the node's world position, so routes, controllers, transfers and carriers are followed. The camera glides onto the node like a framed node and snaps with reduced motion. heading is ${CAMERA_FOLLOW_HEADINGS.map(value => `'${value}'`).join(' or ')}: fixed keeps the direction; behind also turns the yaw, smoothed, to look along the node's heading from behind it (the node's local +Z is its front). distance (${CAMERA_FOLLOW_DISTANCE.min}–${CAMERA_FOLLOW_DISTANCE.max} m) sets the scale so that the perspective camera stands that far from the node at the current zoom; the orthographic camera shows the same area. Without it the scale stays.`,
       'An orbit turns around the followed node and keeps following; with behind the orbit is kept as an offset from the heading. A pan, frame, overview, setCameraView, a camera path or a selection change that moves the camera ends following with \'interrupted\'; removing or hiding the node ends it with \'removed\' (also at once for an unknown node or one not built yet, so await renderer.loaded first); followNode(null), another followNode call and dispose end it with \'stopped\'. The returned promise resolves with that reason, and getFollowedNode() returns the followed ID or null.',
@@ -99,7 +107,7 @@ function CameraButtons({ tour }: { tour: CameraPath }) {
   </>;
 }`, language: 'tsx' },
     { id: 'limits', title: 'Limits', paragraphs: [
-      'Touch gestures are planned and not implemented yet: touch input selects but does not pan, zoom or orbit, and orbit needs a mouse. The canvas takes no keyboard focus; keyboard camera control is up to host controls that call setCameraView. The live example at /examples/cameras shows projection, direction, field of view, orbit, transitions, following a route-driven robot and a camera tour in React, Vue and plain JavaScript.',
+      'Touch gestures are off by default so embedded scenes never trap page scrolling; enable touchGestures where the scene is the page (a full-viewport dashboard) or has its own scroll area. The canvas takes no keyboard focus; keyboard camera control is up to host controls that call setCameraView. The live example at /examples/cameras shows projection, direction, field of view, orbit, touch gestures, transitions, following a route-driven robot and a camera tour in React, Vue and plain JavaScript.',
     ] },
   ],
 };
