@@ -111,6 +111,37 @@ export const TourButtons = defineComponent({
 });
 ```
 
+`SceneCanvas` emits a validated `pointer` event (`@pointer`, or `onPointer` in a render function) and takes `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider; `options` may be a ref or getter, and it does nothing during server rendering:
+
+```ts
+import { defineComponent, h, ref } from 'vue';
+import { useSceneFrame } from '@opsorama/vue';
+
+export const Steps = defineComponent({
+  setup() {
+    const steps = ref(0);
+    useSceneFrame(frame => { steps.value = frame.frame; }, { step: 1 / 60 });
+    return () => h('output', `${steps.value} steps`);
+  },
+});
+```
+
+```vue
+<script setup lang="ts">
+import type { ScenePointerEvent } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+import { SceneCanvas } from '@opsorama/vue';
+
+function onPointer(event: ScenePointerEvent) {
+  if (event.type === 'click' && event.nodeId === 'yard') event.preventSelection();
+}
+</script>
+
+<template>
+  <SceneCanvas :assets="catalogAssets" @pointer="onPointer" />
+</template>
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

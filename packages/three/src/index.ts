@@ -19,6 +19,15 @@ import { createPickTargetObject, highlightPickTarget, type PickTarget, type Pick
 import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildPrimitive } from './primitives';
+import { createFrameClock, validateFrameListener, type FrameListenerOptions, type SceneFrame } from './frame-clock';
+import { createScenePointerEvent, hoverTransitions, resolvePointerTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
+import { setupRendererPlugins, validateRendererPlugins, type PluginHost, type RendererPlugin } from './plugins';
+export { createFrameClock, validateFrameListener, DEFAULT_MAX_FRAME_STEPS, FRAME_STEP_RANGE, MAX_FRAME_STEPS } from './frame-clock';
+export type { FrameClock, FrameClockState, FrameListenerOptions, SceneFrame } from './frame-clock';
+export { createScenePointerEvent, hoverTransitions, nearestNodeHit, nodeAncestors, resolvePointerTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
+export type { PointerInput, ScenePointerEvent, ScenePointerEventType, ScenePointerType } from './pointer';
+export { setupRendererPlugins, validateRendererPlugins } from './plugins';
+export type { PluginHost, RendererPlugin, RendererPluginContext } from './plugins';
 export { createNodePreview, previewNodes, NODE_PREVIEW_MAX_NODES, NODE_PREVIEW_SPIN } from './preview';
 export { createRendererSlot } from './renderer-slot';
 export type { RendererSlot } from './renderer-slot';
@@ -42,7 +51,22 @@ export { animateAsset, setAssetAnimator, hasAssetAnimator, assetAnimatedParts, c
 export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-merge';
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
-export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void; }
+export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; onError?: (error: Error) => void;
+  /**
+   * Pointer events on the scene: `down`, `up`, `click`, `enter`, `leave` and `move` (at most once per animation frame), with
+   * the nearest node under the pointer (selectable or not, grounds included), its `parentId` ancestors, the world point (on
+   * a miss, the ground plane y = 0), modifiers and whether the pointer was on the canvas or a label; see `ScenePointerEvent`.
+   * A `click` handler may call `preventSelection()` to skip the default selection and framing; otherwise selection works
+   * exactly as without a handler. Over a pick target (`setPickTargets`) the target takes the input and no event is
+   * reported. Events start with the first drawn frame. A throwing handler is reported to `onError`.
+   */
+  onPointer?: (event: ScenePointerEvent) => void;
+  /**
+   * Plugins, set up once after the first scene sync in this order and cleaned up in reverse order when the renderer is
+   * disposed; see `RendererPlugin`. Names must be unique. When a setup throws, the renderer is disposed and
+   * `createSceneRenderer` throws an error naming the plugin. Mount-time option: changing it remounts an adapter's renderer.
+   */
+  plugins?: readonly RendererPlugin[]; }
 /** A playing camera path, returned by `renderer.playCameraPath`. */
 export interface CameraPathPlayback {
   /** Stops the path where the camera is; `finished` resolves `'interrupted'`. No effect once the path has ended. */
@@ -92,7 +116,19 @@ export interface SceneRenderer { /** Resolves once the whole initial scene is bu
    * elsewhere or a new path interrupts it where it is. A changed zoom is written to `SceneSettings.zoom` when it ends.
    * Throws an actionable error for an invalid path (`validateCameraPath`).
    */
-  playCameraPath(path: CameraPath): CameraPathPlayback; dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+  playCameraPath(path: CameraPath): CameraPathPlayback;
+  /**
+   * Calls `listener` from the frame loop and returns the unsubscribe function (safe to call more than once and from inside
+   * a listener). Without `options.step` it runs once per rendered frame, after node motion and the camera move and before
+   * labels are placed and the frame is drawn, with `delta` = real frame seconds (capped at 0.05) × `SceneSettings.speed`,
+   * 0 while paused. With `step` (1/240–1/10 s) it runs on a fixed simulation step before node motion: zero or more times per
+   * frame so that its scene time follows real time × speed, at most `maxSteps` (default 4) times per frame with the excess
+   * dropped and reported in `SceneFrame.dropped`, never while paused or the document is hidden, and on with motion off.
+   * Listeners start with the first drawn frame. A throwing listener is reported to `onError` and the loop continues.
+   * Throws an actionable error for an invalid listener or options. See `SceneFrame`.
+   */
+  onFrame(listener: (frame: SceneFrame) => void, options?: FrameListenerOptions): () => void;
+  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -114,7 +150,10 @@ function compileScene(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera:
     check();
   });
 }
+const toError = (error: unknown) => error instanceof Error ? error : new Error(String(error));
 export function createSceneRenderer(container: HTMLElement, store: SceneStore, options: RendererOptions): SceneRenderer {
+  // Checked before anything is created, so an invalid list leaves nothing to clean up.
+  if (options.plugins !== undefined) validateRendererPlugins(options.plugins);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.16;
@@ -234,8 +273,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         object.traverse(child => { child.userData.nodeId = node.id; });
         let label: HTMLButtonElement | null = null;
         const text = typeof object.userData.labelText === 'string' ? object.userData.labelText : node.label;
-        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; if (node.entityId || node.selectable) label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); }
-        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
+        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = Boolean(node.entityId || node.selectable); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
+        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
         entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
       }
@@ -391,6 +430,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (camera === perspective) applyPerspective(perspective, currentPose(), view); else applyOrthographic(orthographic, currentPose(), view);
   }
   const cameraListeners = new Set<(view: CameraView) => void>(); let emittedView: CameraView | null = null;
+  const clock = createFrameClock(error => options.onError?.(toError(error)));
   function getCameraView(): CameraView {
     const pose = currentPose();
     return Object.freeze({ target: Object.freeze(currentTarget.toArray()) as Vec3, yaw: normalizeAngle(pose.yaw), pitch: pose.pitch, zoom: pose.zoom });
@@ -429,12 +469,82 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
     return hit ? hit.object.userData.pickTarget as number : null;
   }
-  function pick(event: PointerEvent) {
+  /** Mesh hits under the pointer, nearest first: visible meshes and instancing proxies of the built nodes. */
+  function intersect(event: PointerEvent) {
     aim(event);
-    const hits = raycaster.intersectObjects([...entries.values()].filter(e => !e.node.parentId && !e.node.attachment).map(e => e.object), true).filter(hit => hit.object instanceof THREE.Mesh && (hit.object.visible || instancing?.isProxy(hit.object)));
+    return raycaster.intersectObjects([...entries.values()].filter(e => !e.node.parentId && !e.node.attachment).map(e => e.object), true).filter(hit => hit.object instanceof THREE.Mesh && (hit.object.visible || instancing?.isProxy(hit.object)));
+  }
+  /** The node a click selects: the nearest hit when its node is selectable. */
+  function selectableHit(hits: THREE.Intersection[]) {
     const id = hits[0]?.object.userData.nodeId as string | undefined, node = id ? entries.get(id)?.node : undefined;
     return node && (node.entityId || node.selectable) ? id : undefined;
   }
+  function pick(event: PointerEvent) { return selectableHit(intersect(event)); }
+  // Pointer events for `onPointer`: the nearest node of any kind and the world point, from the same ray as selection.
+  const getNode = (id: string) => entries.get(id)?.node;
+  type PointerTarget = { nodeId: string | null; point: Vec3 | null; source: 'canvas' | 'label' };
+  /** Nearest node and world point under the canvas pointer, after `intersect`; on a miss, the ground plane point. */
+  const canvasTarget = (hits: THREE.Intersection[]): PointerTarget => ({ ...resolvePointerTarget(hits, raycaster.ray, id => entries.has(id)), source: 'canvas' });
+  /** A label stands for its node; the point is the node's world position. */
+  function labelTarget(id: string): PointerTarget {
+    const entry = entries.get(id);
+    return { nodeId: entry ? id : null, point: entry ? entry.object.getWorldPosition(new THREE.Vector3()).toArray() : null, source: 'label' };
+  }
+  /** The label of a node under a DOM event target, if any. */
+  const labelOf = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId : undefined;
+  /** Reports a pointer event; returns false when a `click` handler called `preventSelection()`. */
+  function emitPointer(type: ScenePointerEventType, target: PointerTarget, input: PointerInput): boolean {
+    const handler = options.onPointer;
+    if (!handler || disposed) return true;
+    const { event, selectionPrevented } = createScenePointerEvent(type, target, input, target.source, getNode);
+    try { handler(event); } catch (error) { options.onError?.(toError(error)); }
+    return !selectionPrevented();
+  }
+  /** Node under the pointer as last reported by `enter`/`leave`, and the latest unprocessed move (handled once per frame). */
+  let pointerNode: string | null = null, pendingMove: { event: PointerEvent; label: string | undefined } | null = null;
+  function hoverPointer(target: PointerTarget, input: PointerInput) {
+    for (const { type, nodeId } of hoverTransitions(pointerNode, target.nodeId)) emitPointer(type, type === 'leave' ? { ...target, nodeId } : target, input);
+    pointerNode = target.nodeId;
+  }
+  /** Pointer target of a canvas or label event, or null when a pick target takes the input. */
+  function pointerTargetOf(event: PointerEvent, label: string | undefined): PointerTarget | null {
+    if (label) return labelTarget(label);
+    if (pickTargetAt(event) !== null) return null;
+    return canvasTarget(intersect(event));
+  }
+  /** Runs once per drawn frame: `enter`/`leave` and one `move` for the latest pointer position. */
+  function flushPointerMove() {
+    const pending = pendingMove; pendingMove = null;
+    if (!pending || !options.onPointer) return;
+    const target = pointerTargetOf(pending.event, pending.label);
+    if (!target) { hoverPointer({ nodeId: null, point: null, source: 'canvas' }, pending.event); return; }
+    hoverPointer(target, pending.event); emitPointer('move', target, pending.event);
+  }
+  const onPointerButton = (type: 'down' | 'up', source: 'canvas' | 'label') => (event: PointerEvent) => {
+    if (!options.onPointer || loadState.phase !== 'loaded') return;
+    const label = source === 'label' ? labelOf(event.target) : undefined;
+    if (source === 'label' && !label) return;
+    const target = pointerTargetOf(event, label);
+    if (target) emitPointer(type, target, event);
+  };
+  const onPointerMove = (source: 'canvas' | 'label') => (event: PointerEvent) => {
+    if (!options.onPointer || loadState.phase !== 'loaded') return;
+    const label = source === 'label' ? labelOf(event.target) : undefined;
+    if (source === 'label' && !label) return;
+    pendingMove = { event, label };
+  };
+  const onPointerLeave = (event: PointerEvent) => { pendingMove = null; if (pointerNode) hoverPointer({ nodeId: null, point: null, source: 'canvas' }, event); };
+  /** A label click (pointer or keyboard): report it, then select unless prevented. */
+  function labelClick(event: MouseEvent, id: string, selectable: boolean) {
+    const allowed = loadState.phase !== 'loaded' || emitPointer('click', labelTarget(id), event);
+    if (allowed && selectable) select(id, 'keyboard');
+  }
+  const pointerListeners: [EventTarget, string, (event: PointerEvent) => void][] = [
+    [renderer.domElement, 'pointerdown', onPointerButton('down', 'canvas')], [renderer.domElement, 'pointerup', onPointerButton('up', 'canvas')], [renderer.domElement, 'pointermove', onPointerMove('canvas')],
+    [labelLayer, 'pointerdown', onPointerButton('down', 'label')], [labelLayer, 'pointerup', onPointerButton('up', 'label')], [labelLayer, 'pointermove', onPointerMove('label')], [container, 'pointerleave', onPointerLeave],
+  ];
+  // Registered before the camera gestures, so `down` and `up` reach the handler before the `click` the gestures report.
+  if (options.onPointer) for (const [target, type, listener] of pointerListeners) target.addEventListener(type, listener as EventListener);
   let peekId: string | null = null, pendingPeek: string | null = null, peekTimer: ReturnType<typeof setTimeout> | undefined;
   function changePeek(next: string | null) {
     if (next === pendingPeek) return;
@@ -474,7 +584,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (loadState.phase !== 'loaded') return;
     const index = pickTargetAt(event);
     if (index !== null) { pickTargets!.onPick?.(pickTargets!.targets[index], index); return; }
-    select(pick(event) || null, 'pointer');
+    const hits = intersect(event);
+    if (options.onPointer && !emitPointer('click', canvasTarget(hits), event)) return;
+    select(selectableHit(hits) || null, 'pointer');
   };
   const onMove = (event: PointerEvent) => {
     if (loadState.phase !== 'loaded') return;
@@ -515,6 +627,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
     if (!document.hidden) {
       const animated = settings.motion && !reducedMotion.matches;
+      // Pointer input first, against the frame the user saw; then fixed simulation steps, before node motion.
+      flushPointerMove();
+      clock.steps(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
       for (const entry of entries.values()) {
         // Routes own the root transform; motion-off and reduced motion show the confirmed result without travel.
         if (entry.follower.route) { if (!animated) applySample(entry, entry.follower.settle()); else if (!settings.paused) { const sample = entry.follower.advance(dt * settings.speed); applySample(entry, sample, sample?.turning || sample?.curving ? 1 : 1 - Math.exp(-dt * 10 * settings.speed)); } else entry.moving = false; }
@@ -539,6 +654,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
       // The camera moves after the nodes, so a followed node is met at this frame's pose.
       advanceCamera(dt, time);
+      // Per-frame listeners see this frame's node poses and camera; what they change is drawn in this frame.
+      clock.frame(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
       const labelRects: { x: number; y: number; width: number }[] = [];
       const selectionId = store.getSnapshot().selection?.nodeId;
       // Markers are placed first and never move or hide; other labels make way for them.
@@ -574,7 +691,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   let overlayObject: THREE.Object3D | null = null;
   const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposeObject(pickTargets.object); pickTargets = null; } };
   const clearOverlay = () => { if (overlayObject) { scene.remove(overlayObject); disposeObject(overlayObject); overlayObject = null; } };
-  return {
+  // `disposing` keeps a plugin cleanup that disposes the renderer again from running the disposal twice.
+  let plugins: PluginHost | null = null, disposing = false;
+  const api: SceneRenderer = {
     frame,
     getCameraView,
     setCameraView: (view, transition) => {
@@ -584,6 +703,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       return startTransition(() => { const pose = currentPose(); return { to: { target: view.target ? [...view.target] as unknown as Vec3 : pose.target, yaw: view.yaw ?? pose.yaw, pitch: view.pitch ?? pose.pitch, zoom: view.zoom ?? pose.zoom, extent: pose.extent }, fittedExtent, overviewFit }; }, transition);
     },
     onCameraChange: listener => { if (disposed) return () => undefined; cameraListeners.add(listener); return () => { cameraListeners.delete(listener); }; },
+    onFrame: (listener, frameOptions) => { validateFrameListener(listener, frameOptions); return disposed ? () => undefined : clock.add(listener, frameOptions); },
     followNode: (id, followOptions = {}) => {
       validateCameraFollow(followOptions);
       if (disposed) return Promise.resolve('stopped');
@@ -637,7 +757,23 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       return startTransition(() => ({ to: { target: (fit?.target ?? groundTarget(nodes)).toArray(), yaw: cameraSettings.yaw, pitch: cameraSettings.pitch, zoom: store.getSnapshot().settings.zoom, extent: fit?.extent ?? groundExtent(nodes) }, fittedExtent: undefined, overviewFit: fit }), overviewOptions.transition);
     },
     getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
-    dispose: () => { if (disposed) return; clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+    dispose: () => {
+      if (disposed || disposing) return; disposing = true;
+      // Plugins clean up first, while everything they may hold is still alive.
+      const host = plugins; plugins = null; host?.dispose();
+      clock.clear(); pendingMove = null; if (options.onPointer) for (const [target, type, listener] of pointerListeners) target.removeEventListener(type, listener as EventListener);
+      clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
   };
+  if (options.plugins?.length) {
+    try {
+      plugins = setupRendererPlugins(options.plugins, plugin => ({
+        scene, renderer, container, store, loaded, camera: () => camera,
+        nodeObject: id => disposed ? null : entries.get(id)?.object ?? null,
+        onFrame: api.onFrame, onCameraChange: api.onCameraChange,
+        reportError: error => options.onError?.(new Error(`Renderer plugin "${plugin.name}": ${toError(error).message}`, { cause: error })),
+      }), error => options.onError?.(error));
+    } catch (error) { api.dispose(); throw error; }
+  }
+  return api;
 }
 

@@ -1,0 +1,9 @@
+/* Engine hooks example: the scene host and the readouts every adapter draws over it. */
+.engine-hooks-canvas { position: relative; height: 420px; }
+.engine-hooks-example output[class^="engine-"][class$="-readout"] { position: absolute; left: 10px; z-index: 2; max-width: calc(100% - 20px); padding: 4px 8px; border-radius: 5px; background: color-mix(in srgb, var(--opsorama-surface-raised) 90%, transparent); color: var(--opsorama-text); font: 500 11px/1.4 "Cascadia Code", Consolas, monospace; pointer-events: none; }
+.engine-hooks-example .engine-step-readout { top: 10px; }
+.engine-hooks-example .engine-click-readout { bottom: 38px; }
+.engine-hooks-example .engine-hover-readout { bottom: 10px; }
+.engine-hooks-example .indicator-controls { border-top: 1px solid var(--opsorama-border); }
+.engine-hooks-example .engine-plugin-status, .engine-hooks-example .engine-load-status { align-self: center; font-size: 12px; color: var(--opsorama-text); }
+.engine-hooks-example .engine-hooks-hint { padding: 8px 16px; font-size: 12px; color: var(--opsorama-text); }

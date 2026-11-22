@@ -100,6 +100,32 @@ export function TourButtons({ nodeId, tour }: { nodeId: string; tour: CameraPath
 }
 ```
 
+`SceneCanvas` takes `onPointer` (read through a ref, so an inline handler never remounts the renderer) and `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider, calls the latest listener without resubscribing and does nothing during server rendering:
+
+```tsx
+import { useRef } from 'react';
+import type { SceneStore } from '@opsorama/core';
+import { DashboardProvider, SceneCanvas, useSceneFrame } from '@opsorama/react';
+import type { RendererPlugin } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
+
+const plugins: RendererPlugin[] = []; // a module constant stays the same array
+
+function Steps() {
+  const output = useRef<HTMLOutputElement>(null);
+  useSceneFrame(frame => { if (output.current) output.current.textContent = `${frame.frame} steps`; }, { step: 1 / 60 });
+  return <output ref={output} />;
+}
+
+export function Yard({ store }: { store: SceneStore }) {
+  return <DashboardProvider store={store}>
+    <SceneCanvas assets={catalogAssets} plugins={plugins} onPointer={event => {
+      if (event.type === 'click' && event.nodeId === 'yard') event.preventSelection();
+    }}><Steps /></SceneCanvas>
+  </DashboardProvider>;
+}
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

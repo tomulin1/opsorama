@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode } from '@opsorama/core';
-import { createNodePreview, createRendererSlot, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createRendererSlot, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
 const RendererContext = createContext<RendererSlot | null>(null);
@@ -20,6 +20,19 @@ export function useCameraView(): CameraView | null {
   useEffect(() => { if (!renderer) { setView(null); return; } setView(renderer.getCameraView()); return renderer.onCameraChange(setView); }, [renderer]);
   return renderer ? view : null;
 }
+/**
+ * Calls `listener` from the frame loop of the provider's renderer, like `SceneRenderer.onFrame`: once per rendered frame,
+ * or on a fixed simulation step with `options.step`. The latest `listener` is called without resubscribing, so an inline
+ * function is fine; a change of `step` or `maxSteps` resubscribes (a fixed-step listener then starts a new scene time).
+ * Subscribes once a `SceneCanvas` under the provider has mounted and unsubscribes on unmount; does nothing during server
+ * rendering. Throws an actionable error for invalid options.
+ */
+export function useSceneFrame(listener: (frame: SceneFrame) => void, options: FrameListenerOptions = {}): void {
+  validateFrameListener(listener, options);
+  const renderer = useSceneRenderer(), latest = useRef(listener), { step, maxSteps } = options;
+  useEffect(() => { latest.current = listener; });
+  useEffect(() => renderer?.onFrame(frame => latest.current(frame), { ...(step !== undefined ? { step } : {}), ...(maxSteps !== undefined ? { maxSteps } : {}) }), [renderer, step, maxSteps]);
+}
 export function useScene(): SceneSnapshot { const store = useSceneStore(); return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot); }
 /** Controlled ZoomControl inputs bound to the provider's scene zoom setting. */
 export function useSceneZoom(): SceneZoom { const store = useSceneStore(), value = useScene().settings.zoom; return { value, min: ZOOM_RANGE.min, max: ZOOM_RANGE.max, onChange: zoom => store.configure({ zoom }) }; }
@@ -35,6 +48,10 @@ export function useRendererFps(renderer: SceneRenderer | RefObject<SceneRenderer
   return fps;
 }
 export interface SceneCanvasProps extends Omit<RendererOptions, 'loadingIndicator'> {
+  /** Pointer events on the scene; see `RendererOptions.onPointer`. Read through a ref: a new function takes effect without remounting the renderer. */
+  onPointer?: RendererOptions['onPointer'];
+  /** Renderer plugins; see `RendererOptions.plugins`. Mount-time: keep the array stable (module constant or `useMemo`), because a new array remounts the renderer. */
+  plugins?: RendererOptions['plugins'];
   className?: string; style?: CSSProperties; children?: ReactNode; onReady?: (renderer: SceneRenderer) => void;
   /** Content of the loading indicator shown until the first frame, also in server-rendered HTML. Default: spinner, progress bar and status text. Pass a node or a function of the load state (null before the renderer starts) to replace the content, or false for no indicator. */
   loading?: false | ReactNode | ((state: SceneLoadState | null) => ReactNode);
@@ -43,17 +60,17 @@ export interface SceneCanvasProps extends Omit<RendererOptions, 'loadingIndicato
 export function SceneLoadingContent({ state }: { state: SceneLoadState | null }) {
   return <><span className={SCENE_LOADING_CLASSES.spinner} aria-hidden="true" /><span className={SCENE_LOADING_CLASSES.title} aria-hidden="true">Loading scene</span><span className={SCENE_LOADING_CLASSES.bar} aria-hidden="true"><span style={{ transform: `scaleX(${loadProgress(state)})` }} /></span><span className={SCENE_LOADING_CLASSES.detail} aria-hidden="true">{loadStateText(state)}</span></>;
 }
-export function SceneCanvas({ className, style, children, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, loading, onReady, onSelect, onError, onLoad }: SceneCanvasProps) {
-  const store = useSceneStore(), slot = useContext(RendererContext); const ref = useRef<HTMLDivElement>(null); const callbacks = useRef({ onReady, onSelect, onError, onLoad }); callbacks.current = { onReady, onSelect, onError, onLoad }; const [error, setError] = useState<string | null>(null);
+export function SceneCanvas({ className, style, children, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loading, onReady, onSelect, onError, onLoad, onPointer }: SceneCanvasProps) {
+  const store = useSceneStore(), slot = useContext(RendererContext); const ref = useRef<HTMLDivElement>(null); const callbacks = useRef({ onReady, onSelect, onError, onLoad, onPointer }); callbacks.current = { onReady, onSelect, onError, onLoad, onPointer }; const [error, setError] = useState<string | null>(null);
   const [load, setLoad] = useState<SceneLoadState | null>(null);
   const theme = useSyncExternalStore(store.subscribe, () => store.getSnapshot().settings.theme, () => store.getSnapshot().settings.theme);
   useEffect(() => {
     if (!ref.current) return; let renderer: SceneRenderer | undefined, unregister: (() => void) | undefined;
     setError(null); setLoad(null);
-    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, loadingIndicator: false, onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
+    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loadingIndicator: false, onPointer: event => callbacks.current.onPointer?.(event), onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
     catch (err) { renderer?.dispose(); renderer = undefined; const error = err instanceof Error ? err : new Error(String(err)); setError(error.message); callbacks.current.onError?.(error); }
     return () => { unregister?.(); renderer?.dispose(); };
-  }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget]);
+  }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins]);
   const indicator = loading !== false && !error && load?.phase !== 'loaded'
     ? <div className={SCENE_LOADING_CLASSES.root} data-theme={theme} {...loadingIndicatorAttributes(load)}><style>{SCENE_LOADING_STYLES}</style>{typeof loading === 'function' ? loading(load) : loading ?? <SceneLoadingContent state={load} />}</div>
     : null;
