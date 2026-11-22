@@ -11,9 +11,9 @@ function CameraReadout() {
   return <output className={CAMERA_READOUT_CLASS}>{cameraReadout(projection, view)}</output>;
 }
 
-/** React: the scene and its readout under one `DashboardProvider`. */
-export function mountCamerasReact(container: HTMLElement, camera: CameraSettings, ready: (renderer: SceneRenderer) => void): CameraSession {
+/** React: the scene and its readout under one `DashboardProvider`. `touchGestures` is mount-time. */
+export function mountCamerasReact(container: HTMLElement, camera: CameraSettings, ready: (renderer: SceneRenderer) => void, touchGestures = false): CameraSession {
   const store = makeCamerasStore(camera), root = createRoot(container);
-  root.render(<DashboardProvider store={store}><SceneCanvas assets={catalogAssets} wheelZoom style={{ height: 420 }} onReady={ready}><CameraReadout /></SceneCanvas></DashboardProvider>);
+  root.render(<DashboardProvider store={store}><SceneCanvas assets={catalogAssets} wheelZoom touchGestures={touchGestures} style={{ height: 420 }} onReady={ready}><CameraReadout /></SceneCanvas></DashboardProvider>);
   return { store, dispose: () => { queueMicrotask(() => { root.unmount(); store.dispose(); }); } };
 }

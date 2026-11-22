@@ -33,6 +33,24 @@ const store = createSceneStore();
 
 `SceneCanvas` creates the renderer on mount and disposes it on unmount; the store belongs to your component.
 
+Touch input stays with the page by default, so an embedded scene never blocks scrolling (a tap still selects). The mount-time `touch-gestures` prop hands touch to the scene: one finger pans, two fingers pinch-zoom around their midpoint (writing `SceneSettings.zoom`), and with `camera.controls: 'orbit'` a two-finger twist or vertical drag turns the view. It sets `touch-action: none` on the canvas; changing the prop remounts the renderer.
+
+```vue
+<script setup lang="ts">
+import type { SceneStore } from '@opsorama/core';
+import { catalogAssets } from '@opsorama/objects';
+import { DashboardProvider, SceneCanvas } from '@opsorama/vue';
+
+defineProps<{ store: SceneStore }>();
+</script>
+
+<template>
+  <DashboardProvider :store="store">
+    <SceneCanvas :assets="catalogAssets" touch-gestures style="height: 100dvh" />
+  </DashboardProvider>
+</template>
+```
+
 Until the first frame `SceneCanvas` shows a loading indicator. The `loading` slot (given `{ state }`) replaces its content, `:loading="false"` turns it off, and `@load` reports progress.
 
 `NodePreview` shows a live copy of one node from the provider's scene in its own canvas, for example the selected node in an inspector. It mirrors the node's state, counts and animation and turns slowly; dragging or the arrow keys turn it by hand. It is 160 px high unless a class or style sizes it. `assets`, `spin` and `max-nodes` remount it when they change; changing `node-id` keeps the canvas. See `createNodePreview` in `@opsorama/three`.

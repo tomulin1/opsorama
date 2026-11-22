@@ -43,17 +43,17 @@ export interface SceneCanvasProps extends Omit<RendererOptions, 'loadingIndicato
 export function SceneLoadingContent({ state }: { state: SceneLoadState | null }) {
   return <><span className={SCENE_LOADING_CLASSES.spinner} aria-hidden="true" /><span className={SCENE_LOADING_CLASSES.title} aria-hidden="true">Loading scene</span><span className={SCENE_LOADING_CLASSES.bar} aria-hidden="true"><span style={{ transform: `scaleX(${loadProgress(state)})` }} /></span><span className={SCENE_LOADING_CLASSES.detail} aria-hidden="true">{loadStateText(state)}</span></>;
 }
-export function SceneCanvas({ className, style, children, assets, controllers, instancing, wheelZoom, buildBudget, loading, onReady, onSelect, onError, onLoad }: SceneCanvasProps) {
+export function SceneCanvas({ className, style, children, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, loading, onReady, onSelect, onError, onLoad }: SceneCanvasProps) {
   const store = useSceneStore(), slot = useContext(RendererContext); const ref = useRef<HTMLDivElement>(null); const callbacks = useRef({ onReady, onSelect, onError, onLoad }); callbacks.current = { onReady, onSelect, onError, onLoad }; const [error, setError] = useState<string | null>(null);
   const [load, setLoad] = useState<SceneLoadState | null>(null);
   const theme = useSyncExternalStore(store.subscribe, () => store.getSnapshot().settings.theme, () => store.getSnapshot().settings.theme);
   useEffect(() => {
     if (!ref.current) return; let renderer: SceneRenderer | undefined, unregister: (() => void) | undefined;
     setError(null); setLoad(null);
-    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, buildBudget, loadingIndicator: false, onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
+    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, loadingIndicator: false, onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
     catch (err) { renderer?.dispose(); renderer = undefined; const error = err instanceof Error ? err : new Error(String(err)); setError(error.message); callbacks.current.onError?.(error); }
     return () => { unregister?.(); renderer?.dispose(); };
-  }, [store, slot, assets, controllers, instancing, wheelZoom, buildBudget]);
+  }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget]);
   const indicator = loading !== false && !error && load?.phase !== 'loaded'
     ? <div className={SCENE_LOADING_CLASSES.root} data-theme={theme} {...loadingIndicatorAttributes(load)}><style>{SCENE_LOADING_STYLES}</style>{typeof loading === 'function' ? loading(load) : loading ?? <SceneLoadingContent state={load} />}</div>
     : null;

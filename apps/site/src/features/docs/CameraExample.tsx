@@ -15,7 +15,7 @@ const toDegrees = (radians: number) => Math.round(radians * 180 / Math.PI), toRa
  * each renders the readout over its scene from the camera view (`useCameraView` or `onCameraChange`).
  */
 export function CameraExample() {
-  const [adapter, setAdapter] = useState<Adapter>('React'), [mounted, setMounted] = useState(true), [loaded, setLoaded] = useState(false), [error, setError] = useState<string | null>(null);
+  const [adapter, setAdapter] = useState<Adapter>('React'), [mounted, setMounted] = useState(true), [touch, setTouch] = useState(false), [loaded, setLoaded] = useState(false), [error, setError] = useState<string | null>(null);
   const [camera, setCamera] = useState<CameraSettings>(DEFAULT_CAMERA_SETTINGS);
   const [seconds, setSeconds] = useState(1.2), [easing, setEasing] = useState<CameraEasing>(DEFAULT_CAMERA_TRANSITION.easing), [moves, setMoves] = useState<string[]>([]);
   const [following, setFollowing] = useState<CameraFollowHeading | null>(null), [tour, setTour] = useState<CameraPathPlayback | null>(null);
@@ -30,10 +30,11 @@ export function CameraExample() {
     void (async () => {
       const mount = adapter === 'React' ? (await import('../../../examples/cameras-react')).mountCamerasReact : adapter === 'Vue' ? (await import('../../../examples/cameras-vue')).mountCamerasVue : (await import('../../../examples/cameras-javascript')).mountCamerasJavaScript;
       if (!active || !container.current) return;
-      view = mount(container.current, latest.current, ready); session.current = view;
+      view = mount(container.current, latest.current, ready, touch); session.current = view;
     })().catch(failure => { if (active) setError(failure instanceof Error ? failure.message : String(failure)); });
     return () => { active = false; view?.dispose(); session.current = null; renderer.current = null; };
-  }, [adapter, mounted]);
+    // Touch gestures are a mount-time option: switching them remounts the scene, like an adapter's touchGestures prop.
+  }, [adapter, mounted, touch]);
   const signature = JSON.stringify(camera);
   useEffect(() => { session.current?.store.configure({ camera: JSON.parse(signature) as CameraSettings }); }, [signature]);
   const change = (patch: Partial<CameraSettings>) => setCamera(current => ({ ...current, ...patch }));
@@ -60,6 +61,7 @@ export function CameraExample() {
       <label>Pitch <span>{toDegrees(camera.pitch)}°</span><input aria-label="Camera pitch" type="range" min={3} max={88} step={1} value={toDegrees(camera.pitch)} onChange={event => change({ pitch: toRadians(Number(event.target.value)) })} /></label>
       <label><input type="checkbox" aria-label="Orbit controls" checked={camera.controls === 'orbit'} onChange={event => change({ controls: event.target.checked ? 'orbit' : 'pan' })} />Orbit</label>
       <label>Field of view <span>{camera.fov}°</span><input aria-label="Camera field of view" type="range" min={CAMERA_FOV_RANGE.min} max={CAMERA_FOV_RANGE.max} step={1} value={camera.fov} disabled={camera.projection !== 'perspective'} onChange={event => change({ fov: Number(event.target.value) })} /></label>
+      <label><input type="checkbox" aria-label="Touch gestures" checked={touch} onChange={event => setTouch(event.target.checked)} />Touch gestures</label>
       <button type="button" onClick={() => setCamera(DEFAULT_CAMERA_SETTINGS)}>Reset camera</button>
     </div>
     <div className="indicator-controls">
@@ -77,8 +79,8 @@ export function CameraExample() {
       <output className="camera-follow-status">{following ? `Following ${followTarget.label}${following === 'behind' ? ' from behind' : ''}` : tour ? 'Playing tour' : 'Camera free'}</output>
     </div>
     <ol className="camera-moves" aria-label="Camera moves">{moves.map((move, index) => <li key={`${index}-${move}`}>{move}</li>)}</ol>
-    <p className="camera-example-hint">Drag to pan and use the wheel to zoom. With Orbit on, drag with the right button or with Ctrl held to turn the view around its centre. A drag, another move or a zoom change interrupts a running move or tour; a pan ends following, an orbit keeps it. With reduced motion every move is a cut and the tour cuts from keyframe to keyframe.</p>
+    <p className="camera-example-hint">Drag to pan and use the wheel to zoom. With Orbit on, drag with the right button or with Ctrl held to turn the view around its centre. Touch scrolls the page until Touch gestures is on (it remounts the scene): then one finger pans, two fingers pinch to zoom, and with Orbit on twisting two fingers or dragging them up or down turns the view. A drag, another move or a zoom change interrupts a running move or tour; a pan ends following, an orbit keeps it. With reduced motion every move is a cut and the tour cuts from keyframe to keyframe.</p>
     {error && <p role="alert">{error}</p>}
-    <CodeBlock code={cameraSnippet(camera, transition, frameworks[adapter])} language={adapter === 'JavaScript' ? 'typescript' : adapter === 'React' ? 'tsx' : 'typescript'} />
+    <CodeBlock code={cameraSnippet(camera, transition, frameworks[adapter], touch)} language={adapter === 'JavaScript' ? 'typescript' : adapter === 'React' ? 'tsx' : 'typescript'} />
   </section>;
 }

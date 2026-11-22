@@ -67,9 +67,20 @@ stop();
 - `frame(id, { fit?, transition? })` and `overview({ transition? })` move on the transition's timing when given one and behave as before without. Every move resolves `'completed'` or `'interrupted'`.
 - Transitions run on real time. Reduced motion, `motion: false` and the initial load make them cuts; a drag, another move, clearing the selection or a zoom change from elsewhere interrupts them.
 - `onCameraChange` calls its listener at most once per rendered frame while the view changes. Labels behind the perspective camera are hidden.
-- With `controls: 'orbit'`, a right-button drag or a Ctrl + primary-button drag turns the view around its target (yaw, and pitch within 0.05–1.55); a primary drag still pans and the context menu is suppressed only while orbit is set. The canvas takes no keyboard focus, so give keyboard users host controls that call `setCameraView`.
+- With `controls: 'orbit'`, a right-button drag or a Ctrl + primary-button drag turns the view around its target (yaw, and pitch within 0.05–1.55); a primary drag still pans and the context menu is suppressed only while orbit is set. Pens behave like a mouse. The canvas takes no keyboard focus, so give keyboard users host controls that call `setCameraView`.
+- Touch stays with the page by default (no `touch-action` on the canvas; a tap selects). The mount-time option `touchGestures: true` sets `touch-action: none` (restored on dispose): one finger pans, two fingers pinch-zoom `SceneSettings.zoom` around their midpoint (written at most once per animation frame, within `ZOOM_RANGE`), and with `controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch. A touch that moves less than 5 px still selects; a gesture interrupts transitions and paths like a drag, a one-finger pan ends following, and a pinch while following zooms around the followed node.
 - `followNode(id | null, { distance?, heading? })` keeps the target on a node every frame (routes, controllers and carriers included); `heading: 'behind'` also turns the yaw, smoothed, behind the node. A pan or another camera move ends it (`'interrupted'`), an orbit keeps it, removing or hiding the node ends it (`'removed'`), and `followNode(null)` ends it (`'stopped'`); the promise resolves with that reason. `getFollowedNode()` returns the followed ID.
 - `playCameraPath(path)` plays `CameraKeyframe`s (a view and/or a framed node, travel `seconds`, `hold`, `easing`, `loop`) on real seconds and returns `{ stop(), finished }`. Reduced motion and `motion: false` cut to each keyframe at its time; a drag, `frame`, `overview`, `setCameraView`, `followNode`, an outside zoom change or a new path interrupts it.
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry, createSceneRenderer } from '@opsorama/three';
+import { vehiclesKit } from '@opsorama/objects/vehicles';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 'floor', kind: 'ground', size: [20, 12] }] }, { camera: { controls: 'orbit' } });
+// A full-viewport scene takes touch from the page; embedded scenes usually leave it off.
+const renderer = createSceneRenderer(container, store, { assets: createAssetRegistry(vehiclesKit), touchGestures: true, wheelZoom: true });
+```
 
 ### Node preview
 
