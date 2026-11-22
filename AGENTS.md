@@ -1,6 +1,6 @@
 # Working rules for contributors and their agents
 
-**Opsorama** (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source, framework-agnostic toolkit for animated 3D dashboards with native React and Vue adapters and plain JavaScript support. These rules apply to everyone who changes this repository, human or AI agent. `CLAUDE.md` points here. Maintainers may add local, git-ignored instructions (`CLAUDE.local.md`, `AGENTS.local.md`); those never change the rules below for public contributions.
+**Opsorama** (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source, framework-agnostic toolkit for declarative, data-driven 3D scenes in web applications, with animated operational dashboards as the flagship use, native React and Vue adapters and plain JavaScript support. These rules apply to everyone who changes this repository, human or AI agent. `CLAUDE.md` points here. Maintainers may add local, git-ignored instructions (`CLAUDE.local.md`, `AGENTS.local.md`); those never change the rules below for public contributions.
 
 ## Language and identity
 

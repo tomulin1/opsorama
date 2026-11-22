@@ -43,7 +43,7 @@ function IntroCarousel() {
       <div className="landing-slide" role="group" aria-roledescription="slide" aria-label={`1 of ${count}: ${SLIDE_TITLES[0]}`} aria-hidden={active !== 0} inert={active !== 0}>
         <span className="docs-eyebrow">OPSORAMA · OPERATIONS + PANORAMA</span>
         <h1>A clear view of your operations.</h1>
-        <p>Animated 3D boards for commerce, logistics, people and places. This city runs six of our examples in one scene, from their own code.</p>
+        <p>Data-driven 3D scenes for web apps, led by animated boards for commerce, logistics, people and places. This city runs six of our examples in one scene, from their own code.</p>
         <div className="examples-hero-actions"><Link href="/docs">Start building<ArrowUpRight size={16} /></Link><Link href="/examples">All examples<ArrowUpRight size={16} /></Link></div>
       </div>
       {CAPABILITIES.map((item, index) => <div className="landing-slide landing-capability" key={item.href} role="group" aria-roledescription="slide" aria-label={`${index + 2} of ${count}: ${item.title}`} aria-hidden={active !== index + 1} inert={active !== index + 1}>

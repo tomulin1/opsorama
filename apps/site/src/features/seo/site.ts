@@ -5,7 +5,7 @@ import { projectIdentity } from '@/features/brand/project';
 export const SITE_ORIGIN = 'https://opsorama.dev';
 export const SITE_NAME = 'Opsorama';
 /** Default meta description for pages that do not set their own (about 160 characters, the length search results show). */
-export const SITE_DESCRIPTION = 'Open-source toolkit for animated 3D operations dashboards: warehouses, shops, offices, datacenters and more. Native React and Vue adapters and plain JavaScript.';
+export const SITE_DESCRIPTION = 'Open-source toolkit for declarative, data-driven 3D scenes in web apps, built for AI coding agents. Flagship: animated operations dashboards. React, Vue and JavaScript.';
 /** Title of the home page and the fallback document title. */
 export const SITE_TITLE = 'Opsorama — Animated 3D dashboards for React, Vue and JavaScript';
 /** Browser and manifest theme color: the white site header (`--opsorama-surface-raised`). */
