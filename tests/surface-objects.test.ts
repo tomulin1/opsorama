@@ -74,7 +74,7 @@ describe('ground surfaces', () => {
     expect(resolveFootprint({ variant: 'parking' }, assetFootprintDefinitions.terrain)).toEqual([10, 5]);
     expect(() => validateNode({ id: 'f', kind: 'asset', asset: 'floor', footprint: [4, 0] })).toThrow('positive finite');
     expect(() => validateNode({ id: 'f', kind: 'asset', asset: 'floor', footprint: [4, Infinity] })).toThrow('positive finite');
-    expect(() => validateNode({ id: 'b', kind: 'asset', asset: 'building', footprint: [4, 4] })).toThrow('building.size');
+    expect(() => build('building', { footprint: [4, 4] })).toThrow('no footprint configuration');
     expect(() => build('parcel', { footprint: [1, 1] })).toThrow('no footprint configuration');
     const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 'f', kind: 'asset', asset: 'floor', footprint: [4, 3] }] }), node = store.getSnapshot().nodes[0];
     expect(node.kind === 'asset' && Object.isFrozen(node.footprint)).toBe(true); store.dispose();

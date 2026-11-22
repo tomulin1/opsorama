@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { disposeObject } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
-import { isInteriorVisible, type AssetNode } from '@opsorama/core';
+import { isNodeVisible, type AssetNode } from '@opsorama/core';
 import { animateAsset } from '../packages/three/src/animation';
 import { datacenterDefinition, datacenterIncidents, datacenterReading, datacenterRecords, makeDatacenterStore, setDatacenterRoom, setDatacenterScenario, updateDatacenter } from '../apps/site/examples/datacenter-data';
 
@@ -160,7 +160,7 @@ describe('datacenter object kit', () => {
     const store = makeDatacenterStore(); setDatacenterRoom(store, room); const nodes = store.getSnapshot().nodes;
     let meshCount = 0, triangles = 0, bufferBytes = 0;
     for (const node of nodes) {
-      if (node.kind !== 'asset' || !isInteriorVisible(node, nodes)) continue;
+      if (node.kind !== 'asset' || !isNodeVisible(node, nodes)) continue;
       const model = build(node.asset, { ...node, surfaceLabel: undefined });
       try {
         for (const mesh of meshes(model)) {

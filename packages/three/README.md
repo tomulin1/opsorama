@@ -47,7 +47,7 @@ store.subscribe(() => preview.setNode(store.getSnapshot().selection?.nodeId ?? n
 ```
 
 - It reads the scene's store, so state, count, material, theme and palette changes rebuild the copy, and model animation follows the scene's motion, pause, speed and reduced-motion settings.
-- The copy contains the node and its visible descendants: attached nodes, and the interior of an open building (`previewNodes` lists them; at most `maxNodes`, default 240). Markers have no geometry and show nothing. Routes, controllers and transfers are left out, so nothing travels.
+- The copy contains the node and its visible descendants: attached nodes, and the children of an open container such as a building (`previewNodes` lists them; at most `maxNodes`, default 240). Markers have no geometry and show nothing. Routes, controllers and transfers are left out, so nothing travels.
 - The copy turns slowly (`spin`, default 0.4 rad/s, 0 to keep it still); dragging horizontally or the left and right arrow keys turn it by hand. It never selects or changes the store.
 - The canvas is transparent and draws only while something moves. Each preview owns one WebGL context: use one per panel, not one per list row.
 

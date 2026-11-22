@@ -1,16 +1,70 @@
 import * as THREE from 'three';
-import { BUILDING_PALETTES, BUILDING_SIZE, validateBuilding, type AssetNode, type MaterialOverrides } from '@opsorama/core';
+import { nodeView, type AssetNode, type MaterialOverrides, type SceneNode, type Vec3 } from '@opsorama/core';
 import { anchor, block, part } from './parts';
 
-/** Single-storey exterior styles over one container contract. Contents remain independent scene nodes. */
+/** Building colour roles: walls, roof, interior floor and trim (eaves, doors, window frames). Six-digit hex. */
+export interface BuildingPalette { wall: string; roof: string; floor: string; trim: string; }
+/** Exterior styles of the `building` asset, in catalog order. */
+export const BUILDING_TYPES = Object.freeze(['generic', 'warehouse', 'distribution-center', 'workshop', 'office', 'retail', 'storage-shed'] as const);
+export type BuildingType = typeof BUILDING_TYPES[number];
+/** Display names for `BUILDING_TYPES`. */
+export const BUILDING_TYPE_LABELS: Readonly<Record<BuildingType, string>> = Object.freeze({ generic: 'Generic building', warehouse: 'Warehouse', 'distribution-center': 'Distribution center', workshop: 'Workshop', office: 'Office', retail: 'Retail unit', 'storage-shed': 'Storage shed' });
+/**
+ * Options of the `building` asset, passed as `AssetNode.building`. The interior view and hover preview are the
+ * generic `AssetNode.view` and `AssetNode.peekOnHover`: a non-closed view hides the roof and lowers the walls.
+ */
+export interface BuildingOptions {
+  /** Exterior style; changing it preserves dimensions, local contents and identities. Default `'generic'`. */
+  type?: BuildingType;
+  /** Exterior width, height and depth in metres, each 2–100; base-center pivot, front +z. Default `BUILDING_SIZE`. */
+  size?: Vec3;
+  /** How an open or peeking building is cut: `'low-walls'` (default) lowers every wall to 0.45 m; `'front'` keeps the far (-x/-z) walls for a readable isometric interior. */
+  cutaway?: 'low-walls' | 'front';
+  /** Partial six-digit hex overrides of the theme palette roles. */
+  colors?: Partial<BuildingPalette>;
+}
+/** Default building size `[width, height, depth]` in metres. */
+export const BUILDING_SIZE: Vec3 = Object.freeze([8, 3.6, 6]);
+/** Theme palettes of the building before scene palette, `color`, instance materials and `colors` overrides. */
+export const BUILDING_PALETTES: Readonly<Record<'light' | 'midnight', Readonly<BuildingPalette>>> = Object.freeze({
+  light: Object.freeze({ wall: '#dfe7f1', roof: '#536b8b', floor: '#c5d2df', trim: '#8fa4bd' }),
+  midnight: Object.freeze({ wall: '#536579', roof: '#30435f', floor: '#71839a', trim: '#9bb1cc' }),
+});
+/** Throws an actionable error when building options are invalid. */
+export function validateBuilding(options: BuildingOptions): void {
+  if (typeof options !== 'object' || options === null || Array.isArray(options)) throw new Error('Building options must be an object.');
+  const legacy = options as { view?: unknown; peekOnHover?: unknown };
+  if (legacy.view !== undefined || legacy.peekOnHover !== undefined) throw new Error('building.view and building.peekOnHover are not building options; set view and peekOnHover on the asset node itself.');
+  if (options.type !== undefined && !BUILDING_TYPES.includes(options.type)) throw new Error(`Unknown building type: ${String(options.type)}. Use ${BUILDING_TYPES.join(', ')}.`);
+  const size = options.size ?? BUILDING_SIZE;
+  if (!Array.isArray(size) || size.length !== 3 || size.some(value => !Number.isFinite(value) || value < 2 || value > 100)) throw new Error('Building dimensions must be between 2 and 100 metres.');
+  if (options.cutaway !== undefined && !['low-walls', 'front'].includes(options.cutaway)) throw new Error('Invalid building cutaway. Use low-walls or front.');
+  if (options.colors && Object.entries(options.colors).some(([role, color]) => !['wall', 'roof', 'floor', 'trim'].includes(role) || typeof color !== 'string' || !/^#[\da-f]{6}$/i.test(color))) throw new Error('Building colors must be six-digit hex palette overrides.');
+}
+/** A `building` asset node, with `building` typed as `BuildingOptions`. */
+export type BuildingNode = AssetNode & { asset: 'building'; building?: BuildingOptions };
+export function isBuilding(node: SceneNode | undefined): node is BuildingNode {
+  return node?.kind === 'asset' && node.asset === 'building';
+}
+/** Validates a building node: its options and the node fields a building does not support. */
+export function validateBuildingNode(node: AssetNode): void {
+  validateBuilding((node.building ?? {}) as BuildingOptions);
+  if (node.variant !== undefined || node.count !== undefined || node.multiplier !== undefined || node.measurement !== undefined || node.surfaceLabel !== undefined || node.footprint !== undefined) throw new Error('Building does not support variants, counts, measurements, surface labels or footprints; use building.size.');
+}
+
+/**
+ * Single-storey exterior styles over one container contract. Contents remain independent scene nodes (`parentId`).
+ * Sets `userData.containerBounds` (stable closed-shell bounds for hover peek) and `userData.labelHeight`.
+ */
 export function createBuilding(node: AssetNode, context?: { theme: 'light' | 'midnight'; palette?: MaterialOverrides }): THREE.Object3D {
-  validateBuilding(node.building ?? {});
-  const [width, height, depth] = node.building?.size ?? BUILDING_SIZE;
+  validateBuildingNode(node);
+  const options = (node.building ?? {}) as BuildingOptions;
+  const [width, height, depth] = options.size ?? BUILDING_SIZE;
   const roles = (value?: MaterialOverrides) => ({ ...(value?.surface ? { wall: value.surface } : {}), ...(value?.structure ? { roof: value.structure } : {}), ...(value?.trim ? { trim: value.trim } : {}) });
-  const palette = { ...BUILDING_PALETTES[context?.theme ?? 'light'], ...roles(context?.palette), ...(node.color ? { wall: node.color } : {}), ...roles(node.materials), ...node.building?.colors };
-  const type = node.building?.type ?? 'generic';
+  const palette = { ...BUILDING_PALETTES[context?.theme ?? 'light'], ...roles(context?.palette), ...(node.color ? { wall: node.color } : {}), ...roles(node.materials), ...options.colors };
+  const type = options.type ?? 'generic';
   const group = new THREE.Group(); group.name = 'building';
-  const cutaway = (node.building?.view ?? 'closed') !== 'closed', frontCutaway = cutaway && node.building?.cutaway === 'front', thickness = .16, floor = .12;
+  const cutaway = nodeView(node) !== 'closed', frontCutaway = cutaway && options.cutaway === 'front', thickness = .16, floor = .12;
   // Indoor shadow policy: the shell never darkens its own floor; interior nodes neither cast nor receive.
   block(group, [width, floor, depth], [0, floor / 2, 0], palette.floor, 'building-floor').receiveShadow = false;
   const shell = new THREE.Group(); shell.name = 'building-shell'; group.add(shell);
@@ -92,6 +146,7 @@ export function createBuilding(node: AssetNode, context?: { theme: 'light' | 'mi
   anchor(group, 'interior', [0, floor, 0]); anchor(group, 'entrance', [0, floor, depth / 2 + .2]); anchor(group, 'roof', [0, height + .16, 0]);
   if (type === 'distribution-center') for (let i = 0; i < 3; i++) anchor(group, `dock-${i}`, [(i - 1) * width / 3, floor, depth / 2 + .25]);
   // Stable closed-shell bounds for hover retention: no invisible mesh and no child-picking obstruction.
-  group.userData.buildingBounds = new THREE.Box3(new THREE.Vector3(-width / 2 - .08, 0, -depth / 2 - .08), new THREE.Vector3(width / 2 + .08, height + (type === 'office' ? .28 : .19), depth / 2 + (type === 'retail' ? .55 : type === 'distribution-center' ? .25 : .125)));
+  group.userData.containerBounds = new THREE.Box3(new THREE.Vector3(-width / 2 - .08, 0, -depth / 2 - .08), new THREE.Vector3(width / 2 + .08, height + (type === 'office' ? .28 : .19), depth / 2 + (type === 'retail' ? .55 : type === 'distribution-center' ? .25 : .125)));
+  group.userData.labelHeight = height + .4;
   return group;
 }

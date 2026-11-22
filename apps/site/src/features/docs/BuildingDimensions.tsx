@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { validateBuilding, type Vec3 } from '@opsorama/core';
+import type { Vec3 } from '@opsorama/core';
+import { validateBuilding } from '@opsorama/objects';
 
 export function BuildingDimensions({ size, onChange }: { size: Vec3; onChange: (size: Vec3) => void }) {
   const [drafts, setDrafts] = useState(() => size.map(String)), [error, setError] = useState<string>();

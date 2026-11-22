@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { disposeObject } from '@opsorama/three';
-import { catalogAssets } from '@opsorama/objects';
+import { catalogAssets, type BuildingOptions } from '@opsorama/objects';
 import { objectNode, type CatalogObject } from './objects';
-import type { Measurement, CountLayout, BuildingOptions, Footprint } from '@opsorama/core';
+import type { Measurement, CountLayout, Footprint, NodeView } from '@opsorama/core';
 
 export { catalogAssets };
-export function modelFor(item: CatalogObject, options: { building?: BuildingOptions; count?: number; countLayout?: CountLayout; variant?: string; measurement?: Measurement | false; footprint?: Footprint } = {}): THREE.Object3D {
+export function modelFor(item: CatalogObject, options: { building?: BuildingOptions; view?: NodeView; count?: number; countLayout?: CountLayout; variant?: string; measurement?: Measurement | false; footprint?: Footprint } = {}): THREE.Object3D {
   if (item.asset) return catalogAssets[item.asset](objectNode(item, options) as Parameters<typeof catalogAssets[string]>[0]);
   const group = new THREE.Group();
   if (item.primitive === 'path') {
@@ -26,7 +26,7 @@ export function previewScale(item: CatalogObject, options: { building?: Building
   const definition = item.countDefinition;
   const capacity = definition ? definition.kind === 'range' ? definition.max : Math.max(...definition.values) : undefined;
   // Keep cutaways fitted to the full shell so opening cannot enlarge the contents.
-  const model = modelFor(item, { ...options, ...(options.building ? { building: { ...options.building, view: 'closed' } } : {}), ...(capacity === undefined ? {} : { count: capacity }) });
+  const model = modelFor(item, { ...options, view: 'closed', ...(capacity === undefined ? {} : { count: capacity }) });
   try { const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()); return 7 / Math.max(size.x, size.y, size.z); }
   finally { disposeObject(model); }
 }

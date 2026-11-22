@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { isBuilding, type SceneNode, type SceneStore } from '@opsorama/core';
+import { nodeView, type SceneNode, type SceneStore } from '@opsorama/core';
 import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { buildPrimitive } from './primitives';
@@ -12,7 +12,7 @@ export const NODE_PREVIEW_SPIN = .4;
 /**
  * The nodes a preview of `rootId` draws, in build order (each owner before the nodes it carries or contains).
  * The copy holds the root node and every descendant that is visible in the scene: attached nodes always, and
- * `parentId` children only while their building container is open or peeking, as `isInteriorVisible` decides.
+ * `parentId` children only while their container's view is open or peeking, as `isNodeVisible` decides.
  * Marker nodes have no geometry and are left out, with their descendants. The root copy sits at the origin
  * without its own `parentId`, `attachment`, route, controller or transfer; descendants keep their local placement
  * but lose routes, controllers and transfers, so nothing travels inside the preview. Returns an empty list when
@@ -38,8 +38,8 @@ export function previewNodes(nodes: readonly SceneNode[], rootId: string, maxNod
     const owner = result[index];
     for (const child of owned.get(owner.id) ?? []) {
       if (seen.has(child.id) || result.length >= maxNodes) continue;
-      // `parentId` places a node inside a building; a closed building hides it, as in the scene.
-      if (!child.attachment && (!isBuilding(owner) || (owner.building?.view ?? 'closed') === 'closed')) continue;
+      // `parentId` places a node inside a container; a closed container hides it, as in the scene.
+      if (!child.attachment && nodeView(owner) === 'closed') continue;
       seen.add(child.id); result.push(strip(child));
     }
   }

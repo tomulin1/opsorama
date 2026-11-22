@@ -1,46 +1,53 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { bindBuildingInterior, BUILDING_PALETTES, BUILDING_TYPES, createSceneStore, isInteriorVisible, setBuildingView, type AssetNode, type SceneNode } from '@opsorama/core';
+import { bindChildren, createSceneStore, isNodeVisible, setNodeView, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
-import { catalogAssets } from '@opsorama/objects';
+import { BUILDING_PALETTES, BUILDING_TYPES, catalogAssets, isBuilding } from '@opsorama/objects';
 import { buildingContents, buildingDefinition } from '../apps/site/examples/building-data';
 
-const building: AssetNode = { id: 'building', kind: 'asset', asset: 'building', building: { view: 'closed' } };
+const building: AssetNode = { id: 'building', kind: 'asset', asset: 'building', view: 'closed' };
 const child: AssetNode = { id: 'desk', kind: 'asset', asset: 'desk-pod', parentId: building.id, position: [1, .12, 0], selectable: true };
 const makeStore = (nodes: readonly SceneNode[] = [building]) => createSceneStore({ schemaVersion: 1, nodes });
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
 
 describe('building containers', () => {
-  it('validates dimensions, views, role overrides, parent types and cycles atomically', () => {
+  it('validates views, hover peek, parent types and cycles atomically in the store', () => {
     const store = makeStore(), before = store.getSnapshot();
-    for (const config of [{ size: [0, 3, 6] }, { size: [101, 3, 6] }, { size: [8, NaN, 6] }, { view: 'transparent' }, { peekOnHover: 1 }, { colors: { wall: 'red' } }, { colors: { unknown: '#123456' } }]) {
-      expect(() => store.upsert({ ...building, building: config } as AssetNode)).toThrow(); expect(store.getSnapshot()).toBe(before);
+    for (const fields of [{ view: 'transparent' }, { peekOnHover: 1 }, { building: [] }]) {
+      expect(() => store.upsert({ ...building, ...fields } as AssetNode)).toThrow(); expect(store.getSnapshot()).toBe(before);
     }
-    expect(() => store.upsert({ ...child, parentId: child.id })).toThrow();
-    expect(() => store.replace([child, { ...child, id: building.id, parentId: undefined }])).toThrow('must be a building');
+    expect(() => store.upsert({ ...child, parentId: child.id })).toThrow('Invalid parent ID');
+    expect(() => store.replace([{ ...child, parentId: 'floor' }, { id: 'floor', kind: 'ground', size: [4, 4] }])).toThrow('must be an asset node');
     expect(() => store.replace([{ ...building, parentId: 'nested' }, { ...building, id: 'nested', parentId: building.id }])).toThrow('cycle');
-    expect(() => store.upsert({ ...child, building: {} })).toThrow('require the building');
-    expect(() => store.upsert({ ...building, count: 1 })).toThrow('does not support');
-    expect(() => setBuildingView(store, 'missing', 'open')).toThrow();
+    expect(() => setNodeView(store, 'missing', 'open')).toThrow('Unknown scene node');
     store.dispose();
+  });
+  it('validates building options and unsupported fields in the building factory', () => {
+    for (const config of [{ size: [0, 3, 6] }, { size: [101, 3, 6] }, { size: [8, NaN, 6] }, { colors: { wall: 'red' } }, { colors: { unknown: '#123456' } }, { cutaway: 'side' }]) {
+      expect(() => catalogAssets.building({ ...building, building: config } as AssetNode)).toThrow();
+    }
+    expect(() => catalogAssets.building({ ...building, building: { view: 'open' } })).toThrow('set view and peekOnHover on the asset node');
+    expect(() => catalogAssets.building({ ...building, count: 1 })).toThrow('does not support');
+    expect(() => catalogAssets['desk-pod']({ ...child, building: {} })).toThrow('has no building options');
   });
   it('deeply snapshots building options without mutating caller data', () => {
     const size: [number, number, number] = [8, 3, 6], colors = { roof: '#123456' };
     const store = makeStore([{ ...building, building: { size, colors } }]); size[0] = 20; colors.roof = '#abcdef';
-    const node = store.getSnapshot().nodes[0] as AssetNode;
+    const node = store.getSnapshot().nodes[0];
+    if (!isBuilding(node)) throw new Error('Expected a building.');
     expect(node.building?.size).toEqual([8, 3, 6]); expect(node.building?.colors?.roof).toBe('#123456');
     expect(Object.isFrozen(node.building?.colors)).toBe(true); expect(Object.isFrozen(node.building?.size)).toBe(true); store.dispose();
   });
   it('makes missing/closed ancestors dormant, preserves independent identities, and clears hidden selection', () => {
-    const nested: AssetNode = { ...building, id: 'nested', parentId: building.id, building: { view: 'open' } };
+    const nested: AssetNode = { ...building, id: 'nested', parentId: building.id, view: 'open' };
     const desk = { ...child, parentId: nested.id, entityId: 'actual-desk' };
     const store = makeStore([building, nested, desk]);
-    expect(isInteriorVisible(desk, store.getSnapshot().nodes)).toBe(false);
+    expect(isNodeVisible(desk, store.getSnapshot().nodes)).toBe(false);
     store.select(desk.id); expect(store.getSnapshot().selection).toBeNull();
-    setBuildingView(store, building.id, 'peek'); expect(isInteriorVisible(desk, store.getSnapshot().nodes)).toBe(true);
+    setNodeView(store, building.id, 'peek'); expect(isNodeVisible(desk, store.getSnapshot().nodes)).toBe(true);
     store.select(desk.id); expect(store.getSnapshot().selection?.entityId).toBe('actual-desk');
-    setBuildingView(store, building.id, 'closed'); expect(store.getSnapshot().selection).toBeNull();
-    expect(isInteriorVisible({ ...child, parentId: 'pending-parent' }, store.getSnapshot().nodes)).toBe(false);
+    setNodeView(store, building.id, 'closed'); expect(store.getSnapshot().selection).toBeNull();
+    expect(isNodeVisible({ ...child, parentId: 'pending-parent' }, store.getSnapshot().nodes)).toBe(false);
     store.remove(building.id); expect(store.getSnapshot().nodes).toEqual([]); store.dispose();
   });
 });
@@ -48,76 +55,75 @@ describe('building containers', () => {
 describe('lazy interior host binding', () => {
   it('waits for visibility, caches successful data, and leaves unrelated host nodes intact', async () => {
     const store = makeStore(), load = vi.fn(async () => [child]), state = vi.fn();
-    const unbind = bindBuildingInterior(store, building.id, load, state); await flush(); expect(load).not.toHaveBeenCalled();
-    setBuildingView(store, building.id, 'open'); await flush();
+    const unbind = bindChildren(store, building.id, load, state); await flush(); expect(load).not.toHaveBeenCalled();
+    setNodeView(store, building.id, 'open'); await flush();
     expect(load).toHaveBeenCalledTimes(1); expect(state).toHaveBeenLastCalledWith('ready');
     const cached = store.getSnapshot().nodes.find(node => node.id === child.id); expect(cached?.parentId).toBe(building.id);
-    setBuildingView(store, building.id, 'closed'); setBuildingView(store, building.id, 'open'); await flush(); expect(load).toHaveBeenCalledTimes(1);
+    setNodeView(store, building.id, 'closed'); setNodeView(store, building.id, 'open'); await flush(); expect(load).toHaveBeenCalledTimes(1);
     store.upsert({ id: 'unrelated', kind: 'asset', asset: 'tree' }); unbind();
     expect(store.getSnapshot().nodes.map(node => node.id)).toEqual([building.id, 'unrelated']); store.dispose();
   });
   it('aborts on close and ignores stale responses even when a loader ignores AbortSignal', async () => {
     const store = makeStore(); const requests: { signal: AbortSignal; resolve: (nodes: readonly SceneNode[]) => void }[] = [];
-    const unbind = bindBuildingInterior(store, building.id, signal => new Promise(resolve => requests.push({ signal, resolve })));
-    setBuildingView(store, building.id, 'peek'); await flush(); expect(requests).toHaveLength(1);
-    setBuildingView(store, building.id, 'closed'); expect(requests[0].signal.aborted).toBe(true);
-    setBuildingView(store, building.id, 'open'); await flush(); requests[0].resolve([child]); await flush(); expect(store.getSnapshot().nodes).toHaveLength(1);
+    const unbind = bindChildren(store, building.id, signal => new Promise(resolve => requests.push({ signal, resolve })));
+    setNodeView(store, building.id, 'peek'); await flush(); expect(requests).toHaveLength(1);
+    setNodeView(store, building.id, 'closed'); expect(requests[0].signal.aborted).toBe(true);
+    setNodeView(store, building.id, 'open'); await flush(); requests[0].resolve([child]); await flush(); expect(store.getSnapshot().nodes).toHaveLength(1);
     requests[1].resolve([{ ...child, id: 'new' }]); await flush(); expect(store.getSnapshot().nodes.map(node => node.id)).toEqual([building.id, 'new']); unbind(); store.dispose();
   });
   it('cancels loading when an ancestor closes, the building disappears, or the binding is disposed', async () => {
     for (const action of ['ancestor', 'remove', 'unbind']) {
-      const store = makeStore([{ ...building, building: { view: 'open' } }, { ...building, id: 'nested', parentId: building.id, building: { view: 'open' } }]);
+      const store = makeStore([{ ...building, view: 'open' }, { ...building, id: 'nested', parentId: building.id, view: 'open' }]);
       let signal: AbortSignal | undefined, resolve: ((nodes: readonly SceneNode[]) => void) | undefined;
-      const unbind = bindBuildingInterior(store, 'nested', value => { signal = value; return new Promise(done => { resolve = done; }); }); await flush();
-      if (action === 'ancestor') setBuildingView(store, building.id, 'closed'); else if (action === 'remove') store.remove('nested'); else unbind();
+      const unbind = bindChildren(store, 'nested', value => { signal = value; return new Promise(done => { resolve = done; }); }); await flush();
+      if (action === 'ancestor') setNodeView(store, building.id, 'closed'); else if (action === 'remove') store.remove('nested'); else unbind();
       expect(signal?.aborted).toBe(true); resolve?.([child]); await flush(); expect(store.getSnapshot().nodes.some(node => node.id === child.id)).toBe(false); unbind(); store.dispose();
     }
   });
   it('rejects collisions and malformed contents without partial writes, then retries after reopening', async () => {
     const store = makeStore(), state = vi.fn(), load = vi.fn(async () => [child, { ...child, id: building.id }]);
-    const unbind = bindBuildingInterior(store, building.id, load, state);
-    setBuildingView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('error', expect.any(Error)); expect(store.getSnapshot().nodes).toHaveLength(1);
-    load.mockResolvedValueOnce([{ ...child, parentId: 'other' }]); setBuildingView(store, building.id, 'closed'); setBuildingView(store, building.id, 'open'); await flush(); expect(store.getSnapshot().nodes).toHaveLength(1);
-    load.mockResolvedValueOnce([child]); setBuildingView(store, building.id, 'closed'); setBuildingView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('ready'); unbind(); store.dispose();
+    const unbind = bindChildren(store, building.id, load, state);
+    setNodeView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('error', expect.any(Error)); expect(store.getSnapshot().nodes).toHaveLength(1);
+    load.mockResolvedValueOnce([{ ...child, parentId: 'other' }]); setNodeView(store, building.id, 'closed'); setNodeView(store, building.id, 'open'); await flush(); expect(store.getSnapshot().nodes).toHaveLength(1);
+    load.mockResolvedValueOnce([child]); setNodeView(store, building.id, 'closed'); setNodeView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('ready'); unbind(); store.dispose();
   });
   it('treats empty contents as a successful cached load and catches synchronous host errors', async () => {
     const store = makeStore(), state = vi.fn();
     const load = vi.fn(() => { throw new Error('Host failed'); });
-    const unbind = bindBuildingInterior(store, building.id, load, state); setBuildingView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('error', expect.any(Error)); unbind();
-    const empty = vi.fn(async () => []); const stop = bindBuildingInterior(store, building.id, empty, state); await flush(); expect(state).toHaveBeenLastCalledWith('ready');
-    setBuildingView(store, building.id, 'closed'); setBuildingView(store, building.id, 'open'); await flush(); expect(empty).toHaveBeenCalledTimes(1); stop(); store.dispose();
+    const unbind = bindChildren(store, building.id, load, state); setNodeView(store, building.id, 'open'); await flush(); expect(state).toHaveBeenLastCalledWith('error', expect.any(Error)); unbind();
+    const empty = vi.fn(async () => []); const stop = bindChildren(store, building.id, empty, state); await flush(); expect(state).toHaveBeenLastCalledWith('ready');
+    setNodeView(store, building.id, 'closed'); setNodeView(store, building.id, 'open'); await flush(); expect(empty).toHaveBeenCalledTimes(1); stop(); store.dispose();
   });
   it('removes nested contents and cancels their bindings when their owning container is unbound', async () => {
-    const store = makeStore([{ ...building, building: { view: 'open' } }]);
-    const unbindOuter = bindBuildingInterior(store, building.id, async () => [{ ...building, id: 'nested', building: { view: 'open' } }]); await flush();
-    const unbindNested = bindBuildingInterior(store, 'nested', async () => [{ ...child, parentId: 'nested' }]); await flush();
+    const store = makeStore([{ ...building, view: 'open' }]);
+    const unbindOuter = bindChildren(store, building.id, async () => [{ ...building, id: 'nested', view: 'open' }]); await flush();
+    const unbindNested = bindChildren(store, 'nested', async () => [{ ...child, parentId: 'nested' }]); await flush();
     expect(store.getSnapshot().nodes).toHaveLength(3); unbindOuter(); expect(store.getSnapshot().nodes.map(node => node.id)).toEqual([building.id]); unbindNested(); store.dispose();
   });
 });
 
 describe('shared building geometry', () => {
   it('validates types and keeps all styles grounded and bounded at minimum, default and maximum dimensions', () => {
-    const store = makeStore(), snapshot = store.getSnapshot();
-    expect(() => store.upsert({ ...building, building: { type: 'castle' } } as unknown as AssetNode)).toThrow('Unknown building type'); expect(store.getSnapshot()).toBe(snapshot);
+    expect(() => catalogAssets.building({ ...building, building: { type: 'castle' } })).toThrow('Unknown building type');
     for (const type of BUILDING_TYPES) for (const size of [[2, 2, 2], [8, 3.6, 6], [100, 100, 100]] as const) {
-      const closed = catalogAssets.building({ ...building, building: { type, size } }), open = catalogAssets.building({ ...building, building: { type, size, view: 'open' } });
+      const closed = catalogAssets.building({ ...building, building: { type, size } }), open = catalogAssets.building({ ...building, view: 'open', building: { type, size } });
       const bounds = new THREE.Box3().setFromObject(closed);
       expect(bounds.min.y, type).toBeCloseTo(0); expect(bounds.max.y, type).toBeLessThanOrEqual(size[1] + .3);
       expect(bounds.min.x, type).toBeGreaterThanOrEqual(-size[0] / 2 - .12); expect(bounds.max.x, type).toBeLessThanOrEqual(size[0] / 2 + .12);
       expect(bounds.max.z, type).toBeLessThanOrEqual(size[2] / 2 + .56);
       expect(closed.getObjectByName('building-roof'), type).toBeDefined(); expect(open.getObjectByName('building-roof'), type).toBeUndefined();
       expect(new THREE.Box3().setFromObject(open).max.y, type).toBeCloseTo(.57);
-      expect(closed.userData.buildingBounds.equals(open.userData.buildingBounds), type).toBe(true);
+      expect(closed.userData.containerBounds.equals(open.userData.containerBounds), type).toBe(true);
+      expect(closed.userData.labelHeight, type).toBeCloseTo(size[1] + .4); expect(open.userData.labelHeight, type).toBeCloseTo(size[1] + .4);
       closed.traverse(part => { if (part instanceof THREE.Mesh) { const positions = part.geometry.getAttribute('position'); for (let index = 0; index < positions.count; index++) for (const value of [positions.getX(index), positions.getY(index), positions.getZ(index)]) expect(Number.isFinite(value), type).toBe(true); } });
       disposeObject(closed); disposeObject(open);
     }
-    store.dispose();
   });
   it('gives each type its declared architectural details, inherited colors and stable composition anchors', () => {
     const details = { generic: 'building-roof-seam', warehouse: 'building-shutter-slat', 'distribution-center': 'building-dock-door', workshop: 'building-gable', office: 'building-parapet', retail: 'building-awning', 'storage-shed': 'building-ridge' };
     for (const type of BUILDING_TYPES) {
       const node: AssetNode = { ...building, building: { type, colors: { roof: '#123456' } } };
-      const closed = catalogAssets.building(node, { theme: 'midnight' }), open = catalogAssets.building({ ...node, building: { ...node.building, view: 'open' } });
+      const closed = catalogAssets.building(node, { theme: 'midnight' }), open = catalogAssets.building({ ...node, view: 'open' });
       expect(closed.getObjectByName(details[type]), type).toBeDefined(); expect(open.getObjectByName(details[type]), type).toBeUndefined();
       for (const name of ['interior', 'entrance', 'roof']) expect(closed.getObjectByName(`anchor-${name}`)?.position.toArray()).toEqual(open.getObjectByName(`anchor-${name}`)?.position.toArray());
       const wall = closed.getObjectByName('building-wall') as THREE.Mesh; expect((wall.material as THREE.MeshStandardMaterial).color.getHexString()).toBe(BUILDING_PALETTES.midnight.wall.slice(1));
@@ -129,11 +135,11 @@ describe('shared building geometry', () => {
     }
   });
   it('declares grounded bounds and anchors, and provides a static accessible cutaway', () => {
-    const closed = catalogAssets.building(building), open = catalogAssets.building({ ...building, building: { view: 'open' } });
+    const closed = catalogAssets.building(building), open = catalogAssets.building({ ...building, view: 'open' });
     const bounds = new THREE.Box3().setFromObject(closed); expect(bounds.min.y).toBeCloseTo(0); expect(bounds.max.y).toBeCloseTo(3.7825);
     expect(closed.getObjectByName('anchor-interior')?.position.toArray()).toEqual([0, .12, 0]); expect(closed.getObjectByName('anchor-entrance')?.position.z).toBeGreaterThan(3);
     expect(closed.getObjectByName('building-roof')).toBeDefined(); expect(open.getObjectByName('building-roof')).toBeUndefined();
-    expect(new THREE.Box3().setFromObject(open).max.y).toBeCloseTo(.57); expect(open.userData.buildingBounds.equals(closed.userData.buildingBounds)).toBe(true);
+    expect(new THREE.Box3().setFromObject(open).max.y).toBeCloseTo(.57); expect(open.userData.containerBounds.equals(closed.userData.containerBounds)).toBe(true); expect(closed.userData.labelHeight).toBeCloseTo(4);
     disposeObject(closed); disposeObject(open);
   });
   it('inherits both scene palettes with partial overrides and instance-owned disposal', () => {

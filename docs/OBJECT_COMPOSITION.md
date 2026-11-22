@@ -15,7 +15,7 @@ Updated: October 13, 2026. This is an implemented subset of the [catalog contrac
 
 ## Attachments and ownership
 
-Every scene node can declare `attachment: { nodeId: string; anchor?: string }`. Its transform is local to the parent's origin or named anchor. Nodes remain independently selectable and own their resources. Missing parents are dormant. Cycles, simultaneous `parentId`, and an attached asset's own route are errors. Building `parentId` still controls cutaway/lazy interiors; attachment descendants inherit visibility through that ancestry. Removing an owner removes descendants; rebuilding an owner detaches surviving children before disposing its geometry/materials/animators.
+Every scene node can declare `attachment: { nodeId: string; anchor?: string }`. Its transform is local to the parent's origin or named anchor. Nodes remain independently selectable and own their resources. Missing parents are dormant. Cycles, simultaneous `parentId`, and an attached asset's own route are errors. `parentId` containment is separate: any asset can be a container, its `view` decides whether its children show (a building also cuts its shell away), and `bindChildren` loads them lazily; attachment descendants inherit visibility through that ancestry. Removing an owner removes descendants; rebuilding an owner detaches surviving children before disposing its geometry/materials/animators.
 
 The renderer resolves names as `anchor-${name}` and reports a missing anchor. Do not attach to an arbitrary decorative mesh. `getAnchor(id, name)` returns the current world position/Euler rotation or null when hidden/missing/disposed. Repeated counted-object anchors are not physical unit identities; use a single-instance composition for hand/cart attachment work.
 

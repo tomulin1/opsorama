@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { createSceneStore, interiorAreas, isInsideBuilding, isWithinInteriorArea, type AssetNode, type SceneNode } from '@opsorama/core';
+import { createSceneStore, interiorAreas, isContained, isWithinInteriorArea, type AssetNode, type SceneNode } from '@opsorama/core';
 import { applyShadowPolicy, SHADOW_CONTAINMENT_TOLERANCE, SHADOW_MIN_WIDTH } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { AREAS } from '../apps/site/src/features/ecommerce/model';
@@ -94,15 +94,15 @@ describe('shadow casting policy', () => {
   });
 
   it('does not let a building shell darken its floor', () => {
-    const building = catalogAssets.building({ id: 'b', kind: 'asset', asset: 'building', building: { view: 'open' } });
+    const building = catalogAssets.building({ id: 'b', kind: 'asset', asset: 'building', view: 'open' });
     expect(byName(building, 'building-floor').every(mesh => !mesh.receiveShadow)).toBe(true);
     applyShadowPolicy(building, outdoor);
     expect(byName(building, 'building-wall').some(mesh => mesh.castShadow)).toBe(true);
   });
 });
 
-describe('isInsideBuilding', () => {
-  const building: AssetNode = { id: 'hall', kind: 'asset', asset: 'building', building: { view: 'open' } };
+describe('isContained', () => {
+  const building: AssetNode = { id: 'hall', kind: 'asset', asset: 'building', view: 'open' };
   const desk: AssetNode = { id: 'desk', kind: 'asset', asset: 'desk-pod', parentId: building.id, position: [1, .12, 0] };
   const worker: AssetNode = { id: 'worker', kind: 'asset', asset: 'worker', parentId: building.id };
   const tote: AssetNode = { id: 'tote', kind: 'asset', asset: 'tote', attachment: { nodeId: worker.id } };
@@ -110,15 +110,15 @@ describe('isInsideBuilding', () => {
   const yard: AssetNode = { id: 'yard-pallet', kind: 'asset', asset: 'pallet' };
   const index = (nodes: readonly SceneNode[]) => new Map(nodes.map(node => [node.id, node]));
 
-  it('follows parents and carriers, and keeps the building and objects attached to it outside', () => {
+  it('follows parents and carriers, and keeps the container and objects attached to it outside', () => {
     const nodes = [building, desk, worker, tote, sign, yard], byId = index(nodes);
-    expect(isInsideBuilding(desk, byId)).toBe(true); expect(isInsideBuilding(worker, byId)).toBe(true); expect(isInsideBuilding(tote, byId)).toBe(true);
-    expect(isInsideBuilding(building, byId)).toBe(false); expect(isInsideBuilding(sign, byId)).toBe(false); expect(isInsideBuilding(yard, byId)).toBe(false);
+    expect(isContained(desk, byId)).toBe(true); expect(isContained(worker, byId)).toBe(true); expect(isContained(tote, byId)).toBe(true);
+    expect(isContained(building, byId)).toBe(false); expect(isContained(sign, byId)).toBe(false); expect(isContained(yard, byId)).toBe(false);
   });
 
-  it('changes when a node or its carrier moves into or out of a building', () => {
+  it('changes when a node or its carrier moves into or out of a container', () => {
     const outsideWorker = { ...worker, parentId: undefined }, store = createSceneStore({ schemaVersion: 1, nodes: [building, outsideWorker, tote, yard] });
-    const placement = (id: string) => { const nodes = store.getSnapshot().nodes; return isInsideBuilding(nodes.find(node => node.id === id)!, index(nodes)); };
+    const placement = (id: string) => { const nodes = store.getSnapshot().nodes; return isContained(nodes.find(node => node.id === id)!, index(nodes)); };
     expect(placement('tote')).toBe(false);
     store.upsert(worker); expect(placement('worker')).toBe(true); expect(placement('tote')).toBe(true);
     store.upsert({ ...yard, parentId: building.id }); expect(placement('yard-pallet')).toBe(true);
@@ -127,7 +127,7 @@ describe('isInsideBuilding', () => {
 
   it('stops on attachment cycles and missing carriers', () => {
     const a: AssetNode = { id: 'a', kind: 'asset', asset: 'tote', attachment: { nodeId: 'b' } }, b: AssetNode = { id: 'b', kind: 'asset', asset: 'tote', attachment: { nodeId: 'a' } };
-    expect(isInsideBuilding(a, index([a, b]))).toBe(false); expect(isInsideBuilding(tote, index([tote]))).toBe(false);
+    expect(isContained(a, index([a, b]))).toBe(false); expect(isContained(tote, index([tote]))).toBe(false);
   });
 });
 

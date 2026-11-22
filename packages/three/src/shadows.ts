@@ -15,7 +15,7 @@ export const SHADOW_MIN_WIDTH = .06;
 export const SHADOW_CONTAINMENT_TOLERANCE = .03;
 
 /**
- * Where a built node sits. `interior` is true inside a building (`isInsideBuilding` in
+ * Where a built node sits. `interior` is true inside a container (`isContained` in
  * `@opsorama/core`), for an interior area itself, and while the node's pivot lies inside an
  * interior area (`isWithinInteriorArea`).
  */

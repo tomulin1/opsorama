@@ -17,7 +17,7 @@ const nodes: SceneNode[] = [
   { id: 'pin', kind: 'asset', asset: 'map-pin', attachment: { nodeId: 'espresso' } },
   { id: 'alert', kind: 'marker', attachment: { nodeId: 'counter' }, label: 'Hot' },
   { id: 'note', kind: 'asset', asset: 'order-ticket', attachment: { nodeId: 'alert' } },
-  { id: 'hall', kind: 'asset', asset: 'building', position: [10, 0, 0], building: { view: 'closed' } },
+  { id: 'hall', kind: 'asset', asset: 'building', position: [10, 0, 0], view: 'closed' },
   { id: 'rack', kind: 'asset', asset: 'equipment-cabinet', parentId: 'hall', position: [1, .12, 0] },
   { id: 'aisle', kind: 'zone', parentId: 'hall', size: [2, 1], position: [0, .04, 0] },
   { id: 'loose', kind: 'asset', asset: 'tote', parentId: 'counter', position: [0, 0, 0] },
@@ -32,16 +32,21 @@ describe('previewNodes', () => {
     expect(copy[1]).toMatchObject({ attachment: { nodeId: 'counter', anchor: 'top' }, state: 'warning' });
   });
 
-  it('leaves out markers with what they carry, and parentId children of anything but an open building', () => {
+  it('leaves out markers with what they carry, and parentId children of a closed container', () => {
     expect(previewNodes(nodes, 'counter').map(node => node.id)).not.toContain('note');
     expect(previewNodes(nodes, 'counter').map(node => node.id)).not.toContain('loose');
     expect(previewNodes(nodes, 'alert')).toEqual([]);
     expect(previewNodes(nodes, 'missing')).toEqual([]);
   });
 
+  it('shows parentId children of any open asset container, not only buildings', () => {
+    const open = nodes.map(node => node.id === 'counter' ? { ...node, view: 'open' as const } : node);
+    expect(previewNodes(open, 'counter').map(node => node.id)).toEqual(['counter', 'espresso', 'loose', 'pin']);
+  });
+
   it('shows a building interior only while the building is open, as the scene does', () => {
     expect(previewNodes(nodes, 'hall').map(node => node.id)).toEqual(['hall']);
-    const open = nodes.map(node => node.id === 'hall' ? { ...node, building: { view: 'open' as const } } : node);
+    const open = nodes.map(node => node.id === 'hall' ? { ...node, view: 'open' as const } : node);
     expect(previewNodes(open, 'hall').map(node => node.id)).toEqual(['hall', 'rack', 'aisle']);
     expect(previewNodes(open, 'rack')[0]).not.toHaveProperty('parentId');
   });

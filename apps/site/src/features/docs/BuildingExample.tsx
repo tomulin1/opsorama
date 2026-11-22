@@ -1,13 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { BUILDING_TYPES, BUILDING_TYPE_LABELS, isBuilding, isInteriorVisible, setBuildingView, type BuildingType, type BuildingLoadState, type SceneSnapshot } from '@opsorama/core';
+import { isNodeVisible, nodeView, setNodeView, type ChildrenLoadState, type SceneSnapshot } from '@opsorama/core';
+import { BUILDING_TYPES, BUILDING_TYPE_LABELS, isBuilding, type BuildingType } from '@opsorama/objects';
 import type { SceneRenderer } from '@opsorama/three';
 import type { BuildingSession, BuildingStateCallback } from '../../../examples/building-data';
 
 export function BuildingExample() {
   const [adapter, setAdapter] = useState<'React' | 'Vue' | 'JavaScript'>('React'), [mounted, setMounted] = useState(true);
-  const [snapshot, setSnapshot] = useState<SceneSnapshot>(), [states, setStates] = useState<Record<string, BuildingLoadState>>({});
+  const [snapshot, setSnapshot] = useState<SceneSnapshot>(), [states, setStates] = useState<Record<string, ChildrenLoadState>>({});
   const [error, setError] = useState<string>(), [objects, setObjects] = useState(0), [geometries, setGeometries] = useState(0);
   const container = useRef<HTMLDivElement>(null), session = useRef<BuildingSession>(null), renderer = useRef<SceneRenderer>(null);
   useEffect(() => {
@@ -31,10 +32,10 @@ export function BuildingExample() {
     <p>Hover over a building to peek. Open it to keep the cutaway visible while inspecting its contents. Each building loads independently.</p>
     {error && <p role="alert">{error}</p>}
     <div className="building-controls">{snapshot?.nodes.filter(isBuilding).map(node => <article key={node.id}>
-      <h2>{node.label}</h2><p data-testid={`${node.id}-state`}>{node.building?.view ?? 'closed'} · {states[node.id] ?? 'idle'}</p>
+      <h2>{node.label}</h2><p data-testid={`${node.id}-state`}>{nodeView(node)} · {states[node.id] ?? 'idle'}</p>
       <label>Building type<select aria-label={`${node.label} building type`} value={node.building?.type ?? 'generic'} disabled={!mounted} onChange={event => session.current?.store.upsert({ ...node, building: { ...node.building, type: event.target.value as BuildingType } })}>{BUILDING_TYPES.map(type => <option key={type} value={type}>{BUILDING_TYPE_LABELS[type]}</option>)}</select></label>
-      <button disabled={!mounted} aria-expanded={(node.building?.view ?? 'closed') !== 'closed'} onClick={() => { if (session.current) setBuildingView(session.current.store, node.id, node.building?.view === 'open' ? 'closed' : 'open'); }}>{node.building?.view === 'open' ? 'Close' : 'Open'} {node.label}</button>
-      <ul>{snapshot.nodes.filter(child => child.parentId === node.id).map(child => <li key={child.id}><button disabled={!mounted || !isInteriorVisible(child, snapshot.nodes)} onClick={() => session.current?.store.select(child.id, 'keyboard')}>{child.label}</button></li>)}</ul>
+      <button disabled={!mounted} aria-expanded={nodeView(node) !== 'closed'} onClick={() => { if (session.current) setNodeView(session.current.store, node.id, node.view === 'open' ? 'closed' : 'open'); }}>{node.view === 'open' ? 'Close' : 'Open'} {node.label}</button>
+      <ul>{snapshot.nodes.filter(child => child.parentId === node.id).map(child => <li key={child.id}><button disabled={!mounted || !isNodeVisible(child, snapshot.nodes)} onClick={() => session.current?.store.select(child.id, 'keyboard')}>{child.label}</button></li>)}</ul>
     </article>)}</div>
     <p role="status">Selected: {selected?.label ?? 'none'}</p><p data-testid="rendered-objects">Rendered nodes: {mounted ? objects : 0}</p><p data-testid="geometry-resources">Geometry resources: {mounted ? geometries : 0}</p>
     <div className="adapter-example-tabs"><button disabled={!mounted} onClick={() => renderer.current?.overview()}>Overview</button><button disabled={!mounted} onClick={() => session.current?.store.configure({ theme: snapshot?.settings.theme === 'light' ? 'midnight' : 'light' })}>Change palette</button></div>

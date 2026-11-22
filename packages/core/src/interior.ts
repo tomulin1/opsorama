@@ -9,7 +9,7 @@ export interface InteriorArea { id: string; center: readonly [x: number, z: numb
 /**
  * `interior` is allowed on ground and zone nodes (footprint = `size`) and on sized surface assets
  * with an explicit `footprint` (floor, terrain, sidewalk). Areas are top-level world rectangles,
- * because a node inside a building is already indoor.
+ * because a node inside a container (`parentId`) is already indoor.
  */
 export function validateInterior(node: SceneNode): void {
   // Read untyped: scene data may come from JSON, and paths have no interior field at all.
@@ -19,7 +19,7 @@ export function validateInterior(node: SceneNode): void {
   if (!interior) return;
   if (node.kind === 'path' || node.kind === 'marker') throw new Error(`${node.kind === 'path' ? 'Path' : 'Marker'} ${node.id} cannot be an interior area; mark a ground, zone or sized surface asset instead.`);
   if (node.kind === 'asset' && node.footprint === undefined) throw new Error(`Interior asset ${node.id} needs an explicit footprint; interior areas are only sized surfaces such as floor or terrain.`);
-  if (node.parentId !== undefined) throw new Error(`Interior area ${node.id} must be a top-level node; nodes inside a building are already indoor.`);
+  if (node.parentId !== undefined) throw new Error(`Interior area ${node.id} must be a top-level node; nodes inside a container (parentId) are already indoor.`);
 }
 
 /** The interior areas declared in a scene, in node order. Footprints include the node's x/z scale. */

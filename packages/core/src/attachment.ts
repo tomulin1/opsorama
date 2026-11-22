@@ -4,7 +4,7 @@ export interface Attachment { nodeId: string; anchor?: string; }
 export function validateAttachments(nodes: readonly SceneNode[]): void {
   const byId = new Map(nodes.map(node => [node.id, node]));
   for (const node of nodes) {
-    if (node.attachment && node.parentId) throw new Error('An attachment cannot also have a building parent.');
+    if (node.attachment && node.parentId) throw new Error(`Node ${node.id} cannot have both an attachment and a parentId; a carried node follows its carrier, so remove one.`);
     if (node.attachment && node.kind === 'asset' && node.route) throw new Error('Attached assets cannot own a route.');
     if (node.attachment && node.kind === 'asset' && node.controller) throw new Error('Attached assets cannot own a controller.');
     const seen = new Set([node.id]); let current: SceneNode | undefined = node;

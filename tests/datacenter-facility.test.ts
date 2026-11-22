@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { isInteriorVisible, type AssetNode, type GroundNode } from '@opsorama/core';
+import { isNodeVisible, type AssetNode, type GroundNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { animateAsset } from '../packages/three/src/animation';
@@ -62,14 +62,14 @@ describe('research-informed facility composition', () => {
     const ids = store.getSnapshot().nodes.filter(node => !node.id.startsWith('alert-')).map(node => [node.id, node.entityId]);
     setDatacenterRoom(store, 'hall-02');
     let nodes = store.getSnapshot().nodes;
-    expect(isInteriorVisible(nodes.find(node => node.id === 'rack')!, nodes)).toBe(true);
+    expect(isNodeVisible(nodes.find(node => node.id === 'rack')!, nodes)).toBe(true);
     expect(nodes.find(node => node.id === 'rack')).toMatchObject({ variant: 'overview' });
     const secondHall = datacenterRecords.find(record => record.roomId === 'hall-02')!;
     expect(nodes.find(node => node.id === secondHall.id)).toMatchObject({ variant: 'detailed' });
     setDatacenterScenario(store, 'recovered'); setDatacenterRoom(store, 'overview'); nodes = store.getSnapshot().nodes;
     expect(nodes.filter(node => !node.id.startsWith('alert-')).map(node => [node.id, node.entityId])).toEqual(ids);
     expect(nodes.find(node => node.id === 'switch')).toMatchObject({ count: 24, entityId: 'SWITCH-A' }); expect(nodes.find(node => node.id === 'ups')).toMatchObject({ count: 6, entityId: 'UPS-A' });
-    expect(datacenterRecords.every(record => isInteriorVisible(nodes.find(node => node.id === record.id)!, nodes))).toBe(true);
+    expect(datacenterRecords.every(record => isNodeVisible(nodes.find(node => node.id === record.id)!, nodes))).toBe(true);
     expect(store.getSnapshot().settings.motion).toBe(false);
     const revision = store.getSnapshot().revision; expect(() => setDatacenterRoom(store, 'unknown')).toThrow(); expect(store.getSnapshot().revision).toBe(revision); store.dispose();
   });
