@@ -1,18 +1,21 @@
 import { validateMaterialOverrides, type MaterialOverrides } from './palette';
-import { validateAttachments, validateNodeTransfer, type Attachment, type NodeTransfer } from './attachment';
+import type { Attachment, NodeTransfer } from './attachment';
 export * from './attachment';
 export * from './carry';
 export * from './palette';
-import { validateCountInput, type CountLayout } from './asset-count';
-import { validateFootprint, type Footprint } from './footprint';
-import { validateInterior } from './interior';
+import type { CountLayout } from './asset-count';
+import type { Footprint } from './footprint';
 export * from './marker';
-import { validateMarker, type MarkerFields } from './marker';
+import type { MarkerFields } from './marker';
 export * from './footprint';
 export * from './interior';
-import { cloneNodeRoute, validateNodeRoute, type NodeRoute } from './route';
-import { cloneNodeController, validateNodeController, type NodeController } from './controller';
-import { isNodeVisible, NODE_VIEWS, validateParents, type NodeView } from './containment';
+import { cloneNodeRoute, type NodeRoute } from './route';
+import { cloneNodeController, type NodeController } from './controller';
+import { isNodeVisible, type NodeView } from './containment';
+import { attachmentProblems, nodeListProblems, nodeProblems, parentProblems, validateScene } from './validate-scene';
+import { pointer, throwOnErrors } from './scene-problems';
+export { SCENE_RULES, SceneValidationError, type SceneProblem, type SceneRule } from './scene-problems';
+export { validateScene } from './validate-scene';
 export * from './containment';
 export * from './asset-count';
 export * from './route';
@@ -24,12 +27,72 @@ export * from './item-policy';
 export * from './behavior';
 export * from './overlay';
 export * from './placement';
+/** `[x, y, z]`: metres for positions (Y is up), radians for Euler rotations, factors for scale. */
 export type Vec3 = readonly [number, number, number];
 /** Optional host visual alert. Model-native support is opt-in; neutral geometry ignores it. */
 export type VisualState = 'normal' | 'busy' | 'warning' | 'critical' | 'inactive';
-interface NodeBase { id: string; /** Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. See `validateParents`. */ parentId?: string; attachment?: Attachment; entityId?: string; label?: string; labelMode?: 'always' | 'active'; position?: Vec3; rotation?: Vec3; scale?: Vec3; state?: VisualState; selectable?: boolean; }
-export interface GroundNode extends NodeBase { kind: 'ground'; size: readonly [number, number]; color?: string; /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */ interior?: boolean; }
-export interface ZoneNode extends NodeBase { kind: 'zone'; size: readonly [number, number]; color?: string; /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */ interior?: boolean; }
+/**
+ * Metres, greater than 0.
+ * @exclusiveMinimum 0
+ */
+type PositiveMetres = number;
+/*
+ * JSDoc tags such as @minimum, @maximum, @minLength, @pattern and @asType on these types are copied into the scene JSON
+ * Schema (pnpm schema:generate). They must state the same limits as the checks in validate-scene.ts.
+ */
+interface NodeBase {
+  /**
+   * Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.
+   * @minLength 1
+   * @pattern \S
+   */
+  id: string;
+  /**
+   * Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any
+   * asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.
+   * @minLength 1
+   * @pattern \S
+   */
+  parentId?: string;
+  /** Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`. */
+  attachment?: Attachment;
+  /** ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it. */
+  entityId?: string;
+  /** Projected HTML label text, escaped safely. */
+  label?: string;
+  /** `always` (default) shows the label at all times; `active` only while the node is hovered or selected. */
+  labelMode?: 'always' | 'active';
+  /** Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]. */
+  position?: Vec3;
+  /** Euler rotation in radians. Default [0, 0, 0]. */
+  rotation?: Vec3;
+  /** Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`. */
+  scale?: Vec3;
+  /** Host visual alert. Default `normal`. */
+  state?: VisualState;
+  /** Makes the node selectable without an `entityId`. Default false. */
+  selectable?: boolean;
+}
+/** A shadow-receiving platform under the scene. */
+export interface GroundNode extends NodeBase {
+  kind: 'ground';
+  /** Width (x) and depth (z) in metres, both greater than 0. */
+  size: readonly [width: PositiveMetres, depth: PositiveMetres];
+  /** Surface color, a CSS color. Default #e7eef8. */
+  color?: string;
+  /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */
+  interior?: boolean;
+}
+/** An outlined area for a physical location or a process stage. */
+export interface ZoneNode extends NodeBase {
+  kind: 'zone';
+  /** Width (x) and depth (z) in metres, both greater than 0. */
+  size: readonly [width: PositiveMetres, depth: PositiveMetres];
+  /** Surface color, a CSS color. Default #dce9f6. */
+  color?: string;
+  /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */
+  interior?: boolean;
+}
 /**
  * Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays,
  * strings, finite numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's
@@ -38,12 +101,88 @@ export interface ZoneNode extends NodeBase { kind: 'zone'; size: readonly [numbe
  * `@opsorama/objects` does for its catalog. Custom assets may use any keys.
  */
 export interface AssetOptions { readonly [key: string]: unknown }
-export interface AssetNode extends NodeBase { kind: 'asset'; asset: string; /** Sized surface assets with an explicit `footprint` only: declares that footprint an indoor area, like `GroundNode.interior`. Default false. */ interior?: boolean; /** Disable built-in model animation only; scene/reduced-motion gates always win. */ localMotion?: boolean; /** Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`. */ transfer?: NodeTransfer; materials?: MaterialOverrides; /** Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`. */ view?: NodeView; /** Opt-in mouse preview: hovering the model's container bounds (`userData.containerBounds` set by its factory) peeks it after 160 ms and closes the peek after 280 ms outside. Hosts must still provide an explicit open/close control. Default false. */ peekOnHover?: boolean; /** Model-specific options as plain JSON-like data, validated by the asset's factory; see `AssetOptions`. A change rebuilds the model. */ options?: AssetOptions; color?: string; variant?: string; count?: number; multiplier?: number; countLayout?: CountLayout; /** Sized surface assets only (floor, terrain, sidewalk): width × depth in metres. */ footprint?: Footprint; /** Visual route that owns the root transform while present. */ route?: NodeRoute; /** Per-frame controller that owns the root position and heading; exclusive with `route`. */ controller?: NodeController; }
-export interface PathNode extends NodeBase { kind: 'path'; points: readonly Vec3[]; color?: string; }
+/** A model from the renderer's asset registry, such as a catalog object from `@opsorama/objects`. */
+export interface AssetNode extends NodeBase {
+  kind: 'asset';
+  /**
+   * Name of a model in the renderer's asset registry.
+   * @minLength 1
+   * @pattern \S
+   */
+  asset: string;
+  /** Sized surface assets with an explicit `footprint` only: declares that footprint an indoor area, like `GroundNode.interior`. Default false. */
+  interior?: boolean;
+  /** Disable built-in model animation only; scene/reduced-motion gates always win. */
+  localMotion?: boolean;
+  /** Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`. */
+  transfer?: NodeTransfer;
+  /** Per-instance semantic colors for models that declare palette support, keyed by material role. */
+  materials?: MaterialOverrides;
+  /** Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`. */
+  view?: NodeView;
+  /** Opt-in mouse preview: hovering the model's container bounds (`userData.containerBounds` set by its factory) peeks it after 160 ms and closes the peek after 280 ms outside. Hosts must still provide an explicit open/close control. Default false. */
+  peekOnHover?: boolean;
+  /** Model-specific options as plain JSON-like data, validated by the asset's factory; see `AssetOptions`. A change rebuilds the model. */
+  options?: AssetOptions;
+  /** Optional material color override, a CSS color, for factories that support it. */
+  color?: string;
+  /** Factory-specific variant name; the model's descriptor lists its variants. */
+  variant?: string;
+  /**
+   * Visible quantity for countable models, within the model's declared range or variants. Default: the model's default.
+   * @asType integer
+   * @minimum 0
+   */
+  count?: number;
+  /**
+   * Disclosed symbolic factor: the represented total is count × multiplier. Adds no geometry. Default 1.
+   * @asType integer
+   * @minimum 1
+   */
+  multiplier?: number;
+  /** `compact` or `reserved` (keep maximum-capacity slots) for models that support count layouts. */
+  countLayout?: CountLayout;
+  /** Sized surface assets only (floor, terrain, sidewalk): width × depth in metres. */
+  footprint?: Footprint;
+  /** Visual route that owns the root transform while present. */
+  route?: NodeRoute;
+  /** Per-frame controller that owns the root position and heading; exclusive with `route`. */
+  controller?: NodeController;
+}
+/** A low-profile visual route with a dashed center line. */
+export interface PathNode extends NodeBase {
+  kind: 'path';
+  /**
+   * World-space points in metres, at least two.
+   * @minItems 2
+   */
+  points: readonly Vec3[];
+  /** Route color, a CSS color. Default #a9bcd4. */
+  color?: string;
+}
 /** A projected HTML marker without geometry; see `MarkerFields`. `label` is required. */
-export interface MarkerNode extends NodeBase, MarkerFields { kind: 'marker'; label: string; }
+export interface MarkerNode extends NodeBase, MarkerFields {
+  kind: 'marker';
+  /**
+   * Card title and accessible name, 1–120 characters.
+   * @minLength 1
+   * @maxLength 120
+   * @pattern \S
+   */
+  label: string;
+}
+/** One visual node of a scene; `kind` selects its fields. */
 export type SceneNode = GroundNode | ZoneNode | AssetNode | PathNode | MarkerNode;
-export interface SceneDefinition { schemaVersion: 1; nodes: readonly SceneNode[]; }
+/**
+ * A scene file: visual nodes only. Settings, camera and host data are not part of it. Check one with `validateScene`, or
+ * against the published JSON Schema `@opsorama/core/scene-definition.schema.json`.
+ */
+export interface SceneDefinition {
+  /** Format version; 1 is the only version. */
+  schemaVersion: 1;
+  /** Every node of the scene. IDs must be unique. */
+  nodes: readonly SceneNode[];
+}
 export interface Selection { nodeId: string; entityId?: string; origin: 'pointer' | 'keyboard' | 'api'; }
 /** `corners`: floor brackets around the model footprint, hidden where objects cover them. `glow`: colored tint over the model. */
 export const SELECTION_STYLES = Object.freeze(['corners', 'glow'] as const);
@@ -91,20 +230,6 @@ function freezeJson<T>(value: T): T {
   if (value && typeof value === 'object') return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freezeJson(item)]))) as T;
   return value;
 }
-const JSON_LIKE = 'options must be plain JSON-like data (objects, arrays, strings, finite numbers, booleans, null)';
-/** Throws unless `value` is plain JSON-like data: null, strings, finite numbers, booleans, arrays and plain objects (undefined properties are allowed). */
-function validateJsonLike(value: unknown, path: string, seen: Set<object>): void {
-  // JSON has no NaN or Infinity: both serialize as null, and the renderer compares serialized options to decide rebuilds.
-  if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error(`${path} is ${value}; ${JSON_LIKE}.`); return; }
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
-  if (typeof value !== 'object') throw new Error(`${path} is a ${typeof value}; ${JSON_LIKE}.`);
-  if (seen.has(value)) throw new Error(`${path} refers to itself; ${JSON_LIKE} without cycles.`);
-  const prototype = Object.getPrototypeOf(value);
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) throw new Error(`${path} is a ${prototype?.constructor?.name ?? 'class'} instance; ${JSON_LIKE}.`);
-  seen.add(value);
-  for (const [key, item] of Object.entries(value)) if (item !== undefined || Array.isArray(value)) validateJsonLike(item, Array.isArray(value) ? `${path}[${key}]` : `${path}.${key}`, seen);
-  seen.delete(value);
-}
 function cloneNode(node: SceneNode): SceneNode {
   node = { ...node, ...(node.attachment ? { attachment: Object.freeze({ ...node.attachment }) } : {}) };
   const transform = { ...node, ...(node.kind === 'asset' && node.transfer ? { transfer: Object.freeze({ ...node.transfer }) } : {}), ...(node.kind === 'asset' && node.materials ? { materials: Object.freeze({ ...node.materials }) } : {}), ...(node.kind === 'asset' && node.options ? { options: freezeJson(node.options) } : {}), position: node.position && Object.freeze([...node.position]) as Vec3, rotation: node.rotation && Object.freeze([...node.rotation]) as Vec3, scale: node.scale && Object.freeze([...node.scale]) as Vec3 };
@@ -114,42 +239,14 @@ function cloneNode(node: SceneNode): SceneNode {
   return Object.freeze({ ...transform, ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}), ...(node.route ? { route: cloneNodeRoute(node.route) } : {}), ...(node.controller ? { controller: cloneNodeController(node.controller) } : {}) }) as AssetNode;
 }
 /**
- * Validates one node's generic fields and throws an actionable error. Asset `options` must be a plain JSON-like object. With
- * `validateAsset` (see `SceneStoreOptions`), asset nodes are also checked by that function (model-specific options, accepted assets).
+ * Validates one node on its own and throws `SceneValidationError` (message: the first error) when it has an error. It checks
+ * the node's generic fields; relations to other nodes (unique IDs, parents, attachments) need the whole scene, see
+ * `validateScene`. Asset `options` must be a plain JSON-like object. With `validateAsset` (see `SceneStoreOptions`), asset
+ * nodes are also checked by that function (model-specific options, accepted assets). Problem paths are relative to the node
+ * (`/route/speed`). Warnings, such as unknown keys, never throw.
  */
-export function validateNode(node: SceneNode, { validateAsset }: SceneStoreOptions = {}): void {
-  if (node.attachment && (!node.attachment.nodeId?.trim() || node.attachment.anchor !== undefined && !node.attachment.anchor.trim())) throw new Error('Attachments require a parent ID and a nonempty anchor name when supplied.');
-  if (!['ground', 'zone', 'asset', 'path', 'marker'].includes(node.kind)) throw new Error(`Unknown scene node kind: ${node.kind}.`);
-  if (!node.id.trim()) throw new Error('Scene node ID must not be empty.');
-  if (node.parentId !== undefined && (typeof node.parentId !== 'string' || !node.parentId.trim() || node.parentId === node.id)) throw new Error(`Invalid parent ID for ${node.id}: use the nonempty ID of another asset node.`);
-  if (node.labelMode !== undefined && !['always', 'active'].includes(node.labelMode)) throw new Error(`Invalid label mode for ${node.id}.`);
-  for (const value of [node.position, node.rotation, node.scale]) if (value && (value.length !== 3 || !value.every(Number.isFinite))) throw new Error(`Invalid transform for ${node.id}.`);
-  if (node.kind === 'path' && (node.points.length < 2 || node.points.some(p => p.length !== 3 || !p.every(Number.isFinite)))) throw new Error(`Path ${node.id} requires at least two finite points.`);
-  if ((node.kind === 'ground' || node.kind === 'zone') && (node.size.length !== 2 || node.size.some(n => !Number.isFinite(n) || n <= 0))) throw new Error(`Invalid size for ${node.id}.`);
-  validateInterior(node);
-  if (node.kind === 'marker') validateMarker(node);
-  if (node.kind !== 'asset' && 'route' in node && (node as { route?: unknown }).route !== undefined) throw new Error(`Only asset nodes can follow a route (${node.id}).`);
-  if (node.kind !== 'asset' && 'controller' in node && (node as { controller?: unknown }).controller !== undefined) throw new Error(`Only asset nodes can have a controller (${node.id}).`);
-  if (node.kind === 'asset' && !node.asset.trim()) throw new Error(`Missing asset for ${node.id}.`);
-  if (node.kind === 'asset' && node.variant !== undefined && typeof node.variant !== 'string') throw new Error(`Invalid asset variant for ${node.id}.`);
-  if (node.kind === 'asset') {
-    if (node.localMotion !== undefined && typeof node.localMotion !== 'boolean') throw new Error('localMotion must be boolean.');
-    if (node.materials !== undefined) validateMaterialOverrides(node.materials);
-    if (node.options !== undefined) {
-      if (typeof node.options !== 'object' || node.options === null || Array.isArray(node.options)) throw new Error(`Options of ${node.id} must be an object keyed by option name, e.g. { building: { type: 'warehouse' } }.`);
-      validateJsonLike(node.options, `${node.id}.options`, new Set());
-    }
-    if (node.view !== undefined && !NODE_VIEWS.includes(node.view)) throw new Error(`Invalid view for ${node.id}: ${String(node.view)}. Use ${NODE_VIEWS.join(', ')}.`);
-    if (node.peekOnHover !== undefined && typeof node.peekOnHover !== 'boolean') throw new Error(`peekOnHover of ${node.id} must be boolean.`);
-    if (node.countLayout !== undefined && !['compact', 'reserved'].includes(node.countLayout)) throw new Error(`Invalid count layout for ${node.id}.`);
-    if (node.footprint !== undefined) validateFootprint(node.footprint);
-    if (node.route !== undefined) validateNodeRoute(node.route);
-    if (node.transfer !== undefined) validateNodeTransfer(node.transfer);
-    if (node.controller !== undefined) validateNodeController(node.controller);
-    if (node.route !== undefined && node.controller !== undefined) throw new Error(`Asset ${node.id} cannot have both a route and a controller.`);
-    validateCountInput(node);
-    validateAsset?.(node);
-  }
+export function validateNode(node: SceneNode, options: SceneStoreOptions = {}): void {
+  throwOnErrors(nodeProblems(node, '', options));
 }
 function validateSettings(settings: SceneSettings) {
   if (settings.palette !== undefined) validateMaterialOverrides(settings.palette);
@@ -161,18 +258,28 @@ function validateSettings(settings: SceneSettings) {
 function selectionFor(node: SceneNode, origin: Selection['origin']): Selection {
   return Object.freeze({ nodeId: node.id, entityId: node.entityId, origin });
 }
+/**
+ * Creates the scene store. The initial definition, `replace` and `upsert` run the checks of `validateScene` and throw
+ * `SceneValidationError` (message: the first error, `problems`: every problem) without changing the store; invalid
+ * settings throw an `Error`.
+ */
 export function createSceneStore(definition: SceneDefinition = { schemaVersion: 1, nodes: [] }, initialSettings: Partial<SceneSettings> = {}, storeOptions: SceneStoreOptions = {}): SceneStore {
-  if (definition.schemaVersion !== 1) throw new Error('Unsupported scene schema version.');
+  throwOnErrors(validateScene(definition, storeOptions));
   const listeners = new Set<() => void>(); let disposed = false;
-  const checked = (nodes: readonly SceneNode[]) => { validateParents(nodes); validateAttachments(nodes); const ids = new Set<string>(); return Object.freeze(nodes.map(node => { validateNode(node, storeOptions); if (ids.has(node.id)) throw new Error(`Duplicate scene node ID: ${node.id}.`); ids.add(node.id); return cloneNode(node); })); };
+  const checked = (nodes: readonly SceneNode[]) => { throwOnErrors(Array.isArray(nodes) ? nodeListProblems(nodes, '/nodes', storeOptions) : validateScene({ schemaVersion: 1, nodes }, storeOptions)); return Object.freeze(nodes.map(cloneNode)); };
   if (initialSettings.palette !== undefined) validateMaterialOverrides(initialSettings.palette);
   const settings = { ...DEFAULT_SETTINGS, ...initialSettings, ...(initialSettings.palette ? { palette: Object.freeze({ ...initialSettings.palette }) } : {}) }; validateSettings(settings);
-  let snapshot: SceneSnapshot = Object.freeze({ nodes: checked(definition.nodes), selection: null, settings: Object.freeze(settings), revision: 0 });
+  let snapshot: SceneSnapshot = Object.freeze({ nodes: Object.freeze(definition.nodes.map(cloneNode)), selection: null, settings: Object.freeze(settings), revision: 0 });
   const commit = (patch: Partial<SceneSnapshot>) => { if (disposed) throw new Error('Scene store has been disposed.'); const next = { ...snapshot, ...patch }; const selected = next.selection && next.nodes.find(node => node.id === next.selection!.nodeId); if (selected && !isNodeVisible(selected, next.nodes)) next.selection = null; snapshot = Object.freeze({ ...next, revision: snapshot.revision + 1 }); listeners.forEach(fn => fn()); };
   return {
     getSnapshot: () => snapshot,
     subscribe: fn => { if (disposed) throw new Error('Scene store has been disposed.'); listeners.add(fn); return () => { listeners.delete(fn); }; },
-    upsert: node => { validateNode(node, storeOptions); const index = snapshot.nodes.findIndex(n => n.id === node.id); const nodes = [...snapshot.nodes]; const next = cloneNode(node); if (index < 0) nodes.push(next); else nodes[index] = next; validateParents(nodes); validateAttachments(nodes); commit({ nodes: Object.freeze(nodes), selection: snapshot.selection?.nodeId === node.id ? selectionFor(next, snapshot.selection.origin) : snapshot.selection }); },
+    upsert: node => {
+      const found = snapshot.nodes.findIndex(n => n.id === node?.id), index = found < 0 ? snapshot.nodes.length : found, at = pointer('/nodes', index);
+      throwOnErrors(nodeProblems(node, at, storeOptions));
+      const nodes = [...snapshot.nodes]; const next = cloneNode(node); nodes[index] = next;
+      throwOnErrors([...parentProblems(nodes, '/nodes'), ...attachmentProblems(nodes, '/nodes')]);
+      commit({ nodes: Object.freeze(nodes), selection: snapshot.selection?.nodeId === node.id ? selectionFor(next, snapshot.selection.origin) : snapshot.selection }); },
     remove: id => { if (!snapshot.nodes.some(n => n.id === id)) return; const removed = new Set([id]); let changed = true; while (changed) { changed = false; for (const node of snapshot.nodes) if ((node.parentId || node.attachment?.nodeId) && removed.has((node.parentId ?? node.attachment?.nodeId)!) && !removed.has(node.id)) { removed.add(node.id); changed = true; } } commit({ nodes: Object.freeze(snapshot.nodes.filter(n => !removed.has(n.id))), selection: snapshot.selection && removed.has(snapshot.selection.nodeId) ? null : snapshot.selection }); },
     replace: nodes => { const next = checked(nodes); const selected = snapshot.selection && next.find(n => n.id === snapshot.selection!.nodeId); commit({ nodes: next, selection: selected && snapshot.selection ? selectionFor(selected, snapshot.selection.origin) : null }); },
     select: (id, origin = 'api') => { const node = id ? snapshot.nodes.find(n => n.id === id) : null; if (id && !node) throw new Error(`Unknown scene node: ${id}.`); commit({ selection: node ? selectionFor(node, origin) : null }); },

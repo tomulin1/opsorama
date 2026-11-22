@@ -1,0 +1,1043 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opsorama.dev/schema/scene-definition.schema.json",
+  "title": "Opsorama scene definition",
+  "description": "A scene file for @opsorama/core: { schemaVersion: 1, nodes: [...] }. The schema checks structure, types and ranges; validateScene from @opsorama/core also checks unique IDs, parents, attachments and asset options, and reports each problem with a fix.",
+  "$ref": "#/definitions/SceneDefinition",
+  "definitions": {
+    "SceneDefinition": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1,
+          "description": "Format version; 1 is the only version."
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SceneNode"
+          },
+          "description": "Every node of the scene. IDs must be unique."
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "nodes"
+      ],
+      "additionalProperties": false,
+      "description": "A scene file: visual nodes only. Settings, camera and host data are not part of it. Check one with `validateScene`, or against the published JSON Schema `@opsorama/core/scene-definition.schema.json`."
+    },
+    "SceneNode": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GroundNode"
+        },
+        {
+          "$ref": "#/definitions/ZoneNode"
+        },
+        {
+          "$ref": "#/definitions/AssetNode"
+        },
+        {
+          "$ref": "#/definitions/PathNode"
+        },
+        {
+          "$ref": "#/definitions/MarkerNode"
+        }
+      ],
+      "description": "One visual node of a scene; `kind` selects its fields."
+    },
+    "GroundNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "ground"
+        },
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "items": [
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "width"
+            },
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "depth"
+            }
+          ],
+          "maxItems": 2,
+          "description": "Width (x) and depth (z) in metres, both greater than 0."
+        },
+        "color": {
+          "type": "string",
+          "description": "Surface color, a CSS color. Default #e7eef8."
+        },
+        "interior": {
+          "type": "boolean",
+          "description": "Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "size"
+      ],
+      "additionalProperties": false,
+      "description": "A shadow-receiving platform under the scene."
+    },
+    "Attachment": {
+      "type": "object",
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "description": "ID of the carrying node.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Named anchor of the carrier's model, such as a carry or fork anchor. Default: the carrier's origin.",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "nodeId"
+      ],
+      "additionalProperties": false,
+      "description": "A child owns its resources and identity; its transform is local to the parent's named anchor."
+    },
+    "Vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "`[x, y, z]`: metres for positions (Y is up), radians for Euler rotations, factors for scale."
+    },
+    "VisualState": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "busy",
+        "warning",
+        "critical",
+        "inactive"
+      ],
+      "description": "Optional host visual alert. Model-native support is opt-in; neutral geometry ignores it."
+    },
+    "ZoneNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "zone"
+        },
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "items": [
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "width"
+            },
+            {
+              "type": "number",
+              "description": "Metres, greater than 0.",
+              "exclusiveMinimum": 0,
+              "title": "depth"
+            }
+          ],
+          "maxItems": 2,
+          "description": "Width (x) and depth (z) in metres, both greater than 0."
+        },
+        "color": {
+          "type": "string",
+          "description": "Surface color, a CSS color. Default #dce9f6."
+        },
+        "interior": {
+          "type": "boolean",
+          "description": "Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "size"
+      ],
+      "additionalProperties": false,
+      "description": "An outlined area for a physical location or a process stage."
+    },
+    "AssetNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "asset"
+        },
+        "asset": {
+          "type": "string",
+          "description": "Name of a model in the renderer's asset registry.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "interior": {
+          "type": "boolean",
+          "description": "Sized surface assets with an explicit `footprint` only: declares that footprint an indoor area, like `GroundNode.interior`. Default false."
+        },
+        "localMotion": {
+          "type": "boolean",
+          "description": "Disable built-in model animation only; scene/reduced-motion gates always win."
+        },
+        "transfer": {
+          "$ref": "#/definitions/NodeTransfer",
+          "description": "Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`."
+        },
+        "materials": {
+          "$ref": "#/definitions/MaterialOverrides",
+          "description": "Per-instance semantic colors for models that declare palette support, keyed by material role."
+        },
+        "view": {
+          "$ref": "#/definitions/NodeView",
+          "description": "Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`."
+        },
+        "peekOnHover": {
+          "type": "boolean",
+          "description": "Opt-in mouse preview: hovering the model's container bounds (`userData.containerBounds` set by its factory) peeks it after 160 ms and closes the peek after 280 ms outside. Hosts must still provide an explicit open/close control. Default false."
+        },
+        "options": {
+          "$ref": "#/definitions/AssetOptions",
+          "description": "Model-specific options as plain JSON-like data, validated by the asset's factory; see `AssetOptions`. A change rebuilds the model."
+        },
+        "color": {
+          "type": "string",
+          "description": "Optional material color override, a CSS color, for factories that support it."
+        },
+        "variant": {
+          "type": "string",
+          "description": "Factory-specific variant name; the model's descriptor lists its variants."
+        },
+        "count": {
+          "type": "integer",
+          "description": "Visible quantity for countable models, within the model's declared range or variants. Default: the model's default.",
+          "minimum": 0
+        },
+        "multiplier": {
+          "type": "integer",
+          "description": "Disclosed symbolic factor: the represented total is count × multiplier. Adds no geometry. Default 1.",
+          "minimum": 1
+        },
+        "countLayout": {
+          "$ref": "#/definitions/CountLayout",
+          "description": "`compact` or `reserved` (keep maximum-capacity slots) for models that support count layouts."
+        },
+        "footprint": {
+          "$ref": "#/definitions/Footprint",
+          "description": "Sized surface assets only (floor, terrain, sidewalk): width × depth in metres."
+        },
+        "route": {
+          "$ref": "#/definitions/NodeRoute",
+          "description": "Visual route that owns the root transform while present."
+        },
+        "controller": {
+          "$ref": "#/definitions/NodeController",
+          "description": "Per-frame controller that owns the root position and heading; exclusive with `route`."
+        }
+      },
+      "required": [
+        "asset",
+        "id",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "A model from the renderer's asset registry, such as a catalog object from `@opsorama/objects`."
+    },
+    "NodeTransfer": {
+      "type": "object",
+      "properties": {
+        "seconds": {
+          "type": "number",
+          "description": "Visual seconds, 0.05–5.",
+          "minimum": 0.05,
+          "maximum": 5
+        },
+        "arc": {
+          "type": "number",
+          "description": "Peak lift in metres, 0–2. Default 0.25.",
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      "required": [
+        "seconds"
+      ],
+      "additionalProperties": false,
+      "description": "Animation of a node that changes `attachment` or `parentId`, e.g. a parcel handed from a shelf to a picker. The new placement is authoritative at once; the renderer moves the node from its previous world pose to the new one over `seconds` of the visual clock (speed and pause apply), lifting it up to `arc` metres midway. Motion-off and reduced motion skip the animation. A node that first appears, or keeps its parent, does not animate."
+    },
+    "MaterialOverrides": {
+      "type": "object",
+      "properties": {
+        "surface": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "structure": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "trim": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "accent": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "glass": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "liquid": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "screen": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "text": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "skin": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "hair": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "wood": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "foliage": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "normal": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "busy": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "warning": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "critical": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "inactive": {
+          "type": "string",
+          "description": "A six-digit hex color, #RRGGBB.",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      },
+      "additionalProperties": false,
+      "description": "#RRGGBB colors for some material roles; omitted roles keep their defaults."
+    },
+    "NodeView": {
+      "type": "string",
+      "enum": [
+        "closed",
+        "peek",
+        "open"
+      ],
+      "description": "Container view of an asset; see `AssetNode.view`. Default `'closed'`."
+    },
+    "AssetOptions": {
+      "type": "object",
+      "additionalProperties": {},
+      "description": "Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays, strings, finite numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's value rules, belong to the asset's factory (`AssetFactory.validate` in `@opsorama/three`). A model package declares its typed options by augmenting this interface (`declare module '@opsorama/core' { interface AssetOptions { ... } }`), as `@opsorama/objects` does for its catalog. Custom assets may use any keys."
+    },
+    "CountLayout": {
+      "type": "string",
+      "enum": [
+        "compact",
+        "reserved"
+      ],
+      "description": "Reserved layouts keep each part in its maximum-capacity slot as count changes."
+    },
+    "Footprint": {
+      "type": "array",
+      "minItems": 2,
+      "items": [
+        {
+          "type": "number",
+          "description": "Metres, greater than 0.",
+          "exclusiveMinimum": 0,
+          "title": "width"
+        },
+        {
+          "type": "number",
+          "description": "Metres, greater than 0.",
+          "exclusiveMinimum": 0,
+          "title": "depth"
+        }
+      ],
+      "maxItems": 2,
+      "description": "Width along local x and depth along local z, in metres. Patterns keep their real size; geometric scale would stretch them."
+    },
+    "NodeRoute": {
+      "type": "object",
+      "properties": {
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Vec3"
+          },
+          "description": "World-space points in travel order, 2–512.",
+          "minItems": 2,
+          "maxItems": 512
+        },
+        "speed": {
+          "type": "number",
+          "description": "Default travel speed in metres per visual second, greater than 0 and at most 30.",
+          "exclusiveMinimum": 0,
+          "maximum": 30
+        },
+        "segmentSpeeds": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "description": "Metres per visual second, greater than 0 and at most 30 (`MAX_ROUTE_SPEED`).",
+            "exclusiveMinimum": 0,
+            "maximum": 30
+          },
+          "description": "Optional per-segment speeds (length `points.length - 1`), e.g. lane speed limits."
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RouteStop"
+          },
+          "description": "Timed pauses at route points, in any order; one per point."
+        },
+        "loop": {
+          "type": "boolean",
+          "description": "Restart from the first point after the last; requires a closed route (last point equals first)."
+        },
+        "endYaw": {
+          "type": "number",
+          "description": "Heading in radians (rotation about Y, 0 faces +z) after a non-looping route ends."
+        },
+        "reverseSegments": {
+          "type": "integer",
+          "description": "How many segments from the start are driven in reverse: the agent keeps its heading and backs along them, then stops before it drives forward. Default 0. Not for loops. A follower that joins this route mid-travel drives it forward.",
+          "minimum": 0
+        },
+        "profile": {
+          "$ref": "#/definitions/MotionProfile",
+          "description": "Kinematics of the agent kind; see `MotionProfile`."
+        },
+        "startYaw": {
+          "type": "number",
+          "description": "Heading before the route starts; with `profile.turnRate` the agent first turns in place. Ignored by loops."
+        },
+        "startSpeed": {
+          "type": "number",
+          "description": "Speed at the first point in m/s (0–30), e.g. when a replacement joins mid-travel. Default 0. Used with `profile.acceleration`; ignored by loops.",
+          "minimum": 0,
+          "maximum": 30
+        },
+        "elapsed": {
+          "type": "number",
+          "description": "Seconds of this route already travelled when a follower first takes it, so a newly mounted renderer resumes mid-route instead of restarting (loops wrap; at or beyond the end a one-way route is finished). Not part of the route's identity: a follower that already follows the route keeps its own progress. Default 0. `behaviorNode(state, base, { time })` sets it from simulation time.",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "points",
+        "speed"
+      ],
+      "additionalProperties": false
+    },
+    "RouteStop": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "description": "Index into `points` where the follower pauses; at most one stop per point.",
+          "minimum": 0
+        },
+        "seconds": {
+          "type": "number",
+          "description": "Visual seconds to remain at the point, greater than 0 and at most 3600.",
+          "exclusiveMinimum": 0,
+          "maximum": 3600
+        },
+        "yaw": {
+          "type": "number",
+          "description": "Optional heading while stopped, e.g. facing a shelf or desk."
+        }
+      },
+      "required": [
+        "index",
+        "seconds"
+      ],
+      "additionalProperties": false,
+      "description": "A visual route assigned to an asset node. The follower owns the node's root position and heading while the route is present; `position` stays the host's record position and is used again after the route is removed."
+    },
+    "MotionProfile": {
+      "type": "object",
+      "properties": {
+        "acceleration": {
+          "type": "number",
+          "description": "Acceleration and braking in m/s² (greater than 0, at most 50). Agents start, stop and change lane speed smoothly.",
+          "exclusiveMinimum": 0,
+          "maximum": 50
+        },
+        "turnRate": {
+          "type": "number",
+          "description": "Turning rate in rad/s (greater than 0, at most 50) while standing: at the start, at stops, at the end and at sharp corners.",
+          "exclusiveMinimum": 0,
+          "maximum": 50
+        },
+        "turnInPlaceAngle": {
+          "type": "number",
+          "description": "Corners sharper than this angle (radians, 0–π) are not taken while moving: the agent brakes to a stop (with `acceleration`) and turns in place (with `turnRate`). Default π/4 when `turnRate` is set; otherwise π, which never stops.",
+          "minimum": 0,
+          "maximum": 3.141592653589793
+        },
+        "cornerSpeed": {
+          "type": "number",
+          "description": "Speed through a 90° corner taken while moving, in m/s; requires `acceleration`. Shallower corners interpolate toward full speed, sharper ones use this value. Greater than 0, at most 30.",
+          "exclusiveMinimum": 0,
+          "maximum": 30
+        },
+        "cornerRadius": {
+          "type": "number",
+          "description": "Radius in metres (greater than 0, at most 50) of corners taken while moving: the agent drives a circular arc tangent to both segments instead of pivoting on the corner point. Short segments shrink the arc so it never uses more than half of either one. Timing stays on the polyline, so `routeDuration`, `routeTimes` and arrival times do not change: the arc is covered in the time of the two corner legs it replaces, a little slower than the reported speed. Corners where the agent stops and turns in place stay sharp.",
+          "exclusiveMinimum": 0,
+          "maximum": 50
+        }
+      },
+      "additionalProperties": false,
+      "description": "How an agent kind moves along a route. Every field is optional; without a profile, speed changes and turns are instant (the renderer only blends the heading). The profile is part of the route, so simulation time (`routeDuration`) and visual time stay identical."
+    },
+    "NodeController": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Name of a controller factory in the renderer's registry.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ControllerValue"
+          },
+          "description": "Options passed to the factory: plain JSON data with finite numbers."
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "A per-frame motion controller assigned to an asset node by name. The scene definition stays serializable; the renderer resolves `kind` in its controller registry (`basicControllers` plus the host's own)."
+    },
+    "ControllerValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ControllerValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ControllerValue"
+          }
+        }
+      ],
+      "description": "JSON data accepted in controller options, so scene definitions stay serializable."
+    },
+    "PathNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "path"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Vec3"
+          },
+          "description": "World-space points in metres, at least two.",
+          "minItems": 2
+        },
+        "color": {
+          "type": "string",
+          "description": "Route color, a CSS color. Default #a9bcd4."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "points"
+      ],
+      "additionalProperties": false,
+      "description": "A low-profile visual route with a dashed center line."
+    },
+    "MarkerNode": {
+      "type": "object",
+      "properties": {
+        "shape": {
+          "$ref": "#/definitions/MarkerShape",
+          "description": "Default `pin`."
+        },
+        "tone": {
+          "$ref": "#/definitions/MarkerTone",
+          "description": "Default from `state`: critical → critical, warning → warning, inactive → neutral, otherwise info."
+        },
+        "icon": {
+          "$ref": "#/definitions/MarkerIcon",
+          "description": "Default by tone: alert for critical and warning, check for success, info otherwise."
+        },
+        "color": {
+          "type": "string",
+          "description": "CSS colour replacing the tone's fill. The icon and rim stay white, so choose a colour that keeps contrast.",
+          "pattern": "\\S"
+        },
+        "markerSize": {
+          "$ref": "#/definitions/MarkerSize",
+          "description": "Default `medium` (32 px wide). Named apart from a zone's `size` in metres."
+        },
+        "eyebrow": {
+          "type": "string",
+          "description": "Small caps line above the title in the card, such as a severity. 1–40 characters.",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "\\S"
+        },
+        "detail": {
+          "type": "string",
+          "description": "Line under the title in the card, such as a reading. 1–160 characters.",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "\\S"
+        },
+        "pulse": {
+          "type": "boolean",
+          "description": "Pulse a ring around the shape to draw attention. Default true for critical, false otherwise. It never runs while scene motion is off, the scene is paused or the user prefers reduced motion."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Card title and accessible name, 1–120 characters.",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S"
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "marker"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "A projected HTML marker without geometry; see `MarkerFields`. `label` is required."
+    },
+    "MarkerShape": {
+      "type": "string",
+      "enum": [
+        "pin",
+        "circle",
+        "square",
+        "diamond",
+        "triangle",
+        "hexagon",
+        "octagon",
+        "shield"
+      ]
+    },
+    "MarkerTone": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "warning",
+        "success",
+        "info",
+        "neutral"
+      ]
+    },
+    "MarkerIcon": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/MarkerIconName"
+        },
+        {
+          "$ref": "#/definitions/MarkerCustomIcon"
+        }
+      ]
+    },
+    "MarkerIconName": {
+      "type": "string",
+      "enum": [
+        "alert",
+        "info",
+        "check",
+        "x",
+        "thermometer",
+        "network",
+        "plug",
+        "zap",
+        "droplet",
+        "flame",
+        "lock",
+        "wrench",
+        "clock",
+        "wifi-off",
+        "package",
+        "user",
+        "bell",
+        "none"
+      ]
+    },
+    "MarkerCustomIcon": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "SVG path data: path commands and numbers only, at most 1,000 characters.",
+            "maxLength": 1000,
+            "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9eE.,\\s+-]+$"
+          },
+          "description": "1–8 strings of SVG path data.",
+          "minItems": 1,
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false,
+      "description": "A custom icon: stroked SVG path data in a 24 × 24 view box, like the built-in set. At most 8 paths of 1,000 characters."
+    },
+    "MarkerSize": {
+      "type": "string",
+      "enum": [
+        "small",
+        "medium",
+        "large"
+      ]
+    }
+  }
+}

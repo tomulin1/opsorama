@@ -22,9 +22,8 @@ Out of scope: action and physics-driven games, large geospatial datasets, photor
 
 ## Building with AI agents
 
-Agent support applies to every target use and is part of every capability, not an add-on. Available now: typed declarative contracts, type-checked package README examples, an agent skill (`skills/opsorama`), `llms.txt` / `llms-full.txt` on the website and the machine-readable object catalog `@opsorama/objects/catalog.json`. Planned:
+Agent support applies to every target use and is part of every capability, not an add-on. Available now: typed declarative contracts, type-checked package README examples, an agent skill (`skills/opsorama`), `llms.txt` / `llms-full.txt` on the website, the machine-readable object catalog `@opsorama/objects/catalog.json`, a published JSON Schema for scene definitions (`@opsorama/core/scene-definition.schema.json`) and `validateScene`, which reports every problem of a scene with its location and a suggested fix. Planned:
 
-- a published JSON Schema for scene definitions and a validator that reports every problem with its location and a suggested fix;
 - verification without a browser: a command-line check of scene files and a headless render to an image, so an agent can check structure and appearance;
 - agent tools (an MCP server) for catalog search, object options, scene validation and previews;
 - project templates with agent instructions, and skills for games and visualizations once those uses are supported;

@@ -7,17 +7,20 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./scene-definition.schema.json": "./schema/scene-definition.schema.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "schema"
   ],
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
-      }
+      },
+      "./scene-definition.schema.json": "./schema/scene-definition.schema.json"
     }
   },
   "author": {

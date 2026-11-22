@@ -11,6 +11,7 @@ const INTRO = [
   '',
   'Packages: `@opsorama/core` (framework-free scene model), `@opsorama/three` (Three.js renderer, ships no models), `@opsorama/objects` (161 procedural models in 21 kits on subpaths such as `@opsorama/objects/vehicles`, plus `catalogAssets` and `catalog.json`), `@opsorama/react`, `@opsorama/vue`, `@opsorama/ui` (optional panels).',
   'Key rule: the renderer needs an explicit `assets` registry, for example `createAssetRegistry(workItemsKit, furnitureKit)`. Pre-release: packages are not on npm yet and the API can change before 1.0.',
+  `Verify a scene without a browser: \`validateScene(definition, { validateAsset: assetValidator(assets) })\` from \`@opsorama/core\` returns every problem with a JSON Pointer path, a rule ID and a fix. JSON Schema: \`@opsorama/core/scene-definition.schema.json\`, also at ${SITE_ORIGIN}/schema/scene-definition.schema.json.`,
 ];
 
 /** The llms.txt index: one line per documentation page and the object catalog, with absolute links. */

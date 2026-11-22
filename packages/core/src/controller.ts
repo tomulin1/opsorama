@@ -1,4 +1,6 @@
 import type { AssetNode, Vec3 } from './index';
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { controllerChecks } from './validate-scene';
 
 /** JSON data accepted in controller options, so scene definitions stay serializable. */
 export type ControllerValue = string | number | boolean | null | readonly ControllerValue[] | { readonly [key: string]: ControllerValue };
@@ -9,7 +11,13 @@ export type ControllerValue = string | number | boolean | null | readonly Contro
  * registry (`basicControllers` plus the host's own).
  */
 export interface NodeController {
+  /**
+   * Name of a controller factory in the renderer's registry.
+   * @minLength 1
+   * @pattern \S
+   */
   kind: string;
+  /** Options passed to the factory: plain JSON data with finite numbers. */
   options?: Readonly<Record<string, ControllerValue>>;
 }
 
@@ -45,17 +53,9 @@ export interface MotionController {
 export type ControllerFactory = (options: Readonly<Record<string, ControllerValue>>, node: AssetNode) => MotionController;
 export type ControllerRegistry = Readonly<Record<string, ControllerFactory>>;
 
-const isData = (value: unknown, depth = 0): value is ControllerValue => {
-  if (depth > 16) return false;
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(item => isData(item, depth + 1));
-  return typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype && Object.values(value as object).every(item => isData(item, depth + 1));
-};
+/** Throws `SceneValidationError` unless `kind` is nonempty and `options`, when given, is plain JSON data with finite numbers. */
 export function validateNodeController(controller: NodeController): void {
-  if (!controller || typeof controller !== 'object') throw new Error('Controller must be an object.');
-  if (typeof controller.kind !== 'string' || !controller.kind.trim()) throw new Error('Controller kind must not be empty.');
-  if (controller.options !== undefined && (typeof controller.options !== 'object' || controller.options === null || Array.isArray(controller.options) || !isData(controller.options))) throw new Error(`Controller ${controller.kind} options must be plain JSON data with finite numbers.`);
+  throwOnErrors(collectProblems(add => controllerChecks(controller, '', add)));
 }
 const freeze = <T>(value: T): T => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
 export function cloneNodeController(controller: NodeController): NodeController {

@@ -2,7 +2,7 @@
 /**
  * Builds every publishable workspace package into its dist/ folder: ESM JavaScript with source maps and bundled
  * TypeScript declarations, one output per entry in the package's `exports` (source paths under src/). Dependencies and
- * peer dependencies stay external. Module directives such as 'use client' are preserved; CSS exports are copied unchanged, and @opsorama/objects also gets dist/catalog.json.
+ * peer dependencies stay external. Module directives such as 'use client' are preserved; CSS exports are copied unchanged, @opsorama/objects also gets dist/catalog.json, and @opsorama/core regenerates schema/scene-definition.schema.json.
  * Workspace consumers keep importing src/ through `exports`; published tarballs use `publishConfig.exports` (dist/).
  * Usage: pnpm build:packages [package-name ...]   e.g. pnpm build:packages core three
  */
@@ -40,6 +40,8 @@ for (const name of PACKAGES.filter(name => selected.includes(name))) {
   } };
   rename(path.join(dir, 'dist'));
   for (const file of sources.filter(file => file.endsWith('.css'))) fs.copyFileSync(path.join(dir, file), path.join(dir, 'dist', path.basename(file)));
+  // The scene JSON Schema ships in schema/ (not dist/), generated from the core types; see scripts/build-scene-schema.mjs.
+  if (name === 'core') execFileSync(process.execPath, [path.join(root, 'scripts/build-scene-schema.mjs')], { stdio: 'inherit' });
   if (name === 'objects') execFileSync(process.execPath, [path.join(root, 'scripts/build-catalog-json.mjs')], { stdio: 'inherit' });
   console.log(`built @opsorama/${name}: ${Object.keys(entry).length} entries`);
 }

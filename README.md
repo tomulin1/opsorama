@@ -11,7 +11,7 @@ Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source t
 - **161 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
 - **One renderer** for every framework, with selection, labels, markers, camera control, motion, instancing and explicit disposal.
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
-- **Built for AI coding agents**: typed contracts, a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama). A scene schema, headless checks and agent tools are [planned](docs/PROJECT_VISION.md#building-with-ai-agents).
+- **Built for AI coding agents**: typed contracts, scene validation that reports every problem with its location and a fix (`validateScene`, plus a JSON Schema in `@opsorama/core/scene-definition.schema.json`), a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama). Headless checks and agent tools are [planned](docs/PROJECT_VISION.md#building-with-ai-agents).
 
 Four of the [domain examples on opsorama.dev](https://opsorama.dev/examples), with fictional data:
 
@@ -113,7 +113,7 @@ Complete projects for plain TypeScript, Vite + React, Vite + Vue and Next.js are
 
 | Package | Purpose |
 | --- | --- |
-| `@opsorama/core` | Framework-free, domain-free scene model: nodes, settings, selection, subscriptions, containment, movement and behaviors. No DOM or graphics. |
+| `@opsorama/core` | Framework-free, domain-free scene model: nodes, scene validation and its JSON Schema, settings, selection, subscriptions, containment, movement and behaviors. No DOM or graphics. |
 | `@opsorama/three` | The Three.js renderer: camera, selection, labels, markers, motion playback, instancing and disposal. Ships no models. |
 | `@opsorama/objects` | The object catalog: 21 kits on subpaths such as `@opsorama/objects/vehicles`, `catalogAssets` with every model, descriptors and `catalog.json`; handling rules and move mode in `@opsorama/objects/handling`. |
 | `@opsorama/react` | Native React adapter: `DashboardProvider`, `SceneCanvas`, hooks and scene components. `@opsorama/react/ui` adds panels. |

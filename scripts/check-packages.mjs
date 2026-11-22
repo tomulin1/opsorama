@@ -7,7 +7,7 @@
  * 3. Extracts the tarballs into a clean temporary project (outside this workspace, so no workspace links resolve), links the
  *    peer dependencies from this workspace, and type-checks one import of every export subpath with TypeScript, once with
  *    `moduleResolution: bundler` and once with `node16` (an ESM project), with library checking on; errors inside third-party declarations are counted but ignored.
- * 4. Imports every JavaScript entry point in Node from the packed files.
+ * 4. Imports every JavaScript entry point in Node from the packed files, and parses every JSON export (the scene schema).
  * Exit 1 when any check fails. Usage: pnpm check:packages
  */
 import { execFileSync } from 'node:child_process';
@@ -36,6 +36,12 @@ for (const name of PACKAGES) {
   fs.mkdirSync(target); execFileSync('tar', ['-xzf', path.relative(target, file).split(path.sep).join('/'), '--strip-components=1'], { cwd: target });
   const manifest = JSON.parse(fs.readFileSync(path.join(target, 'package.json'), 'utf8'));
   for (const [key, value] of Object.entries(manifest.exports)) if (typeof value === 'object') imports.push(`@opsorama/${name}${key === '.' ? '' : key.slice(1)}`);
+  // JSON exports (the scene schema) must be packed and parse as JSON.
+  for (const [key, value] of Object.entries(manifest.exports)) if (typeof value === 'string' && value.endsWith('.json')) {
+    let ok = false; try { JSON.parse(fs.readFileSync(path.join(target, value), 'utf8')); ok = true; } catch { /* reported below */ }
+    console.log(`@opsorama/${name}${key.slice(1)}: ${ok ? 'ok' : `FAILED (${value} is missing from the tarball or is not JSON)`}`);
+    if (!ok) failed = true;
+  }
 }
 for (const dep of LINKED) {
   const source = fs.realpathSync(path.join(root, 'node_modules', dep));

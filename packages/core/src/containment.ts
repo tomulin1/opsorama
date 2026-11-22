@@ -1,4 +1,6 @@
 import type { SceneNode, SceneStore } from './index';
+import { throwOnErrors } from './scene-problems';
+import { parentProblems } from './validate-scene';
 
 /**
  * Generic containment. Any asset node can contain other nodes: a child names it with `parentId` and uses
@@ -29,20 +31,11 @@ export function setNodeView(store: SceneStore, id: string, view: NodeView): void
 /**
  * Validate the `parentId` graph. A parent must be an asset node and the chain must not form a cycle. Missing parents
  * are dormant, not errors, so nodes can be registered in any order: a child of a missing parent is hidden until the
- * parent appears. The scene store runs this on `replace` and `upsert`.
+ * parent appears. The scene store runs this on `replace` and `upsert`. Throws `SceneValidationError`; problem paths are
+ * relative to `nodes` (`/3/parentId`).
  */
 export function validateParents(nodes: readonly SceneNode[]): void {
-  const byId = new Map(nodes.map(node => [node.id, node]));
-  for (const node of nodes) {
-    const seen = new Set([node.id]); let parentId = node.parentId;
-    while (parentId !== undefined) {
-      if (seen.has(parentId)) throw new Error(`Parent cycle at ${node.id}: ${parentId} is its own ancestor. Remove one parentId from the cycle.`);
-      seen.add(parentId); const parent = byId.get(parentId);
-      if (!parent) break;
-      if (parent.kind !== 'asset') throw new Error(`Parent ${parentId} of ${node.id} must be an asset node; it is a ${parent.kind} node. Only assets can contain children.`);
-      parentId = parent.parentId;
-    }
-  }
+  throwOnErrors(parentProblems(nodes, ''));
 }
 
 /**

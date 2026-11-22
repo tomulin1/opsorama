@@ -12,6 +12,7 @@ Opsorama is pre-release. This page lists what is implemented, what comes before 
 - **Website**: documentation, a searchable object browser with live previews and usage snippets, and full-viewport domain examples (e-commerce, distribution centre, office, datacenter, restaurant, farm, aquatics) whose inspectors show a live 3D copy of the selected object.
 - **Distribution**: package builds with declarations, package checks from packed tarballs, bundle size budgets and four standalone starters (plain TypeScript, Vite + React, Vite + Vue, Next.js).
 - **Documentation for agents**: package READMEs with type-checked examples, an agent skill (`skills/opsorama`) and `llms.txt` / `llms-full.txt` on the website.
+- **Scene validation**: `validateScene` in `@opsorama/core` reports every problem of a scene definition in one pass with a JSON Pointer path, a stable rule ID and a suggested fix, and the store throws `SceneValidationError` with the same problems. A JSON Schema of scene definitions, generated from the core types, is published as `@opsorama/core/scene-definition.schema.json` and on the website.
 - **Performance**: [measurements](PERFORMANCE.md) of frame rate at 256–2,048 objects, load time and repeated mount/unmount on a documented reference machine, plus bundle size budgets.
 - **Project**: contributor guide, code of conduct, security policy, issue and pull request templates, and GitHub Actions for checks, end-to-end tests, security scanning, site deployment and Changesets releases.
 
@@ -29,7 +30,7 @@ Opsorama is a toolkit for declarative 3D scenes in web applications that AI codi
 - **Engine API (0.2):** perspective, orbit and follow cameras with animated transitions and camera paths, a public camera API, touch gestures, primitive nodes (box, sphere, cylinder, line, 3D text, billboard), a group node, a public frame hook, pointer events on nodes and a renderer plugin API.
 - **Content (0.3):** glTF/GLB models with instancing and disposal, textures and sprites, lighting and environment presets, optional post-processing (outline, bloom) and quality profiles, including a lighter profile for large scenes.
 - **Showcases beyond dashboards:** a small management game and a visualization built from the same building blocks. Dedicated visualization or game packages are considered only after these showcases.
-- **Building with AI agents:** a JSON Schema for scene definitions and a validator with located, actionable errors (with 0.2), a command-line scene check and headless rendering to an image, an MCP server with catalog search, validation and previews, and agent evaluations reported per release. Every new capability also updates the agent skill, `llms.txt` and the catalog.
+- **Building with AI agents:** the scene schema and validator cover the new node kinds (with 0.2), a command-line scene check and headless rendering to an image, an MCP server with catalog search, validation and previews, and agent evaluations reported per release. Every new capability also updates the agent skill, `llms.txt` and the catalog.
 - **Reach:** a Web Component adapter for other frameworks, a project scaffolder with agent instructions in its templates, a scene editor producing scene JSON, devtools and video export.
 - Real host integrations and read-only connectors to external data sources.
 - Streaming data contracts and grouped composition.

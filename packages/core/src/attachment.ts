@@ -1,20 +1,27 @@
 import type { SceneNode } from './index';
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { attachmentProblems, transferChecks } from './validate-scene';
 /** A child owns its resources and identity; its transform is local to the parent's named anchor. */
-export interface Attachment { nodeId: string; anchor?: string; }
+export interface Attachment {
+  /**
+   * ID of the carrying node.
+   * @minLength 1
+   * @pattern \S
+   */
+  nodeId: string;
+  /**
+   * Named anchor of the carrier's model, such as a carry or fork anchor. Default: the carrier's origin.
+   * @minLength 1
+   * @pattern \S
+   */
+  anchor?: string;
+}
+/**
+ * Throws `SceneValidationError` when a node has both an attachment and a parentId, an attached asset owns a route or a
+ * controller, or attachments form a cycle. Problem paths are relative to `nodes` (`/3/attachment`).
+ */
 export function validateAttachments(nodes: readonly SceneNode[]): void {
-  const byId = new Map(nodes.map(node => [node.id, node]));
-  for (const node of nodes) {
-    if (node.attachment && node.parentId) throw new Error(`Node ${node.id} cannot have both an attachment and a parentId; a carried node follows its carrier, so remove one.`);
-    if (node.attachment && node.kind === 'asset' && node.route) throw new Error('Attached assets cannot own a route.');
-    if (node.attachment && node.kind === 'asset' && node.controller) throw new Error('Attached assets cannot own a controller.');
-    const seen = new Set([node.id]); let current: SceneNode | undefined = node;
-    while (current) {
-      const id: string | undefined = current.attachment?.nodeId ?? current.parentId;
-      if (!id) break;
-      if (seen.has(id)) throw new Error(`Attachment cycle at ${node.id}.`);
-      seen.add(id); current = byId.get(id);
-    }
-  }
+  throwOnErrors(attachmentProblems(nodes, ''));
 }
 
 /**
@@ -26,15 +33,22 @@ export function validateAttachments(nodes: readonly SceneNode[]): void {
  * first appears, or keeps its parent, does not animate.
  */
 export interface NodeTransfer {
-  /** Visual seconds, 0.05–5. */
+  /**
+   * Visual seconds, 0.05–5.
+   * @minimum 0.05
+   * @maximum 5
+   */
   seconds: number;
-  /** Peak lift in metres, 0–2. Default 0.25. */
+  /**
+   * Peak lift in metres, 0–2. Default 0.25.
+   * @minimum 0
+   * @maximum 2
+   */
   arc?: number;
 }
 export const DEFAULT_TRANSFER_ARC = .25;
 
+/** Throws `SceneValidationError` unless `seconds` is 0.05–5 and `arc`, when given, 0–2. */
 export function validateNodeTransfer(transfer: NodeTransfer): void {
-  if (!transfer || typeof transfer !== 'object') throw new Error('Node transfer must be an object.');
-  if (!(Number.isFinite(transfer.seconds) && transfer.seconds >= .05 && transfer.seconds <= 5)) throw new Error('Node transfer seconds must be from 0.05 to 5.');
-  if (transfer.arc !== undefined && !(Number.isFinite(transfer.arc) && transfer.arc >= 0 && transfer.arc <= 2)) throw new Error('Node transfer arc must be from 0 to 2 m.');
+  throwOnErrors(collectProblems(add => transferChecks(transfer, '', add)));
 }
