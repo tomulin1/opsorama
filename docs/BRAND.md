@@ -8,7 +8,8 @@ Adopted October 28, 2026. The symbol is **Flow** and the palette is **Cornflower
 - **Pronunciation:** **ops-oh-RAH-ma**, with the stress on “RAH”.
 - **Origin:** operations + panorama: a clear view of everything happening across a business.
 - **Tagline:** A clear view of your operations.
-- **Description:** A framework-agnostic toolkit for animated 3D operational dashboards across commerce, logistics, HR and other domains. React, native Vue and plain JavaScript share the same scene model and renderer.
+- **Tagline use:** the tagline describes the flagship use, operational dashboards. Where the broader toolkit is meant, use the description.
+- **Description:** A framework-agnostic toolkit for declarative 3D scenes in web applications, with animated operational dashboards across commerce, logistics, HR and other domains as the flagship use. React, native Vue and plain JavaScript share the same scene model and renderer.
 - **Voice:** clear, practical and calm. Explain operational meaning with concrete language. Label mock data, proposed capabilities and measured results honestly.
 
 ## Visual identity
