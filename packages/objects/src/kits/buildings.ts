@@ -3,7 +3,7 @@ import { catalogEntries } from '../catalog-entry';
 // Brings the catalog's typed AssetOptions (module augmentation of @opsorama/core) to every consumer of this kit.
 import '../options';
 import { createGrainSilo } from '../agriculture';
-import { createBuilding } from '../building';
+import { createBuilding, validateBuildingNode } from '../building';
 import { createPavilion } from '../generic-models';
 import { createGate } from '../material-handling';
 import { createLoadingDock, createShippingContainer } from '../logistics';
@@ -24,4 +24,4 @@ export const buildingsKit: AssetRegistry = catalogEntries({
   'grain-silo': createGrainSilo,
   'loading-dock': createLoadingDock,
   'shipping-container': createShippingContainer,
-});
+}, { building: validateBuildingNode });

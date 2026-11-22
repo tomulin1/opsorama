@@ -130,11 +130,16 @@ function analog(group: THREE.Group, p: ReturnType<typeof palette>, stopwatch: bo
   };
   return { paint, parts: [hour, minute, second].filter(hand => hand !== null) };
 }
-export function createReadout(node: AssetNode, context?: MaterialContext): THREE.Object3D {
+/** Validates a readout node (`assetDisplayDefinitions`): its reading, the reading kind the asset shows and its variant. Returns both resolved. */
+export function validateReadoutNode(node: AssetNode): { reading: DisplayReading; variant: string } {
   const definition = assetDisplayDefinitions[node.asset], reading = node.options?.display ?? definition.default, variant = node.variant ?? definition.variants[0];
   validateDisplay(reading);
   if (reading.kind !== definition.default.kind) throw new Error(`Asset ${node.asset} requires a ${definition.default.kind} display reading.`);
   if (!definition.variants.includes(variant)) throw new Error(`Unknown ${node.asset} variant: ${variant}.`);
+  return { reading, variant };
+}
+export function createReadout(node: AssetNode, context?: MaterialContext): THREE.Object3D {
+  const { reading, variant } = validateReadoutNode(node);
   const p = palette(node, context), group = new THREE.Group(); group.name = node.asset;
   const round = node.asset === 'analog-clock' || node.asset === 'stopwatch' && variant === 'analog';
   let paint: (seconds: number) => void, parts: readonly THREE.Object3D[];
