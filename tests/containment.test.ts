@@ -23,7 +23,7 @@ describe('generic containment', () => {
 
   it('rejects parents that are not asset nodes and parent cycles with actionable errors', () => {
     const ground: SceneNode = { id: 'floor', kind: 'ground', size: [4, 4] };
-    expect(() => validateParents([ground, { ...server, parentId: ground.id }])).toThrow('Parent floor of server must be an asset node');
+    expect(() => validateParents([ground, { ...server, parentId: ground.id }])).toThrow('Parent floor of server must be an asset or group node');
     expect(() => validateParents([{ ...cabinet, parentId: server.id }, server])).toThrow('Parent cycle');
     expect(() => validateParents([server])).not.toThrow();
     const store = createSceneStore({ schemaVersion: 1, nodes: [ground] });

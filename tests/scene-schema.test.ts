@@ -13,6 +13,7 @@ import { domainKitsDefinition } from '../apps/site/examples/domain-kits-data';
 import { logisticsDefinition } from '../apps/site/examples/logistics-data';
 import { defaultFeaturedMarker, markerSceneNodes } from '../apps/site/examples/marker-data';
 import { motionSceneNodes, palletJackNode, robotNodes } from '../apps/site/examples/motion-data';
+import { chartValues, primitivesDefinition } from '../apps/site/examples/primitives-data';
 import { moveModeDefinition } from '../apps/site/examples/move-mode-data';
 import { contractNodes, DEFAULT_CONTRACT } from '../apps/site/examples/object-contract-data';
 import { siteEnergyDefinition } from '../apps/site/examples/site-energy-data';
@@ -45,6 +46,7 @@ const examples: Record<string, SceneDefinition> = {
   motion: scene([...motionSceneNodes, palletJackNode(12), ...robotNodes(0)]),
   'move-mode': moveModeDefinition,
   'object-contract': scene(contractNodes(DEFAULT_CONTRACT)),
+  primitives: primitivesDefinition(chartValues(0)),
   'site-energy': siteEnergyDefinition,
   surfaces: surfacesDefinition,
   'warehouse-objects': warehouseObjectsDefinition,
@@ -82,14 +84,21 @@ const broken: Fixture[] = [
   { name: 'route', input: scene([{ ...parcel, route: { points: [[0, 0, 0], [4, 0, 0]], speed: 0, stops: [{ index: 5, seconds: 1 }], loop: true, profile: { cornerSpeed: 1 } } }]), expected: [{ path: '/nodes/0/route/speed', rule: 'route', fix: /greater than 0 and at most 30/ }, { path: '/nodes/0/route/stops/0/index', rule: 'route', fix: /from 0 to points.length - 1 \(1\)/ }, { path: '/nodes/0/route/loop', rule: 'route', fix: /Append the first point \[0, 0, 0\]/ }, { path: '/nodes/0/route/profile/cornerSpeed', rule: 'route', fix: /Add acceleration/ }] },
   { name: 'controller', input: scene([{ ...parcel, controller: { kind: '', options: { at: Number.NaN } } }]), expected: [{ path: '/nodes/0/controller/kind', rule: 'controller', fix: /controller in the renderer's registry/ }] },
   { name: 'transfer', input: scene([{ ...parcel, transfer: { seconds: 9, arc: 3 } }]), expected: [{ path: '/nodes/0/transfer/seconds', rule: 'transfer', fix: /0.05 to 5/ }, { path: '/nodes/0/transfer/arc', rule: 'transfer', fix: /0 to 2 metres/ }] },
-  { name: 'route on a zone', input: scene([{ id: 'z', kind: 'zone', size: [2, 2], route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 } }]), expected: [{ path: '/nodes/0/route', rule: 'motion-owner', fix: /Move the route to an asset node/ }] },
+  { name: 'route on a zone', input: scene([{ id: 'z', kind: 'zone', size: [2, 2], route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 } }]), expected: [{ path: '/nodes/0/route', rule: 'motion-owner', fix: /Move the route to an asset, shape or group node/ }] },
+  { name: 'shape geometry and opacity', input: scene([{ id: 's', kind: 'shape', shape: { type: 'sphre', radius: 1 } }, { id: 'b', kind: 'shape', shape: { type: 'box', size: [1, 0, 1] }, opacity: 2 }, { id: 'c', kind: 'shape', shape: { type: 'cylinder', radiusTop: -1, radiusBottom: 1, height: 0 } }, { id: 'o', kind: 'shape', shape: { type: 'sphere', radius: 1, size: [1, 1, 1] } }, { id: 'm', kind: 'shape' }]), expected: [{ path: '/nodes/0/shape/type', rule: 'shape', fix: /Did you mean "sphere"/ }, { path: '/nodes/1/shape/size', rule: 'shape', fix: /each greater than 0/ }, { path: '/nodes/1/opacity', rule: 'opacity', fix: /from 0 \(invisible\) to 1/ }, { path: '/nodes/2/shape/radiusTop', rule: 'shape', fix: /0 makes a cone point/ }, { path: '/nodes/2/shape/height', rule: 'shape', fix: /greater than 0/ }, { path: '/nodes/3/shape/size', rule: 'unknown-key', severity: 'warning', fix: /Remove "size"/ }, { path: '/nodes/4/shape', rule: 'shape', fix: /type: 'box', size/ }] },
+  { name: 'line points, width and dashed', input: scene([{ id: 'l', kind: 'line', points: [[0, 0, 0]], width: 9, dashed: 'yes' }]), expected: [{ path: '/nodes/0/points', rule: 'line-points', fix: /two or more/ }, { path: '/nodes/0/width', rule: 'line-width', fix: /from 0 to 5/ }, { path: '/nodes/0/dashed', rule: 'field-type', fix: /true or false/ }] },
+  { name: 'controller on a line', input: scene([{ id: 'l', kind: 'line', points: [[0, 0, 0], [1, 0, 0]], controller: { kind: 'approach' } }]), expected: [{ path: '/nodes/0/controller', rule: 'motion-owner', fix: /asset, shape or group node/ }] },
+  { name: 'route on a group', input: scene([{ id: 'g', kind: 'group', route: { points: [[0, 0, 0]], speed: 1 } }]), expected: [{ path: '/nodes/0/route/points', rule: 'route', fix: /from 2 to 512/ }] },
   { name: 'blank parent and attachment', input: scene([{ ...parcel, parentId: '' }, { ...parcel, id: 'q', attachment: { nodeId: 'p', anchor: '' } }]), expected: [{ path: '/nodes/0/parentId', rule: 'parent-id', fix: /id of the containing asset/ }, { path: '/nodes/1/attachment', rule: 'attachment', fix: /carrier's origin/ }] },
 ];
 
 /** Broken scenes that pass the schema: rules across nodes and the asset factories' own rules. */
 const crossNode: Fixture[] = [
   { name: 'duplicate IDs', input: scene([ground, ground]), expected: [{ path: '/nodes/1/id', rule: 'duplicate-id', fix: /already used by \/nodes\/0/ }] },
-  { name: 'parent is a ground', input: scene([ground, { ...parcel, parentId: 'floor' }]), expected: [{ path: '/nodes/1/parentId', rule: 'parent-kind', fix: /id of an asset node/ }] },
+  { name: 'parent is a ground', input: scene([ground, { ...parcel, parentId: 'floor' }]), expected: [{ path: '/nodes/1/parentId', rule: 'parent-kind', fix: /id of an asset or group node/ }] },
+  { name: 'parent is a shape', input: scene([{ id: 's', kind: 'shape', shape: { type: 'box', size: [1, 1, 1] } }, { ...parcel, parentId: 's' }]), expected: [{ path: '/nodes/1/parentId', rule: 'parent-kind', fix: /put them in a group node/ }] },
+  { name: 'cylinder with two zero radii', input: scene([{ id: 'c', kind: 'shape', shape: { type: 'cylinder', radiusTop: 0, radiusBottom: 0, height: 1 } }]), expected: [{ path: '/nodes/0/shape/radiusTop', rule: 'shape', fix: /radiusTop or radiusBottom/ }] },
+  { name: 'attached group with a route', input: scene([parcel, { id: 'g', kind: 'group', attachment: { nodeId: 'p' }, route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 } }]), expected: [{ path: '/nodes/1/route', rule: 'attachment-conflict', fix: /Give the carrier the route/ }] },
   { name: 'parent cycle', input: scene([{ ...parcel, id: 'a', parentId: 'b' }, { ...parcel, id: 'b', parentId: 'a' }]), expected: [{ path: '/nodes/0/parentId', rule: 'parent-cycle', fix: /ends at a top-level node/ }, { path: '/nodes/1/parentId', rule: 'parent-cycle', fix: /ends at a top-level node/ }] },
   { name: 'attachment conflicts and cycle', input: scene([{ ...parcel, id: 'a', attachment: { nodeId: 'b' } }, { ...parcel, id: 'b', attachment: { nodeId: 'a' }, parentId: 'a', route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 } }]), expected: [{ path: '/nodes/1/attachment', rule: 'attachment-conflict', fix: /remove the other/ }, { path: '/nodes/1/route', rule: 'attachment-conflict', fix: /Give the carrier the route/ }, { path: '/nodes/0/attachment', rule: 'attachment-cycle', fix: /ends at a node that is not carried/ }] },
   { name: 'route and controller together', input: scene([{ ...parcel, route: { points: [[0, 0, 0], [1, 0, 0]], speed: 1 }, controller: { kind: 'approach' } }]), expected: [{ path: '/nodes/0/controller', rule: 'motion-owner', fix: /Keep either route/ }] },

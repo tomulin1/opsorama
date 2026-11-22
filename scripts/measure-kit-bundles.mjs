@@ -34,10 +34,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * point, the frame hook with fixed simulation steps and renderer plugins, with their validation messages; the new modules are
  * frame-clock.ts 2.0, plugins.ts 1.3 and pointer.ts 1.1 KiB minified) grew every renderer entry by 6.8 KiB (gzip 2.5): the
  * engine from 83.7 to 90.5, the catalog from 341.6 to 348.4 and the largest kit (vehicles) from 149.8 to 156.6, so the engine,
- * catalog and kit budgets were each raised by 9, the measured growth plus a margin of about 2. Raise a budget only with a note
- * that explains the growth.
+ * catalog and kit budgets were each raised by 9, the measured growth plus a margin of about 2. Later on November 22, 2026
+ * the shape, line and group nodes (their validation rules and messages in core, and nodes.ts with the unit shape geometry,
+ * the line tube and the shared node builder in the renderer) grew every renderer entry by 5.0 KiB (gzip 1.7): the engine
+ * from 90.5 to 95.5, the catalog from 348.4 to 353.4 and the largest kit (vehicles) from 156.6 to 161.6, so the engine,
+ * catalog and kit budgets were each raised by 7, the measured growth plus a margin of about 2. Raise a budget only with a
+ * note that explains the growth.
  */
-const BUDGETS_KIB = { engine: 97, catalog: 355, kit: 161, handling: 30 };
+const BUDGETS_KIB = { engine: 104, catalog: 362, kit: 168, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));

@@ -1,6 +1,6 @@
 # @opsorama/core
 
-Framework-free scene model for Opsorama 3D scenes and dashboards: typed nodes (ground, zone, path, asset, marker), scene validation with located problems and a JSON Schema, immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
+Framework-free scene model for Opsorama 3D scenes and dashboards: typed nodes (ground, zone, path, asset, marker, and the primitive shape, line and group), scene validation with located problems and a JSON Schema, immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
 
 ## Install
 
@@ -24,6 +24,25 @@ store.dispose();
 ```
 
 Nodes are visual records only; your application keeps business data and links nodes to it through `entityId`. Model-specific settings go in an asset node's `options` (`AssetOptions`): core accepts any plain JSON-like object and freezes it, model packages such as `@opsorama/objects` type and validate their options, and `createSceneStore(definition, settings, { validateAsset })` can reject invalid asset nodes before the store accepts them. Render the store with `@opsorama/three` directly or through `@opsorama/react` / `@opsorama/vue`.
+
+## Shapes, lines and groups
+
+Content that no catalog model represents (chart bars, connections, simple markers of your own) uses primitive nodes, which need no asset registry. A `shape` node is a box, sphere or cylinder standing on its position; a `line` node is a polyline in local coordinates, 1 pixel wide or a tube with `width` in metres; a `group` node has no geometry and holds the nodes whose `parentId` names it, always open (`nodeView` is `'open'`). Assets, shapes and groups take `route`, `controller` and `transfer` (`MotionFields`), so a group with a route carries its contents. Only asset and group nodes can be parents.
+
+```ts
+import { createSceneStore, isMotionNode, type SceneNode } from '@opsorama/core';
+
+const values = [42, 65, 30];
+const nodes: SceneNode[] = [
+  { id: 'chart', kind: 'group', label: 'Volume', entityId: 'chart:volume', route: { points: [[0, 0, 0], [4, 0, 0]], speed: 0.5 } },
+  ...values.map((value, column): SceneNode => ({ id: `bar-${column}`, kind: 'shape', parentId: 'chart', position: [column * 1.2, 0, 0], shape: { type: 'box', size: [0.8, value / 20, 0.8] }, color: '#4f7fd8' })),
+  { id: 'trend', kind: 'line', parentId: 'chart', width: 0.05, points: values.map((value, column): [number, number, number] => [column * 1.2, value / 20 + 0.1, 0]) },
+];
+const store = createSceneStore({ schemaVersion: 1, nodes });
+console.log(store.getSnapshot().nodes.filter(isMotionNode).length); // 4: the group and its three bars
+```
+
+A shape without `color` takes the scene palette (the role of its `state` for busy, warning, critical and inactive, otherwise `accent`), and `opacity` below 1 makes it transparent. A click on a node that is not selectable selects its nearest selectable group. Groups do not change the indoor shadow policy: `isContained` counts only asset containers.
 
 ## Validate a scene
 

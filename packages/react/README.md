@@ -126,6 +126,29 @@ export function Yard({ store }: { store: SceneStore }) {
 }
 ```
 
+### Shapes, lines and groups
+
+`Group`, `Shape` and `Line` take the fields of `GroupNode`, `ShapeNode` and `LineNode` as props; children of a group name it in `parentId`. A click on a bar that is not selectable selects its group.
+
+```tsx
+import { createSceneStore } from '@opsorama/core';
+import { DashboardProvider, Group, Line, SceneCanvas, Shape } from '@opsorama/react';
+
+const store = createSceneStore();
+const assets = {}; // shapes, lines and groups need no models
+
+export function Chart({ values }: { values: readonly number[] }) {
+  return <DashboardProvider store={store}>
+    <SceneCanvas assets={assets} style={{ height: 360 }} />
+    <Group id="series-north" label="North" entityId="series:north" />
+    {values.map((value, column) => <Shape key={column} id={`bar-${column}`} parentId="series-north"
+      position={[column * 1.2, 0, 0]} shape={{ type: 'box', size: [0.8, value / 20, 0.8] }} color="#4f7fd8" />)}
+    <Line id="trend" parentId="series-north" width={0.05}
+      points={values.map((value, column) => [column * 1.2, value / 20 + 0.1, 0] as const)} />
+  </DashboardProvider>;
+}
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

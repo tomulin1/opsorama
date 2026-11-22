@@ -120,6 +120,26 @@ const stop = renderer.onFrame(frame => console.log(frame.frame, frame.time), { s
 - `onFrame(listener, { step?, maxSteps? })` runs once per rendered frame after node motion (`delta` = frame seconds × speed, 0 while paused), or with `step` (1/240–1/10 s) on a fixed simulation step before node motion: never while paused or hidden, still with motion off, at most `maxSteps` (default 4) steps per frame with the rest reported in `frame.dropped`. Listener errors go to `onError`; unsubscribing inside a listener is safe.
 - `plugins` (mount-time) are set up in order after the first scene sync and cleaned up in reverse order when the renderer is disposed. The context gives `scene`, `renderer`, `container`, `store`, `camera()`, `nodeObject(id)` (read only), `loaded`, `onFrame`, `onCameraChange` and `reportError`. Duplicate names throw; a throwing setup disposes the renderer and `createSceneRenderer` throws an error naming the plugin.
 
+### Shapes, lines and groups
+
+Shape, line and group nodes from `@opsorama/core` are drawn without an asset registry entry. Every box, every sphere and every cylinder with the same radius ratio shares one unit geometry scaled per node, so equal shapes of any size and color draw as one instanced batch (`getDiagnostics().instanceBatches`); transparent shapes (`opacity` below 1) are never instanced. A line with `width` 0 is a 1-pixel line the pointer passes through; a wider line is a lit tube that pointer events and selection hit; `dashed` works for both. A click on a node that is not selectable selects its nearest selectable group ancestor; `selectionTarget` applies the same rule in host code, and pointer events still report the node that was hit with its groups in `ancestors`.
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createSceneRenderer, selectionTarget } from '@opsorama/three';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'floor', kind: 'ground', size: [12, 8] },
+  { id: 'series', kind: 'group', label: 'North', entityId: 'series:north' },
+  { id: 'bar', kind: 'shape', parentId: 'series', shape: { type: 'box', size: [0.8, 3, 0.8] } },
+  { id: 'link', kind: 'line', points: [[-4, 0.1, 2], [4, 0.1, 2]], width: 0.08, dashed: true },
+] });
+const renderer = createSceneRenderer(container, store, { assets: {}, onSelect: selection => console.log(selection?.entityId) });
+const byId = new Map(store.getSnapshot().nodes.map(node => [node.id, node]));
+console.log(selectionTarget('bar', id => byId.get(id))); // 'series': a click on the bar selects the group
+// Later: renderer.dispose();
+```
+
 ### Node preview
 
 `createNodePreview` shows a live copy of one scene node in its own small canvas, for an inspector or detail panel:

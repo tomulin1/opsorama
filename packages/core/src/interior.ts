@@ -21,7 +21,7 @@ export function validateInterior(node: SceneNode): void {
 export function interiorAreas(nodes: readonly SceneNode[]): InteriorArea[] {
   const areas: InteriorArea[] = [];
   for (const node of nodes) {
-    if (node.kind === 'path' || node.kind === 'marker' || node.interior !== true) continue;
+    if ((node.kind !== 'ground' && node.kind !== 'zone' && node.kind !== 'asset') || node.interior !== true) continue;
     const [width, depth] = node.kind === 'asset' ? node.footprint! : node.size, [x, , z] = node.position ?? [0, 0, 0];
     areas.push({ id: node.id, center: [x, z], halfSize: [width * (node.scale?.[0] ?? 1) / 2, depth * (node.scale?.[2] ?? 1) / 2], yaw: node.rotation?.[1] ?? 0 });
   }

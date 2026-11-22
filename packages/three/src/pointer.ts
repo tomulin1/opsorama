@@ -14,8 +14,8 @@ export type ScenePointerType = 'mouse' | 'touch' | 'pen';
 export interface ScenePointerEvent {
   /**
    * `down` and `up`: a button pressed or released over the canvas or a label (also when the press starts a drag).
-   * `click`: a press and release that moved less than 5 px, or a touch tap; the renderer then selects the node (or clears
-   * the selection) and frames it, unless a handler calls `preventSelection()`. `enter` and `leave`: the nearest node under
+   * `click`: a press and release that moved less than 5 px, or a touch tap; the renderer then selects the node, or its
+   * nearest selectable group ancestor (see `selectionTarget`), or clears the selection, and frames it, unless a handler calls `preventSelection()`. `enter` and `leave`: the nearest node under
    * the pointer changed (never for null), checked when the pointer moves or leaves the scene, not when a node moves under a
    * resting pointer. `move`: the pointer moved, at most once per animation frame.
    */
@@ -54,6 +54,24 @@ export function nodeAncestors(id: string, getNode: (id: string) => SceneNode | u
     ancestors.push(parentId); seen.add(parentId); parentId = parent.parentId;
   }
   return ancestors;
+}
+
+/**
+ * The node a click on `id` selects: `id` itself when it is selectable (`entityId` or `selectable`); otherwise the click
+ * bubbles through group parents to the nearest selectable group. It stops at a parent that is not a group (an asset
+ * container keeps its own selection), so a click on a node that is not selectable outside groups selects nothing
+ * (undefined). Stops at unknown nodes and cycles.
+ */
+export function selectionTarget(id: string, getNode: (id: string) => SceneNode | undefined): string | undefined {
+  const seen = new Set<string>();
+  let current = getNode(id);
+  while (current && !seen.has(current.id)) {
+    if (current.entityId || current.selectable) return current.id;
+    seen.add(current.id);
+    const parent = current.parentId !== undefined ? getNode(current.parentId) : undefined;
+    current = parent?.kind === 'group' ? parent : undefined;
+  }
+  return undefined;
 }
 
 /** The first intersection that belongs to a known node, as returned in nearest-first order by a raycaster. */

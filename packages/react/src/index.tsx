@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode } from '@opsorama/core';
+import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode, GroupNode, ShapeNode, LineNode } from '@opsorama/core';
 import { createNodePreview, createRendererSlot, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
@@ -110,5 +110,11 @@ export function Asset(props: Omit<AssetNode, 'kind'>) { return <Node node={{ ...
 export function Path(props: Omit<PathNode, 'kind'>) { return <Node node={{ ...props, kind: 'path' }} />; }
 /** A projected HTML marker without geometry, such as an alert. See `MarkerFields` in @opsorama/core. */
 export function Marker(props: Omit<MarkerNode, 'kind'>) { return <Node node={{ ...props, kind: 'marker' }} />; }
+/** A container without geometry: nodes whose `parentId` names it move, turn and scale with it, and a click on one that is not selectable selects the group. See `GroupNode`. */
+export function Group(props: Omit<GroupNode, 'kind'>) { return <Node node={{ ...props, kind: 'group' }} />; }
+/** A box, sphere or cylinder standing on its position, colored from `color` or the scene palette. See `ShapeNode`. */
+export function Shape(props: Omit<ShapeNode, 'kind'>) { return <Node node={{ ...props, kind: 'shape' }} />; }
+/** A polyline: a 1-pixel line, or a tube with `width` in metres. See `LineNode`. */
+export function Line(props: Omit<LineNode, 'kind'>) { return <Node node={{ ...props, kind: 'line' }} />; }
 export function EntityLayer<T>({ entities, mapEntity }: { entities: readonly T[]; mapEntity: (entity: T, index: number) => SceneNode }) { return <>{entities.map((entity, index) => { const node = mapEntity(entity, index); return <Node key={node.id} node={node} />; })}</>; }
 export function EntityInspector({ children }: { children: (selection: Selection | null) => ReactNode }) { return <>{children(useScene().selection)}</>; }

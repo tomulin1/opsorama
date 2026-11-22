@@ -87,7 +87,7 @@ const GLOW_PULSE_RATE = 3;
 const WHITE = new THREE.Color('#ffffff');
 
 interface GlowShell { mesh: THREE.Mesh; source: THREE.Mesh; }
-interface GlowSlot { object: THREE.Object3D | null; shells: GlowShell[]; material: THREE.MeshBasicMaterial; }
+interface GlowSlot { object: THREE.Object3D | null; descendants: boolean; shells: GlowShell[]; material: THREE.MeshBasicMaterial; }
 
 /**
  * Tints one selected and one hovered node with a colored shell over each opaque mesh.
@@ -96,18 +96,23 @@ interface GlowSlot { object: THREE.Object3D | null; shells: GlowShell[]; materia
  * copies the source world matrices each frame. A rebuilt model is a new object: call `show` again.
  */
 export interface GlowHighlight {
-  /** Mark `object` for this emphasis, or clear it with null. Unchanged objects keep their shells. */
-  show(emphasis: SelectionEmphasis, object: THREE.Object3D | null, color: string): void;
+  /**
+   * Mark `object` for this emphasis, or clear it with null. Unchanged objects keep their shells. With `descendants`, the
+   * shells also cover the meshes of other scene nodes under `object` (a group node and its contents) and are rebuilt on
+   * every call, because those nodes may have been rebuilt.
+   */
+  show(emphasis: SelectionEmphasis, object: THREE.Object3D | null, color: string, options?: { descendants?: boolean }): void;
   /** Call after world matrices and instancing are current, before rendering. `time` is in seconds; `pulsing` false holds the static tint. */
   update(time: number, pulsing: boolean): void;
   dispose(): void;
 }
 
-/** Meshes of `object` a shell can cover: opaque, not hardware-instanced, and not owned by a child scene node. */
-function glowSources(object: THREE.Object3D): THREE.Mesh[] {
+/** Meshes of `object` a shell can cover: opaque, not hardware-instanced, and not owned by a child scene node unless `descendants`. */
+function glowSources(object: THREE.Object3D, descendants = false): THREE.Mesh[] {
   const owner = object.userData.nodeId, sources: THREE.Mesh[] = [];
   const visit = (current: THREE.Object3D) => {
-    if (current !== object && current.userData.nodeId !== undefined && current.userData.nodeId !== owner) return;
+    if (!descendants && current !== object && current.userData.nodeId !== undefined && current.userData.nodeId !== owner) return;
+    if (current.name === 'selection-corners') return;
     const mesh = current as THREE.Mesh;
     if (mesh.isMesh && !(current instanceof THREE.InstancedMesh) && !(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some(material => material.transparent)) sources.push(mesh);
     current.children.forEach(visit);
@@ -122,7 +127,7 @@ function glowSources(object: THREE.Object3D): THREE.Mesh[] {
  */
 export function createGlowHighlight(container: THREE.Object3D, isDrawn: (mesh: THREE.Mesh) => boolean): GlowHighlight {
   const root = new THREE.Group(); root.name = 'selection-glow'; root.matrixAutoUpdate = false; container.add(root);
-  const slot = (): GlowSlot => ({ object: null, shells: [], material: new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false }) });
+  const slot = (): GlowSlot => ({ object: null, descendants: false, shells: [], material: new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false }) });
   const slots: Record<SelectionEmphasis, GlowSlot> = { selected: slot(), hovered: slot() };
   const shown = (mesh: THREE.Mesh, object: THREE.Object3D) => {
     if (!isDrawn(mesh)) return false;
@@ -130,12 +135,12 @@ export function createGlowHighlight(container: THREE.Object3D, isDrawn: (mesh: T
     return true;
   };
   return {
-    show(emphasis, object, color) {
-      const current = slots[emphasis]; current.material.color.set(color).lerp(WHITE, GLOW_LIGHTEN);
-      if (current.object === object) return;
+    show(emphasis, object, color, options = {}) {
+      const current = slots[emphasis], descendants = options.descendants === true; current.material.color.set(color).lerp(WHITE, GLOW_LIGHTEN);
+      if (current.object === object && !descendants && !current.descendants) return;
       root.remove(...current.shells.map(shell => shell.mesh));
-      current.object = object;
-      current.shells = object ? glowSources(object).map(source => {
+      current.object = object; current.descendants = descendants;
+      current.shells = object ? glowSources(object, descendants).map(source => {
         const mesh = new THREE.Mesh(source.geometry, current.material);
         mesh.matrixAutoUpdate = false; mesh.renderOrder = 5; mesh.frustumCulled = false; mesh.raycast = () => {};
         root.add(mesh); return { mesh, source };
