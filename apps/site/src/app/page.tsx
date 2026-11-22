@@ -10,7 +10,7 @@ const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
     { '@type': 'WebSite', '@id': `${SITE_ORIGIN}/#website`, url: `${SITE_ORIGIN}/`, name: SITE_NAME, description: SITE_DESCRIPTION, inLanguage: 'en', publisher: authorSchema },
-    { '@type': 'SoftwareSourceCode', '@id': `${SITE_ORIGIN}/#toolkit`, name: SITE_NAME, description: SITE_DESCRIPTION, url: `${SITE_ORIGIN}/`, codeRepository: projectIdentity.repositoryUrl, license: 'https://opensource.org/licenses/MIT', programmingLanguage: ['TypeScript', 'JavaScript'], runtimePlatform: 'Web browser', keywords: '3D dashboard, operations dashboard, Three.js, React, Vue, digital twin, warehouse visualization', author: authorSchema },
+    { '@type': 'SoftwareSourceCode', '@id': `${SITE_ORIGIN}/#toolkit`, name: SITE_NAME, description: SITE_DESCRIPTION, url: `${SITE_ORIGIN}/`, codeRepository: projectIdentity.repositoryUrl, license: 'https://opensource.org/licenses/MIT', programmingLanguage: ['TypeScript', 'JavaScript'], runtimePlatform: 'Web browser', keywords: '3D dashboard, operations dashboard, declarative 3D scenes, data-driven 3D, Three.js, React, Vue, digital twin, warehouse visualization, AI coding agents', author: authorSchema },
   ],
 };
 

@@ -5,7 +5,7 @@ description: Build animated 3D operational dashboards with the Opsorama toolkit 
 
 # Building dashboards with Opsorama
 
-Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, datacenter, restaurant…) inside an existing application. The **application owns** records, business rules, authentication, data sources and commands. Opsorama owns only the visual scene.
+Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, datacenter, restaurant…) inside an existing application. The **application owns** records, business rules, authentication, data sources and commands. Opsorama owns only the visual scene. Dashboards are the flagship use and what this skill covers; management games, interactive explainers and spatial visualizations are planned after the first release.
 
 ## Mental model
 

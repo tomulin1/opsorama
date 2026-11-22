@@ -1,6 +1,6 @@
 # @opsorama/core
 
-Framework-free scene model for Opsorama 3D dashboards: typed nodes (ground, zone, path, asset, marker), immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
+Framework-free scene model for Opsorama 3D scenes and dashboards: typed nodes (ground, zone, path, asset, marker), immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
 
 ## Install
 
