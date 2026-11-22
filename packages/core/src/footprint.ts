@@ -1,5 +1,13 @@
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { footprintChecks } from './validate-scene';
+
 /** Width along local x and depth along local z, in metres. Patterns keep their real size; geometric scale would stretch them. */
-export type Footprint = readonly [width: number, depth: number];
+export type Footprint = readonly [width: PositiveMetres, depth: PositiveMetres];
+/**
+ * Metres, greater than 0.
+ * @exclusiveMinimum 0
+ */
+type PositiveMetres = number;
 
 export type FootprintDefinition = Readonly<{
   min: Footprint;
@@ -9,8 +17,9 @@ export type FootprintDefinition = Readonly<{
   variantDefaults?: Readonly<Record<string, Footprint>>;
 }>;
 
+/** Throws `SceneValidationError` unless the footprint is two positive finite dimensions in metres. */
 export function validateFootprint(footprint: Footprint): void {
-  if (!Array.isArray(footprint) || footprint.length !== 2 || footprint.some(value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0)) throw new Error('Footprint requires two positive finite dimensions in metres.');
+  throwOnErrors(collectProblems(add => footprintChecks(footprint, '', add)));
 }
 
 /** Resolves the explicit footprint or the variant/definition default, rejecting sizes outside the declared range. */

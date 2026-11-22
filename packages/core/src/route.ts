@@ -1,4 +1,6 @@
 import type { Vec3 } from './index';
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { motionProfileChecks, routeChecks } from './validate-scene';
 
 /**
  * A visual route assigned to an asset node. The follower owns the node's root
@@ -6,9 +8,17 @@ import type { Vec3 } from './index';
  * record position and is used again after the route is removed.
  */
 export interface RouteStop {
-  /** Index into `points` where the follower pauses. */
+  /**
+   * Index into `points` where the follower pauses; at most one stop per point.
+   * @asType integer
+   * @minimum 0
+   */
   index: number;
-  /** Visual seconds to remain at the point. */
+  /**
+   * Visual seconds to remain at the point, greater than 0 and at most 3600.
+   * @exclusiveMinimum 0
+   * @maximum 3600
+   */
   seconds: number;
   /** Optional heading while stopped, e.g. facing a shelf or desk. */
   yaw?: number;
@@ -21,19 +31,31 @@ export interface RouteStop {
  * (`routeDuration`) and visual time stay identical.
  */
 export interface MotionProfile {
-  /** Acceleration and braking in m/s² (at most 50). Agents start, stop and change lane speed smoothly. */
+  /**
+   * Acceleration and braking in m/s² (greater than 0, at most 50). Agents start, stop and change lane speed smoothly.
+   * @exclusiveMinimum 0
+   * @maximum 50
+   */
   acceleration?: number;
-  /** Turning rate in rad/s (at most 50) while standing: at the start, at stops, at the end and at sharp corners. */
+  /**
+   * Turning rate in rad/s (greater than 0, at most 50) while standing: at the start, at stops, at the end and at sharp corners.
+   * @exclusiveMinimum 0
+   * @maximum 50
+   */
   turnRate?: number;
   /**
    * Corners sharper than this angle (radians, 0–π) are not taken while moving:
    * the agent brakes to a stop (with `acceleration`) and turns in place (with
    * `turnRate`). Default π/4 when `turnRate` is set; otherwise π, which never stops.
+   * @minimum 0
+   * @maximum 3.141592653589793
    */
   turnInPlaceAngle?: number;
   /**
    * Speed through a 90° corner taken while moving, in m/s; requires `acceleration`.
-   * Shallower corners interpolate toward full speed, sharper ones use this value.
+   * Shallower corners interpolate toward full speed, sharper ones use this value. Greater than 0, at most 30.
+   * @exclusiveMinimum 0
+   * @maximum 30
    */
   cornerSpeed?: number;
   /**
@@ -44,17 +66,23 @@ export interface MotionProfile {
    * `routeDuration`, `routeTimes` and arrival times do not change: the arc is
    * covered in the time of the two corner legs it replaces, a little slower than
    * the reported speed. Corners where the agent stops and turns in place stay sharp.
+   * @exclusiveMinimum 0
+   * @maximum 50
    */
   cornerRadius?: number;
 }
 
 export interface NodeRoute {
-  /** World-space points in travel order (at least two). */
+  /**
+   * World-space points in travel order, 2–512.
+   * @minItems 2
+   * @maxItems 512
+   */
   points: readonly Vec3[];
-  /** Default travel speed in metres per visual second. */
-  speed: number;
+  /** Default travel speed in metres per visual second, greater than 0 and at most 30. */
+  speed: RouteSpeed;
   /** Optional per-segment speeds (length `points.length - 1`), e.g. lane speed limits. */
-  segmentSpeeds?: readonly number[];
+  segmentSpeeds?: readonly RouteSpeed[];
   /** Timed pauses at route points, in any order; one per point. */
   stops?: readonly RouteStop[];
   /** Restart from the first point after the last; requires a closed route (last point equals first). */
@@ -65,13 +93,19 @@ export interface NodeRoute {
    * How many segments from the start are driven in reverse: the agent keeps its
    * heading and backs along them, then stops before it drives forward. Default 0.
    * Not for loops. A follower that joins this route mid-travel drives it forward.
+   * @asType integer
+   * @minimum 0
    */
   reverseSegments?: number;
   /** Kinematics of the agent kind; see `MotionProfile`. */
   profile?: MotionProfile;
   /** Heading before the route starts; with `profile.turnRate` the agent first turns in place. Ignored by loops. */
   startYaw?: number;
-  /** Speed at the first point in m/s, e.g. when a replacement joins mid-travel. Default 0. Used with `profile.acceleration`; ignored by loops. */
+  /**
+   * Speed at the first point in m/s (0–30), e.g. when a replacement joins mid-travel. Default 0. Used with `profile.acceleration`; ignored by loops.
+   * @minimum 0
+   * @maximum 30
+   */
   startSpeed?: number;
   /**
    * Seconds of this route already travelled when a follower first takes it, so
@@ -79,9 +113,16 @@ export interface NodeRoute {
    * at or beyond the end a one-way route is finished). Not part of the route's
    * identity: a follower that already follows the route keeps its own progress.
    * Default 0. `behaviorNode(state, base, { time })` sets it from simulation time.
+   * @minimum 0
    */
   elapsed?: number;
 }
+/**
+ * Metres per visual second, greater than 0 and at most 30 (`MAX_ROUTE_SPEED`).
+ * @exclusiveMinimum 0
+ * @maximum 30
+ */
+type RouteSpeed = number;
 
 export interface RouteSample {
   position: Vec3;
@@ -111,48 +152,15 @@ export const MAX_ROUTE_STOP_SECONDS = 3600;
 export const MAX_ROUTE_ACCELERATION = 50;
 export const MAX_ROUTE_TURN_RATE = 50;
 export const MAX_ROUTE_CORNER_RADIUS = 50;
-const CLOSED_EPSILON = 1e-6;
 
-const finiteVec = (value: unknown): value is Vec3 => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
-const validSpeed = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= MAX_ROUTE_SPEED;
-
+/** Throws `SceneValidationError` for the problems of a route; `validateScene` reports them with their paths. */
 export function validateNodeRoute(route: NodeRoute): void {
-  if (!route || !Array.isArray(route.points) || route.points.length < 2 || route.points.length > MAX_ROUTE_POINTS) throw new Error(`Route requires 2–${MAX_ROUTE_POINTS} points.`);
-  if (!route.points.every(finiteVec)) throw new Error('Route points must be finite [x, y, z] values.');
-  if (!validSpeed(route.speed)) throw new Error(`Route speed must be greater than 0 and at most ${MAX_ROUTE_SPEED} m/s.`);
-  if (route.segmentSpeeds !== undefined && (!Array.isArray(route.segmentSpeeds) || route.segmentSpeeds.length !== route.points.length - 1 || !route.segmentSpeeds.every(validSpeed))) throw new Error('Route segment speeds must provide one valid speed per segment.');
-  if (route.stops !== undefined) {
-    if (!Array.isArray(route.stops)) throw new Error('Route stops must be an array.');
-    const seen = new Set<number>();
-    for (const stop of route.stops) {
-      if (!stop || !Number.isSafeInteger(stop.index) || stop.index < 0 || stop.index >= route.points.length || seen.has(stop.index)) throw new Error('Each route stop needs a unique point index within the route.');
-      if (!Number.isFinite(stop.seconds) || stop.seconds <= 0 || stop.seconds > MAX_ROUTE_STOP_SECONDS) throw new Error(`Route stop duration must be greater than 0 and at most ${MAX_ROUTE_STOP_SECONDS} seconds.`);
-      if (stop.yaw !== undefined && !Number.isFinite(stop.yaw)) throw new Error('Route stop heading must be finite.');
-      seen.add(stop.index);
-    }
-  }
-  if (route.loop !== undefined && typeof route.loop !== 'boolean') throw new Error('Route loop must be boolean.');
-  if (route.loop && distance(route.points[0], route.points[route.points.length - 1]) > CLOSED_EPSILON) throw new Error('A looping route must end at its first point.');
-  if (route.endYaw !== undefined && !Number.isFinite(route.endYaw)) throw new Error('Route end heading must be finite.');
-  if (route.startYaw !== undefined && !Number.isFinite(route.startYaw)) throw new Error('Route start heading must be finite.');
-  if (route.reverseSegments !== undefined && !(Number.isSafeInteger(route.reverseSegments) && route.reverseSegments >= 0 && route.reverseSegments < route.points.length)) throw new Error('Route reverse segments must be a whole number from 0 to the number of segments.');
-  if (route.reverseSegments && route.loop) throw new Error('A looping route cannot drive in reverse.');
-  if (route.startSpeed !== undefined && !(Number.isFinite(route.startSpeed) && route.startSpeed >= 0 && route.startSpeed <= MAX_ROUTE_SPEED)) throw new Error(`Route start speed must be between 0 and ${MAX_ROUTE_SPEED} m/s.`);
-  if (route.profile !== undefined) validateMotionProfile(route.profile);
-  if (route.elapsed !== undefined && !(Number.isFinite(route.elapsed) && route.elapsed >= 0)) throw new Error('Route elapsed time must be finite and not negative.');
+  throwOnErrors(collectProblems(add => routeChecks(route, '', add)));
 }
 
-const inRange = (value: unknown, max: number) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= max;
+/** Throws `SceneValidationError` unless every given profile field is in range; `name` starts the messages. */
 export function validateMotionProfile(profile: MotionProfile, name = 'Motion profile'): void {
-  if (!profile || typeof profile !== 'object') throw new Error(`${name} must be an object.`);
-  if (profile.acceleration !== undefined && !inRange(profile.acceleration, MAX_ROUTE_ACCELERATION)) throw new Error(`${name} acceleration must be greater than 0 and at most ${MAX_ROUTE_ACCELERATION} m/s².`);
-  if (profile.turnRate !== undefined && !inRange(profile.turnRate, MAX_ROUTE_TURN_RATE)) throw new Error(`${name} turn rate must be greater than 0 and at most ${MAX_ROUTE_TURN_RATE} rad/s.`);
-  if (profile.turnInPlaceAngle !== undefined && !(Number.isFinite(profile.turnInPlaceAngle) && profile.turnInPlaceAngle >= 0 && profile.turnInPlaceAngle <= Math.PI)) throw new Error(`${name} turn-in-place angle must be between 0 and π.`);
-  if (profile.cornerSpeed !== undefined) {
-    if (!inRange(profile.cornerSpeed, MAX_ROUTE_SPEED)) throw new Error(`${name} corner speed must be greater than 0 and at most ${MAX_ROUTE_SPEED} m/s.`);
-    if (profile.acceleration === undefined) throw new Error(`${name} corner speed requires an acceleration.`);
-  }
-  if (profile.cornerRadius !== undefined && !inRange(profile.cornerRadius, MAX_ROUTE_CORNER_RADIUS)) throw new Error(`${name} corner radius must be greater than 0 and at most ${MAX_ROUTE_CORNER_RADIUS} m.`);
+  throwOnErrors(collectProblems(add => motionProfileChecks(profile, '', add, name)));
 }
 
 /** The motion-profile fields of a rule (for example a movement-graph agent rule), or undefined when it has none. */

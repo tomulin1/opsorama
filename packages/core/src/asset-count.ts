@@ -1,3 +1,6 @@
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { countChecks } from './validate-scene';
+
 export type AssetCountDefinition = Readonly<{
   label: string;
   unit: string;
@@ -23,10 +26,9 @@ export function resolveCountRepresentation(input: AssetCountInput, definition: A
   return { count, multiplier, total: count * multiplier };
 }
 
+/** Throws `SceneValidationError` unless count is a non-negative and multiplier a positive safe integer with a safe product. */
 export function validateCountInput(input: AssetCountInput): void {
-  if (input.count !== undefined && (!Number.isSafeInteger(input.count) || input.count < 0)) throw new Error('Asset count must be a non-negative safe integer.');
-  if (input.multiplier !== undefined && (!Number.isSafeInteger(input.multiplier) || input.multiplier < 1)) throw new Error('Asset multiplier must be a positive safe integer.');
-  if (!Number.isSafeInteger((input.count ?? 1) * (input.multiplier ?? 1))) throw new Error('Represented count exceeds the safe integer range.');
+  throwOnErrors(collectProblems(add => countChecks(input, '', add)));
 }
 /** Reserved layouts keep each part in its maximum-capacity slot as count changes. */
 export type CountLayout = 'compact' | 'reserved';

@@ -1,9 +1,18 @@
+import { collectProblems, throwOnErrors } from './scene-problems';
+import { materialChecks } from './validate-scene';
 /** Semantic material roles. Support is declared by each asset; legacy models may ignore these. */
 export const MATERIAL_ROLES = ['surface', 'structure', 'trim', 'accent', 'glass', 'liquid', 'screen', 'text', 'skin', 'hair', 'wood', 'foliage', 'normal', 'busy', 'warning', 'critical', 'inactive'] as const;
 export type MaterialRole = typeof MATERIAL_ROLES[number];
-export type MaterialPalette = Readonly<Record<MaterialRole, string>>;
+/**
+ * A six-digit hex color, #RRGGBB.
+ * @pattern ^#[0-9a-fA-F]{6}$
+ */
+type HexColor = string;
+/** A #RRGGBB color for every material role. */
+export type MaterialPalette = Readonly<Record<MaterialRole, HexColor>>;
+/** #RRGGBB colors for some material roles; omitted roles keep their defaults. */
 export type MaterialOverrides = Readonly<Partial<MaterialPalette>>;
+/** Throws `SceneValidationError` unless every key is a known `MaterialRole` with a #RRGGBB color. */
 export function validateMaterialOverrides(value: MaterialOverrides): void {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Material palette must be an object.');
-  for (const [role, color] of Object.entries(value)) if (!MATERIAL_ROLES.includes(role as MaterialRole) || typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color)) throw new Error('Material palette requires known roles with #RRGGBB colors.');
+  throwOnErrors(collectProblems(add => materialChecks(value, '', add)));
 }
