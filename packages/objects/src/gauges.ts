@@ -1,8 +1,47 @@
 import * as THREE from 'three';
-import { resolveMeasurement, type AssetNode, type Measurement, type ResolvedMeasurement } from '@opsorama/core';
+import type { AssetNode } from '@opsorama/core';
 import { anchor, block, part, STATE_COLORS } from './parts';
 import { resolveObjectColor, resolveObjectStateColor } from './object-palette';
 import type { MaterialContext } from '@opsorama/three';
+
+export interface MeasurementBand { from: number; to: number; state: 'normal' | 'warning' | 'critical'; }
+/** `AssetNode.options.measurement` of the gauge assets (`assetMeasurementDefinitions`). A reading is independent of discrete object counts and source unit identities. */
+export interface Measurement {
+  value: number | null;
+  min?: number;
+  max?: number;
+  unit?: string;
+  target?: number;
+  bands?: readonly MeasurementBand[];
+}
+export interface ResolvedMeasurement {
+  value: number | null; min: number; max: number; unit: string;
+  fraction: number | null; targetFraction?: number; outOfRange: boolean;
+  state?: MeasurementBand['state']; bands: readonly MeasurementBand[];
+}
+export function resolveMeasurement(input: Measurement): ResolvedMeasurement {
+  if (!input || typeof input !== 'object') throw new Error('Measurement must be an object.');
+  const { value, target } = input, min = input.min === undefined ? 0 : input.min, max = input.max === undefined ? 100 : input.max;
+  if (value !== null && !Number.isFinite(value)) throw new Error('Measurement value must be finite or null.');
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || !Number.isFinite(max - min)) throw new Error('Measurement requires a finite increasing range.');
+  if (target !== undefined && !Number.isFinite(target)) throw new Error('Measurement target must be finite.');
+  if (input.unit !== undefined && (typeof input.unit !== 'string' || input.unit.length > 40)) throw new Error('Measurement unit must be a string of at most 40 characters.');
+  if (input.bands !== undefined && (!Array.isArray(input.bands) || input.bands.length > 12)) throw new Error('Measurement supports at most twelve bands.');
+  const bands = input.bands ?? [];
+  let previous = min, state: MeasurementBand['state'] | undefined;
+  for (const band of bands) {
+    if (!band || !Number.isFinite(band.from) || !Number.isFinite(band.to) || band.from < previous || band.to <= band.from || band.to > max || !['normal', 'warning', 'critical'].includes(band.state)) throw new Error('Measurement bands must be ordered, non-overlapping and inside the range.');
+    previous = band.to;
+    if (value !== null && value >= band.from && value <= band.to) state = band.state;
+  }
+  const fraction = (reading: number) => reading <= min ? 0 : reading >= max ? 1 : (reading - min) / (max - min);
+  return { value, min, max, unit: input.unit ?? '', fraction: value === null ? null : fraction(value), ...(target === undefined ? {} : { targetFraction: fraction(target) }), outOfRange: value !== null && (value < min || value > max), state, bands };
+}
+export function formatMeasurement(input: Measurement): string {
+  const reading = resolveMeasurement(input);
+  const value = reading.value !== null && reading.unit.trim() === '%' ? Math.round(reading.value) : reading.value;
+  return value === null ? 'Unknown' : `${value}${reading.unit ? ` ${reading.unit}` : ''}${reading.outOfRange ? ' (out of range)' : ''}`;
+}
 
 export type CapacityGaugeVariant = 'vertical-segmented' | 'horizontal-segmented' | 'vertical-continuous' | 'horizontal-continuous';
 export type RingGaugeVariant = 'full' | 'semicircle';
@@ -21,7 +60,7 @@ function input(node: AssetNode, context?: MaterialContext) {
   const definition = assetMeasurementDefinitions[node.asset], variant = node.variant ?? definition.variants[0];
   if (!definition.variants.includes(variant)) throw new Error(`Unknown ${node.asset} variant: ${variant}.`);
   if (node.count !== undefined || node.multiplier !== undefined) throw new Error('Measured gauges do not accept counts or multipliers.');
-  const reading = resolveMeasurement(node.measurement === undefined ? definition.default : node.measurement);
+  const reading = resolveMeasurement(node.options?.measurement ?? definition.default);
   const fill = reading.state ? bandColor(reading.state) : resolveObjectColor(node, context, 'accent', '#409e96');
   return { reading, variant, fill: node.asset === 'battery-indicator' ? resolveObjectStateColor(node, context, fill) : fill };
 }
@@ -61,7 +100,7 @@ export function createMeasuredCapacityGauge(node: AssetNode, context?: MaterialC
     if (horizontal) mesh.position.y -= .29; else mesh.position.x += .29;
   }
   if (reading.targetFraction !== undefined) {
-    const target = strip(reading.targetFraction - .002, reading.targetFraction + .002, .56, DARK, 'gauge-target', .265); target.userData.value = node.measurement?.target;
+    const target = strip(reading.targetFraction - .002, reading.targetFraction + .002, .56, DARK, 'gauge-target', .265); target.userData.value = node.options?.measurement?.target;
   }
   if (reading.outOfRange) block(gauge, [.09, .09, .035], horizontal ? [1.02, .95, .24] : [.26, 2.18, .24], STATE_COLORS.warning, 'gauge-overflow');
   anchor(gauge, 'value', point(reading.fraction ?? .5));

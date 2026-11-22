@@ -67,7 +67,7 @@ describe('domain profiles and rails (H4)', () => {
   it('a bulk receptacle takes contents lines, not units', () => {
     const handling = state([{ id: 'cart', asset: 'shopping-cart' }, { id: 'flask', asset: 'lab-flask' }]);
     expect(handling.check('flask', { container: 'cart', receptacle: 'contents' }).violations[0]).toMatchObject({ code: 'unknown-target' });
-    expect(handling.check('flask', { container: 'cart', receptacle: 'contents' }).violations[0].message).toContain('ContainerContents');
+    expect(handling.check('flask', { container: 'cart', receptacle: 'contents' }).violations[0].message).toContain('options.contents');
     expect(handling.targets('flask')).toEqual([]);
     expect(handling.refusals('flask')).toEqual([]);
     expect(handlingFits(assetHandling, handlingProfiles).some(fit => fit.receptacle === 'contents')).toBe(false);

@@ -14,12 +14,12 @@ const load: Measurement = {
     { from: 90, to: 100, state: 'critical' },
   ],
 };
-// React: <Asset id="load" asset="ring-gauge" measurement={load} />
-// Vue:   <Asset id="load" asset="ring-gauge" :measurement="load" />
-// JS:    store.upsert({ id: 'load', kind: 'asset', asset: 'ring-gauge', measurement: load });
+// React: <Asset id="load" asset="ring-gauge" options={{ measurement: load }} />
+// Vue:   <Asset id="load" asset="ring-gauge" :options="{ measurement: load }" />
+// JS:    store.upsert({ id: 'load', kind: 'asset', asset: 'ring-gauge', options: { measurement: load } });
 ```
 
-These snippets illustrate the implemented API; the runnable workspace mounts below are independently typechecked. Core exports `Measurement`, `MeasurementBand`, `ResolvedMeasurement`, `resolveMeasurement` and `formatMeasurement`. Range defaults to 0–100, unit to empty. Accept decimal/negative readings and any finite increasing range with a finite span. Target must be finite; units have at most forty characters. Up to twelve bands must be sorted, non-overlapping and inside the range. At a shared boundary, the later band's state wins; gaps are allowed. Invalid store updates preserve the previous immutable snapshot. Readings and nested bands are cloned and frozen.
+These snippets illustrate the implemented API; the runnable workspace mounts below are independently typechecked. `@opsorama/objects` exports `Measurement`, `MeasurementBand`, `ResolvedMeasurement`, `resolveMeasurement` and `formatMeasurement`, and types `AssetNode.options.measurement`; gauges reject it on other assets. Range defaults to 0–100, unit to empty. Accept decimal/negative readings and any finite increasing range with a finite span. Target must be finite; units have at most forty characters. Up to twelve bands must be sorted, non-overlapping and inside the range. At a shared boundary, the later band's state wins; gaps are allowed. With `validateAsset: assetValidator(catalogAssets)`, invalid store updates throw and preserve the previous immutable snapshot. Readings and nested bands are cloned and frozen.
 
 Null is visibly unknown; zero is a known empty fill/minimum needle. Out-of-range values retain their original data, bounded fill/needle and an amber marker. Percentage readouts round to the nearest whole percent; other units retain their precision. Formatting does not alter source values, fractions, thresholds or out-of-range detection. Targets also retain their source value while their geometric marker is bounded. Measurements cannot be combined with `count`, `multiplier` or source-backed `QuantityTarget`. A UPS module count and charge reading remain separate host facts.
 

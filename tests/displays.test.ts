@@ -1,25 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { createSceneStore, formatDisplay, validateDisplay, type AssetNode, type DisplayReading } from '@opsorama/core';
-import { disposeObject } from '@opsorama/three';
-import { assetDisplayDefinitions, catalogAssets } from '@opsorama/objects';
+import { createSceneStore, type AssetNode } from '@opsorama/core';
+import { assetValidator, disposeObject } from '@opsorama/three';
+import { assetDisplayDefinitions, catalogAssets, formatDisplay, validateCatalogOptions, validateDisplay, type DisplayReading } from '@opsorama/objects';
 import { animateAsset } from '../packages/three/src/animation';
 
-const node = (asset: string, display?: DisplayReading, variant?: string): AssetNode => ({ id: 'readout', kind: 'asset', asset, display, variant, selectable: true });
+const node = (asset: string, display?: DisplayReading, variant?: string): AssetNode => ({ id: 'readout', kind: 'asset', asset, options: { display }, variant, selectable: true });
 function lit(object: THREE.Object3D) { const names: string[] = []; object.traverse(part => { if (part.name.startsWith('digit-') && part.visible) names.push(part.name); }); return names; }
 function color(object: THREE.Object3D, name: string) { return (object.getObjectByName(name) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>).material.color.getHexString(); }
 
 describe('portable displays and time readings', () => {
   it('validates finite bounded inputs and snapshots readings atomically without source mutation', () => {
-    const input: DisplayReading = { kind: 'clock', seconds: 36630, running: true }, store = createSceneStore({ schemaVersion: 1, nodes: [node('digital-clock', input)] });
-    expect(Object.isFrozen((store.getSnapshot().nodes[0] as AssetNode).display)).toBe(true);
-    input.seconds = 0; expect((store.getSnapshot().nodes[0] as AssetNode).display).toMatchObject({ seconds: 36630 });
+    const input: DisplayReading = { kind: 'clock', seconds: 36630, running: true }, store = createSceneStore({ schemaVersion: 1, nodes: [node('digital-clock', input)] }, {}, { validateAsset: assetValidator(catalogAssets) });
+    expect(Object.isFrozen((store.getSnapshot().nodes[0] as AssetNode).options?.display)).toBe(true);
+    input.seconds = 0; expect((store.getSnapshot().nodes[0] as AssetNode).options?.display).toMatchObject({ seconds: 36630 });
     const before = store.getSnapshot();
     for (const invalid of [{ kind: 'clock', seconds: -1 }, { kind: 'clock', seconds: 86400 }, { kind: 'clock', seconds: .5 }, { kind: 'stopwatch', seconds: 360000 }, { kind: 'countdown', seconds: NaN }, { kind: 'clock', seconds: 0, running: 'yes' }, { kind: 'number', value: Infinity }, { kind: 'number', value: 10000 }, { kind: 'number', value: 1, decimals: 3 }, { kind: 'other', seconds: 0 }]) {
       expect(() => store.upsert(node('digital-clock', invalid as DisplayReading))).toThrow(); expect(store.getSnapshot()).toBe(before);
     }
-    for (const extra of [{ count: 1 }, { multiplier: 2 }, { measurement: { value: 1 } }, { surfaceLabel: { kind: 'text' as const, text: 'X' } }]) expect(() => store.upsert({ ...node('digital-clock', { kind: 'clock', seconds: 0 }), ...extra })).toThrow();
-    expect(() => catalogAssets.monitor(node('monitor', { kind: 'clock', seconds: 0 }))).toThrow('no display configuration');
+    for (const extra of [{ count: 1 }, { multiplier: 2 }]) expect(() => store.upsert({ ...node('digital-clock', { kind: 'clock', seconds: 0 }), ...extra })).toThrow('cannot be combined with counts');
+    for (const extra of [{ measurement: { value: 1 } }, { surfaceLabel: { kind: 'text' as const, text: 'X' } }]) expect(() => validateCatalogOptions('digital-clock', { ...node('digital-clock', { kind: 'clock', seconds: 0 }), options: { display: { kind: 'clock', seconds: 0 }, ...extra } })).toThrow(/does not accept options\.(measurement|surfaceLabel)|cannot be combined with counts, measurements or surface labels/);
+    expect(() => catalogAssets.monitor(node('monitor', { kind: 'clock', seconds: 0 }))).toThrow('Asset monitor does not accept options.display');
     expect(() => catalogAssets['digital-clock'](node('digital-clock', { kind: 'countdown', seconds: 0 }))).toThrow('requires a clock');
     store.dispose();
   });

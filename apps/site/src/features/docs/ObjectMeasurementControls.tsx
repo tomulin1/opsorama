@@ -1,7 +1,7 @@
 'use client';
 import { useId, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { formatMeasurement, resolveMeasurement, type Measurement, type MeasurementBand } from '@opsorama/core';
+import { formatMeasurement, resolveMeasurement, type Measurement, type MeasurementBand } from '@opsorama/objects';
 
 interface Draft { value: string; min: string; max: string; unit: string; target: string; unknown: boolean; bands: { from: string; to: string; state: MeasurementBand['state'] }[]; }
 export function ObjectMeasurementControls({ measurement, onChange }: { measurement: Readonly<Measurement>; onChange: (value: Measurement) => void }) {

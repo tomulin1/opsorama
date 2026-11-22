@@ -43,10 +43,10 @@ export function createStatusBeacon(node: AssetNode, context?: MaterialContext): 
 
 /** Segmented column; `count` lights whole segments from the bottom. The host maps its measure to segments. */
 export function createCapacityGauge(node: AssetNode, context?: MaterialContext): THREE.Object3D {
-  if (node.measurement !== undefined || (node.variant !== undefined && node.variant !== 'vertical-segmented')) {
-    if (!node.measurement && node.variant === 'horizontal-segmented' && (node.count !== undefined || node.multiplier !== undefined)) {
+  if (node.options?.measurement !== undefined || (node.variant !== undefined && node.variant !== 'vertical-segmented')) {
+    if (!node.options?.measurement && node.variant === 'horizontal-segmented' && (node.count !== undefined || node.multiplier !== undefined)) {
       const { count } = resolveCountRepresentation(node, assetCountDefinitions['capacity-gauge']);
-      return createMeasuredCapacityGauge({ ...node, count: undefined, multiplier: undefined, measurement: { value: count * 10, unit: '%' } }, context);
+      return createMeasuredCapacityGauge({ ...node, count: undefined, multiplier: undefined, options: { ...node.options, measurement: { value: count * 10, unit: '%' } } }, context);
     }
     return createMeasuredCapacityGauge(node, context);
   }

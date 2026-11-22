@@ -82,7 +82,7 @@ export function farmNodes(snapshot: FarmSnapshot): SceneNode[] {
     const record = penRecord(snapshot, pen.id), flags = flagsOf(snapshot, pen.id), state = penState(snapshot, pen.id);
     nodes.push(...fence(pen));
     nodes.push({ id: `pin:${pen.id}`, entityId: pen.id, kind: 'asset', asset: 'map-pin', position: PIN_AT[pen.id], color: '#4f7f3a', ...(state !== 'normal' ? { state } : {}), label: `${pen.label} · ${record.headcount}${record.headcount < record.expected ? ` of ${record.expected}` : ''}`, labelMode: 'always', selectable: true });
-    nodes.push(selectable(`trough:${pen.id}`, pen.id, 'trough', p(pen.trough.at[0], pen.trough.at[1]), `${pen.label} ${pen.trough.variant} · ${record.level} %`, { variant: pen.trough.variant, rotation: yaw(pen.trough.yaw), fillLevel: record.level / 100, state: troughState(record.level) }));
+    nodes.push(selectable(`trough:${pen.id}`, pen.id, 'trough', p(pen.trough.at[0], pen.trough.at[1]), `${pen.label} ${pen.trough.variant} · ${record.level} %`, { variant: pen.trough.variant, rotation: yaw(pen.trough.yaw), options: { fillLevel: record.level / 100 }, state: troughState(record.level) }));
     // A missing animal is not drawn; its flag points at the pen instead.
     const present = flags.filter(flag => !flag.missing), shown = Math.min(record.headcount, pen.shown), places = spots(pen, shown), asset = pen.species;
     places.forEach((spot, i) => {

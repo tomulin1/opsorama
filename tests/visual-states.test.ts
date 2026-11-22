@@ -6,7 +6,7 @@ import { createSceneStore, validateNode, type AssetNode, type VisualState } from
 import { Asset as ReactAsset } from '@opsorama/react';
 import { Asset as VueAsset, DashboardProvider } from '@opsorama/vue';
 import * as THREE from 'three';
-import { disposeObject } from '@opsorama/three';
+import { assetValidator, disposeObject } from '@opsorama/three';
 import { assetVisualStates } from '@opsorama/objects';
 import { assetDescriptors, catalogAssets } from '@opsorama/objects';
 import { animateAsset, hasAssetAnimator } from '../packages/three/src/animation';
@@ -63,9 +63,9 @@ describe('model-native status and explicit operation', () => {
   it('uses fillLevel for water and feed without inferring contents from alert severity', () => {
     for (const variant of ['water', 'feed']) {
       const name = variant === 'water' ? 'trough-water' : 'trough-feed';
-      const empty = build('trough', { variant, fillLevel: 0, state: 'normal' });
+      const empty = build('trough', { variant, options: { fillLevel: 0 }, state: 'normal' });
       expect(contentsPart(empty, name)).toBeUndefined(); disposeObject(empty);
-      const full = build('trough', { variant, state: 'inactive' }), half = build('trough', { variant, fillLevel: .5, state: 'critical' });
+      const full = build('trough', { variant, state: 'inactive' }), half = build('trough', { variant, options: { fillLevel: .5 }, state: 'critical' });
       expect(contentsPart(full, name)).toBeDefined();
       expect(new THREE.Box3().setFromObject(contentsPart(half, name)!).max.y).toBeLessThan(new THREE.Box3().setFromObject(contentsPart(full, name)!).max.y);
       expect(full.getObjectByName('trough-status')).toBeUndefined(); disposeObject(full); disposeObject(half);
@@ -73,25 +73,26 @@ describe('model-native status and explicit operation', () => {
   });
 
   it('controls heat and water independently of severity and cleans up the water animator', () => {
-    const off = build('heated-pass', { heatEnabled: false, state: 'critical' });
+    const off = build('heated-pass', { options: { heatEnabled: false }, state: 'critical' });
     expect(off.getObjectByName('pass-heat-glow')).toBeUndefined(); disposeObject(off);
     const hot = build('heated-pass', { state: 'inactive' }); expect(hot.getObjectByName('pass-heat-glow')).toBeDefined(); disposeObject(hot);
-    const dry = build('deck-shower', { waterRunning: false, state: 'normal' }); expect(dry.getObjectByName('shower-water')).toBeUndefined(); expect(hasAssetAnimator(dry)).toBe(false); disposeObject(dry);
+    const dry = build('deck-shower', { options: { waterRunning: false }, state: 'normal' }); expect(dry.getObjectByName('shower-water')).toBeUndefined(); expect(hasAssetAnimator(dry)).toBe(false); disposeObject(dry);
     const wet = build('deck-shower', { state: 'inactive' }); expect(wet.getObjectByName('shower-water')).toBeDefined(); expect(hasAssetAnimator(wet)).toBe(true); disposeObject(wet); expect(hasAssetAnimator(wet)).toBe(false);
     for (const [asset, part] of [['espresso-machine', 'espresso-steam'], ['pizza-oven', 'oven-fire']]) {
       const hot = build(asset, { state: 'inactive' }); expect(hot.getObjectByName(part), asset).toBeDefined(); disposeObject(hot);
-      const cold = build(asset, { heatEnabled: false, state: 'critical' }); expect(cold.getObjectByName(part), asset).toBeUndefined(); expect(hasAssetAnimator(cold)).toBe(false); disposeObject(cold);
+      const cold = build(asset, { options: { heatEnabled: false }, state: 'critical' }); expect(cold.getObjectByName(part), asset).toBeUndefined(); expect(hasAssetAnimator(cold)).toBe(false); disposeObject(cold);
     }
   });
 
   it('rejects wrong model properties and invalid values in both stores and factories', () => {
+    const validateAsset = assetValidator(catalogAssets);
     for (const [asset, field, invalid] of [['espresso-machine', 'heatEnabled', 0], ['pizza-oven', 'heatEnabled', 'false'], ['heated-pass', 'heatEnabled', 0], ['deck-shower', 'waterRunning', 'false'], ['trough', 'fillLevel', -.1], ['trough', 'fillLevel', 1.1], ['trough', 'fillLevel', NaN], ['trough', 'fillLevel', Infinity]] as const) {
-      const node = { id: asset, kind: 'asset', asset, [field]: invalid } as AssetNode;
-      expect(() => validateNode(node)).toThrow(field); expect(() => catalogAssets[asset](node)).toThrow(field);
+      const node = { id: asset, kind: 'asset', asset, options: { [field]: invalid } } as AssetNode;
+      expect(() => validateNode(node, { validateAsset })).toThrow(`options.${field}`); expect(() => catalogAssets[asset](node)).toThrow(`options.${field}`);
     }
     for (const field of ['heatEnabled', 'waterRunning', 'fillLevel']) {
-      const node = { id: 'wrong', kind: 'asset', asset: 'parcel', [field]: field === 'fillLevel' ? .5 : false } as AssetNode;
-      expect(() => validateNode(node)).toThrow('supported only'); expect(() => catalogAssets.parcel(node)).toThrow('supported only');
+      const node = { id: 'wrong', kind: 'asset', asset: 'parcel', options: { [field]: field === 'fillLevel' ? .5 : false } } as AssetNode;
+      expect(() => validateNode(node, { validateAsset })).toThrow(`Asset parcel does not accept options.${field}`); expect(() => catalogAssets.parcel(node)).toThrow(`does not accept options.${field}`);
     }
   });
 
@@ -103,11 +104,11 @@ describe('model-native status and explicit operation', () => {
       const { kind, ...props } = node;
       expect(kind).toBe('asset');
       const react = ReactAsset(props) as ReactElement<{ node: AssetNode }>;
-      expect(react.props.node[property]).toBe(value);
+      expect(react.props.node.options?.[property]).toBe(value);
       const store = createSceneStore({ schemaVersion: 1, nodes: [node] });
-      expect((store.getSnapshot().nodes[0] as AssetNode)[property]).toBe(value); store.replace([]);
-      await renderToString(createSSRApp({ render: () => h(DashboardProvider, { store }, { default: () => h(VueAsset, { id: props.id, asset: props.asset, [property]: value }) }) }));
-      expect((store.getSnapshot().nodes[0] as AssetNode)[property]).toBe(value); store.dispose();
+      expect((store.getSnapshot().nodes[0] as AssetNode).options?.[property]).toBe(value); store.replace([]);
+      await renderToString(createSSRApp({ render: () => h(DashboardProvider, { store }, { default: () => h(VueAsset, { id: props.id, asset: props.asset, options: { [property]: value } }) }) }));
+      expect((store.getSnapshot().nodes[0] as AssetNode).options?.[property]).toBe(value); store.dispose();
     }
   });
 

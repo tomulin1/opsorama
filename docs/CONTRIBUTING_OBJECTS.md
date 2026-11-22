@@ -8,8 +8,9 @@ This guide describes what a complete catalog object in `@opsorama/objects` needs
 2. **Kit.** Add the factory to exactly one kit in `packages/objects/src/kits/<kit>.ts`. Kits mirror the object browser categories (`CATALOG_KITS`); a new category means a new kit, a new subpath in `packages/objects/package.json` and a new entry in the website's category map.
 3. **Descriptor.** Add a serializable `ObjectDescriptor` to `assetDescriptors`. `checkAssetDescriptor(descriptor, factory)` builds the model and verifies the descriptor against it; every descriptor must pass in `tests/catalog-descriptors.test.ts`. The descriptor also feeds `catalog.json` and the object page.
 4. **Optional definitions.** Declare only what the model supports: counts (`assetCountDefinitions`), count layouts, displays, measurements, surface labels, footprints, interaction slots, handling (`assetHandling`, checked by `checkAssetHandling`) and motion profiles.
-5. **Object page.** Add the catalog entry in `apps/site/src/features/docs/objects.ts` with the matching category, honest availability labels and supported controls only.
-6. **Examples and tests.** Runnable JavaScript, React and Vue usage (the object page snippets cover the basic case; add an example page when the object has behavior worth showing) and unit tests for its options, states and disposal.
+5. **Model options.** Settings that belong to one model go in `AssetNode.options`, never in a new core field. Add the typed option to the `AssetOptions` augmentation in `packages/objects/src/options.ts`, list the assets that accept it in `CATALOG_OPTION_ASSETS`, validate its value in `validateCatalogOptions` with an error that names the problem and the fix, and read it in the factory as `node.options?.<name>`. `catalogEntries` attaches the resulting `validate` to every catalog factory, so the renderer and stores created with `assetValidator` reject the option on other assets. Describe it in the descriptor's `customization` with `field: 'options.<name>'`.
+6. **Object page.** Add the catalog entry in `apps/site/src/features/docs/objects.ts` with the matching category, honest availability labels and supported controls only.
+7. **Examples and tests.** Runnable JavaScript, React and Vue usage (the object page snippets cover the basic case; add an example page when the object has behavior worth showing) and unit tests for its options, states and disposal.
 
 `tests/catalog-kits.test.ts` fails when an object is missing from a kit, appears in two kits or disagrees with its browser category.
 
@@ -38,9 +39,11 @@ Status indicators and selection emphasis are resolved separately from body styli
 
 ## Renderer hints and containers
 
-A factory can leave two optional hints on the returned object's `userData`; the renderer never checks asset names:
+A factory can leave optional hints on the returned object's `userData`; the renderer never checks asset names or reads model options:
 
-- `labelHeight` (number, metres, model-local): where the floating HTML label sits. Default 1.65; nodes with a surface label or a measurement use their bounds plus 0.35. Person models set 2.15, the building sets its height plus 0.4.
+- `labelHeight` (number, metres, model-local): where the floating HTML label sits. Default 1.65. Person models set 2.15, the building sets its height plus 0.4, and `catalogEntries` sets the model's bounds plus 0.35 for nodes with `options.surfaceLabel` or `options.measurement`.
+- `labelText` (string): the floating label text instead of `AssetNode.label`; the factory decides how it combines with the label. `catalogEntries` sets it to the contents summary (prefixed with the label) for `options.contents`, and to the formatted reading for `options.measurement` when the node has no label.
+- `labelWrap` (boolean): wrap long label text at 220 px; set for measured gauges.
 - `containerBounds` (`THREE.Box3`, model-local): stable bounds of a container that do not change with `AssetNode.view`. With `AssetNode.peekOnHover`, hovering inside them peeks the container's children. Any asset can contain children through `parentId`; models that change their look with the view (the building lowers its walls) read `AssetNode.view` themselves.
 
 ## Shadows, merging and instancing

@@ -1,4 +1,5 @@
 import type { AnchorDescriptor, Bounds, MaterialRole, NodeSample, ObjectDescriptor, OptionDescriptor, PaletteRoleUse, VisualState } from '@opsorama/core';
+import type { BuildingType } from './building';
 import { assetCountDefinitions } from './asset-counts';
 import { assetCountLayoutDefaults } from './count-layout';
 import { assetDisplayDefinitions } from './displays';
@@ -36,7 +37,7 @@ function options(entry: CatalogEntry): OptionDescriptor[] {
   if (entry.colorRole) result.push({ field: 'color', type: 'CSS #RRGGBB', default: 'unset (inherit scene/definition role)', update: 'rebuild', description: `Compatibility color for ${typeof entry.colorRole === 'string' ? entry.colorRole : entry.colorRole.join(' and ')}; explicit materials roles win.`, samples: [{ color: '#aa5533' }] });
   const role = entry.roles.find(use => !use.when)?.role ?? entry.roles[0].role;
   result.push({ field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; only declared roles affect this model. Fixed decoration keeps its definition tones.', samples: [{ materials: { [role]: '#123456' } }] });
-  if (entry.variants) result.push({ field: asset === 'building' ? 'building.type' : 'variant', type: entry.variants.map(value => `'${value}'`).join(' | '), default: entry.variants[0], update: 'rebuild', description: asset === 'building' ? 'Exterior style; building.type selects the geometry, not AssetNode.variant.' : 'Selects the documented silhouette or static configuration; see the model notes.', samples: entry.variants.map(variant => asset === 'building' ? { building: { type: variant as NonNullable<NodeSample['building']>['type'] } } : { variant }) });
+  if (entry.variants) result.push({ field: asset === 'building' ? 'options.building.type' : 'variant', type: entry.variants.map(value => `'${value}'`).join(' | '), default: entry.variants[0], update: 'rebuild', description: asset === 'building' ? 'Exterior style; options.building.type selects the geometry, not AssetNode.variant.' : 'Selects the documented silhouette or static configuration; see the model notes.', samples: entry.variants.map(variant => asset === 'building' ? { options: { building: { type: variant as BuildingType } } } : { variant }) });
   const count = assetCountDefinitions[asset];
   if (count) {
     const values = count.kind === 'range' ? [count.min, count.max] : count.values;
@@ -47,17 +48,17 @@ function options(entry: CatalogEntry): OptionDescriptor[] {
   const footprint = assetFootprintDefinitions[asset];
   if (footprint) result.push({ field: 'footprint', type: '[width, depth] in metres', default: JSON.stringify(footprint.default), update: 'rebuild', description: `Local x/z dimensions in [${footprint.min.join(', ')}]–[${footprint.max.join(', ')}]. Variant-specific defaults are declared in assetFootprintDefinitions; invalid sizes are rejected.`, samples: [{ footprint: footprint.min }, { footprint: footprint.max }] });
   const measurement = assetMeasurementDefinitions[asset];
-  if (measurement) result.push({ field: 'measurement', type: 'Measurement', default: JSON.stringify(measurement.default), update: 'rebuild', description: 'Decimal value or null, explicit min/max, unit, target and ordered threshold bands. Out-of-range labels stay exact; fill is bounded. Measured mode rejects count and multiplier inputs.', samples: [{ measurement: { value: null } }, { measurement: { value: 0 } }, { measurement: { value: 110, target: 80, bands: [{ from: 0, to: 100, state: 'normal' }] } }] });
+  if (measurement) result.push({ field: 'options.measurement', type: 'Measurement', default: JSON.stringify(measurement.default), update: 'rebuild', description: 'Decimal value or null, explicit min/max, unit, target and ordered threshold bands. Out-of-range labels stay exact; fill is bounded. Measured mode rejects count and multiplier inputs.', samples: [{ options: { measurement: { value: null } } }, { options: { measurement: { value: 0 } } }, { options: { measurement: { value: 110, target: 80, bands: [{ from: 0, to: 100, state: 'normal' }] } } }] });
   const display = assetDisplayDefinitions[asset];
-  if (display) result.push({ field: 'display', type: 'DisplayReading', default: JSON.stringify(display.default), update: 'rebuild', description: 'Host-supplied number or integer seconds. Running readings use relative scene time; updates restart from the supplied value. No scheduling or authoritative time source.', samples: display.default.kind === 'number' ? [{ display: { kind: 'number', value: null } }, { display: { kind: 'number', value: -12.34, decimals: 2 } }] : [{ display: { ...display.default, seconds: 0, running: true } }] });
-  if (assetLabelSurfaces[asset]) result.push({ field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Bounded text or self-contained SVG on the surfaces in assetLabelSurfaces. Artwork owns its texture/decoder lifecycle and does not change record identity.' });
+  if (display) result.push({ field: 'options.display', type: 'DisplayReading', default: JSON.stringify(display.default), update: 'rebuild', description: 'Host-supplied number or integer seconds. Running readings use relative scene time; updates restart from the supplied value. No scheduling or authoritative time source.', samples: display.default.kind === 'number' ? [{ options: { display: { kind: 'number', value: null } } }, { options: { display: { kind: 'number', value: -12.34, decimals: 2 } } }] : [{ options: { display: { ...display.default, seconds: 0, running: true } } }] });
+  if (assetLabelSurfaces[asset]) result.push({ field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Bounded text or self-contained SVG on the surfaces in assetLabelSurfaces. Artwork owns its texture/decoder lifecycle and does not change record identity.' });
   if (asset === 'building') result.push(
-    { field: 'building', type: 'BuildingOptions', default: '{ size: [8, 3.6, 6], cutaway: low-walls }', update: 'rebuild', description: 'Metric [width, height, depth], each 2–100 m; low-walls or front cutaway style and wall/roof/floor/trim colors. Explicit building.colors overrides semantic roles. Interior records and loading belong to the host.', samples: [{ view: 'open', building: { cutaway: 'front' } }, { building: { size: [12, 5, 9], type: 'office' } }, { building: { colors: { wall: '#123456' } } }] },
+    { field: 'options.building', type: 'BuildingOptions', default: '{ size: [8, 3.6, 6], cutaway: low-walls }', update: 'rebuild', description: 'Metric [width, height, depth], each 2–100 m; low-walls or front cutaway style and wall/roof/floor/trim colors. Explicit options.building.colors overrides semantic roles. Interior records and loading belong to the host.', samples: [{ view: 'open', options: { building: { cutaway: 'front' } } }, { options: { building: { size: [12, 5, 9], type: 'office' } } }, { options: { building: { colors: { wall: '#123456' } } } }] },
     { field: 'view', type: "'closed' | 'peek' | 'open'", default: 'closed', update: 'rebuild', description: 'Generic container view: peek and open show the children (parentId) and cut the shell away (roof removed, walls lowered). Set it with setNodeView.', samples: [{ view: 'open' }, { view: 'peek' }] },
     { field: 'peekOnHover', type: 'boolean', default: 'false', update: 'rebuild', description: 'Opt-in mouse peek inside the stable shell bounds (userData.containerBounds). Hosts still provide an explicit open/close control.', samples: [{ peekOnHover: true }] },
   );
-  if (asset === 'shopping-cart') result.push({ field: 'contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Source-backed content lines; bounded proxies do not invent unit identities.', samples: [{ contents: { lines: [{ id: 'item', title: 'Item', quantity: 2 }] } }] });
-  if (['heated-pass', 'espresso-machine', 'pizza-oven'].includes(asset)) result.push({ field: 'heatEnabled', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible heat glow, steam or fire independently of host State. Scene motion gates still control animation.', samples: [{ heatEnabled: false }, { heatEnabled: true }] });
+  if (asset === 'shopping-cart') result.push({ field: 'options.contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Source-backed content lines; bounded proxies do not invent unit identities.', samples: [{ options: { contents: { lines: [{ id: 'item', title: 'Item', quantity: 2 }] } } }] });
+  if (['heated-pass', 'espresso-machine', 'pizza-oven'].includes(asset)) result.push({ field: 'options.heatEnabled', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible heat glow, steam or fire independently of host State. Scene motion gates still control animation.', samples: [{ options: { heatEnabled: false } }, { options: { heatEnabled: true } }] });
   if (assetVisualStates[asset]) result.push({ field: 'state', type: 'VisualState', default: 'normal', update: 'rebuild', description: 'Native host status with the visual mapping declared below; unsupported values use the normal appearance.', samples: STATES.map(state => ({ state })) });
   if (entry.animation === 'local') result.push({ field: 'localMotion', type: 'boolean', default: 'true', update: 'rebuild', description: 'The renderer skips local animation when false. A true value cannot override scene motion, pause or reduced-motion gates.', samples: [{ localMotion: false }] });
   result.push({ field: 'position / rotation / scale', type: 'Vec3; rotations in radians', default: 'position [0,0,0], rotation [0,0,0], scale [1,1,1]', update: 'transform', description: 'Host placement around the documented model origin. Scale changes geometric size, never quantity.' });
@@ -208,7 +209,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/displays",
-    notes: "Full-screen surfaceLabel reuses the existing bounded text/SVG artwork API; without artwork a static three-line placeholder remains. Theme and scene palette supply structure, trim, screen, text and accent roles; materials overrides individual roles, while color maps to accent. preserved model origin (desktop), Y-up, front +z; screen, mount and base anchors, model-local displayBounds. Wall variant requires host placement. Selectable as one node; no local animation, counts or automatic content feed. Each instance owns geometry/materials and optional label textures.",
+    notes: "Full-screen options.surfaceLabel reuses the existing bounded text/SVG artwork API; without artwork a static three-line placeholder remains. Theme and scene palette supply structure, trim, screen, text and accent roles; materials overrides individual roles, while color maps to accent. preserved model origin (desktop), Y-up, front +z; screen, mount and base anchors, model-local displayBounds. Wall variant requires host placement. Selectable as one node; no local animation, counts or automatic content feed. Each instance owns geometry/materials and optional label textures.",
   },
   {
     asset: "information-board",
@@ -229,7 +230,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/displays",
-    notes: "Static portrait screen with a useful placeholder and optional six-line text/SVG surfaceLabel. Reuses the monitor artwork lifecycle; host owns announcements and updates. Scene palette roles and instance materials match the monitor. Base-center pivot, front +z, screen/mount/base anchors and local displayBounds. One selectable node; no animation or quantity controls. Instance-owned geometry/materials/textures are released on removal.",
+    notes: "Static portrait screen with a useful placeholder and optional six-line text/SVG options.surfaceLabel. Reuses the monitor artwork lifecycle; host owns announcements and updates. Scene palette roles and instance materials match the monitor. Base-center pivot, front +z, screen/mount/base anchors and local displayBounds. One selectable node; no animation or quantity controls. Instance-owned geometry/materials/textures are released on removal.",
   },
   {
     asset: "led-display",
@@ -252,7 +253,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/displays",
-    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
+    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; options.display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
   },
   {
     asset: "analog-clock",
@@ -275,7 +276,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "local",
     example: "/examples/displays",
-    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; display.running alone controls visual time. Base-center pivot, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
+    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; options.display.running alone controls visual time. Base-center pivot, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
   },
   {
     asset: "digital-clock",
@@ -298,7 +299,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "local",
     example: "/examples/displays",
-    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
+    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; options.display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
   },
   {
     asset: "stopwatch",
@@ -321,7 +322,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "local",
     example: "/examples/displays",
-    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
+    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; options.display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
   },
   {
     asset: "countdown-timer",
@@ -344,7 +345,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "local",
     example: "/examples/displays",
-    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
+    notes: "Typed display reading is independent of counts, measurements and artwork. Numbers support null and 0–2 decimal places; time uses integer seconds. Clocks wrap at midnight; stopwatch saturates at 99:59:59; countdown stops at zero. Optional running uses the shared visual clock, obeys motion/pause/speed/reduced motion; updates/remount restart from the supplied reading. This is a visual preview, not authoritative wall time or scheduling. Analog stopwatch long hand shows seconds modulo one minute, short hand minutes modulo one hour; exact duration stays in HTML. Theme → scene palette → color/accent → materials; text supplies LED ink, surface/structure/trim supply housing/face and host alerts never override ink or clock hands; options.display.running alone controls visual time. preserved model origin, front +z, screen/mount/base anchors and local displayBounds. One selectable node; buttons are decorative. Preallocated digit meshes, owned geometry/materials and animator cleanup; no per-object timers or textures.",
   },
   {
     asset: "building",
@@ -354,23 +355,23 @@ const entries: readonly CatalogEntry[] = [
     bounds: {"min":[-4.08,0,-3.08],"max":[4.08,3.7825,3.125]},
     pivot: "base-center",
     placement: "Local origin is the ground centre of the default footprint. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
-    largest: {"node":{"building":{"type":"retail","size":[100,100,100]}},"bounds":{"min":[-50.08,0,-50.08],"max":[50.08,100.1825,50.525]}},
+    largest: {"node":{"options":{"building":{"type":"retail","size":[100,100,100]}}},"bounds":{"min":[-50.08,0,-50.08],"max":[50.08,100.1825,50.525]}},
     colorRole: "surface",
     roles: [{"role":"surface","parts":"building wall, building lintel"},{"role":"structure","parts":"building roof"},{"role":"trim","parts":"building downpipe, building door, building roof seam, building entrance"}],
-    fixed: "The floor uses building.colors.floor or the building theme; the plinth is a darker shade of the surface role.",
+    fixed: "The floor uses options.building.colors.floor or the building theme; the plinth is a darker shade of the surface role.",
     variants: ["generic","warehouse","distribution-center","workshop","office","retail","storage-shed"],
     anchors: [
       {"name":"interior","purpose":"Interior floor origin for separately owned child nodes."},
       {"name":"entrance","purpose":"Host approach or entrance point."},
       {"name":"roof","purpose":"Roof attachment point."},
-      {"name":"dock-0","purpose":"Local dock 0 composition point; the host owns connected records and actions.","when":[{"building":{"type":"distribution-center"}}]},
-      {"name":"dock-1","purpose":"Local dock 1 composition point; the host owns connected records and actions.","when":[{"building":{"type":"distribution-center"}}]},
-      {"name":"dock-2","purpose":"Local dock 2 composition point; the host owns connected records and actions.","when":[{"building":{"type":"distribution-center"}}]},
+      {"name":"dock-0","purpose":"Local dock 0 composition point; the host owns connected records and actions.","when":[{"options":{"building":{"type":"distribution-center"}}}]},
+      {"name":"dock-1","purpose":"Local dock 1 composition point; the host owns connected records and actions.","when":[{"options":{"building":{"type":"distribution-center"}}}]},
+      {"name":"dock-2","purpose":"Local dock 2 composition point; the host owns connected records and actions.","when":[{"options":{"building":{"type":"distribution-center"}}}]},
     ],
     slots: [],
     animation: "none",
     example: "/examples/buildings",
-    notes: "building.cutaway selects compatible low-walls or front cutaway with full far walls and lowered near walls. Scene surface/structure/trim roles and instance materials affect walls/roof/trim before explicit building.colors overrides. Seven exterior types share dimensions, the generic closed/peek/open view and wall/roof/floor/trim palette roles. Types add shutters, loading bays, windows, awnings or pitched roofs without changing interior identities or size. Opening removes the roof and cuts walls to 0.45 m. Interior nodes use parentId and local coordinates; their GPU resources exist only while open. Optional bindChildren loads host data once and aborts on close/removal. Peek is opt-in; explicit controls support keyboard and touch. Static cutaway, no local animation, counts or physics; loading bays are decorative. Base-center pivot, front +z, interior/entrance/roof anchors, plus dock-0…2 on distribution centers. Visual states do not change this geometry; compose host alerts with labels or separate markers.",
+    notes: "options.building.cutaway selects compatible low-walls or front cutaway with full far walls and lowered near walls. Scene surface/structure/trim roles and instance materials affect walls/roof/trim before explicit options.building.colors overrides. Seven exterior types share dimensions, the generic closed/peek/open view and wall/roof/floor/trim palette roles. Types add shutters, loading bays, windows, awnings or pitched roofs without changing interior identities or size. Opening removes the roof and cuts walls to 0.45 m. Interior nodes use parentId and local coordinates; their GPU resources exist only while open. Optional bindChildren loads host data once and aborts on close/removal. Peek is opt-in; explicit controls support keyboard and touch. Static cutaway, no local animation, counts or physics; loading bays are decorative. Base-center pivot, front +z, interior/entrance/roof anchors, plus dock-0…2 on distribution centers. Visual states do not change this geometry; compose host alerts with labels or separate markers.",
   },
   {
     asset: "ring-gauge",
@@ -613,7 +614,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Count places 0–6 items in a 3 × 2 basket grid. Items share the cart node identity and are decorative until host data binds them. Optional contents.lines bind real quantities with six visible proxies and an explicit overflow label. Color maps to structure; theme/scene/material roles supply frame, glass and handle. Pushed toward +z with a handle anchor at the back. Static model, preserved model origin, about 0.66 × 1.1 × 1.1 m. Visual states do not change this geometry; compose host alerts with labels or separate markers.",
+    notes: "Count places 0–6 items in a 3 × 2 basket grid. Items share the cart node identity and are decorative until host data binds them. Optional options.contents.lines bind real quantities with six visible proxies and an explicit overflow label. Color maps to structure; theme/scene/material roles supply frame, glass and handle. Pushed toward +z with a handle anchor at the back. Static model, preserved model origin, about 0.66 × 1.1 × 1.1 m. Visual states do not change this geometry; compose host alerts with labels or separate markers.",
   },
   {
     asset: "conveyor",
@@ -776,7 +777,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["present"],
     animation: "none",
     example: "/examples/office",
-    notes: "Count places 0–12 sticky notes, filling three ruled columns top to bottom from the left. Notes are decorative, share the board node identity and do not represent individual tasks until host data binds them. Optional surfaceLabel adds text or SVG to the header strip. Color changes the frame and stand. Faces +z with a front anchor. Static model, base-center pivot, about 1.95 × 1.9 × 0.6 m.",
+    notes: "Count places 0–12 sticky notes, filling three ruled columns top to bottom from the left. Notes are decorative, share the board node identity and do not represent individual tasks until host data binds them. Optional options.surfaceLabel adds text or SVG to the header strip. Color changes the frame and stand. Faces +z with a front anchor. Static model, base-center pivot, about 1.95 × 1.9 × 0.6 m.",
   },
   {
     asset: "focus-pod",
@@ -817,7 +818,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["staff","customer"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Customers face the counter from +z; staff work behind it from a side-reached slot. Count fills 0–8 fixed parcel slots on the back shelf; parcels share the counter node identity and real pickup orders stay in host data. Optional surfaceLabel adds text or SVG to the front panel. Color changes the front panel. Static model, preserved model origin, 2.1 × 1.58 × 1.6 m.",
+    notes: "Customers face the counter from +z; staff work behind it from a side-reached slot. Count fills 0–8 fixed parcel slots on the back shelf; parcels share the counter node identity and real pickup orders stay in host data. Optional options.surfaceLabel adds text or SVG to the front panel. Color changes the front panel. Static model, preserved model origin, 2.1 × 1.58 × 1.6 m.",
   },
   {
     asset: "checkout-counter",
@@ -837,7 +838,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["cashier","customer"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Customers stand at +z, the cashier at −z from a side-reached slot. Optional surfaceLabel shows a lane number on the sign. The terminal and screen are decorative: no payments, totals or queue lengths are implied. Color changes the side panel and sign. Static model, preserved model origin, 1.85 × 2.13 × 0.75 m.",
+    notes: "Customers stand at +z, the cashier at −z from a side-reached slot. Optional options.surfaceLabel shows a lane number on the sign. The terminal and screen are decorative: no payments, totals or queue lengths are implied. Color changes the side panel and sign. Static model, preserved model origin, 1.85 × 2.13 × 0.75 m.",
   },
   {
     asset: "store-shelving",
@@ -856,7 +857,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["browse"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Count fills 0–24 facings, six per shelf from the bottom-left, so a branch view can show how stocked a shelf looks. Facings are decorative and share the shelf node identity; exact stock levels stay in host data. Optional surfaceLabel adds text or SVG to the header. Color changes the back panel and header. Static model, base-center pivot, 2 × 2.05 × 0.45 m, with a browse slot in front.",
+    notes: "Count fills 0–24 facings, six per shelf from the bottom-left, so a branch view can show how stocked a shelf looks. Facings are decorative and share the shelf node identity; exact stock levels stay in host data. Optional options.surfaceLabel adds text or SVG to the header. Color changes the back panel and header. Static model, base-center pivot, 2 × 2.05 × 0.45 m, with a browse slot in front.",
   },
   {
     asset: "order-ticket",
@@ -875,7 +876,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "A work token for intake and queues, facing +z with a top anchor. Optional surfaceLabel puts an order number or icon on the header strip. Color changes the header; card, lines and barcode are decorative. The host moves tickets between stages; there is no built-in transition. Static model, base-center pivot, 0.36 × 0.56 × 0.16 m.",
+    notes: "A work token for intake and queues, facing +z with a top anchor. Optional options.surfaceLabel puts an order number or icon on the header strip. Color changes the header; card, lines and barcode are decorative. The host moves tickets between stages; there is no built-in transition. Static model, base-center pivot, 0.36 × 0.56 × 0.16 m.",
   },
   {
     asset: "poly-mailer",
@@ -894,7 +895,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "A second work-item silhouette beside the parcel for small or soft orders. Count piles 1–6 mailers in fixed slots; the pile is one selectable node and visible mailers do not gain individual IDs. Optional surfaceLabel replaces the top sticker on every visible mailer with the same artwork. Color changes the mailer; seal and sticker are fixed. Static model, base-center pivot, 0.5 × 0.09 × 0.36 m each.",
+    notes: "A second work-item silhouette beside the parcel for small or soft orders. Count piles 1–6 mailers in fixed slots; the pile is one selectable node and visible mailers do not gain individual IDs. Optional options.surfaceLabel replaces the top sticker on every visible mailer with the same artwork. Color changes the mailer; seal and sticker are fixed. Static model, base-center pivot, 0.5 × 0.09 × 0.36 m each.",
   },
   {
     asset: "hand-basket",
@@ -972,7 +973,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Place it on a station work surface. Optional surfaceLabel prints text or SVG on the label tongue; the printer does not generate real labels or barcodes. Color changes the lid. Static model with no feed animation, preserved model origin, 0.3 × 0.2 × 0.33 m, with a label anchor.",
+    notes: "Place it on a station work surface. Optional options.surfaceLabel prints text or SVG on the label tongue; the printer does not generate real labels or barcodes. Color changes the lid. Static model with no feed animation, preserved model origin, 0.3 × 0.2 × 0.33 m, with a label anchor.",
   },
   {
     asset: "parcel-scale",
@@ -991,7 +992,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["weigh"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "The display faces +z and accepts an optional surfaceLabel for a host-supplied weight; the model never measures or invents one. A load anchor sits on the platform and a weigh slot in front. Color changes the display head. Static model, base-center pivot, 0.6 × 1.03 × 0.6 m.",
+    notes: "The display faces +z and accepts an optional options.surfaceLabel for a host-supplied weight; the model never measures or invents one. A load anchor sits on the platform and a weigh slot in front. Color changes the display head. Static model, base-center pivot, 0.6 × 1.03 × 0.6 m.",
   },
   {
     asset: "mail-sack",
@@ -1029,7 +1030,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "A 2.4 × 1.8 m pad with border, hatching and a sign post at the back-left; a handover anchor marks the pad center. Optional surfaceLabel names the carrier or route on the sign. Pickup times and handover confirmation stay in host data. Color changes the markings and sign frame. Static model, preserved model origin, 2.15 m tall at the sign.",
+    notes: "A 2.4 × 1.8 m pad with border, hatching and a sign post at the back-left; a handover anchor marks the pad center. Optional options.surfaceLabel names the carrier or route on the sign. Pickup times and handover confirmation stay in host data. Color changes the markings and sign frame. Static model, preserved model origin, 2.15 m tall at the sign.",
   },
   {
     asset: "hold-cage",
@@ -1049,7 +1050,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["access"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "A 2 × 1.6 m cage with a closed door at the front right (+z), a door anchor and an access slot. Count fills 0–8 fixed item slots in two layers; items are decorative and hold reasons, owners and resolution stay in host data. Optional surfaceLabel adds text or SVG to the door sign. Color changes the frame and sign. Static model, preserved model origin, 2 m tall.",
+    notes: "A 2 × 1.6 m cage with a closed door at the front right (+z), a door anchor and an access slot. Count fills 0–8 fixed item slots in two layers; items are decorative and hold reasons, owners and resolution stay in host data. Optional options.surfaceLabel adds text or SVG to the door sign. Color changes the frame and sign. Static model, preserved model origin, 2 m tall.",
   },
   {
     asset: "put-wall",
@@ -1070,7 +1071,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["put","pick"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Count fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall node identity. Items are put from the back (−z put slot) and picked from the front (+z pick slot), with front and back anchors. Optional surfaceLabel adds text or SVG to the header sign. Color changes the dividers and header. Static model, base-center pivot, about 1.84 × 2.28 × 0.45 m.",
+    notes: "Count fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall node identity. Items are put from the back (−z put slot) and picked from the front (+z pick slot), with front and back anchors. Optional options.surfaceLabel adds text or SVG to the header sign. Color changes the dividers and header. Static model, base-center pivot, about 1.84 × 2.28 × 0.45 m.",
   },
   {
     asset: "roll-cage",
@@ -1154,7 +1155,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "The door faces +z with a delivery anchor on the doorstep. Optional surfaceLabel shows a house number on the plate beside the door; addresses and delivery events stay in host data and the house does not imply real locations. Color changes the roof. Static model, preserved model origin, about 3.4 × 3.5 × 2.9 m.",
+    notes: "The door faces +z with a delivery anchor on the doorstep. Optional options.surfaceLabel shows a house number on the plate beside the door; addresses and delivery events stay in host data and the house does not imply real locations. Color changes the roof. Static model, preserved model origin, about 3.4 × 3.5 × 2.9 m.",
   },
   {
     asset: "storefront",
@@ -1173,7 +1174,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Faces +z with an entrance anchor in front of the door. Color changes the awning stripes and sign band; walls, glass and trim are fixed. The sign is blank by default; optional surfaceLabel adds text or SVG artwork. Branch names can also use projected labels or host HTML. Static model, preserved model origin, about 4.1 × 3.15 × 3.9 m including the awning.",
+    notes: "Faces +z with an entrance anchor in front of the door. Color changes the awning stripes and sign band; walls, glass and trim are fixed. The sign is blank by default; optional options.surfaceLabel adds text or SVG artwork. Branch names can also use projected labels or host HTML. Static model, preserved model origin, about 4.1 × 3.15 × 3.9 m including the awning.",
   },
   {
     asset: "truck",
@@ -2245,7 +2246,7 @@ const entries: readonly CatalogEntry[] = [
     slots: [],
     animation: "local",
     example: "/examples/restaurant",
-    notes: "Countertop model, about 1.1 × 0.5 × 0.6 m; its base is the counter surface, so place it on a counter top anchor. Front +z with cup and barista anchors. Orders and brew counts are host data. Host alerts belong to labels or separate markers; this model has no State control. heatEnabled (default true) controls visible steam or fire; scene motion gates still win.",
+    notes: "Countertop model, about 1.1 × 0.5 × 0.6 m; its base is the counter surface, so place it on a counter top anchor. Front +z with cup and barista anchors. Orders and brew counts are host data. Host alerts belong to labels or separate markers; this model has no State control. options.heatEnabled (default true) controls visible steam or fire; scene motion gates still win.",
   },
   {
     asset: "pizza-oven",
@@ -2265,7 +2266,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["cook"],
     animation: "local",
     example: "/examples/restaurant",
-    notes: "About 1.7 × 2.3 × 1.6 m, mouth facing +z (mouth and cook anchors, cook slot). Fire and dial are not temperature readings. Host alerts belong to labels or separate markers; this model has no State control. heatEnabled (default true) controls visible steam or fire; scene motion gates still win.",
+    notes: "About 1.7 × 2.3 × 1.6 m, mouth facing +z (mouth and cook anchors, cook slot). Fire and dial are not temperature readings. Host alerts belong to labels or separate markers; this model has no State control. options.heatEnabled (default true) controls visible steam or fire; scene motion gates still win.",
   },
   {
     asset: "walk-in-cooler",
@@ -2298,7 +2299,7 @@ const entries: readonly CatalogEntry[] = [
     largest: {"node":{"count":0},"bounds":{"min":[-0.92,0,-0.32],"max":[0.92,1.655,0.3225]}},
     colorRole: "accent",
     roles: [{"role":"structure","parts":"pass door seam, pass handle, pass ticket rail"},{"role":"trim","parts":"pass cabinet, pass top, pass post, pass gantry"},{"role":"accent","parts":"pass lamp hood"},{"role":"screen","parts":"pass plinth, pass ticket print"}],
-    fixed: "Heat glow, dishes, tickets, food, garnish and the service bell retain definition tones. heatEnabled controls heat appearance independently of State.",
+    fixed: "Heat glow, dishes, tickets, food, garnish and the service bell retain definition tones. options.heatEnabled controls heat appearance independently of State.",
     anchors: [
       {"name":"slot-0","purpose":"Local storage position; the host binds contents to this point."},
       {"name":"slot-1","purpose":"Local storage position; the host binds contents to this point."},
@@ -2312,7 +2313,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["plate","pickup"],
     animation: "none",
     example: "/examples/restaurant",
-    notes: "1.8 m along x; cooks plate at −z, servers collect at +z (cook/server anchors, plate and pickup slots). Count places 0–6 plated dishes left to right, each with one ticket on the rail; dishes and tickets are decorative and do not identify orders. slot-0…slot-5 anchors. Static. heatEnabled controls lamp glow, default true; alerts are independent host data.",
+    notes: "1.8 m along x; cooks plate at −z, servers collect at +z (cook/server anchors, plate and pickup slots). Count places 0–6 plated dishes left to right, each with one ticket on the rail; dishes and tickets are decorative and do not identify orders. slot-0…slot-5 anchors. Static. options.heatEnabled controls lamp glow, default true; alerts are independent host data.",
   },
   {
     asset: "pickup-shelf",

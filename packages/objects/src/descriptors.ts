@@ -10,7 +10,7 @@ import { animalDescriptors } from './animal-descriptors';
 import { farmDescriptors } from './farm-descriptors';
 import { catalogDescriptors } from './catalog-descriptors';
 
-const contentsSample: NodeSample = { variant: 'open', contents: { lines: [{ id: 'mug', title: 'Mug', quantity: 2 }] } };
+const contentsSample: NodeSample = { variant: 'open', options: { contents: { lines: [{ id: 'mug', title: 'Mug', quantity: 2 }] } } };
 
 /** The first definition with the complete common contract (C1): exactly one carton, the one package type. */
 export const parcelDescriptor: ObjectDescriptor = Object.freeze({
@@ -37,8 +37,8 @@ export const parcelDescriptor: ObjectDescriptor = Object.freeze({
     { field: 'color', type: 'CSS #RRGGBB', default: 'surface role', update: 'rebuild', description: 'Compatibility shortcut for the surface role; materials.surface wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; unspecified roles keep inheriting.', samples: [{ materials: { trim: '#123456' } }] },
     { field: 'variant', type: "'closed' | 'open'", default: 'closed', update: 'rebuild', description: 'Closed taped carton, or an open carton with raised flaps.', samples: [{ variant: 'open' }] },
-    { field: 'contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Real content lines in the open carton, with up to nine visible proxies.', samples: [contentsSample] },
-    { field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker.' },
+    { field: 'options.contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Real content lines in the open carton, with up to nine visible proxies.', samples: [contentsSample] },
+    { field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker.' },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion). Scale changes size, never quantity.' },
   ],
   states: neutralModelStates('parcel'),
@@ -96,7 +96,7 @@ export const parcelBaseDescriptor: ObjectDescriptor = Object.freeze({
     { field: 'count', type: 'integer 0–27', default: '1', update: 'rebuild', description: 'Visible parcels sharing the node identity; zero is the empty base. Not a unit identity.', samples: [{ count: 0 }, { count: 9 }, { count: 27, countLayout: 'reserved' }] },
     { field: 'countLayout', type: "'compact' | 'reserved'", default: 'compact', update: 'rebuild', description: 'Compact shrinks the base to the count (an empty base keeps the one-parcel size); reserved keeps all 27 slots, so changing the count never moves parcels or resizes the base.', samples: [{ count: 0, countLayout: 'reserved' }, { count: 4, countLayout: 'reserved' }] },
     { field: 'multiplier', type: 'positive integer', default: 'none', update: 'rebuild', description: 'Disclosed symbolic total: each visible parcel stands for this many.', samples: [{ count: 3, multiplier: 10 }] },
-    { field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker of every visible parcel.' },
+    { field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker of every visible parcel.' },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion). Scale changes size, never quantity.' },
   ],
   states: neutralModelStates('parcel base'),
@@ -156,7 +156,7 @@ export const workerDescriptor: ObjectDescriptor = Object.freeze({
     { field: 'color', type: 'CSS #RRGGBB', default: 'accent role', update: 'rebuild', description: 'Compatibility shortcut for the shirt (accent role); materials.accent wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette, e.g. skin, hair or trousers; unspecified roles keep inheriting.', samples: [{ materials: { skin: '#8d5a3b', hair: '#d8c29a' } }] },
     { field: 'variant', type: `'${WORKER_VARIANTS.join("' | '")}'`, default: 'working', update: 'rebuild', description: 'Pose. Holding has the carrying arms without the built-in carton, for an item attached at the carry anchor; pushing holds the arms at a cart handle; picking and placing are finite reach actions.', samples: WORKER_VARIANTS.map(variant => ({ variant })) },
-    { field: 'person', type: "PersonOptions ({ figure?: 'masculine' | 'feminine' })", default: "{ figure: 'masculine' }", update: 'rebuild', description: "Body silhouette: feminine is a smaller, slimmer build (about 1.67 m standing) with narrower shoulders and one-piece long hair over the ears (and a skirt for the visitor and office worker). Poses, anchor names and the 0.52 m seat height do not change; hand and carry anchors follow the smaller body. Person assets only.", samples: [{ person: { figure: 'feminine' } }, { person: { figure: 'feminine' }, variant: 'seated' }] },
+    { field: 'options.person', type: "PersonOptions ({ figure?: 'masculine' | 'feminine' })", default: "{ figure: 'masculine' }", update: 'rebuild', description: "Body silhouette: feminine is a smaller, slimmer build (about 1.67 m standing) with narrower shoulders and one-piece long hair over the ears (and a skirt for the visitor and office worker). Poses, anchor names and the 0.52 m seat height do not change; hand and carry anchors follow the smaller body. Person assets only.", samples: [{ options: { person: { figure: 'feminine' } } }, { options: { person: { figure: 'feminine' } }, variant: 'seated' }] },
     { field: 'localMotion', type: 'boolean', default: 'true', update: 'rebuild', description: 'false keeps the built pose without an animator; true cannot turn animation on when the scene or reduced motion turns it off.', samples: [{ localMotion: false }] },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion).' },
   ],
@@ -209,7 +209,7 @@ const personBounds = (minZ: number, maxY: number): Bounds => ({ min: [-.367, 0, 
  * palette mapping differ, so each descriptor reuses the worker contract and declares its own bounds and roles.
  */
 const personDescriptor = (entry: PersonEntry): ObjectDescriptor => {
-  const shared = workerDescriptor.customization.filter(option => ['variant', 'person', 'localMotion', 'state', 'position / rotation / scale'].includes(option.field));
+  const shared = workerDescriptor.customization.filter(option => ['variant', 'options.person', 'localMotion', 'state', 'position / rotation / scale'].includes(option.field));
   const roles = [...entry.roles, ...CARTON_ROLES.filter(use => !entry.roles.some(own => own.role === use.role))];
   return Object.freeze({
     ...workerDescriptor, asset: entry.asset, name: entry.name, purpose: entry.purpose,
@@ -404,7 +404,7 @@ export const pavilionDescriptor: ObjectDescriptor = Object.freeze({
     { field: 'color', type: 'CSS #RRGGBB', default: 'structure role', update: 'rebuild', description: 'Compatibility shortcut for the walls and roof (structure role); their shades follow it; materials.structure wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; unspecified roles keep the shelter defaults.', samples: [{ materials: { surface: '#123456' } }] },
     { field: 'count', type: 'integer 0–3', default: '3', update: 'rebuild', description: 'Decorative staged parcels on the staging spots, left to right. They share the shelter identity and are not stock; use 0 when real items attach to the stock anchors.', samples: [{ count: 0 }, { count: 1 }, { count: 3 }] },
-    { field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the sign strip, such as a hub name; the strip stays visible behind it.' },
+    { field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the sign strip, such as a hub name; the strip stays visible behind it.' },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion).' },
   ],
   states: {
@@ -462,7 +462,7 @@ export const bagDescriptor: ObjectDescriptor = Object.freeze({
   customization: [
     { field: 'color', type: 'CSS #RRGGBB', default: 'surface role', update: 'rebuild', description: 'Compatibility shortcut for the body (surface role); the rim follows it; materials.surface wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; unspecified roles keep the bag defaults.', samples: [{ materials: { structure: '#123456' } }] },
-    { field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker, replacing the blank plate.' },
+    { field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or SVG artwork on the front sticker, replacing the blank plate.' },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion).' },
   ],
   states: neutralModelStates('bag'),
@@ -555,7 +555,7 @@ export const signDescriptor: ObjectDescriptor = Object.freeze({
   customization: [
     { field: 'color', type: 'CSS #RRGGBB', default: 'surface role', update: 'rebuild', description: 'Compatibility shortcut for the face (surface role); materials.surface wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; unspecified roles keep the sign defaults.', samples: [{ materials: { structure: '#123456' } }] },
-    { field: 'surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or self-contained SVG icon artwork on the face; it replaces the placeholder lines. Artwork is rasterized by the renderer, never in core.' },
+    { field: 'options.surfaceLabel', type: 'SurfaceLabel', default: 'none', update: 'rebuild', description: 'Text or self-contained SVG icon artwork on the face; it replaces the placeholder lines. Artwork is rasterized by the renderer, never in core.' },
     TRANSFORM_OPTION,
   ],
   states: NO_STATUS('sign'),

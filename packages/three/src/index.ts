@@ -1,14 +1,12 @@
 import * as THREE from 'three';
-import { contentsLabel } from '@opsorama/core';
 import type { ResolvedTarget, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay } from '@opsorama/core';
-import { disposeObject, type AssetRegistry } from './assets';
+import { assetFactory, disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { createOverlayObject } from './overlay';
 import { bindCameraPan } from './camera-pan';
 import { bindWheelZoom } from './wheel-zoom';
 import { startTransfer, advanceTransfer, type TransferState } from './transfer';
 import { createRouteFollower, createControllerSlot, basicControllers, type ControllerContext, type ControllerOutput, type ControllerRegistry, type ControllerSlot, type RouteFollower, type RouteSample } from '@opsorama/core';
-import { formatMeasurement } from '@opsorama/core';
 import { interiorAreas, isContained, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
 import { applyShadowPolicy } from './shadows';
 import { mergeStaticParts } from './static-merge';
@@ -31,7 +29,7 @@ export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection
 export { bindMoveMode, createMoveTargetObject, highlightMoveTarget } from './move-targets';
 export type { MoveTargetMarker } from './move-targets';
 export { createOverlayObject } from './overlay';
-export { addObjectRelease, createAssetRegistry, disposeObject } from './assets';
+export { addObjectRelease, assetValidator, createAssetRegistry, disposeObject } from './assets';
 export type { AssetFactory, AssetRegistry, MaterialContext } from './assets';
 export { applyShadowPolicy, SHADOW_MIN_WIDTH, SHADOW_CONTAINMENT_TOLERANCE } from './shadows';
 export type { ShadowPlacement } from './shadows';
@@ -116,8 +114,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const cleanEntry = (entry: Entry) => { for (const child of entries.values()) if (child !== entry) { let parent = child.object.parent; while (parent && parent !== entry.object) parent = parent.parent; if (parent) child.object.removeFromParent(); } entry.object.removeFromParent(); entry.label?.remove(); instancing?.remove(entry.object); disposeObject(entry.object); };
   function build(node: SceneNode): THREE.Object3D {
     if (node.kind === 'asset') {
-      if (!Object.hasOwn(assets, node.asset)) throw new Error(`Unknown asset: ${node.asset}. Add its AssetFactory to the renderer's assets option, for example catalogAssets from @opsorama/objects.`);
-      return assets[node.asset](node, { theme: store.getSnapshot().settings.theme, palette: store.getSnapshot().settings.palette });
+      const factory = assetFactory(assets, node.asset); factory.validate?.(node);
+      return factory(node, { theme: store.getSnapshot().settings.theme, palette: store.getSnapshot().settings.palette });
     }
     if (node.kind === 'marker') return new THREE.Group();
     return buildPrimitive(node);
@@ -146,7 +144,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         // Narrow shadows per part first, then merge static parts grouped by the decided flags.
         const object = build(node); applyShadowPolicy(object, { interior: contained }); mergeStaticParts(object);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
-        const labelHeight = node.kind === 'marker' ? 0 : node.kind === 'asset' && (node.surfaceLabel || node.measurement) ? new THREE.Box3().setFromObject(object).max.y + .35 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
+        const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         const bounds = node.kind !== 'marker' && (node.entityId || node.selectable) ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
@@ -157,9 +155,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         if (node.rotation) object.rotation.set(...node.rotation); if (oldYaw !== undefined) object.rotation.y = oldYaw; if (node.scale) object.scale.set(...node.scale);
         object.traverse(child => { child.userData.nodeId = node.id; });
         let label: HTMLButtonElement | null = null;
-        const text = node.kind === 'asset' && node.contents ? `${node.label ? `${node.label} · ` : ''}${contentsLabel(node.contents, node.asset === 'shopping-cart' ? 6 : 9)}` : node.label ?? (node.kind === 'asset' && node.measurement ? formatMeasurement(node.measurement) : undefined);
+        const text = typeof object.userData.labelText === 'string' ? object.userData.labelText : node.label;
         if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; if (node.entityId || node.selectable) label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); }
-        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (node.kind === 'asset' && node.measurement) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
+        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', () => select(node.id, 'keyboard')); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
         entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
       }

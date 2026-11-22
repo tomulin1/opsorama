@@ -20,7 +20,7 @@ export interface HandlingInstance { id: string; asset: string; variant?: string;
  *   by `pattern`; a layer keeps the pattern of its first unit. `free` places a unit by [x, z] metres
  *   from the deck origin instead, for layers no pattern covers.
  * - `rail`: `position` is the first position the unit occupies.
- * - `bulk`: not a target; describe contents with `ContainerContents`.
+ * - `bulk`: not a target; describe contents with the container model's own options, such as `options.contents` of the catalog parcel.
  */
 export interface ReceptacleTarget {
   container: string;
@@ -375,7 +375,7 @@ export function createHandlingState({ handling, profiles, instances = [], rule }
       violations.push(violation('class-not-accepted', unit, `${to.container} ${to.receptacle} accepts ${receptacle.accepts.classes?.join(', ') ?? receptacle.accepts.families.join(', ')}, not ${unitClass.id} (${unitClass.family}). Choose a compatible place.`));
       if (!audit) return { violations };
     }
-    if (receptacle.arrangement === 'bulk') return { violations: [...violations, violation('unknown-target', unit, `${to.container} ${to.receptacle} holds host contents lines, not placed units. Use ContainerContents, or choose a place with positions.`)], placement: { ...fallback, anchor: receptacle.anchor, offset: [0, 0, 0] } };
+    if (receptacle.arrangement === 'bulk') return { violations: [...violations, violation('unknown-target', unit, `${to.container} ${to.receptacle} holds host contents lines, not placed units. Describe them with the container's options.contents, or choose a place with positions.`)], placement: { ...fallback, anchor: receptacle.anchor, offset: [0, 0, 0] } };
     const draft = receptacle.arrangement === 'slot' ? resolveSlot(unit, unitClass, to, receptacle) : receptacle.arrangement === 'stack' ? resolveStack(unit, unitClass, to, receptacle) : receptacle.arrangement === 'rail' ? resolveRail(unit, unitClass, to, receptacle) : resolveDeck(unit, unitClass, to, receptacle, audit);
     violations.push(...draft.violations);
     // With the unit tentatively placed, outer containers must still fit: a load can outgrow a rack bay.

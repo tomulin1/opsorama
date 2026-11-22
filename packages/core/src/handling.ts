@@ -101,7 +101,7 @@ interface ReceptacleBase {
  * - `stack`: a pile of up to `capacity` units at one anchor, bottom first; only the top unit can be taken.
  * - `deck`: a load surface at one anchor; layers use the listed load patterns, and the envelope height limits the load; only the top layer can be taken.
  * - `rail`: `positions` integer places of `pitch` metres along `axis`, from one anchor; a unit spans as many as its length needs, and any unit can be taken.
- * - `bulk`: no positions; the host describes contents as `ContainerContents` lines, so units are not placed here.
+ * - `bulk`: no positions; the host describes contents as lines in the container model's own options (such as `options.contents`), so units are not placed here.
  */
 export type Receptacle = ReceptacleBase & (
   | { arrangement: 'slot'; anchors: readonly string[] }

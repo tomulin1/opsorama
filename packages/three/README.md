@@ -26,6 +26,8 @@ const renderer = createSceneRenderer(container, store, { assets: createAssetRegi
 ```
 
 - `assets` is required. `createAssetRegistry` merges registries and rejects a duplicate asset name, so your own factories never silently replace catalog models.
+- An `AssetFactory` may carry `validate(node)`, which checks the node (for example its `options`) without building it; the renderer calls it before building. `createSceneStore(definition, settings, { validateAsset: assetValidator(assets) })` runs the same checks, plus unknown asset names, before the store accepts a node.
+- Factories can set `userData.labelHeight`, `userData.labelText` and `userData.labelWrap` for the floating label, and `userData.containerBounds` for hover peeking; the renderer reads no model-specific node fields.
 - `disposeObject` releases a model; `addObjectRelease` registers extra cleanup (image requests, object URLs) for custom factories.
 - Large scenes load in slices of `buildBudget` milliseconds (default 12) with a loading indicator over the scene until the first frame. `onLoad` reports progress, `renderer.loaded` resolves after the first frame, and `loadingIndicator: false` hides the built-in indicator.
 - `three` is a peer dependency.

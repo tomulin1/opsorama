@@ -11,7 +11,7 @@ The toolkit already has the pieces of physical containment, but each covers one 
 | `Attachment` ([OBJECT_COMPOSITION.md](OBJECT_COMPOSITION.md)) | A node's transform follows a parent's named anchor | No notion of what the anchor accepts, how many units, or where the next unit goes |
 | `ItemPlacement`, `CarryRule` | The behavior runner moves host items between agents and objects | One stack per anchor, fixed 0.4 m stack height, no compatibility, no positions |
 | Storage anchors `slot-*`, `load`, `stock-*`, `mount`, `module-*`, `contents` | Places where items rest on the shelf, pallet rack, pavilion, pallet, cabinets, UPS, parcel and bag | Names only; a host guesses which item may go there |
-| `ContainerContents` | Host lines with quantities on a cart or open parcel | No unit identities; it cannot be moved line by line |
+| `ContainerContents` (`options.contents`) | Host lines with quantities on a cart or open parcel | No unit identities; it cannot be moved line by line |
 | `count` compositions ([QUANTITY_SCALING.md](QUANTITY_SCALING.md)) | Decorative boxes on pallets, shelves and racks | Decorative fill and real units can overlap |
 | `NodeTransfer` | Animates a change of attachment | Nothing decides whether the change is allowed |
 
@@ -80,7 +80,7 @@ Arrangements:
 | `stack` | Vertical pile, bottom first; each level rests on the unit below | Worker hands, pallet-jack load, pallet stack, parcel on parcel |
 | `deck` | A surface with layers; each layer uses a declared load pattern or free positions | Pallet, picking cart, roll cage, van, shipping container, lab tray |
 | `rail` | Integer positions along a line; a unit spans one or more positions | Equipment cabinet in rack units, UPS modules, carton-flow lane, conveyor |
-| `bulk` | No positions; host `ContainerContents` lines without identities | Tote with nine items, shopping cart, open parcel, bag |
+| `bulk` | No positions; host `options.contents` lines (`ContainerContents`) without identities | Tote with nine items, shopping cart, open parcel, bag |
 
 ### Load patterns and mixed loads
 
@@ -139,7 +139,7 @@ Moving a container moves its contents automatically, because units are attached 
 | Anchors | Unchanged; receptacles reference them. Repeated decorative parts still get no identities |
 | `Attachment` and `NodeTransfer` | The output of a move: `nodePatches` sets attachment and offset, an optional transfer animates it under the scene motion policy |
 | `ItemPlacement` and `CarryRule` | With the runner's `handling` option, a carry rule resolves to the receptacle at its anchor (worker `carry`, pallet-jack and reach-truck `load`, forklift forks), and `pickUp`, `putDown` and `putOn` are checked moves. Without it, items stay plain placements, because most assets have no declaration yet. `ItemPlacement` remains the shape `getItems` and `itemNode` use in both modes |
-| `ContainerContents` | The `bulk` arrangement: lines with quantities, no identities, no moves per line. A line becomes movable only when the host gives it a unit node |
+| `ContainerContents` (`options.contents`) | The `bulk` arrangement: lines with quantities, no identities, no moves per line. A line becomes movable only when the host gives it a unit node |
 | Decorative `count` | Decorative fill uses only positions that no tracked unit occupies, in order, so it can never overlap real units. Shelf and pallet documentation keep saying it is decoration, not inventory |
 | Interaction slots | Unchanged; a receptacle names the slot group from which it is reached, so `targets` results can become agent goals |
 | Behavior runner | With `handling`, the shared `HandlingState` owns the units and the runner mirrors them, so agents, UI and host see the same placements |

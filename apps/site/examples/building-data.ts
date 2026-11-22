@@ -2,8 +2,8 @@ import { bindChildren, createSceneStore, type ChildrenLoadState, type SceneDefin
 
 export const buildingDefinition: SceneDefinition = { schemaVersion: 1, nodes: [
   { id: 'ground', kind: 'ground', size: [26, 13] },
-  { id: 'workshop', kind: 'asset', asset: 'building', position: [-6, 0, 0], rotation: [0, -.15, 0], label: 'Workshop', selectable: true, peekOnHover: true, building: { type: 'workshop', size: [8, 3.6, 6] } },
-  { id: 'office', kind: 'asset', asset: 'building', position: [6, 0, 0], rotation: [0, .2, 0], label: 'Office', selectable: true, peekOnHover: true, building: { type: 'office', size: [8, 3.2, 6], colors: { roof: '#487e74' } } },
+  { id: 'workshop', kind: 'asset', asset: 'building', position: [-6, 0, 0], rotation: [0, -.15, 0], label: 'Workshop', selectable: true, peekOnHover: true, options: { building: { type: 'workshop', size: [8, 3.6, 6] } } },
+  { id: 'office', kind: 'asset', asset: 'building', position: [6, 0, 0], rotation: [0, .2, 0], label: 'Office', selectable: true, peekOnHover: true, options: { building: { type: 'office', size: [8, 3.2, 6], colors: { roof: '#487e74' } } } },
 ] };
 /** Fictional visual fixtures; no inventory, bookings or people identities are inferred. */
 export function buildingContents(id: 'workshop' | 'office'): readonly SceneNode[] {

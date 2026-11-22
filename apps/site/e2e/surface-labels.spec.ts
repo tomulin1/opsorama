@@ -23,7 +23,7 @@ test('catalog text and SVG labels update previews and snippets, preserve quantit
   await page.getByLabel('Surface label type').selectOption('svg');
   await page.getByLabel('Upload surface label SVG').setInputFiles({ name: 'north.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(logo) });
   await expect(page.getByLabel('Surface label SVG', { exact: true })).toHaveValue(logo);
-  await page.getByRole('button', { name: 'Vue', exact: true }).click(); await expect(page.locator('.docs-code-block pre')).toContainText(':surfaceLabel="surfaceLabel"');
+  await page.getByRole('button', { name: 'Vue', exact: true }).click(); await expect(page.locator('.docs-code-block pre')).toContainText(':options="options"');
   await page.getByRole('button', { name: 'Unmount preview', exact: true }).click(); await expect(page.locator('canvas')).toHaveCount(0);
   await page.getByRole('button', { name: 'Mount preview', exact: true }).click(); await expect(page.locator('canvas')).toHaveCount(1);
   await page.screenshot({ path: 'artifacts/storefront-svg-label.png', fullPage: true });
@@ -33,7 +33,7 @@ test('catalog text and SVG labels update previews and snippets, preserve quantit
   await expect(page.locator('.docs-code-block pre')).not.toContainText('surfaceLabel');
   await page.goto('/docs/objects/parcel-base'); await page.getByLabel('Surface label type').selectOption('text');
   await page.getByLabel('Object count', { exact: true }).fill('27'); await expect(page.getByRole('button', { name: 'Select 27 parcels', exact: true })).toBeVisible();
-  await expect(page.locator('.docs-code-block pre')).toContainText('surfaceLabel=');
+  await expect(page.locator('.docs-code-block pre')).toContainText('"surfaceLabel":');
   await page.goto('/docs/objects/tree-pine'); await expect(page.getByLabel('Surface label type')).toHaveCount(0); expect(errors).toEqual([]);
 });
 

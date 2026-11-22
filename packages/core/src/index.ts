@@ -1,33 +1,19 @@
 import { validateMaterialOverrides, type MaterialOverrides } from './palette';
-import { validateContents, type ContainerContents } from './contents';
-import { isPersonAsset, PERSON_ASSETS, validatePersonOptions, type PersonOptions } from './person';
 import { validateAttachments, validateNodeTransfer, type Attachment, type NodeTransfer } from './attachment';
-export * from './contents';
 export * from './attachment';
 export * from './carry';
 export * from './palette';
 import { validateCountInput, type CountLayout } from './asset-count';
-import { validateSurfaceLabel, type SurfaceLabel } from './surface-label';
-import { resolveMeasurement, type Measurement } from './measurement';
-import { validateDisplay, type DisplayReading } from './display';
 import { validateFootprint, type Footprint } from './footprint';
 import { validateInterior } from './interior';
 export * from './marker';
 import { validateMarker, type MarkerFields } from './marker';
-export * from './operating';
-import { validateOperatingProperties } from './operating';
-export * from './forks';
-import { validateForkMotion, type ForkMotion } from './forks';
 export * from './footprint';
 export * from './interior';
-export * from './display';
 import { cloneNodeRoute, validateNodeRoute, type NodeRoute } from './route';
 import { cloneNodeController, validateNodeController, type NodeController } from './controller';
 import { isNodeVisible, NODE_VIEWS, validateParents, type NodeView } from './containment';
 export * from './containment';
-export * from './person';
-export * from './measurement';
-export * from './surface-label';
 export * from './asset-count';
 export * from './route';
 export * from './controller';
@@ -46,7 +32,15 @@ export type VisualState = 'normal' | 'busy' | 'warning' | 'critical' | 'inactive
 interface NodeBase { id: string; /** Containing asset: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'`. Any asset can be a parent; missing parents remain dormant. See `validateParents`. */ parentId?: string; attachment?: Attachment; entityId?: string; label?: string; labelMode?: 'always' | 'active'; position?: Vec3; rotation?: Vec3; scale?: Vec3; state?: VisualState; selectable?: boolean; }
 export interface GroundNode extends NodeBase { kind: 'ground'; size: readonly [number, number]; color?: string; /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */ interior?: boolean; }
 export interface ZoneNode extends NodeBase { kind: 'zone'; size: readonly [number, number]; color?: string; /** Declares this node's footprint an indoor area: nodes whose pivot lies inside it, and the area itself, neither cast nor receive shadows. Default false. See `interiorAreas`. */ interior?: boolean; }
-export interface AssetNode extends NodeBase { kind: 'asset'; asset: string; /** heated-pass, espresso-machine and pizza-oven: visible heat glow, steam or fire, default true. Independent of alerts and motion. */ heatEnabled?: boolean; /** deck-shower only: visible water, default true. Scene motion gates still control droplets. */ waterRunning?: boolean; /** trough only: finite fill fraction 0–1, default 1; zero removes contents. */ fillLevel?: number; /** Sized surface assets with an explicit `footprint` only: declares that footprint an indoor area, like `GroundNode.interior`. Default false. */ interior?: boolean; /** Disable built-in model animation only; scene/reduced-motion gates always win. */ localMotion?: boolean; /** forklift and reach-truck only: fork height and reach, set by the host. Default: travel height, not reached out. See `ForkMotion`. */ forks?: ForkMotion; /** Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`. */ transfer?: NodeTransfer; contents?: ContainerContents; materials?: MaterialOverrides; /** Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`. */ view?: NodeView; /** Opt-in mouse preview: hovering the model's container bounds (`userData.containerBounds` set by its factory) peeks it after 160 ms and closes the peek after 280 ms outside. Hosts must still provide an explicit open/close control. Default false. */ peekOnHover?: boolean; /** Building asset only: exterior options validated by the building factory in `@opsorama/objects` (`BuildingOptions`). Temporary generic type until model options move into a shared `options` field. */ building?: Readonly<Record<string, unknown>>; /** Person assets only (`PERSON_ASSETS`): body silhouette and hairstyle. */ person?: PersonOptions; color?: string; variant?: string; count?: number; multiplier?: number; countLayout?: CountLayout; surfaceLabel?: SurfaceLabel; measurement?: Measurement; display?: DisplayReading; /** Sized surface assets only (floor, terrain, sidewalk): width × depth in metres. */ footprint?: Footprint; /** Visual route that owns the root transform while present. */ route?: NodeRoute; /** Per-frame controller that owns the root position and heading; exclusive with `route`. */ controller?: NodeController; }
+/**
+ * Model-specific options of an asset node, keyed by option name. Core only requires plain JSON-like data (objects, arrays,
+ * strings, numbers, booleans and null) and deep-freezes it in the store; which asset accepts which option, and the option's
+ * value rules, belong to the asset's factory (`AssetFactory.validate` in `@opsorama/three`). A model package declares its
+ * typed options by augmenting this interface (`declare module '@opsorama/core' { interface AssetOptions { ... } }`), as
+ * `@opsorama/objects` does for its catalog. Custom assets may use any keys.
+ */
+export interface AssetOptions { readonly [key: string]: unknown }
+export interface AssetNode extends NodeBase { kind: 'asset'; asset: string; /** Sized surface assets with an explicit `footprint` only: declares that footprint an indoor area, like `GroundNode.interior`. Default false. */ interior?: boolean; /** Disable built-in model animation only; scene/reduced-motion gates always win. */ localMotion?: boolean; /** Animate a change of `attachment` or `parentId` from the previous world pose, e.g. an item handed over; see `NodeTransfer`. */ transfer?: NodeTransfer; materials?: MaterialOverrides; /** Container view for the nodes whose `parentId` names this asset: `'closed'` (default) hides them, `'peek'` and `'open'` show them. Models may change their look with it (the building lowers its walls). Set it with `setNodeView`. */ view?: NodeView; /** Opt-in mouse preview: hovering the model's container bounds (`userData.containerBounds` set by its factory) peeks it after 160 ms and closes the peek after 280 ms outside. Hosts must still provide an explicit open/close control. Default false. */ peekOnHover?: boolean; /** Model-specific options as plain JSON-like data, validated by the asset's factory; see `AssetOptions`. A change rebuilds the model. */ options?: AssetOptions; color?: string; variant?: string; count?: number; multiplier?: number; countLayout?: CountLayout; /** Sized surface assets only (floor, terrain, sidewalk): width × depth in metres. */ footprint?: Footprint; /** Visual route that owns the root transform while present. */ route?: NodeRoute; /** Per-frame controller that owns the root position and heading; exclusive with `route`. */ controller?: NodeController; }
 export interface PathNode extends NodeBase { kind: 'path'; points: readonly Vec3[]; color?: string; }
 /** A projected HTML marker without geometry; see `MarkerFields`. `label` is required. */
 export interface MarkerNode extends NodeBase, MarkerFields { kind: 'marker'; label: string; }
@@ -73,6 +67,16 @@ export const SETTING_DEFINITIONS = {
   selectionStyle: { type: "'corners' | 'glow'", description: 'How the selected and hovered node are marked: floor brackets around the model footprint, hidden where objects cover them, or a colored tint over the model.' },
 } as const satisfies Record<keyof SceneSettings, { type: string; description: string }>;
 export interface SceneSnapshot { nodes: readonly SceneNode[]; selection: Selection | null; settings: Readonly<SceneSettings>; revision: number; }
+/** Options of `createSceneStore`. */
+export interface SceneStoreOptions {
+  /**
+   * Validates each asset node before the store accepts it: in the initial definition, `replace` and `upsert`. It throws an
+   * actionable error to reject the node. Use `assetValidator(registry)` from `@opsorama/three` to apply the same factory
+   * rules as the renderer (unknown asset names and each factory's `validate`). Default: none, so model-specific options are
+   * checked only when the renderer builds the node.
+   */
+  validateAsset?: (node: AssetNode) => void;
+}
 export interface SceneStore {
   getSnapshot(): SceneSnapshot;
   subscribe(listener: () => void): () => void;
@@ -84,20 +88,36 @@ export interface SceneStore {
   dispose(): void;
 }
 /** Deep copy and freeze of plain JSON-like data (objects and arrays); other values are returned as they are. */
-function freezeJson(value: unknown): unknown {
-  if (Array.isArray(value)) return Object.freeze(value.map(freezeJson));
-  if (value && typeof value === 'object') return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freezeJson(item)])));
+function freezeJson<T>(value: T): T {
+  if (Array.isArray(value)) return Object.freeze(value.map(freezeJson)) as T;
+  if (value && typeof value === 'object') return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freezeJson(item)]))) as T;
   return value;
 }
+const JSON_LIKE = 'options must be plain JSON-like data (objects, arrays, strings, numbers, booleans, null)';
+/** Throws unless `value` is plain JSON-like data: null, strings, numbers, booleans, arrays and plain objects (undefined properties are allowed). */
+function validateJsonLike(value: unknown, path: string, seen: Set<object>): void {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return;
+  if (typeof value !== 'object') throw new Error(`${path} is a ${typeof value}; ${JSON_LIKE}.`);
+  if (seen.has(value)) throw new Error(`${path} refers to itself; ${JSON_LIKE} without cycles.`);
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) throw new Error(`${path} is a ${prototype?.constructor?.name ?? 'class'} instance; ${JSON_LIKE}.`);
+  seen.add(value);
+  for (const [key, item] of Object.entries(value)) if (item !== undefined || Array.isArray(value)) validateJsonLike(item, Array.isArray(value) ? `${path}[${key}]` : `${path}.${key}`, seen);
+  seen.delete(value);
+}
 function cloneNode(node: SceneNode): SceneNode {
-  node = { ...node, ...(node.attachment ? { attachment: Object.freeze({ ...node.attachment }) } : {}), ...(node.kind === 'asset' && node.contents ? { contents: Object.freeze({ lines: Object.freeze(node.contents.lines.map(line => Object.freeze({ ...line }))) }) } : {}) };
-  const transform = { ...node, ...(node.kind === 'asset' && node.transfer ? { transfer: Object.freeze({ ...node.transfer }) } : {}), ...(node.kind === 'asset' && node.forks ? { forks: Object.freeze({ ...node.forks, ...(node.forks.moves ? { moves: Object.freeze(node.forks.moves.map(move => Object.freeze({ ...move }))) } : {}) }) } : {}), ...(node.kind === 'asset' && node.materials ? { materials: Object.freeze({ ...node.materials }) } : {}), ...(node.kind === 'asset' && node.person ? { person: Object.freeze({ ...node.person }) } : {}), ...(node.kind === 'asset' && node.building ? { building: freezeJson(node.building) as Readonly<Record<string, unknown>> } : {}), position: node.position && Object.freeze([...node.position]) as Vec3, rotation: node.rotation && Object.freeze([...node.rotation]) as Vec3, scale: node.scale && Object.freeze([...node.scale]) as Vec3 };
+  node = { ...node, ...(node.attachment ? { attachment: Object.freeze({ ...node.attachment }) } : {}) };
+  const transform = { ...node, ...(node.kind === 'asset' && node.transfer ? { transfer: Object.freeze({ ...node.transfer }) } : {}), ...(node.kind === 'asset' && node.materials ? { materials: Object.freeze({ ...node.materials }) } : {}), ...(node.kind === 'asset' && node.options ? { options: freezeJson(node.options) } : {}), position: node.position && Object.freeze([...node.position]) as Vec3, rotation: node.rotation && Object.freeze([...node.rotation]) as Vec3, scale: node.scale && Object.freeze([...node.scale]) as Vec3 };
   if (node.kind === 'marker') return Object.freeze({ ...transform, ...(typeof node.icon === 'object' ? { icon: Object.freeze({ paths: Object.freeze([...node.icon.paths]) }) } : {}) }) as MarkerNode;
   if (node.kind === 'path') return Object.freeze({ ...transform, kind: 'path', points: Object.freeze(node.points.map(p => Object.freeze([...p]) as Vec3)) }) as PathNode;
   if (node.kind === 'ground' || node.kind === 'zone') return Object.freeze({ ...transform, size: Object.freeze([...node.size]) }) as GroundNode | ZoneNode;
-  return Object.freeze({ ...transform, ...(node.display ? { display: Object.freeze({ ...node.display }) } : {}), ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}), ...(node.surfaceLabel ? { surfaceLabel: Object.freeze({ ...node.surfaceLabel }) } : {}), ...(node.measurement ? { measurement: Object.freeze({ ...node.measurement, ...(node.measurement.bands ? { bands: Object.freeze(node.measurement.bands.map(band => Object.freeze({ ...band }))) } : {}) }) } : {}), ...(node.route ? { route: cloneNodeRoute(node.route) } : {}), ...(node.controller ? { controller: cloneNodeController(node.controller) } : {}) }) as AssetNode;
+  return Object.freeze({ ...transform, ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}), ...(node.route ? { route: cloneNodeRoute(node.route) } : {}), ...(node.controller ? { controller: cloneNodeController(node.controller) } : {}) }) as AssetNode;
 }
-export function validateNode(node: SceneNode): void {
+/**
+ * Validates one node's generic fields and throws an actionable error. Asset `options` must be a plain JSON-like object. With
+ * `validateAsset` (see `SceneStoreOptions`), asset nodes are also checked by that function (model-specific options, accepted assets).
+ */
+export function validateNode(node: SceneNode, { validateAsset }: SceneStoreOptions = {}): void {
   if (node.attachment && (!node.attachment.nodeId?.trim() || node.attachment.anchor !== undefined && !node.attachment.anchor.trim())) throw new Error('Attachments require a parent ID and a nonempty anchor name when supplied.');
   if (!['ground', 'zone', 'asset', 'path', 'marker'].includes(node.kind)) throw new Error(`Unknown scene node kind: ${node.kind}.`);
   if (!node.id.trim()) throw new Error('Scene node ID must not be empty.');
@@ -113,38 +133,22 @@ export function validateNode(node: SceneNode): void {
   if (node.kind === 'asset' && !node.asset.trim()) throw new Error(`Missing asset for ${node.id}.`);
   if (node.kind === 'asset' && node.variant !== undefined && typeof node.variant !== 'string') throw new Error(`Invalid asset variant for ${node.id}.`);
   if (node.kind === 'asset') {
-    validateOperatingProperties(node);
-    if (node.forks !== undefined) validateForkMotion(node.asset, node.forks);
     if (node.localMotion !== undefined && typeof node.localMotion !== 'boolean') throw new Error('localMotion must be boolean.');
-    if (node.contents !== undefined) {
-      validateContents(node.contents);
-      if (!['parcel', 'shopping-cart'].includes(node.asset)) throw new Error('Contents currently support parcel and shopping-cart.');
-      if (node.count !== undefined || node.multiplier !== undefined) throw new Error('Contents are independent of counted compositions; omit count/multiplier.');
-    }
     if (node.materials !== undefined) validateMaterialOverrides(node.materials);
-    if (node.person !== undefined) {
-      if (!isPersonAsset(node.asset)) throw new Error(`Person options require a person asset (${PERSON_ASSETS.join(', ')}); ${node.id} is ${node.asset}.`);
-      validatePersonOptions(node.person);
-    }
-    if (node.display !== undefined) {
-      validateDisplay(node.display);
-      if (node.count !== undefined || node.multiplier !== undefined || node.measurement !== undefined || node.surfaceLabel !== undefined) throw new Error('Display readings cannot be combined with counts, measurements or surface labels.');
+    if (node.options !== undefined) {
+      if (typeof node.options !== 'object' || node.options === null || Array.isArray(node.options)) throw new Error(`Options of ${node.id} must be an object keyed by option name, e.g. { building: { type: 'warehouse' } }.`);
+      validateJsonLike(node.options, `${node.id}.options`, new Set());
     }
     if (node.view !== undefined && !NODE_VIEWS.includes(node.view)) throw new Error(`Invalid view for ${node.id}: ${String(node.view)}. Use ${NODE_VIEWS.join(', ')}.`);
     if (node.peekOnHover !== undefined && typeof node.peekOnHover !== 'boolean') throw new Error(`peekOnHover of ${node.id} must be boolean.`);
-    if (node.building !== undefined && (typeof node.building !== 'object' || node.building === null || Array.isArray(node.building))) throw new Error(`Building options of ${node.id} must be an object.`);
     if (node.countLayout !== undefined && !['compact', 'reserved'].includes(node.countLayout)) throw new Error(`Invalid count layout for ${node.id}.`);
-    if (node.measurement !== undefined) {
-      resolveMeasurement(node.measurement);
-      if (node.count !== undefined || node.multiplier !== undefined) throw new Error('Measurement cannot be combined with count or multiplier.');
-    }
-    if (node.surfaceLabel !== undefined) validateSurfaceLabel(node.surfaceLabel);
     if (node.footprint !== undefined) validateFootprint(node.footprint);
     if (node.route !== undefined) validateNodeRoute(node.route);
     if (node.transfer !== undefined) validateNodeTransfer(node.transfer);
     if (node.controller !== undefined) validateNodeController(node.controller);
     if (node.route !== undefined && node.controller !== undefined) throw new Error(`Asset ${node.id} cannot have both a route and a controller.`);
     validateCountInput(node);
+    validateAsset?.(node);
   }
 }
 function validateSettings(settings: SceneSettings) {
@@ -157,10 +161,10 @@ function validateSettings(settings: SceneSettings) {
 function selectionFor(node: SceneNode, origin: Selection['origin']): Selection {
   return Object.freeze({ nodeId: node.id, entityId: node.entityId, origin });
 }
-export function createSceneStore(definition: SceneDefinition = { schemaVersion: 1, nodes: [] }, initialSettings: Partial<SceneSettings> = {}): SceneStore {
+export function createSceneStore(definition: SceneDefinition = { schemaVersion: 1, nodes: [] }, initialSettings: Partial<SceneSettings> = {}, storeOptions: SceneStoreOptions = {}): SceneStore {
   if (definition.schemaVersion !== 1) throw new Error('Unsupported scene schema version.');
   const listeners = new Set<() => void>(); let disposed = false;
-  const checked = (nodes: readonly SceneNode[]) => { validateParents(nodes); validateAttachments(nodes); const ids = new Set<string>(); return Object.freeze(nodes.map(node => { validateNode(node); if (ids.has(node.id)) throw new Error(`Duplicate scene node ID: ${node.id}.`); ids.add(node.id); return cloneNode(node); })); };
+  const checked = (nodes: readonly SceneNode[]) => { validateParents(nodes); validateAttachments(nodes); const ids = new Set<string>(); return Object.freeze(nodes.map(node => { validateNode(node, storeOptions); if (ids.has(node.id)) throw new Error(`Duplicate scene node ID: ${node.id}.`); ids.add(node.id); return cloneNode(node); })); };
   if (initialSettings.palette !== undefined) validateMaterialOverrides(initialSettings.palette);
   const settings = { ...DEFAULT_SETTINGS, ...initialSettings, ...(initialSettings.palette ? { palette: Object.freeze({ ...initialSettings.palette }) } : {}) }; validateSettings(settings);
   let snapshot: SceneSnapshot = Object.freeze({ nodes: checked(definition.nodes), selection: null, settings: Object.freeze(settings), revision: 0 });
@@ -168,7 +172,7 @@ export function createSceneStore(definition: SceneDefinition = { schemaVersion: 
   return {
     getSnapshot: () => snapshot,
     subscribe: fn => { if (disposed) throw new Error('Scene store has been disposed.'); listeners.add(fn); return () => { listeners.delete(fn); }; },
-    upsert: node => { validateNode(node); const index = snapshot.nodes.findIndex(n => n.id === node.id); const nodes = [...snapshot.nodes]; const next = cloneNode(node); if (index < 0) nodes.push(next); else nodes[index] = next; validateParents(nodes); validateAttachments(nodes); commit({ nodes: Object.freeze(nodes), selection: snapshot.selection?.nodeId === node.id ? selectionFor(next, snapshot.selection.origin) : snapshot.selection }); },
+    upsert: node => { validateNode(node, storeOptions); const index = snapshot.nodes.findIndex(n => n.id === node.id); const nodes = [...snapshot.nodes]; const next = cloneNode(node); if (index < 0) nodes.push(next); else nodes[index] = next; validateParents(nodes); validateAttachments(nodes); commit({ nodes: Object.freeze(nodes), selection: snapshot.selection?.nodeId === node.id ? selectionFor(next, snapshot.selection.origin) : snapshot.selection }); },
     remove: id => { if (!snapshot.nodes.some(n => n.id === id)) return; const removed = new Set([id]); let changed = true; while (changed) { changed = false; for (const node of snapshot.nodes) if ((node.parentId || node.attachment?.nodeId) && removed.has((node.parentId ?? node.attachment?.nodeId)!) && !removed.has(node.id)) { removed.add(node.id); changed = true; } } commit({ nodes: Object.freeze(snapshot.nodes.filter(n => !removed.has(n.id))), selection: snapshot.selection && removed.has(snapshot.selection.nodeId) ? null : snapshot.selection }); },
     replace: nodes => { const next = checked(nodes); const selected = snapshot.selection && next.find(n => n.id === snapshot.selection!.nodeId); commit({ nodes: next, selection: selected && snapshot.selection ? selectionFor(selected, snapshot.selection.origin) : null }); },
     select: (id, origin = 'api') => { const node = id ? snapshot.nodes.find(n => n.id === id) : null; if (id && !node) throw new Error(`Unknown scene node: ${id}.`); commit({ selection: node ? selectionFor(node, origin) : null }); },

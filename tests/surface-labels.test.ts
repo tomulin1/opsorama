@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import ts from 'typescript';
 import { parse, compileScript, compileTemplate } from 'vue/compiler-sfc';
-import { createSceneStore, validateSurfaceLabel, type AssetNode, type SurfaceLabel } from '@opsorama/core';
-import { disposeObject } from '@opsorama/three';
-import { assetLabelSurfaces, catalogAssets } from '@opsorama/objects';
+import { createSceneStore, type AssetNode } from '@opsorama/core';
+import { assetValidator, disposeObject } from '@opsorama/three';
+import { assetLabelSurfaces, catalogAssets, validateSurfaceLabel, type SurfaceLabel } from '@opsorama/objects';
 import { catalogObjects, objectNode, objectSnippet } from '../apps/site/src/features/docs/objects';
 
 const text: SurfaceLabel = { kind: 'text', text: 'North', color: '#243650', background: '#fffaf2' };
-const node: AssetNode = { id: 'parcels', kind: 'asset', asset: 'parcel-base', count: 27, multiplier: 1000, label: '27,000 parcels', surfaceLabel: text };
+const node: AssetNode = { id: 'parcels', kind: 'asset', asset: 'parcel-base', count: 27, multiplier: 1000, label: '27,000 parcels', options: { surfaceLabel: text } };
 function mockCanvas() {
   const context = { clearRect: vi.fn(), fillRect: vi.fn(), measureText: () => ({ width: 90 }), fillText: vi.fn(), drawImage: vi.fn() };
   vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0, getContext: () => context }) });
@@ -23,15 +23,15 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('static surface labels', () => {
   it('validates content without DOM imports and rejects malformed input atomically', () => {
-    const store = createSceneStore({ schemaVersion: 1, nodes: [node] }); store.select(node.id);
+    const store = createSceneStore({ schemaVersion: 1, nodes: [node] }, {}, { validateAsset: assetValidator(catalogAssets) }); store.select(node.id);
     const copied = store.getSnapshot().nodes[0] as AssetNode;
-    expect(copied.surfaceLabel).not.toBe(text); expect(Object.isFrozen(copied.surfaceLabel)).toBe(true);
+    expect(copied.options?.surfaceLabel).not.toBe(text); expect(Object.isFrozen(copied.options?.surfaceLabel)).toBe(true);
     const snapshot = store.getSnapshot();
     for (const invalid of [{ kind: 'html', text: 'X' }, { kind: 'text', text: '' }, { kind: 'text', text: 'X'.repeat(81) }, { kind: 'text', text: 'Two\nlines' }, { kind: 'text', text: 'X', color: 'url(example)' }, { kind: 'svg', svg: '<svg/>', alt: '' }, { kind: 'svg', svg: 'X'.repeat(20001), alt: 'X' }]) {
-      expect(() => store.upsert({ ...node, surfaceLabel: invalid as SurfaceLabel })).toThrow(); expect(store.getSnapshot()).toBe(snapshot);
+      expect(() => store.upsert({ ...node, options: { ...node.options, surfaceLabel: invalid as SurfaceLabel } })).toThrow(); expect(store.getSnapshot()).toBe(snapshot);
     }
     expect(() => validateSurfaceLabel({ kind: 'svg', svg: '<svg/>', alt: 'Logo' })).not.toThrow(); // XML validation belongs to the renderer.
-    store.upsert({ ...node, surfaceLabel: undefined });
+    store.upsert({ ...node, options: { ...node.options, surfaceLabel: undefined } });
     expect(store.getSnapshot().selection?.nodeId).toBe(node.id);
     expect(store.getSnapshot().nodes[0]).toMatchObject({ count: 27, multiplier: 1000, label: '27,000 parcels' }); store.dispose();
   });
@@ -62,7 +62,7 @@ describe('static surface labels', () => {
       expect(Math.max(label.material.map!.image.width, label.material.map!.image.height)).toBe(surface.resolution ?? 1024);
       disposeObject(a); disposeObject(b);
     }
-    expect(() => catalogAssets['tree-pine']({ ...node, asset: 'tree-pine' })).toThrow('no surface label configuration');
+    expect(() => catalogAssets['tree-pine']({ ...node, asset: 'tree-pine' })).toThrow('Asset tree-pine does not accept options.surfaceLabel');
   });
 
   it('renders bounded multiline monitor text at 2048 pixels and releases its texture', () => {
@@ -70,7 +70,7 @@ describe('static surface labels', () => {
     const label: SurfaceLabel = { kind: 'text', layout: 'multiline', text: 'TEST\n2 workflow attempts\n1 failed | 1 cancelled' };
     expect(() => validateSurfaceLabel(label)).not.toThrow();
     for (const value of [{ ...label, text: 'x'.repeat(81) }, { ...label, text: Array(7).fill('row').join('\n') }, { ...label, text: 'x'.repeat(481) }, { ...label, layout: 'invalid' }]) expect(() => validateSurfaceLabel(value as SurfaceLabel)).toThrow();
-    const object = catalogAssets.monitor({ id: 'screen', kind: 'asset', asset: 'monitor', surfaceLabel: label });
+    const object = catalogAssets.monitor({ id: 'screen', kind: 'asset', asset: 'monitor', options: { surfaceLabel: label } });
     const texture = stickers(object)[0].material.map!;
     expect(texture.image.width).toBe(2048); expect(texture.image.height).toBe(Math.round(2048 * 1.2 / 2.2));
     expect(texture.anisotropy).toBe(8); expect(texture.magFilter).toBe(THREE.LinearFilter); expect(texture.minFilter).toBe(THREE.LinearMipmapLinearFilter);
@@ -82,11 +82,11 @@ describe('static surface labels', () => {
   it('exports matching JS/React/Vue definitions with a valid Vue object binding', () => {
     const item = catalogObjects.find(item => item.asset === 'storefront')!;
     const definition = objectNode(item, { surfaceLabel: { kind: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 1"/>', alt: 'North logo' } });
-    expect(objectSnippet(definition, 'React')).toContain('surfaceLabel={{"kind":"svg"');
-    expect(objectSnippet(definition, 'Vue')).toContain(':surfaceLabel="surfaceLabel"');
-    expect(objectSnippet(definition, 'Vue')).toContain('const surfaceLabel: SurfaceLabel =');
+    expect(objectSnippet(definition, 'React')).toContain('options={{"surfaceLabel":{"kind":"svg"');
+    expect(objectSnippet(definition, 'Vue')).toContain(':options="options"');
+    expect(objectSnippet(definition, 'Vue')).toContain('const options: AssetOptions =');
     expect(objectSnippet(definition, 'JavaScript')).toContain('"surfaceLabel":');
-    for (const label of [definition.kind === 'asset' ? definition.surfaceLabel! : text, { kind: 'text' as const, layout: 'multiline' as const, text: 'TEST\n2 attempts' }, { ...text, text: '<Alpha> & "Beta" \\ </script>' }]) {
+    for (const label of [definition.kind === 'asset' ? definition.options!.surfaceLabel! : text, { kind: 'text' as const, layout: 'multiline' as const, text: 'TEST\n2 attempts' }, { ...text, text: '<Alpha> & "Beta" \\ </script>' }]) {
       const configured = objectNode(item, { surfaceLabel: label });
       const { descriptor, errors } = parse(objectSnippet(configured, 'Vue'), { filename: 'LabelExample.vue' });
       expect(errors).toEqual([]); expect(() => compileScript(descriptor, { id: 'label-example' })).not.toThrow();
@@ -106,7 +106,7 @@ describe('static surface labels', () => {
     const pending: { onload: (() => void) | null; onerror: (() => void) | null; src: string }[] = [];
     vi.stubGlobal('Image', class { onload: (() => void) | null = null; onerror: (() => void) | null = null; src = ''; constructor() { pending.push(this); } });
     const revoke = vi.fn(); vi.stubGlobal('URL', { createObjectURL: () => 'blob:label', revokeObjectURL: revoke });
-    const make = () => catalogAssets.storefront({ ...node, asset: 'storefront', count: undefined, multiplier: undefined, surfaceLabel: { kind: 'svg', svg: '<svg/>', alt: 'North logo' } });
+    const make = () => catalogAssets.storefront({ ...node, asset: 'storefront', count: undefined, multiplier: undefined, options: { ...node.options, surfaceLabel: { kind: 'svg', svg: '<svg/>', alt: 'North logo' } } });
     const a = make(), texture = stickers(a)[0].material.map!, release = vi.spyOn(texture, 'dispose'), lateLoad = pending[0].onload!;
     expect(root.setAttribute).toHaveBeenCalledWith('width', '1024'); expect(root.setAttribute).toHaveBeenCalledWith('height', '256');
     disposeObject(a); expect(release).toHaveBeenCalledTimes(1); expect(revoke).toHaveBeenCalledTimes(1);

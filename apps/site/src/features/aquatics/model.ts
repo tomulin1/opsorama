@@ -1,5 +1,5 @@
-import { personHairColor, createSceneStore, type AssetNode, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
-import { LAP_POOL, lapPoolLaneZ } from '@opsorama/objects';
+import { createSceneStore, type AssetNode, type SceneNode, type SceneStore, type Vec3, type VisualState } from '@opsorama/core';
+import { LAP_POOL, lapPoolLaneZ, personHairColor } from '@opsorama/objects';
 
 /** What a lane is booked for, as reported by the host's booking or timetable source. */
 export type LaneUse = 'public' | 'club' | 'lessons' | 'closed';
@@ -142,7 +142,7 @@ export const aquaticsBase: readonly SceneNode[] = [
   ...[-6.1, 6.1].map((x, i) => decor(`wall-plant-side-${i}`, 'wall-segment', v(x, -12.6), { rotation: [0, Math.PI / 2, 0], scale: [.9, .55, 1], color: '#d5dde5' })),
   decor('pump-1', 'pump-unit', v(-2.6, -13.2)), decor('pump-2', 'pump-unit', v(-2.6, -11.8)),
   ...[0, 1, 2, 3].map(i => ({ id: `ladder-${i}`, kind: 'asset' as const, asset: 'pool-ladder', attachment: { nodeId: 'pool:main', anchor: `ladder-${i}` }, selectable: false })),
-  ...([[-20.4, -7.4, Math.PI / 2], [-20.4, 7.4, Math.PI / 2], [8.4, -7.4, -Math.PI / 2], [8.4, 7.4, -Math.PI / 2], [17.6, 5.8, -Math.PI / 2]] as const).map(([x, z, yaw], i) => decor(`ring-${i}`, 'life-ring-post', v(x, z), { rotation: [0, yaw, 0], surfaceLabel: { kind: 'text', text: `R${i + 1}`, color: '#2e7d5b' } })),
+  ...([[-20.4, -7.4, Math.PI / 2], [-20.4, 7.4, Math.PI / 2], [8.4, -7.4, -Math.PI / 2], [8.4, 7.4, -Math.PI / 2], [17.6, 5.8, -Math.PI / 2]] as const).map(([x, z, yaw], i) => decor(`ring-${i}`, 'life-ring-post', v(x, z), { rotation: [0, yaw, 0], options: { surfaceLabel: { kind: 'text', text: `R${i + 1}`, color: '#2e7d5b' } } })),
   ...[0, 1].map(i => decor(`shower-${i}`, 'deck-shower', v(-18.6 + i * 1.2, 10.3))),
   ...Array.from({ length: 6 }, (_, i) => decor(`lounger-${i}`, 'sun-lounger', v(6.6 + i * 1.2, 12.4), { variant: i % 3 === 2 ? 'flat' : 'reclined', rotation: [0, Math.PI, 0], color: i % 2 ? '#e0a03a' : '#2f8fb0' })),
   ...Array.from({ length: 4 }, (_, i) => decor(`lounger-side-${i}`, 'sun-lounger', v(20.8, -2.6 + i * 1.2), { rotation: [0, -Math.PI / 2, 0], color: '#2f8fb0' })),
@@ -150,7 +150,7 @@ export const aquaticsBase: readonly SceneNode[] = [
   ...([[-21, 12.2], [21.2, 9.6], [21.2, -8.2], [-21.2, -11]] as const).map(([x, z], i) => decor(`palm-${i}`, 'tree-palm', v(x, z))),
   ...([[-9, 9.4], [-3, 9.4], [3.2, 9.4], [9.8, -8.6], [18.6, -8.6]] as const).map(([x, z], i) => decor(`plant-${i}`, 'potted-plant', v(x, z))),
   ...[0, 1].map(i => decor(`bench-${i}`, 'bench', v(-12 + i * 6, 9.6), { rotation: [0, Math.PI, 0] })),
-  decor('sign', 'sign', v(-16, 10.6), { rotation: [0, Math.PI, 0], surfaceLabel: { kind: 'text', text: 'AQUATIC CENTRE', color: '#1f3a5f' } }),
+  decor('sign', 'sign', v(-16, 10.6), { rotation: [0, Math.PI, 0], options: { surfaceLabel: { kind: 'text', text: 'AQUATIC CENTRE', color: '#1f3a5f' } } }),
 ];
 
 /** Snapshot-dependent nodes: pools, lane blocks, swimmers, posts, plant equipment and the lane board. */
@@ -162,7 +162,7 @@ export function aquaticsNodes(snapshot: AquaticsSnapshot): SceneNode[] {
   );
   snapshot.lanes.forEach((session, i) => {
     const use = LANE_USE[session.use];
-    nodes.push({ id: `lane:${session.laneId}`, entityId: session.laneId, kind: 'asset', asset: 'starting-block', attachment: { nodeId: 'pool:main', anchor: `lane-${i}-start` }, state: laneState(session), color: session.use === 'closed' ? '#8d99a8' : use.color, surfaceLabel: { kind: 'text', text: String(laneNumber(session.laneId)), color: '#1f3a5f' }, label: `Lane ${laneNumber(session.laneId)} · ${use.label}`, labelMode: 'active', selectable: true });
+    nodes.push({ id: `lane:${session.laneId}`, entityId: session.laneId, kind: 'asset', asset: 'starting-block', attachment: { nodeId: 'pool:main', anchor: `lane-${i}-start` }, state: laneState(session), color: session.use === 'closed' ? '#8d99a8' : use.color, options: { surfaceLabel: { kind: 'text', text: String(laneNumber(session.laneId)), color: '#1f3a5f' } }, label: `Lane ${laneNumber(session.laneId)} · ${use.label}`, labelMode: 'active', selectable: true });
     nodes.push({ id: `lane-status:${session.laneId}`, entityId: session.laneId, kind: 'asset', asset: 'map-pin', attachment: { nodeId: `lane:${session.laneId}`, anchor: 'stand' }, position: [0, .12, 0], scale: [.35, .35, .35], state: laneState(session), localMotion: false, selectable: true });
     const visible = Math.min(LANE_VISIBLE, session.swimmers), speed = session.speed ? SPEED[session.speed] : session.use === 'closed' ? 0 : SPEED[session.use];
     for (let k = 0; k < visible; k++) {
@@ -176,14 +176,14 @@ export function aquaticsNodes(snapshot: AquaticsSnapshot): SceneNode[] {
     const [x, z] = spots[k], position = v(TEACHING_POOL[0] + x, TEACHING_POOL[2] + z);
     nodes.push(k % 4 === 3
       ? { id: `child:${k}`, kind: 'asset', asset: 'swimmer', variant: 'floating', color: CAPS[k % CAPS.length], position: [position[0], .01, position[2]], rotation: [0, k, 0], scale: CHILD, selectable: false }
-      : { id: `child:${k}`, kind: 'asset', asset: 'worker', materials: { hair: personHairColor(`child:${k}`) }, variant: k % 2 ? 'idle' : 'holding', ...(k % 3 ? {} : { person: { figure: 'feminine' } as const }), color: CAPS[(k + 2) % CAPS.length], position, rotation: [0, Math.atan2(-x, -z), 0], scale: CHILD, selectable: false });
+      : { id: `child:${k}`, kind: 'asset', asset: 'worker', materials: { hair: personHairColor(`child:${k}`) }, variant: k % 2 ? 'idle' : 'holding', ...(k % 3 ? {} : { options: { person: { figure: 'feminine' } } as const }), color: CAPS[(k + 2) % CAPS.length], position, rotation: [0, Math.atan2(-x, -z), 0], scale: CHILD, selectable: false });
   }
   const chairs: Readonly<Record<LifeguardPost['id'], { position: Vec3; yaw: number }>> = { north: { position: v(-12, -8.2), yaw: 0 }, south: { position: v(0, 8.2), yaw: Math.PI }, teaching: { position: v(14, -1.4), yaw: 0 } };
   for (const post of snapshot.posts) {
     const chair = chairs[post.id], status = POST_STATUS[post.status];
     nodes.push({ id: `post:${post.id}`, entityId: post.id, kind: 'asset', asset: 'lifeguard-chair', position: chair.position, rotation: [0, chair.yaw, 0], state: postState(snapshot, post), label: `${post.label} · ${snapshot.open ? status.label : 'Off duty'}`, labelMode: 'active', selectable: true });
     nodes.push({ id: `post-status:${post.id}`, entityId: post.id, kind: 'asset', asset: 'map-pin', attachment: { nodeId: `post:${post.id}`, anchor: 'top' }, position: [0, .1, 0], scale: [.35, .35, .35], state: postState(snapshot, post), localMotion: false, selectable: true });
-    if (snapshot.open && post.status === 'on-post') nodes.push({ id: `guard:${post.id}`, kind: 'asset', asset: 'worker', materials: { hair: personHairColor(`guard:${post.id}`) }, variant: 'seated', ...(post.id === 'south' ? { person: { figure: 'feminine' } as const } : {}), color: STAFF, attachment: { nodeId: `post:${post.id}`, anchor: 'seat' }, position: [0, -.52, 0], selectable: false });
+    if (snapshot.open && post.status === 'on-post') nodes.push({ id: `guard:${post.id}`, kind: 'asset', asset: 'worker', materials: { hair: personHairColor(`guard:${post.id}`) }, variant: 'seated', ...(post.id === 'south' ? { options: { person: { figure: 'feminine' } } as const } : {}), color: STAFF, attachment: { nodeId: `post:${post.id}`, anchor: 'seat' }, position: [0, -.52, 0], selectable: false });
   }
   // A responding lifeguard stands on the deck at the lane, and a replacement walks toward an empty post.
   const alertLane = snapshot.lanes.findIndex(session => session.alert);
@@ -191,9 +191,9 @@ export function aquaticsNodes(snapshot: AquaticsSnapshot): SceneNode[] {
   snapshot.filters.forEach((filter, i) => nodes.push({ id: `filter:${filter.id}`, entityId: filter.id, kind: 'asset', asset: 'sand-filter', position: v(-5.2 + i * 1.3, -12.5), state: filterState(filter), label: `Filter ${filter.id}`, labelMode: 'active', selectable: true }));
   (['main', 'teaching'] as const).forEach((pool, i) => {
     const reading = snapshot.water[pool], state = waterState(reading);
-    nodes.push({ id: `dosing:${pool}`, entityId: `water-${pool}`, kind: 'asset', asset: 'dosing-station', position: v(1.2 + i * 2.2, -13.4), state, label: `Dosing · ${POOL_LABELS[pool]}`, labelMode: 'active', selectable: true, surfaceLabel: { kind: 'text', text: waterLabel(reading), color: state === 'normal' ? '#9ff0d0' : '#ffd27a', background: '#0f1c2b' } });
+    nodes.push({ id: `dosing:${pool}`, entityId: `water-${pool}`, kind: 'asset', asset: 'dosing-station', position: v(1.2 + i * 2.2, -13.4), state, label: `Dosing · ${POOL_LABELS[pool]}`, labelMode: 'active', selectable: true, options: { surfaceLabel: { kind: 'text', text: waterLabel(reading), color: state === 'normal' ? '#9ff0d0' : '#ffd27a', background: '#0f1c2b' } } });
   });
-  nodes.push({ id: 'lane-board', kind: 'asset', asset: 'information-board', position: v(-22, -4.5), rotation: [0, Math.PI / 2, 0], label: 'Lane board', labelMode: 'active', selectable: false, surfaceLabel: { kind: 'text', layout: 'multiline', color: '#e9f3ff', background: '#14263d', text: snapshot.open ? snapshot.lanes.map(session => `${laneNumber(session.laneId)}  ${session.use === 'public' ? session.speed!.toUpperCase() : LANE_USE[session.use].label.toUpperCase()}  ${session.use === 'closed' ? '' : `${session.swimmers}/${session.capacity}`}`.trimEnd()).join('\n') : 'POOL CLOSED\nOpens 06:30' } });
+  nodes.push({ id: 'lane-board', kind: 'asset', asset: 'information-board', position: v(-22, -4.5), rotation: [0, Math.PI / 2, 0], label: 'Lane board', labelMode: 'active', selectable: false, options: { surfaceLabel: { kind: 'text', layout: 'multiline', color: '#e9f3ff', background: '#14263d', text: snapshot.open ? snapshot.lanes.map(session => `${laneNumber(session.laneId)}  ${session.use === 'public' ? session.speed!.toUpperCase() : LANE_USE[session.use].label.toUpperCase()}  ${session.use === 'closed' ? '' : `${session.swimmers}/${session.capacity}`}`.trimEnd()).join('\n') : 'POOL CLOSED\nOpens 06:30' } } });
   return nodes;
 }
 

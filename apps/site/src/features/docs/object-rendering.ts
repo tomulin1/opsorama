@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { disposeObject } from '@opsorama/three';
-import { catalogAssets, type BuildingOptions } from '@opsorama/objects';
+import { catalogAssets, type BuildingOptions, type Measurement } from '@opsorama/objects';
 import { objectNode, type CatalogObject } from './objects';
-import type { Measurement, CountLayout, Footprint, NodeView } from '@opsorama/core';
+import type { CountLayout, Footprint, NodeView } from '@opsorama/core';
 
 export { catalogAssets };
 export function modelFor(item: CatalogObject, options: { building?: BuildingOptions; view?: NodeView; count?: number; countLayout?: CountLayout; variant?: string; measurement?: Measurement | false; footprint?: Footprint } = {}): THREE.Object3D {

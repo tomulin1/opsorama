@@ -10,7 +10,7 @@ export type BuildingType = typeof BUILDING_TYPES[number];
 /** Display names for `BUILDING_TYPES`. */
 export const BUILDING_TYPE_LABELS: Readonly<Record<BuildingType, string>> = Object.freeze({ generic: 'Generic building', warehouse: 'Warehouse', 'distribution-center': 'Distribution center', workshop: 'Workshop', office: 'Office', retail: 'Retail unit', 'storage-shed': 'Storage shed' });
 /**
- * Options of the `building` asset, passed as `AssetNode.building`. The interior view and hover preview are the
+ * Options of the `building` asset, passed as `AssetNode.options.building`. The interior view and hover preview are the
  * generic `AssetNode.view` and `AssetNode.peekOnHover`: a non-closed view hides the roof and lowers the walls.
  */
 export interface BuildingOptions {
@@ -34,22 +34,22 @@ export const BUILDING_PALETTES: Readonly<Record<'light' | 'midnight', Readonly<B
 export function validateBuilding(options: BuildingOptions): void {
   if (typeof options !== 'object' || options === null || Array.isArray(options)) throw new Error('Building options must be an object.');
   const legacy = options as { view?: unknown; peekOnHover?: unknown };
-  if (legacy.view !== undefined || legacy.peekOnHover !== undefined) throw new Error('building.view and building.peekOnHover are not building options; set view and peekOnHover on the asset node itself.');
+  if (legacy.view !== undefined || legacy.peekOnHover !== undefined) throw new Error('options.building.view and options.building.peekOnHover are not building options; set view and peekOnHover on the asset node itself.');
   if (options.type !== undefined && !BUILDING_TYPES.includes(options.type)) throw new Error(`Unknown building type: ${String(options.type)}. Use ${BUILDING_TYPES.join(', ')}.`);
   const size = options.size ?? BUILDING_SIZE;
   if (!Array.isArray(size) || size.length !== 3 || size.some(value => !Number.isFinite(value) || value < 2 || value > 100)) throw new Error('Building dimensions must be between 2 and 100 metres.');
   if (options.cutaway !== undefined && !['low-walls', 'front'].includes(options.cutaway)) throw new Error('Invalid building cutaway. Use low-walls or front.');
   if (options.colors && Object.entries(options.colors).some(([role, color]) => !['wall', 'roof', 'floor', 'trim'].includes(role) || typeof color !== 'string' || !/^#[\da-f]{6}$/i.test(color))) throw new Error('Building colors must be six-digit hex palette overrides.');
 }
-/** A `building` asset node, with `building` typed as `BuildingOptions`. */
-export type BuildingNode = AssetNode & { asset: 'building'; building?: BuildingOptions };
+/** A `building` asset node; its options are `options.building` (`BuildingOptions`). */
+export type BuildingNode = AssetNode & { asset: 'building' };
 export function isBuilding(node: SceneNode | undefined): node is BuildingNode {
   return node?.kind === 'asset' && node.asset === 'building';
 }
 /** Validates a building node: its options and the node fields a building does not support. */
 export function validateBuildingNode(node: AssetNode): void {
-  validateBuilding((node.building ?? {}) as BuildingOptions);
-  if (node.variant !== undefined || node.count !== undefined || node.multiplier !== undefined || node.measurement !== undefined || node.surfaceLabel !== undefined || node.footprint !== undefined) throw new Error('Building does not support variants, counts, measurements, surface labels or footprints; use building.size.');
+  validateBuilding(node.options?.building ?? {});
+  if (node.variant !== undefined || node.count !== undefined || node.multiplier !== undefined || node.options?.measurement !== undefined || node.options?.surfaceLabel !== undefined || node.footprint !== undefined) throw new Error('Building does not support variants, counts, measurements, surface labels or footprints; use options.building.size.');
 }
 
 /**
@@ -58,7 +58,7 @@ export function validateBuildingNode(node: AssetNode): void {
  */
 export function createBuilding(node: AssetNode, context?: { theme: 'light' | 'midnight'; palette?: MaterialOverrides }): THREE.Object3D {
   validateBuildingNode(node);
-  const options = (node.building ?? {}) as BuildingOptions;
+  const options = node.options?.building ?? {};
   const [width, height, depth] = options.size ?? BUILDING_SIZE;
   const roles = (value?: MaterialOverrides) => ({ ...(value?.surface ? { wall: value.surface } : {}), ...(value?.structure ? { roof: value.structure } : {}), ...(value?.trim ? { trim: value.trim } : {}) });
   const palette = { ...BUILDING_PALETTES[context?.theme ?? 'light'], ...roles(context?.palette), ...(node.color ? { wall: node.color } : {}), ...roles(node.materials), ...options.colors };

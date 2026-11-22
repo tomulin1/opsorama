@@ -4,14 +4,14 @@ Updated: October 13, 2026. This is an implemented subset of the [catalog contrac
 
 ## Contents
 
-`ContainerContents` from `@opsorama/core` has `lines: readonly ContentLine[]`. A line contains a unique `id`, nonempty `title`, non-negative safe-integer `quantity` and optional six-digit hex `color`. Quantities count item units; repeated visual proxies do not invent unit identities. Input lines and attachment references are defensively copied/frozen in the scene store.
+`ContainerContents` from `@opsorama/objects` is the `options.contents` of the parcel and shopping cart and has `lines: readonly ContentLine[]`. A line contains a unique `id`, nonempty `title`, non-negative safe-integer `quantity` and optional six-digit hex `color`. Quantities count item units; repeated visual proxies do not invent unit identities. The scene store defensively copies and freezes `options` and attachment references; the catalog validates the lines before building, and a store created with `validateAsset: assetValidator(catalogAssets)` rejects invalid lines before accepting the node.
 
 | Asset | Visible contents | Pose and meaning |
 | --- | --- | --- |
 | shopping-cart | Up to six fixed-size proxies | Cart intent; unsupported/missing contents must be labeled by the host |
 | parcel | Up to nine fixed-size proxies | Single open carton; closed contents remain represented in labels/detail |
 
-`contents.lines: []` is a known empty container. Omit `contents` for the existing decorative/count API. The host must distinguish unknown data from zero. Contents are incompatible with `count`, `multiplier` and `quantity` targets. `projectContents(contents, capacity)` returns bounded proxies, the exact total and overflow without allocating per source unit; `contentsLabel` discloses that overflow. The renderer appends this disclosure to projected labels. The host retains exact lines and provides accessible selection/detail when active labels are hidden.
+`options.contents.lines: []` is a known empty container. Omit `options.contents` for the existing decorative/count API. The host must distinguish unknown data from zero. Contents are incompatible with `count`, `multiplier` and `quantity` targets. `projectContents(contents, capacity)` returns bounded proxies, the exact total and overflow without allocating per source unit; `contentsLabel` discloses that overflow. The catalog factory appends this disclosure to the node's label through the renderer's generic `userData.labelText` hint. The host retains exact lines and provides accessible selection/detail when active labels are hidden.
 
 ## Attachments and ownership
 
@@ -36,10 +36,10 @@ const store = createSceneStore({ schemaVersion: 1, nodes: [
   { id: 'person', kind: 'asset', asset: 'worker', variant: 'pushing' },
   { id: 'cart', kind: 'asset', asset: 'shopping-cart',
     attachment: { nodeId: 'person', anchor: 'cart' },
-    contents: { lines: [{ id: 'line-1', title: 'Goods', quantity: 9 }] } },
+    options: { contents: { lines: [{ id: 'line-1', title: 'Goods', quantity: 9 }] } } },
 ] });
 const view = createSceneRenderer(container, store, { assets: catalogAssets });
 // On teardown: view.dispose(); store.dispose();
 ```
 
-React `Asset` and native Vue `Asset` accept the same `attachment`, `contents` and `localMotion` fields. The original e-commerce recipe that demonstrated `contents` with React/Vue/JavaScript mounts was replaced; the [new example](domains/ecommerce.md) uses `attachment` for carts, baskets and carried pallets. Source-backed update/teardown, bounded geometry, parent rebuild/removal and global motion policies require verification before extending these definitions. Complete catalog descriptors, richer generic handoffs and measured hardware performance remain outstanding.
+React `Asset` and native Vue `Asset` accept the same `attachment`, `options` and `localMotion` fields. The original e-commerce recipe that demonstrated `options.contents` with React/Vue/JavaScript mounts was replaced; the [new example](domains/ecommerce.md) uses `attachment` for carts, baskets and carried pallets. Source-backed update/teardown, bounded geometry, parent rebuild/removal and global motion policies require verification before extending these definitions. Complete catalog descriptors, richer generic handoffs and measured hardware performance remain outstanding.

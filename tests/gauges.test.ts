@@ -16,7 +16,7 @@ describe('shared measured gauges', () => {
     for (const [asset, definition] of Object.entries(assetMeasurementDefinitions)) {
       const maximum = { meshes: 0, triangles: 0, bufferBytes: 0 };
       for (const variant of definition.variants) {
-        const model = build(asset, { variant, measurement: { value: 100, target: 100, bands: Array.from({ length: 12 }, (_, i) => ({ from: i * 100 / 12, to: (i + 1) * 100 / 12, state: 'normal' })) } });
+        const model = build(asset, { variant, options: { measurement: { value: 100, target: 100, bands: Array.from({ length: 12 }, (_, i) => ({ from: i * 100 / 12, to: (i + 1) * 100 / 12, state: 'normal' })) } } });
         const list = meshes(model), triangles = list.reduce((sum, mesh) => sum + (mesh.geometry.index?.count ?? mesh.geometry.getAttribute('position').count) / 3, 0);
         const bufferBytes = list.reduce((sum, mesh) => sum + Object.values(mesh.geometry.attributes).reduce((bytes, attribute) => bytes + (attribute as THREE.BufferAttribute).array.byteLength, 0) + (mesh.geometry.index?.array.byteLength ?? 0), 0);
         maximum.meshes = Math.max(maximum.meshes, list.length); maximum.triangles = Math.max(maximum.triangles, triangles); maximum.bufferBytes = Math.max(maximum.bufferBytes, bufferBytes);
@@ -28,7 +28,7 @@ describe('shared measured gauges', () => {
   });
   for (const [asset, definition] of Object.entries(assetMeasurementDefinitions)) it(`${asset} variants are grounded, static and own their resources`, () => {
     for (const variant of definition.variants) {
-      const model = build(asset, { variant, measurement: { value: 72.5, target: 80, bands: [{ from: 0, to: 100, state: 'normal' }] } }), second = build(asset, { variant });
+      const model = build(asset, { variant, options: { measurement: { value: 72.5, target: 80, bands: [{ from: 0, to: 100, state: 'normal' }] } } }), second = build(asset, { variant });
       const bounds = new THREE.Box3().setFromObject(model); expect(bounds.min.y, variant).toBeCloseTo(0, 5);
       expect(bounds.max.y, variant).toBeLessThan(2.6);
       expect(model.getObjectByName('anchor-front')).toBeDefined(); expect(model.getObjectByName('anchor-value')).toBeDefined();
@@ -41,7 +41,7 @@ describe('shared measured gauges', () => {
   });
   it('every model distinguishes unknown and zero and shows overflow without extending its reading scale', () => {
     for (const asset of Object.keys(assetMeasurementDefinitions)) {
-      const zero = build(asset, { measurement: { value: 0 } }), unknown = build(asset, { measurement: { value: null } }), over = build(asset, { measurement: { value: 125 } }), full = build(asset, { measurement: { value: 100 } });
+      const zero = build(asset, { options: { measurement: { value: 0 } } }), unknown = build(asset, { options: { measurement: { value: null } } }), over = build(asset, { options: { measurement: { value: 125 } } }), full = build(asset, { options: { measurement: { value: 100 } } });
       expect(zero.getObjectByName('gauge-unknown')).toBeUndefined(); expect(unknown.getObjectByName('gauge-unknown')).toBeDefined(); expect(over.getObjectByName('gauge-overflow')).toBeDefined();
       const names = asset === 'dial-gauge' ? ['dial-needle'] : meshes(full).filter(mesh => mesh.name.includes('fill')).map(mesh => mesh.name);
       for (const name of names) { const a = over.getObjectByName(name) as THREE.Mesh, b = full.getObjectByName(name) as THREE.Mesh; expect(new THREE.Box3().setFromObject(a).equals(new THREE.Box3().setFromObject(b))).toBe(true); }
@@ -50,7 +50,7 @@ describe('shared measured gauges', () => {
   });
   it('continuous and segmented capacities retain partial decimal fill', () => {
     for (const variant of ['vertical-continuous', 'horizontal-continuous', 'vertical-segmented', 'horizontal-segmented']) {
-      const half = build('capacity-gauge', { variant, measurement: { value: 50 } }), decimal = build('capacity-gauge', { variant, measurement: { value: 52.5 } });
+      const half = build('capacity-gauge', { variant, options: { measurement: { value: 50 } } }), decimal = build('capacity-gauge', { variant, options: { measurement: { value: 52.5 } } });
       const fillBounds = (model: THREE.Object3D) => { const bounds = new THREE.Box3(); meshes(model).filter(mesh => mesh.name.startsWith('gauge-fill')).forEach(mesh => bounds.expandByObject(mesh)); return bounds; };
       const a = fillBounds(half), b = fillBounds(decimal), axis = variant.startsWith('horizontal') ? 'x' : 'y';
       expect(b.max[axis]).toBeGreaterThan(a.max[axis]); [half, decimal].forEach(disposeObject);
@@ -58,13 +58,13 @@ describe('shared measured gauges', () => {
   });
   it('dial needle points left at minimum, upward at midpoint and right at maximum', () => {
     for (const [value, angle] of [[0, Math.PI], [50, Math.PI / 2], [100, 0]]) {
-      const model = build('dial-gauge', { measurement: { value } }), needle = model.getObjectByName('dial-needle')!;
+      const model = build('dial-gauge', { options: { measurement: { value } } }), needle = model.getObjectByName('dial-needle')!;
       expect(needle.rotation.z).toBeCloseTo(angle); disposeObject(model);
     }
   });
   it('semicircle ticks, needle, hub, bands and endpoint targets stay inside the dial face', () => {
     for (const value of [0, 25, 50, 75, 100]) for (const target of [0, 100]) {
-      const model = build('dial-gauge', { variant: 'semicircle', measurement: { value, target, bands: [{ from: 0, to: 100, state: 'normal' }] } });
+      const model = build('dial-gauge', { variant: 'semicircle', options: { measurement: { value, target, bands: [{ from: 0, to: 100, state: 'normal' }] } } });
       model.updateMatrixWorld(true);
       const face = model.getObjectByName('dial-face')!, centerY = face.position.y;
       const marks = meshes(model).filter(mesh => ['dial-tick', 'dial-needle', 'dial-hub', 'gauge-target', 'gauge-band'].includes(mesh.name));
@@ -84,7 +84,7 @@ describe('shared measured gauges', () => {
   });
   it('keeps threshold fill and target meaning independent of host alert metadata', () => {
     const reading = { value: 75, target: 25, bands: [{ from: 0, to: 100, state: 'warning' as const }] };
-    const model = build('capacity-gauge', { color: '#123456', measurement: reading }), critical = build('capacity-gauge', { state: 'critical', measurement: reading });
+    const model = build('capacity-gauge', { color: '#123456', options: { measurement: reading } }), critical = build('capacity-gauge', { state: 'critical', options: { measurement: reading } });
     expect(((model.getObjectByName('gauge-fill-0') as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString()).toBe('e8b553');
     expect(((critical.getObjectByName('gauge-fill-0') as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString()).toBe('e8b553');
     expect(model.getObjectByName('gauge-target')!.position.y).toBeCloseTo(.28 + 1.9 * .25); [model, critical].forEach(disposeObject);
@@ -97,15 +97,15 @@ describe('shared measured gauges', () => {
   });
   it('preserves legacy capacity count and explicitly rejects unsupported combinations', () => {
     for (const count of [0, 6, 10]) { const model = build('capacity-gauge', { count }); expect(model.children.filter(part => part.name.startsWith('count-part-'))).toHaveLength(count); disposeObject(model); }
-    expect(() => build('capacity-gauge', { count: 6, measurement: { value: 60 } })).toThrow();
+    expect(() => build('capacity-gauge', { count: 6, options: { measurement: { value: 60 } } })).toThrow();
     expect(() => build('capacity-gauge', { count: 6, variant: 'vertical-continuous' })).toThrow();
-    expect(() => build('parcel', { measurement: { value: 2 } })).toThrow('no measurement');
+    expect(() => build('parcel', { options: { measurement: { value: 2 } } })).toThrow('Asset parcel does not accept options.measurement');
     for (const asset of Object.keys(assetMeasurementDefinitions)) expect(() => build(asset, { variant: 'unsupported' })).toThrow();
   });
   it('catalog nodes and all three snippets retain measured values and omit counted quantities', () => {
     for (const asset of Object.keys(assetMeasurementDefinitions)) {
       const item = catalogObjects.find(item => item.asset === asset)!, node = objectNode(item, { measurement: { value: 72.5, unit: '%' } });
-      expect(node).toMatchObject({ measurement: { value: 72.5 } }); expect(node).not.toHaveProperty('count'); expect(node).not.toHaveProperty('label');
+      expect(node).toMatchObject({ options: { measurement: { value: 72.5 } } }); expect(node).not.toHaveProperty('count'); expect(node).not.toHaveProperty('label');
       for (const framework of ['React', 'Vue', 'JavaScript'] as const) expect(objectSnippet(node, framework)).toContain('72.5');
     }
   });

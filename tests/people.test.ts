@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { AssetNode } from '@opsorama/core';
-import { createSceneStore, isPersonAsset, PERSON_ASSETS, PERSON_FIGURES, PERSON_HAIR_COLORS, personHairColor } from '@opsorama/core';
+import { createSceneStore } from '@opsorama/core';
 import { restaurantNodes, SCENARIOS as RESTAURANT_SCENARIOS } from '../apps/site/src/features/restaurant/model';
-import { disposeObject } from '@opsorama/three';
-import { assetDescriptors, assetMotionProfiles, catalogAssets, checkAssetDescriptor, personDescriptors, WORKER_VARIANTS } from '@opsorama/objects';
+import { assetValidator, disposeObject } from '@opsorama/three';
+import { assetDescriptors, assetMotionProfiles, catalogAssets, checkAssetDescriptor, personDescriptors, WORKER_VARIANTS, isPersonAsset, PERSON_ASSETS, PERSON_FIGURES, PERSON_HAIR_COLORS, personHairColor } from '@opsorama/objects';
 import { animateAsset } from '../packages/three/src/animation';
 import { catalogObjects } from '../apps/site/src/features/docs/objects';
 
@@ -63,7 +63,7 @@ describe('person characters', () => {
 
   it('builds the smaller feminine figure for every person and pose with the same anchors, seat height and grounding', () => {
     expect(PERSON_FIGURES).toEqual(['masculine', 'feminine']);
-    const feminine = { person: { figure: 'feminine' as const } };
+    const feminine = { options: { person: { figure: 'feminine' as const } } };
     for (const asset of PERSON_ASSETS) for (const variant of WORKER_VARIANTS) {
       const base = catalogAssets[asset](person(asset, variant)), object = catalogAssets[asset](person(asset, variant, feminine));
       const a = new THREE.Box3().setFromObject(base), b = new THREE.Box3().setFromObject(object);
@@ -82,7 +82,7 @@ describe('person characters', () => {
 
   it('gives the feminine visitor and office worker a skirt over bare legs', () => {
     for (const asset of ['visitor', 'office-worker']) {
-      const object = catalogAssets[asset](person(asset, 'idle', { person: { figure: 'feminine' }, materials: { structure: '#123456', skin: '#654321' } }));
+      const object = catalogAssets[asset](person(asset, 'idle', { options: { person: { figure: 'feminine' } }, materials: { structure: '#123456', skin: '#654321' } }));
       const leg = object.getObjectByName('worker-left-leg')!.children[0] as THREE.Mesh;
       expect((leg.material as THREE.MeshStandardMaterial).color.getHexString(), asset).toBe('654321');
       expect(colors(object).has('#123456'), asset).toBe(true);
@@ -92,7 +92,7 @@ describe('person characters', () => {
 
   it('keeps the bare legs inside the skirt at the sides, standing and seated', () => {
     for (const variant of ['idle', 'seated']) {
-      const object = catalogAssets.visitor(person('visitor', variant, { person: { figure: 'feminine' }, materials: { structure: '#123456' } }));
+      const object = catalogAssets.visitor(person('visitor', variant, { options: { person: { figure: 'feminine' } }, materials: { structure: '#123456' } }));
       object.updateMatrixWorld(true);
       const skirt = object.getObjectByName('worker-rig')!.children.find(child => child instanceof THREE.Mesh && (child.material as THREE.MeshStandardMaterial).color.getHexString() === '123456' && child.position.y < .8)!;
       const legs = new THREE.Box3(); for (const name of ['worker-left-leg', 'worker-right-leg']) legs.union(new THREE.Box3().setFromObject(object.getObjectByName(name)!.children[0]));
@@ -111,14 +111,14 @@ describe('person characters', () => {
   });
 
   it('validates person options in the scene store and the factory', () => {
-    const store = createSceneStore({ schemaVersion: 1, nodes: [] });
-    expect(() => store.upsert({ id: 'p', kind: 'asset', asset: 'parcel', person: { figure: 'feminine' } })).toThrow('Person options require a person asset');
-    expect(() => store.upsert(person('visitor', 'idle', { person: { figure: 'tall' as never } }))).toThrow('Unknown person figure: tall. Use one of masculine, feminine.');
-    expect(() => store.upsert(person('visitor', 'idle', { person: { hair: 'long' } as never }))).toThrow('Unknown person option hair');
-    store.upsert(person('visitor', 'idle', { person: { figure: 'feminine' } }));
+    const store = createSceneStore({ schemaVersion: 1, nodes: [] }, {}, { validateAsset: assetValidator(catalogAssets) });
+    expect(() => store.upsert({ id: 'p', kind: 'asset', asset: 'parcel', options: { person: { figure: 'feminine' } } })).toThrow('Asset parcel does not accept options.person (node p). It is accepted by worker, office-worker, chef');
+    expect(() => store.upsert(person('visitor', 'idle', { options: { person: { figure: 'tall' as never } } }))).toThrow('Unknown person figure: tall. Use one of masculine, feminine.');
+    expect(() => store.upsert(person('visitor', 'idle', { options: { person: { hair: 'long' } as never } }))).toThrow('Unknown person option hair');
+    store.upsert(person('visitor', 'idle', { options: { person: { figure: 'feminine' } } }));
     const stored = store.getSnapshot().nodes[0] as AssetNode;
-    expect(stored.person).toEqual({ figure: 'feminine' }); expect(Object.isFrozen(stored.person)).toBe(true);
-    expect(() => catalogAssets.chef(person('chef', 'idle', { person: { figure: 'x' as never } }))).toThrow('Unknown person figure');
+    expect(stored.options?.person).toEqual({ figure: 'feminine' }); expect(Object.isFrozen(stored.options?.person)).toBe(true);
+    expect(() => catalogAssets.chef(person('chef', 'idle', { options: { person: { figure: 'x' as never } } }))).toThrow('Unknown person figure');
     store.dispose();
   });
 
@@ -127,7 +127,7 @@ describe('person characters', () => {
     expect(personHairColor('guest:T1:0')).toBe(personHairColor('guest:T1:0'));
     expect(new Set(Array.from({ length: 24 }, (_, i) => personHairColor(`person:${i}`)))).toEqual(new Set(Object.values(PERSON_HAIR_COLORS)));
     for (const figure of PERSON_FIGURES) {
-      const object = catalogAssets.visitor(person('visitor', 'idle', { person: { figure }, materials: { hair: PERSON_HAIR_COLORS.red } }));
+      const object = catalogAssets.visitor(person('visitor', 'idle', { options: { person: { figure } }, materials: { hair: PERSON_HAIR_COLORS.red } }));
       expect(colors(object).has(PERSON_HAIR_COLORS.red), figure).toBe(true);
       disposeObject(object);
     }

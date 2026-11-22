@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { projectContents } from '@opsorama/core';
+import { projectContents } from './contents';
 import { objectPalette, resolveObjectColor } from './object-palette';
 import type { MaterialContext } from '@opsorama/three';
 import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
@@ -12,7 +12,7 @@ const MESH = { color: '#c3d0e0', opacity: .22 } as const;
 export function createShoppingCart(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const cart = new THREE.Group(); cart.name = 'shopping-cart';
   const palette = objectPalette(node, context, 'structure'), frame = palette.structure;
-  const items = node.contents ? projectContents(node.contents, 6).visible : undefined;
+  const items = node.options?.contents ? projectContents(node.options.contents, 6).visible : undefined;
   const count = items?.length ?? resolveCountRepresentation(node, assetCountDefinitions['shopping-cart']).count;
   block(cart, [.6, .03, .9], [0, .55, 0], frame, 'cart-floor');
   for (const x of [-.3, .3]) block(cart, [.02, .4, .9], [x, .75, 0], palette.glass, 'cart-mesh', { opacity: MESH.opacity });

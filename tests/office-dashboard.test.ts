@@ -101,7 +101,7 @@ describe('open office dashboard model', () => {
     for (const scenario of scenarios) for (const original of officeNodes(SCENARIOS[scenario])) {
       if (original.kind !== 'asset' || built.has(original.id)) continue;
       built.add(original.id);
-      const node: AssetNode = { ...original, surfaceLabel: undefined, attachment: undefined };
+      const node: AssetNode = { ...original, options: { ...original.options, surfaceLabel: undefined }, attachment: undefined };
       const object = catalogAssets[node.asset](node);
       expect(object, node.id).toBeDefined(); disposeObject(object);
     }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createSceneStore, formatMeasurement, resolveMeasurement, type AssetNode, type Measurement } from '@opsorama/core';
+import { createSceneStore, type AssetNode } from '@opsorama/core';
+import { assetValidator } from '@opsorama/three';
+import { catalogAssets, formatMeasurement, resolveMeasurement, type Measurement } from '@opsorama/objects';
 
 describe('measured values', () => {
   it('rounds percentage labels without changing readings, fractions or non-percentage precision', () => {
@@ -42,15 +44,15 @@ describe('measured values', () => {
   });
   it('deeply snapshots readings and bands and rejects invalid updates atomically', () => {
     const measurement: Measurement = { value: 72.5, bands: [{ from: 0, to: 100, state: 'warning' }] };
-    const node: AssetNode = { id: 'load', entityId: 'server-a', kind: 'asset', asset: 'ring-gauge', measurement };
-    const store = createSceneStore({ schemaVersion: 1, nodes: [node] }); store.select('load');
+    const node: AssetNode = { id: 'load', entityId: 'server-a', kind: 'asset', asset: 'ring-gauge', options: { measurement } };
+    const store = createSceneStore({ schemaVersion: 1, nodes: [node] }, {}, { validateAsset: assetValidator(catalogAssets) }); store.select('load');
     measurement.value = 10; measurement.bands![0].state = 'critical';
     const snapshot = store.getSnapshot(), stored = snapshot.nodes[0] as AssetNode;
-    expect(stored.measurement!.value).toBe(72.5); expect(stored.measurement!.bands![0].state).toBe('warning');
-    expect(Object.isFrozen(stored.measurement!.bands![0])).toBe(true);
-    for (const patch of [{ measurement: { value: NaN } }, { count: 1 }, { multiplier: 2 }]) {
+    expect(stored.options!.measurement!.value).toBe(72.5); expect(stored.options!.measurement!.bands![0].state).toBe('warning');
+    expect(Object.isFrozen(stored.options!.measurement!.bands![0])).toBe(true);
+    for (const patch of [{ options: { measurement: { value: NaN } } }, { count: 1 }, { multiplier: 2 }]) {
       expect(() => store.upsert({ ...stored, ...patch })).toThrow(); expect(store.getSnapshot()).toBe(snapshot);
     }
-    store.upsert({ ...stored, measurement: { value: null } }); expect(store.getSnapshot().selection?.entityId).toBe('server-a'); store.dispose();
+    store.upsert({ ...stored, options: { ...stored.options, measurement: { value: null } } }); expect(store.getSnapshot().selection?.entityId).toBe('server-a'); store.dispose();
   });
 });

@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { bindChildren, createSceneStore, isNodeVisible, setNodeView, type AssetNode, type SceneNode } from '@opsorama/core';
-import { disposeObject } from '@opsorama/three';
-import { BUILDING_PALETTES, BUILDING_TYPES, catalogAssets, isBuilding } from '@opsorama/objects';
+import { assetValidator, disposeObject } from '@opsorama/three';
+import { BUILDING_PALETTES, BUILDING_TYPES, catalogAssets, isBuilding, type BuildingOptions, type BuildingType } from '@opsorama/objects';
 import { buildingContents, buildingDefinition } from '../apps/site/examples/building-data';
 
 const building: AssetNode = { id: 'building', kind: 'asset', asset: 'building', view: 'closed' };
 const child: AssetNode = { id: 'desk', kind: 'asset', asset: 'desk-pod', parentId: building.id, position: [1, .12, 0], selectable: true };
-const makeStore = (nodes: readonly SceneNode[] = [building]) => createSceneStore({ schemaVersion: 1, nodes });
+const makeStore = (nodes: readonly SceneNode[] = [building]) => createSceneStore({ schemaVersion: 1, nodes }, {}, { validateAsset: assetValidator(catalogAssets) });
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
 
 describe('building containers', () => {
   it('validates views, hover peek, parent types and cycles atomically in the store', () => {
     const store = makeStore(), before = store.getSnapshot();
-    for (const fields of [{ view: 'transparent' }, { peekOnHover: 1 }, { building: [] }]) {
+    for (const fields of [{ view: 'transparent' }, { peekOnHover: 1 }, { options: { building: [] } }, { options: [] }, { options: { building: { size: [0, 3, 6] } } }]) {
       expect(() => store.upsert({ ...building, ...fields } as AssetNode)).toThrow(); expect(store.getSnapshot()).toBe(before);
     }
     expect(() => store.upsert({ ...child, parentId: child.id })).toThrow('Invalid parent ID');
@@ -24,19 +24,19 @@ describe('building containers', () => {
   });
   it('validates building options and unsupported fields in the building factory', () => {
     for (const config of [{ size: [0, 3, 6] }, { size: [101, 3, 6] }, { size: [8, NaN, 6] }, { colors: { wall: 'red' } }, { colors: { unknown: '#123456' } }, { cutaway: 'side' }]) {
-      expect(() => catalogAssets.building({ ...building, building: config } as AssetNode)).toThrow();
+      expect(() => catalogAssets.building({ ...building, options: { building: config } } as AssetNode)).toThrow();
     }
-    expect(() => catalogAssets.building({ ...building, building: { view: 'open' } })).toThrow('set view and peekOnHover on the asset node');
+    expect(() => catalogAssets.building({ ...building, options: { ...building.options, building: { view: 'open' } as BuildingOptions } })).toThrow('set view and peekOnHover on the asset node');
     expect(() => catalogAssets.building({ ...building, count: 1 })).toThrow('does not support');
-    expect(() => catalogAssets['desk-pod']({ ...child, building: {} })).toThrow('has no building options');
+    expect(() => catalogAssets['desk-pod']({ ...child, options: { ...child.options, building: {} } })).toThrow('Asset desk-pod does not accept options.building (node desk). It is accepted by building');
   });
   it('deeply snapshots building options without mutating caller data', () => {
     const size: [number, number, number] = [8, 3, 6], colors = { roof: '#123456' };
-    const store = makeStore([{ ...building, building: { size, colors } }]); size[0] = 20; colors.roof = '#abcdef';
+    const store = makeStore([{ ...building, options: { ...building.options, building: { size, colors } } }]); size[0] = 20; colors.roof = '#abcdef';
     const node = store.getSnapshot().nodes[0];
     if (!isBuilding(node)) throw new Error('Expected a building.');
-    expect(node.building?.size).toEqual([8, 3, 6]); expect(node.building?.colors?.roof).toBe('#123456');
-    expect(Object.isFrozen(node.building?.colors)).toBe(true); expect(Object.isFrozen(node.building?.size)).toBe(true); store.dispose();
+    expect(node.options?.building?.size).toEqual([8, 3, 6]); expect(node.options?.building?.colors?.roof).toBe('#123456');
+    expect(Object.isFrozen(node.options?.building?.colors)).toBe(true); expect(Object.isFrozen(node.options?.building?.size)).toBe(true); store.dispose();
   });
   it('makes missing/closed ancestors dormant, preserves independent identities, and clears hidden selection', () => {
     const nested: AssetNode = { ...building, id: 'nested', parentId: building.id, view: 'open' };
@@ -104,9 +104,9 @@ describe('lazy interior host binding', () => {
 
 describe('shared building geometry', () => {
   it('validates types and keeps all styles grounded and bounded at minimum, default and maximum dimensions', () => {
-    expect(() => catalogAssets.building({ ...building, building: { type: 'castle' } })).toThrow('Unknown building type');
+    expect(() => catalogAssets.building({ ...building, options: { ...building.options, building: { type: 'castle' as BuildingType } } })).toThrow('Unknown building type');
     for (const type of BUILDING_TYPES) for (const size of [[2, 2, 2], [8, 3.6, 6], [100, 100, 100]] as const) {
-      const closed = catalogAssets.building({ ...building, building: { type, size } }), open = catalogAssets.building({ ...building, view: 'open', building: { type, size } });
+      const closed = catalogAssets.building({ ...building, options: { ...building.options, building: { type, size } } }), open = catalogAssets.building({ ...building, view: 'open', options: { ...building.options, building: { type, size } } });
       const bounds = new THREE.Box3().setFromObject(closed);
       expect(bounds.min.y, type).toBeCloseTo(0); expect(bounds.max.y, type).toBeLessThanOrEqual(size[1] + .3);
       expect(bounds.min.x, type).toBeGreaterThanOrEqual(-size[0] / 2 - .12); expect(bounds.max.x, type).toBeLessThanOrEqual(size[0] / 2 + .12);
@@ -122,7 +122,7 @@ describe('shared building geometry', () => {
   it('gives each type its declared architectural details, inherited colors and stable composition anchors', () => {
     const details = { generic: 'building-roof-seam', warehouse: 'building-shutter-slat', 'distribution-center': 'building-dock-door', workshop: 'building-gable', office: 'building-parapet', retail: 'building-awning', 'storage-shed': 'building-ridge' };
     for (const type of BUILDING_TYPES) {
-      const node: AssetNode = { ...building, building: { type, colors: { roof: '#123456' } } };
+      const node: AssetNode = { ...building, options: { ...building.options, building: { type, colors: { roof: '#123456' } } } };
       const closed = catalogAssets.building(node, { theme: 'midnight' }), open = catalogAssets.building({ ...node, view: 'open' });
       expect(closed.getObjectByName(details[type]), type).toBeDefined(); expect(open.getObjectByName(details[type]), type).toBeUndefined();
       for (const name of ['interior', 'entrance', 'roof']) expect(closed.getObjectByName(`anchor-${name}`)?.position.toArray()).toEqual(open.getObjectByName(`anchor-${name}`)?.position.toArray());
@@ -143,7 +143,7 @@ describe('shared building geometry', () => {
     disposeObject(closed); disposeObject(open);
   });
   it('inherits both scene palettes with partial overrides and instance-owned disposal', () => {
-    const first = catalogAssets.building({ ...building, building: { colors: { roof: '#123456' } } }, { theme: 'midnight' });
+    const first = catalogAssets.building({ ...building, options: { ...building.options, building: { colors: { roof: '#123456' } } } }, { theme: 'midnight' });
     const second = catalogAssets.building(building, { theme: 'light' });
     const color = (model: THREE.Object3D, name: string) => ((model.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString();
     expect(color(first, 'building-wall')).toBe(BUILDING_PALETTES.midnight.wall.slice(1)); expect(color(first, 'building-roof')).toBe('123456'); expect(color(second, 'building-wall')).toBe(BUILDING_PALETTES.light.wall.slice(1));

@@ -25,7 +25,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
    export const assets = createAssetRegistry(vehiclesKit, workItemsKit);
    ```
    Kit subpaths: `datacenter`, `displays`, `buildings`, `indicators`, `work-items`, `people`, `furniture`, `equipment`, `office`, `retail`, `fulfillment`, `vehicles`, `environment`, `surfaces`, `energy`, `events`, `restaurant`, `aquatics`, `animals`, `farm`, `laboratory`; the export is the camel-case name plus `Kit` (`work-items` → `workItemsKit`). `catalogAssets` from `@opsorama/objects` has every model; use it only for prototypes. Add custom factories as another registry; a duplicate asset name throws.
-3. **Map records to nodes** in application code: one node per thing the user should see, `entityId` pointing back to the record, labels and counts derived from the record. Keep totals and identities in the application; a countable model shows a bounded `count`, and a disclosed `multiplier` expresses larger totals. Never encode quantity with `scale`.
+3. **Map records to nodes** in application code: one node per thing the user should see, `entityId` pointing back to the record, labels and counts derived from the record. Model-specific settings go in the node's `options`, for example `options: { measurement: { value: 72, unit: '%' } }` on a gauge, `options: { building: { type: 'warehouse' } }` or `options: { surfaceLabel: { kind: 'text', text: 'DOCK 3' } }`; the descriptor lists them as `options.<name>` customization fields, and a catalog asset throws for an option it does not accept. Create the store with `createSceneStore(definition, settings, { validateAsset: assetValidator(assets) })` (`assetValidator` from `@opsorama/three`) so `upsert` and `replace` reject invalid nodes instead of the renderer failing later. Keep totals and identities in the application; a countable model shows a bounded `count`, and a disclosed `multiplier` expresses larger totals. Never encode quantity with `scale`.
 4. **Mount the scene**:
    - React: `<DashboardProvider store={store}><SceneCanvas assets={assets} style={{ height: 480 }} /></DashboardProvider>`, with declarative `Ground`, `Zone`, `Path`, `Asset`, `Marker` or `EntityLayer` children if preferred.
    - Vue: the same components from `@opsorama/vue` (`:assets="assets"`).
@@ -48,6 +48,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
 - Calling `createSceneRenderer(container, store)` without `assets` (a type error; at runtime "Unknown asset").
 - Importing `catalogAssets` in production scenes that use a few kits (much larger bundle).
 - Putting business state (prices, owners, permissions) on nodes instead of in the application.
+- Setting model options such as `measurement`, `surfaceLabel` or `building` directly on the node instead of inside `options`.
 - Using `scale` to show quantity, or inventing unit identities for a count.
 - Mounting a renderer per list item; use one scene with many nodes.
 - Rendering the scene on the server in Next.js; keep it in a client component.

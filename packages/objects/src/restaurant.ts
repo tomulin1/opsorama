@@ -1,4 +1,4 @@
-import { validateOperatingProperties } from '@opsorama/core';
+import { validateOperatingProperties } from './operating';
 import * as THREE from 'three';
 import { resolveObjectColor } from './object-palette';
 import { resolveCountRepresentation, type AssetNode, type MaterialPalette } from '@opsorama/core';
@@ -215,7 +215,7 @@ export function createEspressoMachine(node: AssetNode, context?: MaterialContext
   cylinder(machine, .07, .07, .34, '#5b3a26', 'espresso-beans', { segments: 16, bottomRadius: .045, roughness: .9 }).position.set(-.42, .34, .02);
   block(machine, [.12, .03, .1], [-.42, .08, .16], p.trim, 'espresso-grinder-fork', metal);
   const steam: THREE.Mesh[] = [];
-  if (node.heatEnabled !== false) for (let i = 0; i < 3; i++) steam.push(part(unit, new THREE.SphereGeometry(.035, 12, 8), '#ffffff', 'espresso-steam', { opacity: .3, roughness: 1 }));
+  if (node.options?.heatEnabled !== false) for (let i = 0; i < 3; i++) steam.push(part(unit, new THREE.SphereGeometry(.035, 12, 8), '#ffffff', 'espresso-steam', { opacity: .3, roughness: 1 }));
   const puff = (time: number) => steam.forEach((mesh, i) => {
     const phase = (time * .7 + i / 3) % 1; mesh.position.set(.33 + Math.sin(phase * 5 + i) * .015, .2 + phase * .28, .3); mesh.scale.setScalar(.5 + phase * .9);
     (mesh.material as THREE.MeshStandardMaterial).opacity = .32 * (1 - phase);
@@ -235,7 +235,7 @@ function archShape(width: number, height: number): THREE.Shape {
  */
 export function createPizzaOven(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   validateOperatingProperties(node);
-  const p = kitPalette(node, context), dome = resolveObjectColor(node, context, 'surface', '#c8714f'), burning = node.heatEnabled !== false, oven = new THREE.Group(); oven.name = 'pizza-oven';
+  const p = kitPalette(node, context), dome = resolveObjectColor(node, context, 'surface', '#c8714f'), burning = node.options?.heatEnabled !== false, oven = new THREE.Group(); oven.name = 'pizza-oven';
   block(oven, [1.6, .9, 1.5], [0, .45, 0], BRICK, 'oven-plinth', { bevel: .02, roughness: .9 });
   const mortar: number[] = [];
   for (let row = 1; row < 9; row++) { const y = row * .1; if (y > .52) mortar.push(-.8, y, .752, .8, y, .752); else mortar.push(-.8, y, .752, -.55, y, .752, .55, y, .752, .8, y, .752); for (let x = -.8 + (row % 2 ? .1 : .2); x < .8; x += .2) if (y > .55 || Math.abs(x) > .55) mortar.push(x, y, .752, x, y + .1, .752); }
@@ -329,12 +329,12 @@ export function createHeatedPass(node: AssetNode, context?: MaterialContext): TH
   block(pass, [length + .04, .04, .64], [0, top - .02, 0], p.trim, 'pass-top', { bevel: .006, ...metal });
   for (const x of [-length / 2 + .03, length / 2 - .03]) block(pass, [.05, .74, .05], [x, top + .37, -.22], p.trim, 'pass-post', metal);
   block(pass, [length + .04, .03, .36], [0, top + .75, -.1], p.trim, 'pass-gantry', metal);
-  const heat = node.heatEnabled === false ? { color: p.screen, options: {} } : { color: '#ffb072', options: { emissive: '#ff9a52' } };
+  const heat = node.options?.heatEnabled === false ? { color: p.screen, options: {} } : { color: '#ffb072', options: { emissive: '#ff9a52' } };
   for (const x of [-.6, 0, .6]) {
     block(pass, [.5, .08, .22], [x, top + .69, -.05], hood, 'pass-lamp-hood', { bevel: .025, roughness: .45 });
     block(pass, [.44, .015, .14], [x, top + .645, -.05], heat.color, 'pass-heat-lamp', { roughness: .4, ...heat.options });
   }
-  if (node.heatEnabled !== false) block(pass, [length - .1, .004, .5], [0, top + .003, .02], '#ffb072', 'pass-heat-glow', { emissive: '#ff9a52', opacity: .18 });
+  if (node.options?.heatEnabled !== false) block(pass, [length - .1, .004, .5], [0, top + .003, .02], '#ffb072', 'pass-heat-glow', { emissive: '#ff9a52', opacity: .18 });
   block(pass, [length - .1, .025, .03], [0, top + .45, -.27], p.structure, 'pass-ticket-rail', metal);
   for (let i = 0; i < count; i++) {
     const dish = new THREE.Group(); dish.name = `count-part-${i}`; dish.position.set(slots[i], top, .05); pass.add(dish);

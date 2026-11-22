@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { FORK_LIMITS, createBehaviorRunner, createNavGraph, createSceneStore, finalForkPose, forkMoveSeconds, forkPoseAt, routeDuration, sampleRoute, validateForkMotion, type AssetNode, type ForkMotion, type NodeRoute, type ResolvedSlot } from '@opsorama/core';
-import { disposeObject, hasAssetAnimator } from '@opsorama/three';
-import { assetDescriptors, assetHandling, catalogAssets, checkAssetHandling } from '@opsorama/objects';
+import { createBehaviorRunner, createNavGraph, createSceneStore, routeDuration, sampleRoute, type AssetNode, type NodeRoute, type ResolvedSlot } from '@opsorama/core';
+import { assetValidator, disposeObject, hasAssetAnimator } from '@opsorama/three';
+import { assetDescriptors, assetHandling, catalogAssets, checkAssetHandling, FORK_LIMITS, finalForkPose, forkMoveSeconds, forkPoseAt, validateForkMotion, type ForkMotion } from '@opsorama/objects';
 import { animateAsset } from '../packages/three/src/animation';
 import { RACK_LEVELS, RACK_PLACES, ecommerceSlots } from '../apps/site/src/features/ecommerce/scene';
 
-const build = (asset: string, forks?: ForkMotion, extra: Partial<AssetNode> = {}) => { const object = catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...(forks ? { forks } : {}), ...extra }); object.updateMatrixWorld(true); return object; };
+const build = (asset: string, forks?: ForkMotion, extra: Partial<AssetNode> = {}) => { const object = catalogAssets[asset]({ id: asset, kind: 'asset', asset, ...(forks ? { options: { forks } } : {}), ...extra }); object.updateMatrixWorld(true); return object; };
 const loadAnchor = (object: THREE.Object3D) => object.getObjectByName('anchor-load')!.getWorldPosition(new THREE.Vector3());
 
 describe('fork motion', () => {
@@ -23,16 +23,17 @@ describe('fork motion', () => {
   });
 
   it('rejects other assets, poses outside the limits and bad durations, naming the fix', () => {
-    expect(() => validateForkMotion('pallet', { height: 0 })).toThrow('supported only by forklift, reach-truck');
+    expect(() => validateForkMotion('pallet', { height: 0 })).toThrow('options.forks is supported only by forklift, reach-truck');
     expect(() => validateForkMotion('reach-truck', { height: FORK_LIMITS['reach-truck'].maxHeight + 1 })).toThrow('height of reach-truck must be from');
     expect(() => validateForkMotion('forklift', { height: 0, reach: .5 })).toThrow('reach of forklift must be from 0 to 0');
     expect(() => validateForkMotion('reach-truck', { height: 0, moves: [{ height: 1, seconds: 0 }] })).toThrow('seconds must be greater than 0');
-    expect(() => createSceneStore({ schemaVersion: 1, nodes: [{ id: 'p', kind: 'asset', asset: 'pallet', forks: { height: 0 } }] })).toThrow('forks is supported only');
+    expect(() => createSceneStore({ schemaVersion: 1, nodes: [{ id: 'p', kind: 'asset', asset: 'pallet', options: { forks: { height: 0 } } }] }, {}, { validateAsset: assetValidator(catalogAssets) })).toThrow('Asset pallet does not accept options.forks (node p). It is accepted by forklift, reach-truck');
+    expect(() => createSceneStore({ schemaVersion: 1, nodes: [{ id: 't', kind: 'asset', asset: 'reach-truck', options: { forks: { height: 9 } } }] }, {}, { validateAsset: assetValidator(catalogAssets) })).toThrow('height of reach-truck must be from');
   });
 
   it('freezes the motion in the store', () => {
-    const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 't', kind: 'asset', asset: 'reach-truck', forks: motion }] }), node = store.getSnapshot().nodes[0] as AssetNode;
-    expect(Object.isFrozen(node.forks)).toBe(true); expect(Object.isFrozen(node.forks!.moves![0])).toBe(true);
+    const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 't', kind: 'asset', asset: 'reach-truck', options: { forks: motion } }] }), node = store.getSnapshot().nodes[0] as AssetNode;
+    expect(Object.isFrozen(node.options?.forks)).toBe(true); expect(Object.isFrozen(node.options?.forks!.moves![0])).toBe(true);
     store.dispose();
   });
 

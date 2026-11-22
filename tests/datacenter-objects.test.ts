@@ -121,7 +121,7 @@ describe('datacenter object kit', () => {
     for (const node of datacenterDefinition.nodes.filter(node => node.kind === 'asset')) {
       if (node.kind !== 'asset') continue;
       // Browser artwork rendering is covered by the native-adapter fixture; keep this geometry check DOM-free.
-      const model = build(node.asset, { ...node, surfaceLabel: undefined }); expect(model.children.length).toBeGreaterThan(0); disposeObject(model);
+      const model = build(node.asset, { ...node, options: { ...node.options, surfaceLabel: undefined } }); expect(model.children.length).toBeGreaterThan(0); disposeObject(model);
     }
     store.dispose();
   });
@@ -161,7 +161,7 @@ describe('datacenter object kit', () => {
     let meshCount = 0, triangles = 0, bufferBytes = 0;
     for (const node of nodes) {
       if (node.kind !== 'asset' || !isNodeVisible(node, nodes)) continue;
-      const model = build(node.asset, { ...node, surfaceLabel: undefined });
+      const model = build(node.asset, { ...node, options: { ...node.options, surfaceLabel: undefined } });
       try {
         for (const mesh of meshes(model)) {
           meshCount++;

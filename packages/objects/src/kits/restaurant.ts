@@ -1,5 +1,7 @@
 import type { AssetRegistry } from '@opsorama/three';
 import { catalogEntries } from '../catalog-entry';
+// Brings the catalog's typed AssetOptions (module augmentation of @opsorama/core) to every consumer of this kit.
+import '../options';
 import { createBarCounter, createBarStool, createBoothSeating, createDiningTable, createDishMachine, createEspressoMachine, createHeatedPass, createHostStand, createMenuBoard, createPatioUmbrella, createPickupShelf, createPizzaOven, createServingPlates, createWalkInCooler } from '../restaurant';
 
 /**

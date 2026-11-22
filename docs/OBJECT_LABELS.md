@@ -2,7 +2,7 @@
 
 Implemented October 9, 2026 as a catalog customization.
 
-`AssetNode.surfaceLabel` attaches static text or self-contained SVG to a model. The existing `label` and `labelMode` retain their projected HTML meaning and quantity disclosure. Surface artwork follows position, rotation and scale, remains visible with motion disabled, and selects the owning node. Scene `settings.labels` controls HTML labels only. Artwork introduces no records, units, commands or animation.
+`options.surfaceLabel` on an asset node attaches static text or self-contained SVG to a model. The existing `label` and `labelMode` retain their projected HTML meaning and quantity disclosure. Surface artwork follows position, rotation and scale, remains visible with motion disabled, and selects the owning node. Scene `settings.labels` controls HTML labels only. Artwork introduces no records, units, commands or animation.
 
 ## Supported placements
 
@@ -31,11 +31,11 @@ Implemented October 9, 2026 as a catalog customization.
 | `customer-house` | House number plate beside the door |
 | `lab-tray` | Front plaque |
 
-The same parcel sticker repeats over a bounded composition, sharing one texture within that instance and retaining its node/count/multiplier. Other built-in models reject `surfaceLabel` rather than inventing a floating or inappropriate placement. Catalog controls appear only for declared supported portable models; warehouse prototypes retain their current embedded signage.
+The same parcel sticker repeats over a bounded composition, sharing one texture within that instance and retaining its node/count/multiplier. Other built-in models reject `options.surfaceLabel` with an error naming the assets that accept it, rather than inventing a floating or inappropriate placement. Catalog controls appear only for declared supported portable models; warehouse prototypes retain their current embedded signage.
 
 ## Implemented contract
 
-Exported from `@opsorama/core`:
+Exported from `@opsorama/objects`, which also types `AssetNode.options.surfaceLabel`:
 
 ```ts
 type SurfaceLabel = (
@@ -48,7 +48,7 @@ Default text and SVG alternatives retain the 1–80 character single-line contra
 
 SVG source is at most 20,000 characters, with at most 512 elements and a finite positive `viewBox` bounded to 10,000 and a 100:1 aspect ratio. Supported static elements are svg, g, defs, path, rect, circle, ellipse, line, polyline, polygon, text, tspan, title, desc, linearGradient, radialGradient, stop and clipPath. Presentation attributes and local `url(#id)` references are supported. Inline CSS/style, scripts/events, foreignObject, images, external resources, href/use, nested svg, animation, doctype and entities are rejected before decoding. Decoded SVG bitmaps and final textures are bounded by the declared surface resolution: 1024 pixels on the longest side by default, 2048 for the pipeline TV. Validation always runs before decoding; the optional validateLabelSvg resolution parameter accepts only 1024 or 2048. Text uses browser system fonts; outline text for consistent logo typography. SVG is fitted without stretching. Failed browser decoding retains the alternative text.
 
-Core validates the serializable content limits and clones/freezes label inputs. The browser renderer additionally validates XML using `validateLabelSvg`. Invalid catalog drafts show an error and retain the last valid artwork/snippet. Remove `surfaceLabel` to restore the original model appearance. Selection and source quantity totals survive updates.
+The catalog validates the serializable content limits (`validateSurfaceLabel`) before building, and a store created with `validateAsset: assetValidator(catalogAssets)` rejects invalid labels before accepting the node; the store clones and freezes `options`. The browser renderer additionally validates XML using `validateLabelSvg`. Invalid catalog drafts show an error and retain the last valid artwork/snippet. Remove `options.surfaceLabel` to restore the original model appearance. Selection and source quantity totals survive updates.
 
 ## Examples and lifecycle
 
@@ -57,19 +57,19 @@ Try labels directly on [Storefront](http://127.0.0.1:3100/docs/objects/storefron
 ```tsx
 // React: inside DashboardProvider and SceneCanvas
 <Asset id="branch" asset="storefront" selectable label="North branch"
-  surfaceLabel={{ kind: 'text', text: 'NORTH', color: '#243650', background: '#fffaf2' }} />
+  options={{ surfaceLabel: { kind: 'text', text: 'NORTH', color: '#243650', background: '#fffaf2' } }} />
 ```
 
 ```vue
 <!-- Vue: inside DashboardProvider and SceneCanvas -->
 <Asset id="branch" asset="storefront" :selectable="true" label="North branch"
-  :surfaceLabel="{ kind: 'text', text: 'NORTH', color: '#243650', background: '#fffaf2' }" />
+  :options="{ surfaceLabel: { kind: 'text', text: 'NORTH', color: '#243650', background: '#fffaf2' } }" />
 ```
 
 ```ts
 // JavaScript: a host-owned scene store
 store.upsert({ id: 'branch', kind: 'asset', asset: 'storefront', selectable: true,
-  label: 'North branch', surfaceLabel: { kind: 'text', text: 'NORTH' } });
+  label: 'North branch', options: { surfaceLabel: { kind: 'text', text: 'NORTH' } } });
 ```
 
 Each labeled instance owns one canvas texture (1024 pixels on its longest side by default, or 2048 for the TV, with aspect-fitted dimensions), sticker planes and materials. Updates rebuild the owned model under the same node ID. `disposeObject` releases label textures alongside geometry/materials, cancels pending image handlers and revokes temporary Blob URLs on update, removal and renderer disposal. A completed or failed decode also revokes its URL; a late callback cannot update a disposed texture. No per-label frame loop is created. Custom factories can use `applySurfaceLabel(object, node, surface)` once per fresh model with an explicit finite `LabelSurface`, and must use `disposeObject` for this helper's cleanup. Registry overrides own their declared support.

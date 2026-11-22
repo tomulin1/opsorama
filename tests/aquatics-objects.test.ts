@@ -68,7 +68,7 @@ describe('aquatics objects', () => {
       const normal = build(asset), critical = build(asset, { state: 'critical' });
       expect(meshes(critical).map(hex), asset).toEqual(meshes(normal).map(hex)); disposeObject(normal); disposeObject(critical);
     }
-    const dry = build('deck-shower', { waterRunning: false }); expect(named(dry, 'shower-water')).toHaveLength(0);
+    const dry = build('deck-shower', { options: { waterRunning: false } }); expect(named(dry, 'shower-water')).toHaveLength(0);
     const before = transforms(dry); animateAsset(dry, { time: 2, delta: 1 }); expect(transforms(dry)).toEqual(before); disposeObject(dry);
   });
 

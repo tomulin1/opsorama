@@ -49,6 +49,10 @@ fs.writeFileSync(path.join(consumer, 'index.ts'), [
   `import { vehiclesKit } from '@opsorama/objects/vehicles';`,
   `import { catalogAssets } from '@opsorama/objects';`,
   `export const registry: AssetRegistry = createAssetRegistry(vehiclesKit, { custom: catalogAssets.parcel });`,
+  // The catalog's AssetOptions augmentation must reach consumers: without it, options.forks is unknown and this fails.
+  `import type { AssetNode } from '@opsorama/core';`,
+  `const truck: AssetNode = { id: 'truck', kind: 'asset', asset: 'forklift', options: { forks: { height: 1 } } };`,
+  `export const forkHeight: number | undefined = truck.options?.forks?.height;`,
 ].join('\n'));
 for (const resolution of ['bundler', 'node16']) {
   const options = { strict: true, noEmit: true, skipLibCheck: false, types: [], lib: ['dom', 'esnext'], target: 'es2022', jsx: 'react-jsx', module: resolution === 'bundler' ? 'esnext' : 'node16', moduleResolution: resolution };
