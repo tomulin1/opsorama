@@ -4,6 +4,7 @@ import { disposeObject, setAssetRebuildHandler, type AssetRegistry } from './ass
 import { animateAsset } from './animation';
 import { buildNodeObject, createNodeTextures } from './nodes';
 import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
+import { applyLights, lightingLook, QUALITY_PROFILES } from './lighting';
 
 /** Default `NodePreviewOptions.maxNodes`: the copied node plus at most 239 visible descendants. */
 export const NODE_PREVIEW_MAX_NODES = 240;
@@ -141,6 +142,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const spin = options.spin ?? NODE_PREVIEW_SPIN, maxNodes = options.maxNodes ?? NODE_PREVIEW_MAX_NODES;
   let nodeId = options.nodeId ?? null, signature = '', builtFor: string | null = null, built: { node: SceneNode; object: THREE.Object3D }[] = [], radius = 0;
+  let pixelRatioCap = QUALITY_PROFILES.high.maxPixelRatio;
   let width = 1, height = 1, raf = 0, lastTime = 0, animationTime = 0, renderedFrames = 0, disposed = false;
   const report = (error: unknown) => options.onError?.(error instanceof Error ? error : new Error(String(error)));
   const animated = () => { const settings = store.getSnapshot().settings; return settings.motion && !settings.paused && !reducedMotion.matches; };
@@ -184,9 +186,12 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
     const root = nodes[0], next = JSON.stringify([nodes, snapshot.settings.theme, snapshot.settings.palette]);
     const label = root ? root.label ?? (root.kind === 'asset' ? root.asset : root.id) : null;
     canvas.setAttribute('aria-label', label ? `3D copy of ${label}. Use the left and right arrow keys to turn it.` : 'Empty 3D preview');
+    // The copy is lit like the scene (lighting preset and theme) and follows its quality's pixel ratio; the canvas stays transparent.
+    const look = lightingLook(snapshot.settings.lighting, snapshot.settings.theme), cap = QUALITY_PROFILES[snapshot.settings.quality].maxPixelRatio;
+    applyLights(look, ambient, sun, renderer); pixelRatioCap = cap;
+    const ratio = Math.min(canvasPixelRatio(window.devicePixelRatio), cap); if (ratio !== renderer.getPixelRatio()) renderer.setPixelRatio(ratio);
     if (next !== signature) {
       signature = next; clear();
-      ambient.intensity = snapshot.settings.theme === 'midnight' ? 1.05 : 2;
       // A new node starts facing the scene camera; a rebuild of the same node keeps the turntable angle.
       if (builtFor !== nodeId) { builtFor = nodeId; turntable.rotation.y = 0; }
       try { build(nodes); } catch (error) { clear(); report(error); }
@@ -217,7 +222,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
   const onKey = (event: KeyboardEvent) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); turn(event.key === 'ArrowLeft' ? -Math.PI / 12 : Math.PI / 12); } };
   const onContextLost = (event: Event) => { event.preventDefault(); cancelAnimationFrame(raf); raf = 0; report(new Error('Graphics context lost in the 3D preview. Reopen the panel to recover.')); };
   const onMotionPreference = () => request();
-  const stopPixelRatio = watchPixelRatio(ratio => { if (ratio !== renderer.getPixelRatio()) { renderer.setPixelRatio(ratio); request(); } });
+  const stopPixelRatio = watchPixelRatio(ratio => { const next = Math.min(ratio, pixelRatioCap); if (next !== renderer.getPixelRatio()) { renderer.setPixelRatio(next); request(); } });
   canvas.addEventListener('keydown', onKey); canvas.addEventListener('webglcontextlost', onContextLost); reducedMotion.addEventListener('change', onMotionPreference);
   const unsubscribe = store.subscribe(sync);
   resize(); sync();
