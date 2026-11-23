@@ -45,6 +45,17 @@ Pallets ride with their long side along the forks and keep that orientation at e
 
 Pause in the toolbar stops the scene and the feed together. With motion off or reduced motion the records keep running and objects show their confirmed places without travel.
 
+## Decisions of the shift
+
+A director decides who works where, which orders go first, which checkout lanes are open and when the forklift unloads a docked truck: `createEcommerceSimulation(scenario, seed, { director })`. The simulation asks it as it runs, so a director changes its mind by answering differently.
+
+- **Zones:** `zone(person)` is asked whenever a person is free and applies before their next task, so nobody drops a task halfway. A packer first finishes the orders on their bench. Pickers, sorters and the dispatcher keep their zone; the people who carry by hand (packers, the replenisher and the shelf filler) move between packing, replenishing and restocking, and packing needs a free bench. `simulation.staff()` lists each person's zone and the zones they can move to now.
+- **Priorities:** pickers and packers take orders with a higher `priority(order)` first, for example one carrier's orders.
+- **Checkouts:** a lane for which `checkoutOpen(lane)` turns false takes no new customers and closes once the customers on their way to it are served; a closed lane opens with a cashier.
+- **Unloading:** while `unload(dock)` is false, a docked truck waits and an unloading truck pauses.
+
+The dashboard uses `automaticDirector`: everyone keeps their zone, orders go in order of arrival, lanes stay as they are and trucks unload on arrival. A director passes only the decisions it changes; the rest stay automatic.
+
 ## Integration boundary
 
 Replace `simulation.ts` with confirmed task events and records from the shop platform, warehouse management system, yard or transport system and carriers, keeping its `snapshot` and `nodes` shape. Releasing waves, reprioritising orders, booking docks and opening lanes stay in those systems. No connector is implemented, and FPS has not been profiled on a GPU.
