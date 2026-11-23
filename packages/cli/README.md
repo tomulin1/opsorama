@@ -1,6 +1,12 @@
 # @opsorama/cli
 
-The `opsorama` command for Opsorama 3D scenes. `opsorama check` checks scene files (`SceneDefinition` JSON) against the scene rules and the whole object catalog, without a browser. `opsorama render` renders a scene to a PNG image in headless Chromium with the same renderer and catalog your application uses. People, CI jobs and AI coding agents can verify both the structure and the look of a scene.
+The `opsorama` command for Opsorama 3D scenes.
+
+- `opsorama check` checks scene files (`SceneDefinition` JSON) against the scene rules and the whole object catalog, without a browser.
+- `opsorama render` renders a scene to a PNG image in headless Chromium, with the same renderer and catalog your application uses.
+- `opsorama catalog`, `opsorama docs` and `opsorama skill` give coding agents the object catalog, the documentation and the agent skill of the installed version, without the repository or network access.
+
+People, CI jobs and AI coding agents can build a scene and verify both its structure and its look from a terminal.
 
 ## Install
 
@@ -32,6 +38,19 @@ The scene is checked first, and a scene with errors is not rendered. The image i
 
 Render errors are printed and fail the command, but the image is still written. Examples are a node whose model fails to build or an image that fails to load.
 
+## Catalog, documentation and the agent skill
+
+```sh
+npx opsorama catalog search pallet truck     # models matching every word, with their kit import
+npx opsorama catalog search --kit vehicles   # every model of one kit
+npx opsorama catalog show forklift           # size, node fields and options, anchors, slots, palette roles, example node
+npx opsorama docs                            # list the documentation pages
+npx opsorama docs camera                     # print one page as Markdown (also api/cli, objects/forklift, ...)
+npx opsorama skill                           # install the agent skill into .claude/skills/opsorama/SKILL.md
+```
+
+The documentation pages and the skill ship with the package, so they match the installed version. `opsorama skill --dir <path>` installs into another skills directory, and `--print` prints the skill, for example to add it to `AGENTS.md`. Run `opsorama skill` again after updating the package. It replaces a copy nobody edited and asks for `--force` before replacing local edits.
+
 ## Your own models
 
 ```ts
@@ -59,7 +78,7 @@ Exit status:
 
 - `0`: everything passed.
 - `1`: a scene has errors, or rendering reported errors.
-- `2`: a usage or tool error, such as an unknown option, invalid settings or a browser that cannot start.
+- `2`: a usage or tool error, such as an unknown option, an unknown asset or documentation topic, invalid settings or a browser that cannot start.
 
 ## From code
 
@@ -71,4 +90,4 @@ console.log(formatReport(report));
 const { problems, errors, diagnostics } = await renderScene({ scene: { schemaVersion: 1, nodes: [] }, out: 'scene.png' });
 ```
 
-The package also exports `checkScene`, `reportPassed`, `loadAssetModule`, `sceneRegistry`, and `run`. `run` runs the command in-process and returns its output and exit status.
+The package also exports `checkScene`, `reportPassed`, `loadAssetModule`, `sceneRegistry` and `run`. `run` runs the command in-process and returns its output and exit status. The agent tools are exported as well: `searchCatalog`, `describeAsset`, `catalogEntries`, `docTopics`, `findDocTopic` and `installSkill`.

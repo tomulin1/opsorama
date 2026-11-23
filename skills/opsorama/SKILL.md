@@ -16,7 +16,7 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
 
 ## Steps
 
-1. **Pick the objects.** Find models by name, purpose or category in `@opsorama/objects/catalog.json` (in an installed project: `node_modules/@opsorama/objects/dist/catalog.json`; in the Opsorama repository after `pnpm build:packages`: `packages/objects/dist/catalog.json`). Each asset entry has its `kit` and a `descriptor` with palette roles, options, counts, anchors, motion and interaction. Search it; do not read the whole file.
+1. **Pick the objects.** With `@opsorama/cli` installed, `npx opsorama catalog search <words>` finds models by name, kit, category or purpose and prints each with its kit import; `npx opsorama catalog show <asset>` prints one model's size, node fields and options, anchors, slots, palette roles, limits and a valid example node (`--json` for both). In the Opsorama repository use `pnpm opsorama` instead of `npx opsorama`. Without the command, search `@opsorama/objects/catalog.json` (`node_modules/@opsorama/objects/dist/catalog.json`): each asset entry has its `kit` and a `descriptor` with the same data. Search it; do not read the whole file (about 1 MB).
 2. **Build the registry from those kits only**:
    ```ts
    import { createAssetRegistry } from '@opsorama/three';
@@ -34,6 +34,10 @@ Opsorama draws a 3D scene of an operational space (a warehouse, shop, office, da
    Complete runnable projects: `examples/vanilla`, `examples/vite-react`, `examples/vite-vue`, `examples/next` in the Opsorama repository.
 5. **Update from data**: on each application change, `store.upsert(node)` or `store.replace(nodes)`. React to clicks with `onSelect` (React `SceneCanvas` prop or renderer option; Vue `@select` event) and read `selection.entityId`; run business commands in the application, then update the store.
 6. **Add panels if needed**: `@opsorama/react/ui` or `@opsorama/vue/ui` (`MetricCard`, `DataPanel`, `EntityInspector`, `ResourceList`, `ValueMeter`, …) or the DOM builders in `@opsorama/ui`, with `@opsorama/ui/styles.css`. Panels only present data the application passes in. To show the selected object itself in a detail panel, add `NodePreview` (React or Vue, `nodeId` plus the same `assets`) or `createNodePreview(element, store, { assets, nodeId })` in plain JavaScript: a live, slowly turning 3D copy of the node and what it carries. Use one per panel; each owns a WebGL context.
+
+## Documentation from the command line
+
+`npx opsorama docs` lists the documentation pages of the installed version, and `npx opsorama docs <topic>` prints one as Markdown, for example `docs camera`, `docs validation`, `docs primitives`, `docs api/renderer` or `docs objects/forklift`. Read the page for the feature you are about to use instead of guessing its API. `npx opsorama skill` installs or updates this skill in `.claude/skills/opsorama` for the installed version (`--force` replaces a changed copy).
 
 ## Lifecycle rules
 

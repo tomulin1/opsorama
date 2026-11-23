@@ -85,7 +85,7 @@ describe('opsorama command', () => {
     const json = await run(['check', bad, '--json']);
     expect(JSON.parse(json.stdout)).toMatchObject({ ok: false, files: [{ file: bad, ok: false, problems: [{ rule: 'asset-validator' }, { rule: 'unknown-key' }] }] });
     expect((await run(['check'])).code).toBe(2);
-    expect(await run(['lint', good])).toMatchObject({ code: 2, stderr: 'opsorama: Unknown command: lint. Use check or render; opsorama --help lists the options.' });
+    expect(await run(['lint', good])).toMatchObject({ code: 2, stderr: 'opsorama: Unknown command: lint. Use check, render, catalog, docs or skill; opsorama --help lists the options.' });
     expect((await run(['check', good, '--nope'])).code).toBe(2);
   });
 

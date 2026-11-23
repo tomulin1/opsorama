@@ -31,3 +31,10 @@ export const catalogAssets = createAssetRegistry(datacenterKit, displaysKit, bui
 /** Kit names in the order of the object browser categories; each is also the subpath `@opsorama/objects/<name>`. */
 export const CATALOG_KITS = Object.freeze(["datacenter", "displays", "buildings", "indicators", "work-items", "people", "furniture", "equipment", "office", "retail", "fulfillment", "vehicles", "environment", "surfaces", "energy", "events", "restaurant", "aquatics", "animals", "farm", "laboratory"] as const);
 export type CatalogKit = typeof CATALOG_KITS[number];
+
+const KIT_REGISTRIES = [datacenterKit, displaysKit, buildingsKit, indicatorsKit, workItemsKit, peopleKit, furnitureKit, equipmentKit, officeKit, retailKit, fulfillmentKit, vehiclesKit, environmentKit, surfacesKit, energyKit, eventsKit, restaurantKit, aquaticsKit, animalsKit, farmKit, laboratoryKit];
+/**
+ * The asset names of each kit, keyed by kit name in `CATALOG_KITS` order, for tools that look a model up without loading
+ * its kit, such as `opsorama catalog search`. A model imports from `@opsorama/objects/<kit>` as `<camelCaseKit>Kit`.
+ */
+export const catalogKitAssets: Readonly<Record<CatalogKit, readonly string[]>> = Object.freeze(Object.fromEntries(CATALOG_KITS.map((kit, index) => [kit, Object.freeze(Object.keys(KIT_REGISTRIES[index]))])) as Record<CatalogKit, readonly string[]>);
