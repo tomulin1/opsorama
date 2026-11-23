@@ -23,7 +23,7 @@ export interface RendererPluginContext {
    * re-parent or dispose it. Meshes drawn through instancing are hidden proxies whose transforms stay current.
    */
   nodeObject(id: string): THREE.Object3D | null;
-  /** Resolves once the initial scene is built and its first frame drawn (`SceneRenderer.loaded`). */
+  /** Resolves once the initial scene is built and its first frame drawn; rejects when the graphics context is lost first (`SceneRenderer.loaded`). */
   readonly loaded: Promise<void>;
   /** `SceneRenderer.onFrame`. Subscriptions end at the latest when the renderer is disposed. */
   onFrame(listener: (frame: SceneFrame) => void, options?: FrameListenerOptions): () => void;

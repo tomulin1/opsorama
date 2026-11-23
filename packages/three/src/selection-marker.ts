@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { MaterialOverrides, VisualState } from '@opsorama/core';
+import { disposeObject } from './assets';
 
 /** Why a node is marked: `selected` is the store selection, `hovered` the node under the pointer. */
 export type SelectionEmphasis = 'selected' | 'hovered';
@@ -66,6 +67,36 @@ export function showCornerMarker(marker: CornerMarker, emphasis: SelectionEmphas
   marker.emphasis = emphasis; marker.object.visible = emphasis !== null;
   marker.brackets.color.set(color); marker.brackets.opacity = emphasis === 'selected' ? 1 : .6;
   marker.pad.material.color.set(color); marker.pad.visible = emphasis === 'selected';
+}
+
+/** Change of a group's content bounds, in model units, below which its brackets stay as they are. */
+export const CORNER_REFIT_TOLERANCE = .01;
+
+/** Whether two boxes are both empty, or differ by at most `tolerance` in every corner coordinate. */
+export function boundsWithin(a: THREE.Box3, b: THREE.Box3, tolerance: number): boolean {
+  if (a.isEmpty() || b.isEmpty()) return a.isEmpty() === b.isEmpty();
+  const close = (axis: 'x' | 'y' | 'z') =>
+    Math.abs(a.min[axis] - b.min[axis]) <= tolerance && Math.abs(a.max[axis] - b.max[axis]) <= tolerance;
+  return close('x') && close('y') && close('z');
+}
+
+/**
+ * Brackets for a group whose contents may have moved: `marker` itself while `bounds` stay within
+ * `CORNER_REFIT_TOLERANCE` of the bounds it was `fitted` to; otherwise new brackets for `bounds` at height `level`.
+ * They take over the parent, emphasis, colors and running selection animation of `marker`, which is removed and
+ * disposed, so a refit never restarts the animation. Without a marker the new brackets are hidden.
+ */
+export function refitCornerMarker(marker: CornerMarker | null, fitted: THREE.Box3 | null, bounds: THREE.Box3, level: number): CornerMarker {
+  if (marker && fitted && boundsWithin(fitted, bounds, CORNER_REFIT_TOLERANCE)) return marker;
+  const next = createCornerMarker(bounds, level);
+  if (!marker) return next;
+  marker.object.parent?.add(next.object);
+  next.emphasis = marker.emphasis; next.settle = marker.settle;
+  next.object.scale.copy(marker.object.scale); next.object.visible = marker.object.visible;
+  next.brackets.color.copy(marker.brackets.color); next.brackets.opacity = marker.brackets.opacity;
+  next.pad.material.color.copy(marker.pad.material.color); next.pad.visible = marker.pad.visible;
+  marker.object.removeFromParent(); disposeObject(marker.object);
+  return next;
 }
 
 /** Advance the selection animation by `delta` seconds; `Infinity` finishes it for motion-off, paused and reduced motion. */

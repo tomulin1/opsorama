@@ -1,15 +1,17 @@
 /**
  * Initial loading of a renderer: the scene is built in time slices, its shaders are compiled, then
  * the first frame is drawn. `SceneLoadState` reports each step; the indicator shows it over the scene.
+ * `error` ends a load that cannot finish: the graphics context was lost before the first frame. It is
+ * final; `SceneRenderer.loaded` then rejects with the error reported to `onError`.
  */
-export type SceneLoadPhase = 'building' | 'compiling' | 'loaded';
+export type SceneLoadPhase = 'building' | 'compiling' | 'loaded' | 'error';
 /** `built` and `total` count visible scene nodes; `total` can change while the store changes. */
 export interface SceneLoadState { phase: SceneLoadPhase; built: number; total: number; }
 
 /** Default milliseconds of model building per slice before the renderer yields to the browser. */
 export const DEFAULT_BUILD_BUDGET = 12;
 
-/** Share of the loading work done, 0–1. Building counts as 90 %, shader compilation as the rest. */
+/** Share of the loading work done, 0–1. Building counts as 90 %, shader compilation as the rest; `error` keeps the share built. */
 export function loadProgress(state: SceneLoadState | null): number {
   if (!state) return 0;
   if (state.phase === 'loaded') return 1;
@@ -22,6 +24,7 @@ export function loadStateText(state: SceneLoadState | null): string {
   if (!state) return 'Starting renderer';
   if (state.phase === 'compiling') return 'Preparing materials';
   if (state.phase === 'loaded') return 'Scene ready';
+  if (state.phase === 'error') return 'Scene could not load';
   return `Building ${state.built.toLocaleString('en-US')} of ${state.total.toLocaleString('en-US')} objects`;
 }
 
@@ -34,6 +37,21 @@ export function createBuildSlice(budget: number, now: () => number = () => perfo
   if (!(budget < Infinity)) return { allow: () => true };
   const deadline = now() + Math.max(0, budget); let first = true;
   return { allow() { if (first) { first = false; return true; } return now() < deadline; } };
+}
+
+/** The part of three.js `WebGLRenderer.properties` that `isProgramLinking` reads. */
+export interface MaterialPropertiesSource { get(material: object): unknown }
+
+/**
+ * Whether the shader program of `material` is still linking in the background (KHR_parallel_shader_compile). three.js
+ * has no public API for this, so it reads renderer internals: `properties.get(material).currentProgram`, set by
+ * `WebGLRenderer.compile`, and that program's `isReady()`, which is false while linking, true once linked and null after
+ * a lost context. Only false counts as linking, so a missing program or a lost context never keeps the load waiting.
+ * A test pins these internals against the installed three.js; check it when upgrading three.
+ */
+export function isProgramLinking(properties: MaterialPropertiesSource, material: object): boolean {
+  const program = (properties.get(material) as { currentProgram?: { isReady(): boolean | null } } | undefined)?.currentProgram;
+  return program ? program.isReady() === false : false;
 }
 
 /** Class names of the loading indicator, shared by the vanilla indicator and the React and Vue adapters. */

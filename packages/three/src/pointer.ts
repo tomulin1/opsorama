@@ -95,6 +95,14 @@ export function resolvePointerTarget<T extends { object: { userData: Record<stri
   return { nodeId: null, point: point ? [point.x, point.y, point.z] : null };
 }
 
+/**
+ * Selection origin of a click on a label button. A click activated from the keyboard (Enter or Space on a focused label)
+ * has `detail` 0; a mouse, pen or touch click counts its clicks from 1.
+ */
+export function labelClickOrigin(event: Pick<MouseEvent, 'detail'>): 'pointer' | 'keyboard' {
+  return event.detail === 0 ? 'keyboard' : 'pointer';
+}
+
 /** Events for a change of the node under the pointer: `leave` for the previous node, then `enter` for the next one. */
 export function hoverTransitions(previous: string | null, next: string | null): { type: 'enter' | 'leave'; nodeId: string }[] {
   if (previous === next) return [];

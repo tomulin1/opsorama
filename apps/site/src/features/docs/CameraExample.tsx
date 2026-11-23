@@ -26,7 +26,7 @@ export function CameraExample() {
     let active = true, view: CameraSession | null = null;
     setError(null); setMoves([]); setLoaded(false); setFollowing(null); setTour(null);
     // Moves wait for the first frame: before it, every camera move is a cut.
-    const ready = (value: SceneRenderer) => { if (!active) return; renderer.current = value; void value.loaded.then(() => { if (active) setLoaded(true); }); };
+    const ready = (value: SceneRenderer) => { if (!active) return; renderer.current = value; void value.loaded.then(() => { if (active) setLoaded(true); }, () => undefined); };
     void (async () => {
       const mount = adapter === 'React' ? (await import('../../../examples/cameras-react')).mountCamerasReact : adapter === 'Vue' ? (await import('../../../examples/cameras-vue')).mountCamerasVue : (await import('../../../examples/cameras-javascript')).mountCamerasJavaScript;
       if (!active || !container.current) return;
