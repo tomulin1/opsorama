@@ -1,9 +1,11 @@
-import { expect, test } from './fixtures';
+import { ciScaled, expect, test } from './fixtures';
 
 // A display ratio of 2 shows how each quality profile caps the canvas pixel ratio.
 test.use({ deviceScaleFactor: 2 });
 
 test('lighting presets, sky and fog restyle the yard without rebuilding models, and quality caps the pixel ratio, in every adapter', async ({ page }) => {
+  // Three adapters, five presets and three quality levels, each waited for in the readouts.
+  test.setTimeout(ciScaled(120000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/lighting');
   const example = page.getByRole('region', { name: 'Lighting example' }), canvas = example.locator('canvas');
@@ -22,10 +24,12 @@ test('lighting presets, sky and fog restyle the yard without rebuilding models, 
     const night = await canvas.screenshot();
     await example.getByRole('button', { name: 'Sky' }).click(); await example.getByRole('button', { name: 'Fog' }).click(); await example.getByRole('button', { name: 'Perspective' }).click();
     await expect.poll(async () => (await canvas.screenshot()).equals(night)).toBe(false);
+    // Presets, sky, fog and the camera rebuilt nothing (the readout refreshes every 500 ms).
+    await page.waitForTimeout(600); expect(await builds()).toBe(built);
+    // A theme change restyles models: they are rebuilt once.
     await example.getByRole('button', { name: 'Theme: light' }).click(); await expect(example.getByRole('button', { name: 'Theme: midnight' })).toBeVisible();
-    // A theme change restyles models; lighting, sky and fog alone never rebuild them.
-    expect(await builds()).toBeGreaterThanOrEqual(built);
-    const afterTheme = await builds();
+    await expect.poll(builds).toBeGreaterThan(built);
+    await page.waitForTimeout(600); const afterTheme = await builds();
     await example.getByLabel('Lighting preset').selectOption('studio'); await example.getByRole('button', { name: 'Sky' }).click();
     await page.waitForTimeout(600); expect(await builds()).toBe(afterTheme);
     // Quality caps the canvas pixel ratio: 2, 1.5, 1 on a display ratio of 2.
