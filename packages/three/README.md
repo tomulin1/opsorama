@@ -68,6 +68,32 @@ try {
 }
 ```
 
+### Work per change, off-screen canvases and diagnostics
+
+The renderer does only the work a change needs:
+
+- **Store changes.** Nodes are built again only when their signature changes (the node beyond its position and route, its containment, and the theme and palette for kinds drawn with them). Signatures are computed once per node object, so after an `upsert` only the changed node is serialized; a theme or palette change rebuilds every themed node, in time linear in the scene size. A change of the selection, zoom or camera keeps the node list and does no per-node work: only the nodes that gain or lose the selection change their brackets, glow and labels. Hover is not a store change at all.
+- **Pointer input.** Pointer moves are resolved once per animation frame with one shared raycast for hover, hover peeking, pick targets and `onPointer`. A resting mouse is cast again only when the camera moved; a press, release and click at the same position within a frame share one raycast.
+- **Labels.** Label widths are measured once (again after the label's selection class changes, a resize, a font load or a theme change), placement order is kept between store changes, collisions are tested against nearby labels only, and the DOM is written only where a label moved or changed visibility. A frame in which no label, node pose, camera or viewport changed skips label layout.
+- **Off-screen canvases.** While the canvas is outside the viewport (scrolled away, or in a panel hidden with `display: none`), frames keep advancing routes, controllers, transfers, the camera and `onFrame` listeners (both kinds), so simulations stay on time, but they skip local part animation, label layout and drawing. The first frame after the canvas returns shows the current state. `onCameraChange` reports after drawn frames only. A hidden document still pauses everything, as before. The initial load draws its first frame even off-screen, so `renderer.loaded` resolves.
+
+`getDiagnostics().work` counts this work since mount (`RendererWork`): `syncs`, `nodeSyncs` (syncs that walked the node list), `nodeSignatures`, `nodeUpdates`, `nodeBuilds`, `sceneRaycasts`, `labelMeasures` (`offsetWidth` reads), `labelLayouts` and `offscreenFrames`. Compare two readings to check what an interaction cost:
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createSceneRenderer } from '@opsorama/three';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [{ id: 'floor', kind: 'ground', size: [20, 12] }] });
+const renderer = createSceneRenderer(container, store, { assets: {} });
+await renderer.loaded;
+const before = renderer.getDiagnostics().work;
+store.configure({ zoom: 1.5 });
+const after = renderer.getDiagnostics().work;
+console.log(after.nodeSyncs - before.nodeSyncs, after.nodeUpdates - before.nodeUpdates); // 0 0
+```
+
+The counters describe the current implementation, not a stable cost model; `renderedFrames` excludes frames skipped off-screen.
+
 ### Camera
 
 The camera follows `SceneSettings.camera` (projection, controls, field of view, overview direction; see `@opsorama/core`) and `SceneSettings.zoom`. The renderer reads and moves it:
@@ -153,7 +179,7 @@ const stop = renderer.onFrame(frame => console.log(frame.frame, frame.time), { s
 ```
 
 - `onPointer` receives `down`, `up`, `click`, `enter`, `leave` and `move` (at most once per animation frame) with the nearest node under the pointer, selectable or not (grounds included), its `parentId` `ancestors` nearest first, the world `point` (on a miss, the ground plane y = 0), `pointerType`, `button`, the modifier keys and `source` (`'canvas'` or `'label'`). In a `click`, `preventSelection()` skips the default selection and framing; without it selection is unchanged. Pick targets (`setPickTargets`) take their input first.
-- `onFrame(listener, { step?, maxSteps? })` runs once per rendered frame after node motion (`delta` = frame seconds × speed, 0 while paused), or with `step` (1/240–1/10 s) on a fixed simulation step before node motion: never while paused or hidden, still with motion off, at most `maxSteps` (default 4) steps per frame with the rest reported in `frame.dropped`. Listener errors go to `onError`; unsubscribing inside a listener is safe.
+- `onFrame(listener, { step?, maxSteps? })` runs once per animation frame (also while the canvas is off-screen and the frame is not drawn) after node motion (`delta` = frame seconds × speed, 0 while paused), or with `step` (1/240–1/10 s) on a fixed simulation step before node motion: never while paused or hidden, still with motion off, at most `maxSteps` (default 4) steps per frame with the rest reported in `frame.dropped`. Listener errors go to `onError`; unsubscribing inside a listener is safe.
 - `plugins` (mount-time) are set up in order after the first scene sync and cleaned up in reverse order when the renderer is disposed. The context gives `scene`, `renderer`, `container`, `store`, `camera()`, `nodeObject(id)` (read only), `loaded`, `onFrame`, `onCameraChange` and `reportError`. Duplicate names throw; a throwing setup disposes the renderer and `createSceneRenderer` throws an error naming the plugin.
 
 ### Shapes, lines and groups

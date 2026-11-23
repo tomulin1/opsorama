@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode, GroupNode, ShapeNode, LineNode, TextNode, ImageNode } from '@opsorama/core';
-import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type ScenePointerEvent, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
 const RendererContext = createContext<RendererSlot | null>(null);
@@ -48,7 +48,12 @@ export function useRendererFps(renderer: SceneRenderer | RefObject<SceneRenderer
   return fps;
 }
 export interface SceneCanvasProps extends Omit<RendererOptions, 'loadingIndicator'> {
-  /** Pointer events on the scene; see `RendererOptions.onPointer`. Read through a ref: a new function takes effect without remounting the renderer. */
+  /**
+   * Pointer events on the scene; see `RendererOptions.onPointer`. Read through a ref: a new function takes effect without
+   * remounting the renderer. The renderer reports pointer events only when a handler was given when it mounted, so a
+   * scene without one does no pointer reporting work; the first handler given after such a mount remounts the renderer
+   * once. Removing the handler later keeps the renderer (events then go nowhere).
+   */
   onPointer?: RendererOptions['onPointer'];
   /** Renderer plugins; see `RendererOptions.plugins`. Mount-time: keep the array stable (module constant or `useMemo`), because a new array remounts the renderer. */
   plugins?: RendererOptions['plugins'];
@@ -63,14 +68,16 @@ export function SceneLoadingContent({ state }: { state: SceneLoadState | null })
 export function SceneCanvas({ className, style, children, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loading, onReady, onSelect, onError, onLoad, onPointer }: SceneCanvasProps) {
   const store = useSceneStore(), slot = useContext(RendererContext); const ref = useRef<HTMLDivElement>(null); const callbacks = useRef({ onReady, onSelect, onError, onLoad, onPointer }); callbacks.current = { onReady, onSelect, onError, onLoad, onPointer }; const [error, setError] = useState<string | null>(null);
   const [load, setLoad] = useState<SceneLoadState | null>(null);
+  // Once a handler has been seen the renderer forwards pointer events; the first handler after a mount without one remounts it.
+  const pointerSeen = useRef(false); if (onPointer) pointerSeen.current = true; const reportPointer = pointerSeen.current;
   const theme = useSyncExternalStore(store.subscribe, () => store.getSnapshot().settings.theme, () => store.getSnapshot().settings.theme);
   useEffect(() => {
     if (!ref.current) return; let renderer: SceneRenderer | undefined, unregister: (() => void) | undefined;
     setError(null); setLoad(null);
-    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loadingIndicator: false, onPointer: event => callbacks.current.onPointer?.(event), onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { if (err.name !== IMAGE_LOAD_ERROR) setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
+    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loadingIndicator: false, ...(reportPointer ? { onPointer: (event: ScenePointerEvent) => callbacks.current.onPointer?.(event) } : {}), onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { if (err.name !== IMAGE_LOAD_ERROR) setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
     catch (err) { renderer?.dispose(); renderer = undefined; const error = err instanceof Error ? err : new Error(String(err)); setError(error.message); callbacks.current.onError?.(error); }
     return () => { unregister?.(); renderer?.dispose(); };
-  }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins]);
+  }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, reportPointer]);
   const indicator = loading !== false && !error && load?.phase !== 'loaded'
     ? <div className={SCENE_LOADING_CLASSES.root} data-theme={theme} {...loadingIndicatorAttributes(load)}><style>{SCENE_LOADING_STYLES}</style>{typeof loading === 'function' ? loading(load) : loading ?? <SceneLoadingContent state={load} />}</div>
     : null;

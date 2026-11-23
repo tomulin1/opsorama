@@ -100,7 +100,7 @@ export function TourButtons({ nodeId, tour }: { nodeId: string; tour: CameraPath
 }
 ```
 
-`SceneCanvas` takes `onPointer` (read through a ref, so an inline handler never remounts the renderer) and `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider, calls the latest listener without resubscribing and does nothing during server rendering:
+`SceneCanvas` takes `onPointer` (read through a ref, so an inline handler never remounts the renderer; without a handler at mount the renderer does no pointer reporting work, and the first handler given later remounts it once) and `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider, calls the latest listener without resubscribing and does nothing during server rendering:
 
 ```tsx
 import { useRef } from 'react';

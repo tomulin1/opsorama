@@ -4,7 +4,7 @@ import { DEFAULT_CAMERA_TRANSITION, validateCameraFollow, validateCameraPath, va
 import { applyOrthographic, applyPerspective, clampPitch, ease, fitBounds, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
 import { createCameraPathPlayer } from './camera-path';
 import { disposeObject, type AssetRegistry } from './assets';
-import { animateAsset } from './animation';
+import { animateAsset, hasAssetAnimator } from './animation';
 import { createOverlayObject } from './overlay';
 import { bindCameraGestures } from './gestures';
 import { bindWheelZoom } from './wheel-zoom';
@@ -12,7 +12,11 @@ import { startTransfer, advanceTransfer, type TransferState } from './transfer';
 import { createRouteFollower, createControllerSlot, basicControllers, type ControllerContext, type ControllerOutput, type ControllerRegistry, type ControllerSlot, type RouteFollower, type RouteSample } from '@opsorama/core';
 import { interiorAreas, isContained, isMotionNode, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
 import { applyShadowPolicy } from './shadows';
-import { attachmentAnchorError, buildSceneObject, nodeParent } from './scene-build';
+import { attachmentAnchorError, buildSceneObject, detachChildNodes, nodeParent } from './scene-build';
+import { createNodeSignatureCache } from './node-signature';
+import { createLabelGrid, labelPriority, placeLabel } from './labels';
+import { createCameraWatch, createPointerQueue, isRestingHover, pointerFrameWork, type QueuedPointer } from './pointer-frame';
+import { frameWork, watchOnScreen } from './visibility';
 import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
@@ -86,6 +90,41 @@ export interface RendererOptions { /** Required. Factories for every `AssetNode.
    * `createSceneRenderer` throws an error naming the plugin. Mount-time option: changing it remounts an adapter's renderer.
    */
   plugins?: readonly RendererPlugin[]; }
+/**
+ * Work a renderer has done since it was mounted, as cumulative counts. Read `getDiagnostics().work` before and after an
+ * interaction to check that it did only the work it needs, for example in a test or the performance playground. The
+ * counts only grow; compare differences. They describe the current implementation, not a stable cost model.
+ */
+export interface RendererWork {
+  /** Store changes processed, plus the build slices of the initial load. */
+  syncs: number;
+  /**
+   * Syncs that walked the node list: a change of the nodes, the theme or palette, `selectionStyle`, `labels`, `motion` or
+   * `paused`, and every slice of the initial load. A change of the selection, hover, zoom or camera does not.
+   */
+  nodeSyncs: number;
+  /** Node signatures computed to detect rebuilds: one per new or changed node object, and one per node after a theme or palette change. */
+  nodeSignatures: number;
+  /**
+   * Per-node updates (motion state, emphasis, label state) in node syncs: one per new, rebuilt or changed node, and one per
+   * node when the theme, palette or a setting listed under `nodeSyncs` changes.
+   */
+  nodeUpdates: number;
+  /** Node objects built, failed builds included. */
+  nodeBuilds: number;
+  /**
+   * Raycasts against the scene's nodes. Pointer moves share one per frame for hover, peek and `onPointer`; a resting
+   * pointer is cast again only when the camera moved; a press, release and click at the same position within a frame
+   * share one. Pick-target boxes are not counted.
+   */
+  sceneRaycasts: number;
+  /** Label widths read from the DOM (`offsetWidth`): once per label when it is created or first shown, after its selection class changes, and after a resize or a font load. */
+  labelMeasures: number;
+  /** Frames that placed labels (collision avoidance and DOM writes). A frame in which no label, node pose, camera or viewport changed skips it. */
+  labelLayouts: number;
+  /** Frames that advanced motion, controllers and frame listeners without drawing because the canvas was off-screen. */
+  offscreenFrames: number;
+}
 /** A playing camera path, returned by `renderer.playCameraPath`. */
 export interface CameraPathPlayback {
   /** Stops the path where the camera is; `finished` resolves `'interrupted'`. No effect once the path has ended. */
@@ -150,11 +189,13 @@ export interface SceneRenderer {
    * 0 while paused. With `step` (1/240–1/10 s) it runs on a fixed simulation step before node motion: zero or more times per
    * frame so that its scene time follows real time × speed, at most `maxSteps` (default 4) times per frame with the excess
    * dropped and reported in `SceneFrame.dropped`, never while paused or the document is hidden, and on with motion off.
-   * Listeners start with the first drawn frame. A throwing listener is reported to `onError` and the loop continues.
+   * Listeners start with the first drawn frame. While the canvas is off-screen (scrolled out of view, or in a panel hidden
+   * with `display: none`) frames are not drawn, but listeners of both kinds keep running with node motion and controllers,
+   * so simulations stay on time. A throwing listener is reported to `onError` and the loop continues.
    * Throws an actionable error for an invalid listener or options. See `SceneFrame`.
    */
   onFrame(listener: (frame: SceneFrame) => void, options?: FrameListenerOptions): () => void;
-  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. */ textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number }; }
+  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. */ textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks and frames skipped while the canvas is off-screen. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -237,10 +278,34 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     /** The node failed to build and `object` is an empty stand-in, until the node's signature changes. */
     failed: boolean;
     /** The owner object whose missing attachment anchor was reported, so it is reported once per owner build. */
-    anchorReported: THREE.Object3D | null };
+    anchorReported: THREE.Object3D | null;
+    /** Controller context of this entry, created on first use and kept, so frames allocate none. */
+    context: ControllerContext | null;
+    /** Label state as last written: `hidden` attribute, selected class, measured width (null: measure before the next layout). */
+    labelHidden: boolean; labelSelected: boolean; labelWidth: number | null;
+    /** Projected label centre in CSS pixels and whether its anchor is behind the camera, from the last frame. */
+    projectedX: number; projectedY: number; behind: boolean;
+    /** Label transform and visibility as last written (null: not written yet). */
+    placedX: number; placedY: number; shown: boolean | null };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
   let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
+  const work: Omit<RendererWork, 'nodeSignatures'> = { syncs: 0, nodeSyncs: 0, nodeUpdates: 0, nodeBuilds: 0, sceneRaycasts: 0, labelMeasures: 0, labelLayouts: 0, offscreenFrames: 0 };
+  /**
+   * Node work is skipped when nothing it depends on changed: the node list (store nodes are immutable, and `upsert` keeps
+   * the objects of unchanged nodes) and `presentation`, the settings per-node state depends on. Signatures are cached per
+   * node object and dropped when the theme or palette changes.
+   */
+  const signatures = createNodeSignatureCache(); let syncedNodes: readonly SceneNode[] | null = null, syncedPresentation = '', refreshPending = false;
+  /** The selected and hovered node IDs whose emphasis (brackets, glow, label state) is applied. */
+  let marked: { selected: string | null; hovered: string | null } = { selected: null, hovered: null };
+  /**
+   * Scene roots for picking and the containers that peek on hover, collected after the nodes were built or removed.
+   * `rayEpoch` changes whenever node poses, the camera or the built nodes may have changed; hits are reused only within it.
+   */
+  let pickRoots: THREE.Object3D[] | null = null, peekables: Entry[] = [], rayEpoch = 0;
+  /** Labels in placement order (null: sort again), and whether the next drawn frame must place them even if nothing moved. */
+  let labelOrder: Entry[] | null = null, labelsDirty = true, layoutWidth = 0, layoutHeight = 0;
   let fittedExtent: number | undefined; let shadowExtent = 24; let areas: InteriorArea[] = [];
   const pivot: [number, number, number] = [0, 0, 0];
   // Indoor nodes neither cast nor receive shadows; moving nodes are re-tested every frame against the interior areas.
@@ -254,7 +319,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   let pan: ReturnType<typeof bindCameraGestures> | undefined = undefined;
   const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2(); const projected = new THREE.Vector3(); const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   // Child nodes own their resources independently of their container's shell.
-  const cleanEntry = (entry: Entry) => { for (const child of entries.values()) if (child !== entry) { let parent = child.object.parent; while (parent && parent !== entry.object) parent = parent.parent; if (parent) child.object.removeFromParent(); } entry.object.removeFromParent(); entry.label?.remove(); instancing?.remove(entry.object); disposeObject(entry.object); };
+  // The walk stops at other nodes' objects, so cleaning is linear in the entry's own model (a theme change rebuilds every node).
+  const cleanEntry = (entry: Entry) => { detachChildNodes(entry.object); entry.object.removeFromParent(); entry.label?.remove(); instancing?.remove(entry.object); disposeObject(entry.object); };
   // Text and image textures are shared by equal nodes and released with the last of them; images report failed loads.
   const textures = createNodeTextures(), reportImageError = (error: Error) => { if (!disposed) options.onError?.(error); };
   const build = (node: SceneNode): THREE.Object3D => { const { theme, palette } = store.getSnapshot().settings; return buildNodeObject(node, { assets, theme, palette, textures, onError: reportImageError }); };
@@ -278,36 +344,119 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   /** Whether a click or hover can mark the node: it is selectable, and it has geometry or is a group of other nodes. */
   const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && (entry.node.entityId || entry.node.selectable)));
+  /** Writes a label's `hidden` attribute and selected class when they change; a new class may change its width. */
+  function setLabelState(entry: Entry, hidden: boolean, selected: boolean) {
+    const label = entry.label; if (!label) return;
+    if (entry.labelHidden !== hidden) { entry.labelHidden = hidden; label.hidden = hidden; labelsDirty = true; }
+    if (entry.labelSelected !== selected) { entry.labelSelected = selected; label.classList.toggle('kit-node-selected', selected); entry.labelWidth = null; labelsDirty = true; }
+  }
+  /** Applies the selection and hover emphasis of one node: its brackets (a group's are fitted in `applyEmphasis`) and its label state. */
+  function applyNodeEmphasis(entry: Entry, snapshot: SceneSnapshot) {
+    const { node } = entry, settings = snapshot.settings, style = settings.selectionStyle, selected = snapshot.selection?.nodeId === node.id;
+    const emphasis = selected ? 'selected' : hovered === node.id ? 'hovered' : null;
+    if (style === 'corners' && emphasis && entry.bounds && !entry.corners && node.kind !== 'group') { entry.corners = createCornerMarker(entry.bounds, typeof entry.object.userData.surfaceLevel === 'number' ? entry.object.userData.surfaceLevel : 0); entry.object.add(entry.corners.object); }
+    if (entry.corners) showCornerMarker(entry.corners, style === 'corners' ? emphasis : null, selectionColor(node.state, settings.palette));
+    setLabelState(entry, !settings.labels || (node.labelMode === 'active' && !selected && hovered !== node.id), selected);
+  }
+  /**
+   * Moves the selection and hover emphasis to the current selection and `hovered`, touching only the nodes that gain or
+   * lose it, so hover and selection changes do no per-node work. `renew` (after node work) also renews group brackets and
+   * glow shells, as the marked objects or a group's contents may have been rebuilt.
+   */
+  function applyEmphasis(snapshot: SceneSnapshot, renew: boolean) {
+    const selectedId = snapshot.selection?.nodeId ?? null, previous = marked, style = snapshot.settings.selectionStyle;
+    if (!renew && selectedId === previous.selected && hovered === previous.hovered) return;
+    for (const id of new Set([previous.selected, previous.hovered, selectedId, hovered])) { const entry = id ? entries.get(id) : undefined; if (entry) applyNodeEmphasis(entry, snapshot); }
+    marked = { selected: selectedId, hovered };
+    // A marked group is measured now that its children are in place; brackets follow a change of its contents.
+    if (style === 'corners') for (const [id, before] of [[selectedId, previous.selected], [hovered, previous.hovered]] as const) {
+      if (!renew && id === before) continue;
+      const entry = id ? entries.get(id) : undefined;
+      if (!entry || entry.node.kind !== 'group' || !markable(entry)) continue;
+      const color = selectionColor(entry.node.state, snapshot.settings.palette);
+      showCornerMarker(refitGroupCorners(entry), id === selectedId ? 'selected' : 'hovered', color);
+    }
+    // A group's glow covers the meshes of the nodes inside it; its shells are renewed after node work and when it is marked anew.
+    const slots = [['selected', selectedId, previous.selected], ['hovered', hovered === selectedId ? null : hovered, previous.hovered === previous.selected ? null : previous.hovered]] as const;
+    for (const [emphasis, id, before] of slots) {
+      if (!renew && id === before) continue;
+      const entry = id ? entries.get(id) : undefined;
+      glow.show(emphasis, style === 'glow' && markable(entry) ? entry!.object : null, selectionColor(entry?.node.state, snapshot.settings.palette), { descendants: entry?.node.kind === 'group' });
+    }
+  }
+  /** Changes the node under the pointer: only its emphasis changes, no sync runs. */
+  function setHovered(next: string | null) {
+    if (next === hovered) return;
+    hovered = next;
+    try { applyEmphasis(store.getSnapshot(), false); } catch (error) { options.onError?.(toError(error)); }
+  }
+  /** Settings that per-node state depends on besides theme and palette; a change runs the node loop for every node. */
+  const presentationOf = (settings: SceneSnapshot['settings']) => `${settings.selectionStyle}|${settings.labels}|${settings.motion}|${settings.paused}|${reducedMotion.matches}`;
   function sync() {
-    const snapshot = store.getSnapshot();
+    work.syncs++; rayEpoch++;
+    const snapshot = store.getSnapshot(), settings = snapshot.settings;
     // A new yaw or pitch setting turns the camera at once and keeps its target.
-    if (snapshot.settings.camera !== cameraSettings) {
-      const previous = cameraSettings; cameraSettings = snapshot.settings.camera;
+    if (settings.camera !== cameraSettings) {
+      const previous = cameraSettings; cameraSettings = settings.camera;
       if (cameraSettings.yaw !== previous.yaw || cameraSettings.pitch !== previous.pitch) { interruptTransition(); yaw = cameraSettings.yaw; pitch = cameraSettings.pitch; }
       if (cameraSettings.controls !== previous.controls) { pan?.cancel(); renderer.domElement.style.cursor = cameraSettings.controls === 'none' ? '' : 'grab'; }
     }
-    scene.background = new THREE.Color(snapshot.settings.theme === 'midnight' ? '#17243b' : '#edf2fa'); ambient.intensity = snapshot.settings.theme === 'midnight' ? 1.05 : 2;
-    grid.visible = snapshot.settings.grid; renderer.shadowMap.enabled = snapshot.settings.shadows;
-    labelLayer.dataset.motion = snapshot.settings.motion && !snapshot.settings.paused ? 'on' : 'off';
+    const restyled = signatures.present(settings.theme, settings.palette);
+    // Host label styles may follow the theme: labels are measured again.
+    if (restyled) { scene.background = new THREE.Color(settings.theme === 'midnight' ? '#17243b' : '#edf2fa'); ambient.intensity = settings.theme === 'midnight' ? 1.05 : 2; invalidateLabelWidths(); }
+    grid.visible = settings.grid; renderer.shadowMap.enabled = settings.shadows;
+    labelLayer.dataset.motion = settings.motion && !settings.paused ? 'on' : 'off';
+    // A refresh stays pending until a node loop completes, so a sync that throws is not forgotten by the next one.
+    const presentation = presentationOf(settings), building = loadState.phase === 'building';
+    if (restyled || presentation !== syncedPresentation) refreshPending = true;
+    syncedPresentation = presentation; const refresh = refreshPending;
+    const selectedId = snapshot.selection?.nodeId || null;
+    // The selected label is placed before other labels.
+    if (selectedId !== marked.selected) labelOrder = null;
+    // Selection, hover, zoom and camera changes keep the node list: only the emphasis moves.
+    const progress = building || refresh || snapshot.nodes !== syncedNodes ? syncNodes(snapshot, refresh, building) : null;
+    if (!progress) applyEmphasis(snapshot, false);
+    if (follow && !entries.has(follow.id)) endFollow('removed');
+    if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); endFollow('interrupted'); target.copy(overviewTarget()); } } }
+    if (building && progress) {
+      const { total, deferred } = progress;
+      if (deferred.size) { reportLoad({ phase: 'building', built: total - deferred.size, total }); sliceTimer ??= setTimeout(() => { sliceTimer = undefined; if (!disposed) safeSync(); }, 0); }
+      else {
+        reportLoad({ phase: 'compiling', built: total, total });
+        if (deferredFrame) { const { id, fit, zoom } = deferredFrame; void frameAt(id, fit, zoom); currentTarget.copy(target); settleDeferredFrame(entries.has(id) ? 'completed' : 'interrupted'); }
+        // A `bounds` overview fits the content once it is built, unless the camera was already moved.
+        else if (!cameraMoved && cameraSettings.overview === 'bounds') { overviewFit = boundsOverview(); target.copy(overviewTarget()); currentTarget.copy(target); }
+      }
+    }
+  }
+  /**
+   * The node loop: removes hidden and deleted nodes, builds new and changed ones (one slice during the initial load),
+   * updates the motion and emphasis state of nodes that changed (of every node with `refresh`) and parents what was built.
+   * Returns the visible node count and the nodes left for a later slice.
+   */
+  function syncNodes(snapshot: SceneSnapshot, refresh: boolean, building: boolean): { total: number; deferred: Set<string> } {
+    work.nodeSyncs++;
     const nextShadowExtent = snapshot.nodes.reduce((extent, node) => node.kind === 'ground' ? Math.max(extent, node.size[0] / 2, node.size[1] / 2) : extent, 24);
     if (nextShadowExtent !== shadowExtent) { shadowExtent = nextShadowExtent; sun.shadow.camera.left = -shadowExtent; sun.shadow.camera.right = shadowExtent; sun.shadow.camera.top = shadowExtent; sun.shadow.camera.bottom = -shadowExtent; sun.shadow.camera.updateProjectionMatrix(); }
     const byId = new Map(snapshot.nodes.map(node => [node.id, node])); areas = interiorAreas(snapshot.nodes);
     const visibleNodes = snapshot.nodes.filter(node => isNodeVisible(node, snapshot.nodes, byId));
-    const ids = new Set(visibleNodes.map(n => n.id)); for (const [id, entry] of entries) if (!ids.has(id)) { entry.controller.cancel('removed'); cleanEntry(entry); entries.delete(id); }
-    const built: Entry[] = [], style = snapshot.settings.selectionStyle;
+    const ids = new Set(visibleNodes.map(n => n.id)); let removed = 0;
+    for (const [id, entry] of entries) if (!ids.has(id)) { entry.controller.cancel('removed'); cleanEntry(entry); entries.delete(id); removed++; }
+    const built: Entry[] = [], rebuilt = new Set<string>();
     // During the initial build only one slice of models is built per call; the rest waits for the next slice.
-    const building = loadState.phase === 'building', slice = createBuildSlice(building && !document.hidden ? buildBudget : Infinity), deferred = new Set<string>();
+    const slice = createBuildSlice(building && !document.hidden ? buildBudget : Infinity), deferred = new Set<string>();
     for (const node of visibleNodes) {
       // Placement is part of the signature: a carried node follows its carrier into or out of a container.
       // A later slice of an unchanged snapshot reuses the signatures of nodes an earlier slice built.
       const current = building && snapshot === sliceSnapshot && !sliceDeferred.has(node.id) ? entries.get(node.id) : undefined;
-      const contained = current ? current.contained : isContained(node, byId), signature = current ? current.signature : JSON.stringify({ ...node, position: undefined, route: undefined, contained, ...(node.kind === 'marker' ? { materialPalette: snapshot.settings.palette } : {}), ...(node.kind === 'asset' || node.kind === 'shape' || node.kind === 'line' || node.kind === 'text' || node.kind === 'image' ? { paletteTheme: snapshot.settings.theme, materialPalette: snapshot.settings.palette } : {}) }); let entry = entries.get(node.id);
+      const contained = current ? current.contained : isContained(node, byId), signature = current ? current.signature : `${contained ? 'contained' : 'free'}:${signatures.get(node)}`; let entry = entries.get(node.id);
       if (!entry || entry.signature !== signature) {
         // A child waits for a deferred parent or carrier, so it is never built against an old one.
         if (building && (deferred.has(node.parentId ?? '') || deferred.has(node.attachment?.nodeId ?? '') || !slice.allow())) { deferred.add(node.id); continue; }
         // A node that fails to build becomes an empty stand-in with this signature: it is reported once, the rest of the
         // scene still builds, and it is built again only when its signature changes (the node beyond its position or
         // route, the theme or the palette).
+        work.nodeBuilds++;
         const { object, error } = buildSceneObject(node, contained, build);
         if (error) options.onError?.(error);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
@@ -328,8 +477,13 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = Boolean(node.entityId || node.selectable); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
         else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
-        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, failed: error !== null, anchorReported: null, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
+        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, failed: error !== null, anchorReported: null, context: null,
+          labelHidden: false, labelSelected: false, labelWidth: null, projectedX: Number.NaN, projectedY: Number.NaN, behind: false, placedX: Number.NaN, placedY: Number.NaN, shown: null, ...(transfer ? { transfer } : {}) };
+        entries.set(node.id, entry); scene.add(object); built.push(entry); rebuilt.add(node.id);
       }
+      // An unchanged node object keeps its state: its route, controller and target are the same.
+      else if (entry.node === node && !refresh) continue;
+      work.nodeUpdates++;
       entry.node = node; entry.target.set(...(node.position || [0, 0, 0]));
       const route = isMotionNode(node) ? node.route : undefined, wasFollowing = entry.follower.route !== null;
       // A replacement joins from the follower's own pose, not the smoothed object position, so visual timing matches the simulation.
@@ -339,51 +493,38 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (isMotionNode(node)) try { entry.controller.assign(node, controllers); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
       if (!route && !entry.controller.active && (snapshot.settings.paused || !snapshot.settings.motion || reducedMotion.matches)) entry.object.position.copy(entry.target);
       if ((wasFollowing || wasControlled) && !route && !entry.controller.active) { entry.moving = false; entry.object.rotation.set(...(node.rotation || [0, 0, 0])); }
-      const emphasis = snapshot.selection?.nodeId === node.id ? 'selected' : hovered === node.id ? 'hovered' : null;
-      if (style === 'corners' && emphasis && entry.bounds && !entry.corners && node.kind !== 'group') { entry.corners = createCornerMarker(entry.bounds, typeof entry.object.userData.surfaceLevel === 'number' ? entry.object.userData.surfaceLevel : 0); entry.object.add(entry.corners.object); }
-      if (entry.corners) showCornerMarker(entry.corners, style === 'corners' ? emphasis : null, selectionColor(node.state, snapshot.settings.palette));
-      if (entry.label) { entry.label.hidden = !snapshot.settings.labels || (node.labelMode === 'active' && snapshot.selection?.nodeId !== node.id && hovered !== node.id); entry.label.classList.toggle('kit-node-selected', snapshot.selection?.nodeId === node.id); }
+      applyNodeEmphasis(entry, snapshot);
     }
-    const objectOf = (id: string) => entries.get(id)?.object;
-    for (const entry of entries.values()) {
-      const { parent, missingAnchor } = nodeParent(entry.node, objectOf, scene);
-      // The store cannot check model anchors: a missing one is reported once per owner build, and the node goes to the
-      // owner's root. An owner that failed to build has no anchors and was reported already.
-      const ownerId = entry.node.attachment?.nodeId ?? '', owner = entries.get(ownerId);
-      if (missingAnchor && owner && !owner.failed && entry.anchorReported !== owner.object) {
-        entry.anchorReported = owner.object; options.onError?.(attachmentAnchorError(entry.node.id, ownerId, missingAnchor));
+    if (rebuilt.size || removed) {
+      pickRoots = null; labelOrder = null;
+      const objectOf = (id: string) => entries.get(id)?.object;
+      for (const entry of entries.values()) {
+        // Only built nodes, nodes whose container or carrier was rebuilt and detached nodes can change parents.
+        const ownerId = entry.node.attachment?.nodeId ?? entry.node.parentId;
+        if (entry.object.parent && !rebuilt.has(entry.node.id) && !(ownerId !== undefined && rebuilt.has(ownerId))) continue;
+        const { parent, missingAnchor } = nodeParent(entry.node, objectOf, scene);
+        // The store cannot check model anchors: a missing one is reported once per owner build, and the node goes to the
+        // owner's root. An owner that failed to build has no anchors and was reported already.
+        const owner = entry.node.attachment ? entries.get(entry.node.attachment.nodeId) : undefined;
+        if (missingAnchor && owner && !owner.failed && entry.anchorReported !== owner.object) {
+          entry.anchorReported = owner.object; options.onError?.(attachmentAnchorError(entry.node.id, entry.node.attachment!.nodeId, missingAnchor));
+        }
+        if (parent && entry.object.parent !== parent) parent.add(entry.object);
       }
-      if (parent && entry.object.parent !== parent) parent.add(entry.object);
     }
     // Register new objects once their world matrices and shadow placement are current. Nothing is drawn during the initial build, so this waits for its last slice.
     if (building && deferred.size) { buildPending.push(...built); sliceSnapshot = snapshot; sliceDeferred = deferred; }
     else {
-      scene.updateMatrixWorld(true); updatePlacements();
-      for (const entry of [...buildPending, ...built]) if (entries.get(entry.node.id) === entry) instancing?.add(entry.object);
+      if (built.length || buildPending.length || removed) {
+        scene.updateMatrixWorld(true); updatePlacements();
+        for (const entry of [...buildPending, ...built]) if (entries.get(entry.node.id) === entry) instancing?.add(entry.object);
+      }
       buildPending = []; sliceSnapshot = null; sliceDeferred = new Set();
     }
-    if (follow && !entries.has(follow.id)) endFollow('removed');
-    const selectedId = snapshot.selection?.nodeId || null;
-    // A marked group is measured now that its children are in place; brackets follow a change of its contents.
-    if (style === 'corners') for (const id of new Set([selectedId, hovered])) {
-      const entry = id ? entries.get(id) : undefined;
-      if (!entry || entry.node.kind !== 'group' || !markable(entry)) continue;
-      const color = selectionColor(entry.node.state, snapshot.settings.palette);
-      showCornerMarker(refitGroupCorners(entry), id === selectedId ? 'selected' : 'hovered', color);
-    }
-    // A group's glow covers the meshes of the nodes inside it and is renewed on every sync, as they may have been rebuilt.
-    for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && markable(entry) ? entry!.object : null, selectionColor(entry?.node.state, snapshot.settings.palette), { descendants: entry?.node.kind === 'group' }); }
-    if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); endFollow('interrupted'); target.copy(overviewTarget()); } } }
-    if (building) {
-      const total = visibleNodes.length;
-      if (deferred.size) { reportLoad({ phase: 'building', built: total - deferred.size, total }); sliceTimer ??= setTimeout(() => { sliceTimer = undefined; if (!disposed) safeSync(); }, 0); }
-      else {
-        reportLoad({ phase: 'compiling', built: total, total });
-        if (deferredFrame) { const { id, fit, zoom } = deferredFrame; void frameAt(id, fit, zoom); currentTarget.copy(target); settleDeferredFrame(entries.has(id) ? 'completed' : 'interrupted'); }
-        // A `bounds` overview fits the content once it is built, unless the camera was already moved.
-        else if (!cameraMoved && cameraSettings.overview === 'bounds') { overviewFit = boundsOverview(); target.copy(overviewTarget()); currentTarget.copy(target); }
-      }
-    }
+    applyEmphasis(snapshot, true);
+    // Recorded last: after a throw, the next sync walks the nodes again.
+    syncedNodes = snapshot.nodes; refreshPending = false;
+    return { total: visibleNodes.length, deferred };
   }
   const safeSync = () => { try { sync(); } catch (error) { if (loadState.phase !== 'loaded') { indicator?.dispose(); indicator = null; } options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
   const unsubscribe = store.subscribe(safeSync);
@@ -402,7 +543,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // A resize keeps a drag or touch gesture going from where the pointers are now; see `bindCameraGestures`.
   const resize = () => {
     const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height);
-    renderer.setSize(width, height, false); updateCamera(); pan?.resize();
+    renderer.setSize(width, height, false); updateCamera(); pan?.resize(); invalidateLabelWidths();
   };
   const observer = new ResizeObserver(resize); observer.observe(container); resize();
   // The display's pixel ratio changes with browser zoom or another screen; the canvas keeps its CSS size.
@@ -434,7 +575,14 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     return bounds.isEmpty() ? null : fitBounds(bounds, cameraSettings.yaw, cameraSettings.pitch);
   }
   /** Scale at zoom 1 when no node is fitted: the `bounds` overview, or the live ground extent. */
-  function overviewExtent() { return overviewFit?.extent ?? groundExtent(store.getSnapshot().nodes); }
+  function overviewExtent() { return overviewFit?.extent ?? groundMeasures().extent; }
+  /** Ground extent and radius of the current node list, measured once per list instead of every frame. */
+  let measuredNodes: readonly SceneNode[] | null = null, measuredGround = { extent: 1, radius: 20 };
+  function groundMeasures() {
+    const nodes = store.getSnapshot().nodes;
+    if (nodes !== measuredNodes) { measuredNodes = nodes; measuredGround = { extent: groundExtent(nodes), radius: groundRadius(nodes) }; }
+    return measuredGround;
+  }
   /** The pose drawn now: the eased pose of a running transition, otherwise the current target and direction at the zoom setting. */
   function currentPose(): CameraPose { return transitionPose ?? { target: currentTarget.toArray(), yaw, pitch, zoom: store.getSnapshot().settings.zoom, extent: fittedExtent ?? overviewExtent() }; }
   /** Ends a running move where it is: the target stops, a changed scale becomes the fitted scale and a changed zoom is written to the store. */
@@ -506,8 +654,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   /** Places the camera of the current projection for the drawn pose and viewport. */
   function updateCamera() {
-    const snapshot = store.getSnapshot(), view = { width, height, fov: snapshot.settings.camera.fov, radius: Math.max(groundRadius(snapshot.nodes), (overviewFit?.extent ?? 0) * 34) };
-    camera = snapshot.settings.camera.projection === 'perspective' ? perspective : orthographic;
+    const snapshot = store.getSnapshot(), view = { width, height, fov: snapshot.settings.camera.fov, radius: Math.max(groundMeasures().radius, (overviewFit?.extent ?? 0) * 34) };
+    camera = snapshot.settings.camera.projection === 'perspective' ? perspective : orthographic; rayEpoch++;
     if (camera === perspective) applyPerspective(perspective, currentPose(), view); else applyOrthographic(orthographic, currentPose(), view);
   }
   const cameraListeners = new Set<(view: CameraView) => void>(); let emittedView: CameraView | null = null;
@@ -523,19 +671,20 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     emittedView = view;
     for (const listener of [...cameraListeners]) try { listener(view); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
   }
-  /** Other nodes' live poses in the controlled node's parent space. */
-  const controllerContext = (entry: Entry): ControllerContext => ({
-    node: entry.node as ControllerContext['node'],
+  const posePosition = new THREE.Vector3(), poseQuaternion = new THREE.Quaternion(), parentQuaternion = new THREE.Quaternion(), poseForward = new THREE.Vector3();
+  /** Other nodes' live poses in the controlled node's parent space. Created once per entry; `node` is always the current node. */
+  const controllerContext = (entry: Entry): ControllerContext => entry.context ??= {
+    get node() { return entry.node as ControllerContext['node']; },
     pose(id) {
       const other = entries.get(id);
       if (!other || !other.object.parent) return null;
-      const position = other.object.getWorldPosition(new THREE.Vector3()), quaternion = other.object.getWorldQuaternion(new THREE.Quaternion());
+      const position = other.object.getWorldPosition(posePosition), quaternion = other.object.getWorldQuaternion(poseQuaternion);
       const parent = entry.object.parent;
-      if (parent) { parent.updateWorldMatrix(true, false); parent.worldToLocal(position); quaternion.premultiply(parent.getWorldQuaternion(new THREE.Quaternion()).invert()); }
-      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
+      if (parent) { parent.updateWorldMatrix(true, false); parent.worldToLocal(position); quaternion.premultiply(parent.getWorldQuaternion(parentQuaternion).invert()); }
+      const forward = poseForward.set(0, 0, 1).applyQuaternion(quaternion);
       return { position: position.toArray(), yaw: Math.atan2(forward.x, forward.z) };
     },
-  });
+  };
   // `turn` blends heading changes at corners (0–1 per frame); 1 applies the exact heading while turning in place or driving a rounded corner.
   const applySample = (entry: Entry, sample: RouteSample | null, turn = 1) => {
     if (!sample) return; entry.object.position.set(...sample.position); entry.moving = sample.moving;
@@ -551,25 +700,48 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (unchanged && cameraSettings.frameOnSelect) { if (id) void frame(id); else if (!follow) target.copy(overviewTarget()); }
     options.onSelect?.(store.getSnapshot().selection);
   }
+  /** Aims the shared raycaster through the pointer position of `event`. */
   const aim = (event: PointerEvent) => { const rect = renderer.domElement.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / width * 2 - 1, -(event.clientY - rect.top) / height * 2 + 1); raycaster.setFromCamera(pointer, camera); };
+  /** Index of the pick target under the aimed ray, nearest first, or null. */
+  function aimedPickTarget(): number | null {
+    if (!pickTargets) return null;
+    const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
+    return hit ? hit.object.userData.pickTarget as number : null;
+  }
   /** Index of the pick target under the pointer, nearest first, or null. */
   function pickTargetAt(event: PointerEvent): number | null {
     if (!pickTargets) return null;
     aim(event);
-    const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
-    return hit ? hit.object.userData.pickTarget as number : null;
+    return aimedPickTarget();
   }
+  /** Scene roots for picking and the containers that peek on hover, collected again after nodes were built or removed. */
+  function collectPickRoots(): THREE.Object3D[] {
+    if (!pickRoots) {
+      pickRoots = []; peekables = [];
+      for (const entry of entries.values()) {
+        if (!entry.node.parentId && !entry.node.attachment) pickRoots.push(entry.object);
+        if (entry.node.kind === 'asset' && entry.node.peekOnHover && entry.object.userData.containerBounds) peekables.push(entry);
+      }
+    }
+    return pickRoots;
+  }
+  /** Hits of the last scene raycast, reused for the same pointer position while `rayEpoch` is unchanged. */
+  let rayHits: { epoch: number; x: number; y: number; hits: THREE.Intersection[] } | null = null;
   /** Hits under the pointer, nearest first: visible meshes and sprites (billboard text and images) and instancing proxies of the built nodes. */
-  function intersect(event: PointerEvent) {
-    aim(event);
-    return raycaster.intersectObjects([...entries.values()].filter(e => !e.node.parentId && !e.node.attachment).map(e => e.object), true).filter(hit => (hit.object instanceof THREE.Mesh || hit.object instanceof THREE.Sprite) && (hit.object.visible || instancing?.isProxy(hit.object)));
+  function intersect(event: PointerEvent) { aim(event); return castAimed(); }
+  /** Hits under the aimed ray; one scene raycast unless the same position was cast in this `rayEpoch`. */
+  function castAimed(): THREE.Intersection[] {
+    if (rayHits && rayHits.epoch === rayEpoch && rayHits.x === pointer.x && rayHits.y === pointer.y) return rayHits.hits;
+    work.sceneRaycasts++;
+    const hits = raycaster.intersectObjects(collectPickRoots(), true).filter(hit => (hit.object instanceof THREE.Mesh || hit.object instanceof THREE.Sprite) && (hit.object.visible || instancing?.isProxy(hit.object)));
+    rayHits = { epoch: rayEpoch, x: pointer.x, y: pointer.y, hits };
+    return hits;
   }
   /** The node a click selects: the nearest hit when its node is selectable, otherwise its nearest selectable group; see `selectionTarget`. */
   function selectableHit(hits: THREE.Intersection[]) {
     const id = hits[0]?.object.userData.nodeId as string | undefined;
     return id ? selectionTarget(id, getNode) : undefined;
   }
-  function pick(event: PointerEvent) { return selectableHit(intersect(event)); }
   // Pointer events for `onPointer`: the nearest node of any kind and the world point, from the same ray as selection.
   const getNode = (id: string) => entries.get(id)?.node;
   type PointerTarget = { nodeId: string | null; point: Vec3 | null; source: 'canvas' | 'label' };
@@ -590,8 +762,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     try { handler(event); } catch (error) { options.onError?.(toError(error)); }
     return !selectionPrevented();
   }
-  /** Node under the pointer as last reported by `enter`/`leave`, and the latest unprocessed move (handled once per frame). */
-  let pointerNode: string | null = null, pendingMove: { event: PointerEvent; label: string | undefined } | null = null;
+  /** Node under the pointer as last reported by `enter`/`leave`. */
+  let pointerNode: string | null = null;
   function hoverPointer(target: PointerTarget, input: PointerInput) {
     for (const { type, nodeId } of hoverTransitions(pointerNode, target.nodeId)) emitPointer(type, type === 'leave' ? { ...target, nodeId } : target, input);
     pointerNode = target.nodeId;
@@ -602,13 +774,42 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (pickTargetAt(event) !== null) return null;
     return canvasTarget(intersect(event));
   }
-  /** Runs once per drawn frame: `enter`/`leave` and one `move` for the latest pointer position. */
-  function flushPointerMove() {
-    const pending = pendingMove; pendingMove = null;
-    if (!pending || !options.onPointer) return;
-    const target = pointerTargetOf(pending.event, pending.label);
-    if (!target) { hoverPointer({ nodeId: null, point: null, source: 'canvas' }, pending.event); return; }
-    hoverPointer(target, pending.event); emitPointer('move', target, pending.event);
+  /**
+   * Pointer moves wait for the next frame, where the latest one is resolved with one shared raycast for hover, peek, pick
+   * targets and `onPointer`. `restingPointer` is the last hover position of a mouse or pen over the canvas: when only the
+   * camera moves (wheel zoom, a camera move, following) it is cast again, at most once per frame.
+   */
+  const pointerQueue = createPointerQueue<PointerEvent>(), cameraWatch = createCameraWatch();
+  let restingPointer: QueuedPointer<PointerEvent> | null = null;
+  const setCursor = (cursor: string) => { if (renderer.domElement.style.cursor !== cursor) renderer.domElement.style.cursor = cursor; };
+  /** Runs at the start of each frame, against the frame the user saw: hover and `enter`/`leave` plus one `move` for the latest pointer position. */
+  function processPointer() {
+    const queued = pointerQueue.take();
+    if (queued?.hover) restingPointer = isRestingHover(queued) ? queued : null;
+    const resting = restingPointer, step = pointerFrameWork(queued !== null, resting !== null, resting !== null && cameraWatch.changed(camera));
+    if (step === 'none') return;
+    const { event, label, hover, report } = step === 'queued' ? queued! : { ...resting!, report: false };
+    aim(event); cameraWatch.record(camera);
+    const targetIndex = aimedPickTarget();
+    if (hover) {
+      if (pickTargets) highlightPickTarget(pickTargets.object, targetIndex);
+      // The pick target takes the pointer: no node under it stays marked as hovered.
+      if (targetIndex !== null) { setCursor('pointer'); setHovered(null); }
+      else {
+        // Over a label the label's node is hovered; the scene is cast only under the canvas.
+        const next = label || selectableHit(castAimed()) || null;
+        // Floating interior labels are part of the inspection region too.
+        let labelNode = label ? entries.get(label)?.node : undefined;
+        while (labelNode && !isContainer(labelNode.id)) labelNode = labelNode.parentId ? entries.get(labelNode.parentId)?.node : undefined;
+        if (event.pointerType === 'mouse') changePeek(labelNode?.kind === 'asset' && labelNode.peekOnHover ? labelNode.id : hoveredContainer());
+        setCursor(next ? 'pointer' : cameraSettings.controls === 'none' ? '' : 'grab'); setHovered(next);
+      }
+    }
+    if (report && options.onPointer) {
+      const target = label ? labelTarget(label) : targetIndex !== null ? null : canvasTarget(castAimed());
+      if (!target) { hoverPointer({ nodeId: null, point: null, source: 'canvas' }, event); return; }
+      hoverPointer(target, event); emitPointer('move', target, event);
+    }
   }
   const onPointerButton = (type: 'down' | 'up', source: 'canvas' | 'label') => (event: PointerEvent) => {
     if (!options.onPointer || loadState.phase !== 'loaded') return;
@@ -621,9 +822,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (!options.onPointer || loadState.phase !== 'loaded') return;
     const label = source === 'label' ? labelOf(event.target) : undefined;
     if (source === 'label' && !label) return;
-    pendingMove = { event, label };
+    pointerQueue.push(event, label, { report: true });
   };
-  const onPointerLeave = (event: PointerEvent) => { pendingMove = null; if (pointerNode) hoverPointer({ nodeId: null, point: null, source: 'canvas' }, event); };
+  const onPointerLeave = (event: PointerEvent) => { pointerQueue.clear(); if (pointerNode) hoverPointer({ nodeId: null, point: null, source: 'canvas' }, event); };
   /**
    * A label click (pointer or keyboard): report it, then select unless prevented. Like a canvas click it does nothing
    * before the first frame, while labels are still transparent.
@@ -653,15 +854,15 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (node?.kind === 'asset' && nodeView(node) === 'closed') setNodeView(store, node.id, 'peek');
     }, next ? 160 : 280);
   }
-  /** The nearest container under the pointer that peeks on hover: an asset with `peekOnHover` and factory `containerBounds`. */
+  const peekRay = new THREE.Ray(), peekInverse = new THREE.Matrix4(), peekPoint = new THREE.Vector3();
+  /** The nearest container under the aimed ray that peeks on hover: an asset with `peekOnHover` and factory `containerBounds`. */
   function hoveredContainer(): string | null {
     let closest = Infinity, result: string | null = null;
-    for (const entry of entries.values()) {
-      if (entry.node.kind !== 'asset' || !entry.node.peekOnHover) continue;
-      const bounds = entry.object.userData.containerBounds as THREE.Box3 | undefined;
-      if (!bounds) continue;
-      const ray = raycaster.ray.clone().applyMatrix4(entry.object.matrixWorld.clone().invert());
-      const point = ray.intersectBox(bounds, new THREE.Vector3());
+    collectPickRoots();
+    for (const entry of peekables) {
+      const bounds = entry.object.userData.containerBounds as THREE.Box3;
+      peekRay.copy(raycaster.ray).applyMatrix4(peekInverse.copy(entry.object.matrixWorld).invert());
+      const point = peekRay.intersectBox(bounds, peekPoint);
       if (!point) continue;
       const distance = point.applyMatrix4(entry.object.matrixWorld).distanceTo(raycaster.ray.origin);
       if (distance < closest) { closest = distance; result = entry.node.id; }
@@ -681,28 +882,18 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (options.onPointer && !emitPointer('click', canvasTarget(hits), event)) return;
     select(selectableHit(hits) || null, 'pointer');
   };
+  /** A hover move over the canvas (from the gestures, only while no drag is active) or a label, resolved in the next frame. */
   const onMove = (event: PointerEvent) => {
     if (loadState.phase !== 'loaded') return;
-    if (pickTargets) {
-      const index = pickTargetAt(event);
-      highlightPickTarget(pickTargets.object, index);
-      // The pick target takes the pointer: no node under it stays marked as hovered.
-      if (index !== null) { renderer.domElement.style.cursor = 'pointer'; if (hovered) { hovered = null; safeSync(); } return; }
-    }
-    const labelId = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-node-id]')?.dataset.nodeId : undefined;
-    const picked = pick(event), next = labelId || picked || null;
-    // Floating interior labels are part of the inspection region too.
-    let labelNode = labelId ? entries.get(labelId)?.node : undefined;
-    while (labelNode && !isContainer(labelNode.id)) labelNode = labelNode.parentId ? entries.get(labelNode.parentId)?.node : undefined;
-    if (event.pointerType === 'mouse') changePeek(labelNode?.kind === 'asset' && labelNode.peekOnHover ? labelNode.id : hoveredContainer());
-    renderer.domElement.style.cursor = next ? 'pointer' : cameraSettings.controls === 'none' ? '' : 'grab'; if (next !== hovered) { hovered = next; safeSync(); }
+    pointerQueue.push(event, labelOf(event.target), { hover: true });
   };
-  const leave = () => { changePeek(null); if (hovered) { hovered = null; safeSync(); } };
+  const leave = () => { pointerQueue.clear(); restingPointer = null; changePeek(null); setHovered(null); };
   container.addEventListener('pointerleave', leave); labelLayer.addEventListener('pointermove', onMove);
-  pan = bindCameraGestures(renderer.domElement, () => camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); cameraMoved = true; target.copy(value); currentTarget.copy(value); if (hovered) { hovered = null; safeSync(); } }, onClick, onHover: onMove, canDrag: () => cameraSettings.controls !== 'none', canOrbit: () => cameraSettings.controls === 'orbit',
+  pan = bindCameraGestures(renderer.domElement, () => camera, { getTarget: () => currentTarget, setTarget: value => { changePeek(null); cameraMoved = true; target.copy(value); currentTarget.copy(value); setHovered(null); }, onClick, onHover: onMove, canDrag: () => cameraSettings.controls !== 'none', canOrbit: () => cameraSettings.controls === 'orbit',
     // An orbit turns around the current target and keeps following; a pan ends it.
     orbit: (deltaYaw, deltaPitch) => { changePeek(null); cameraMoved = true; yaw += deltaYaw; pitch = clampPitch(pitch + deltaPitch); if (follow) follow.offset += deltaYaw; },
-    onDragStart: mode => { const moving = transition !== null || mode === 'pan' && follow !== null; interruptTransition(); if (mode === 'pan') endFollow('interrupted'); if (moving) updateCamera(); return moving; },
+    // A drag owns the pointer: the resting hover position is not cast again while the camera moves under it.
+    onDragStart: mode => { restingPointer = null; const moving = transition !== null || mode === 'pan' && follow !== null; interruptTransition(); if (mode === 'pan') endFollow('interrupted'); if (moving) updateCamera(); return moving; },
     // A pinch writes the zoom setting like the wheel; while following it zooms and turns around the followed node, so following continues.
     getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }), pinchPans: () => follow === null }, { touch: options.touchGestures === true });
   const wheelZoom = options.wheelZoom ? bindWheelZoom([renderer.domElement, labelLayer], { getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }) }) : null;
@@ -723,6 +914,56 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
   let renderedFrames = 0;
+  /**
+   * While the canvas is off-screen (scrolled away, or in a panel hidden with `display: none`) frames advance node motion,
+   * controllers, the camera and frame listeners but skip local part animation, label layout and drawing; the first frame
+   * after it returns shows the current state.
+   */
+  let onScreen = true;
+  const stopOnScreen = watchOnScreen(renderer.domElement, value => { onScreen = value; if (value) labelsDirty = true; });
+  /** Label widths depend on fonts and the viewport: measure every label again before the next layout. */
+  function invalidateLabelWidths() { for (const entry of entries.values()) entry.labelWidth = null; labelsDirty = true; }
+  const fonts = typeof document !== 'undefined' ? document.fonts as FontFaceSet | undefined : undefined;
+  fonts?.addEventListener?.('loadingdone', invalidateLabelWidths);
+  const labelGrid = createLabelGrid();
+  /**
+   * Places the projected labels. Every frame projects each shown label's anchor; when no projection, label state, width
+   * or viewport changed, nothing else runs. Otherwise labels whose width is unknown are measured (all reads before any
+   * write), placed in priority order around the labels already placed (see `placeLabel`), and only changed transforms and
+   * visibilities are written.
+   */
+  function layoutLabels() {
+    if (!labelOrder) {
+      // Markers are placed first and never move or hide; other labels make way for them.
+      const selectedId = store.getSnapshot().selection?.nodeId;
+      labelOrder = [...entries.values()].filter(entry => entry.label).sort((a, b) => labelPriority(b.node, b.node.id === selectedId) - labelPriority(a.node, a.node.id === selectedId));
+      labelsDirty = true;
+    }
+    let changed = labelsDirty || width !== layoutWidth || height !== layoutHeight;
+    for (const entry of labelOrder) {
+      if (entry.labelHidden) continue;
+      projected.set(0, entry.node.kind === 'zone' ? .3 : entry.labelHeight, entry.node.kind === 'zone' ? -entry.node.size[1] / 2 - 2 : 0); entry.object.localToWorld(projected); projected.project(camera);
+      // Behind the camera or outside its depth range: the label is hidden instead of mirrored into the view.
+      const behind = Math.abs(projected.z) > 1, x = (projected.x + 1) * width / 2, y = (1 - projected.y) * height / 2;
+      if (x !== entry.projectedX || y !== entry.projectedY || behind !== entry.behind) { entry.projectedX = x; entry.projectedY = y; entry.behind = behind; changed = true; }
+    }
+    if (!changed) return;
+    labelsDirty = false; layoutWidth = width; layoutHeight = height; work.labelLayouts++;
+    // Measure before changing transforms; host CSS can render compact icons or wrapped labels.
+    for (const entry of labelOrder) if (!entry.labelHidden && !entry.behind && entry.labelWidth === null) { entry.labelWidth = entry.label!.offsetWidth; work.labelMeasures++; }
+    labelGrid.clear();
+    for (const entry of labelOrder) {
+      if (entry.labelHidden) continue;
+      const label = entry.label!;
+      let visible = false;
+      if (!entry.behind) {
+        const placed = placeLabel(labelGrid, entry.projectedX, entry.projectedY - (entry.node.kind === 'zone' ? 35 : 0), entry.labelWidth ?? 0, entry.node.kind, height);
+        visible = placed.visible;
+        if (entry.projectedX !== entry.placedX || placed.y !== entry.placedY) { entry.placedX = entry.projectedX; entry.placedY = placed.y; label.style.transform = `translate(${entry.placedX}px,${entry.placedY}px) translate(-50%,-50%)`; }
+      }
+      if (visible !== entry.shown) { entry.shown = visible; label.style.visibility = visible ? 'visible' : 'hidden'; }
+    }
+  }
   function animate(time: number) {
     if (disposed) return; const dt = Math.min(.05, lastTime ? (time - lastTime) / 1000 : .016); lastTime = time; const settings = store.getSnapshot().settings;
     // Until the build finishes nothing is drawn; then shaders compile (in parallel where the browser supports it) before the first frame.
@@ -733,10 +974,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       }
       raf = requestAnimationFrame(animate); return;
     }
-    if (!document.hidden) {
+    const { simulate, draw } = frameWork({ hidden: document.hidden, loaded: loadState.phase === 'loaded', onScreen });
+    if (simulate) {
       const animated = settings.motion && !reducedMotion.matches;
       // Pointer input first, against the frame the user saw; then fixed simulation steps, before node motion.
-      flushPointerMove();
+      processPointer();
       clock.steps(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
       for (const entry of entries.values()) {
         // Routes own the root transform; motion-off and reduced motion show the confirmed result without travel.
@@ -757,47 +999,28 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       }
       if (!settings.paused && animated) {
         const animationDelta = dt * settings.speed; animationTime += animationDelta;
-        for (const entry of entries.values()) if (entry.node.kind !== 'asset' || entry.node.localMotion !== false) animateAsset(entry.object, { time: animationTime, delta: animationDelta, ...(entry.follower.route || entry.controller.active ? { locomotion: { moving: entry.moving } } : {}) });
+        // Local part animation only changes what is drawn; nodes without an animator get no frame object.
+        if (draw) for (const entry of entries.values()) if ((entry.node.kind !== 'asset' || entry.node.localMotion !== false) && hasAssetAnimator(entry.object)) animateAsset(entry.object, { time: animationTime, delta: animationDelta, ...(entry.follower.route || entry.controller.active ? { locomotion: { moving: entry.moving } } : {}) });
       }
-      for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
+      if (draw) for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
       // The camera moves after the nodes, so a followed node is met at this frame's pose.
       advanceCamera(dt, time);
       // Per-frame listeners see this frame's node poses and camera; what they change is drawn in this frame.
       clock.frame(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
-      // Everything that moves nodes has run: brackets of a marked group follow its contents, then world matrices are
-      // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
-      if (settings.selectionStyle === 'corners') refitMarkedGroups();
-      scene.updateMatrixWorld(); if (areas.length) updatePlacements();
-      const labelRects: { x: number; y: number; width: number }[] = [];
-      const selectionId = store.getSnapshot().selection?.nodeId;
-      // Markers are placed first and never move or hide; other labels make way for them.
-      const labelPriority = (entry: Entry) => entry.node.kind === 'marker' ? 6 : entry.node.id === selectionId ? 5 : entry.node.state === 'critical' ? 4 : entry.node.state === 'warning' ? 3 : entry.node.kind === 'zone' ? 2 : 1;
-      const ordered = [...entries.values()].sort((a, b) => labelPriority(b) - labelPriority(a));
-      // Measure before changing transforms; host CSS can render compact icons or wrapped labels.
-      const labelWidths = new Map(ordered.filter(entry => entry.label && !entry.label.hidden).map(entry => [entry.node.id, entry.label!.offsetWidth]));
-      for (const entry of ordered) {
-        if (!entry.label || entry.label.hidden) continue;
-        projected.set(0, entry.node.kind === 'zone' ? .3 : entry.labelHeight, entry.node.kind === 'zone' ? -entry.node.size[1] / 2 - 2 : 0); entry.object.localToWorld(projected); projected.project(camera);
-        // Behind the camera or outside its depth range: hide the label instead of mirroring it into the view.
-        if (Math.abs(projected.z) > 1) { entry.label.style.visibility = 'hidden'; continue; }
-        const x = (projected.x + 1) * width / 2, labelWidth = labelWidths.get(entry.node.id) ?? 0;
-        let y = (1 - projected.y) * height / 2 - (entry.node.kind === 'zone' ? 35 : 0);
-        const collides = () => labelRects.some(rect => Math.abs(x - rect.x) < (labelWidth + rect.width) / 2 + 5 && Math.abs(y - rect.y) < 27);
-        for (let attempt = 0; entry.node.kind !== 'marker' && attempt < 4 && collides(); attempt++) {
-          const nextY = y + (entry.node.kind === 'zone' ? -28 : 28);
-          if (nextY < 12 || nextY > height - 18) break;
-          y = nextY;
+      // Node poses and the camera changed: earlier raycast hits are stale.
+      rayEpoch++;
+      if (draw) {
+        // Everything that moves nodes has run: brackets of a marked group follow its contents, then world matrices are
+        // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
+        if (settings.selectionStyle === 'corners') refitMarkedGroups();
+        scene.updateMatrixWorld(); if (areas.length) updatePlacements();
+        layoutLabels();
+        instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
+        if (loadState.phase !== 'loaded') {
+          renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
+          reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
         }
-        const overlaps = entry.node.kind !== 'marker' && collides();
-        entry.label.style.visibility = overlaps ? 'hidden' : 'visible';
-        entry.label.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
-        if (!overlaps) labelRects.push({ x, y, width: labelWidth });
-      }
-      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
-      if (loadState.phase !== 'loaded') {
-        renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
-        reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
-      }
+      } else work.offscreenFrames++;
     } raf = requestAnimationFrame(animate);
   }
   raf = requestAnimationFrame(animate);
@@ -876,16 +1099,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       const nodes = store.getSnapshot().nodes;
       return startTransition(() => ({ to: { target: (fit?.target ?? groundTarget(nodes)).toArray(), yaw: cameraSettings.yaw, pitch: cameraSettings.pitch, zoom: store.getSnapshot().settings.zoom, extent: fit?.extent ?? groundExtent(nodes) }, fittedExtent: undefined, overviewFit: fit }), overviewOptions.transition);
     },
-    getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances }; },
+    getDiagnostics: () => { const batching = instancing?.stats() ?? { batches: 0, instances: 0 }; return { objects: entries.size, disposed, loaded: loadState.phase === 'loaded', drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, renderedFrames, instanceBatches: batching.batches, instances: batching.instances, work: { ...work, nodeSignatures: signatures.computed } }; },
     dispose: () => {
       if (disposed || disposing) return; disposing = true;
       // Plugins clean up first, while everything they may hold is still alive.
       const host = plugins; plugins = null; host?.dispose();
-      clock.clear(); pendingMove = null; if (options.onPointer) for (const [target, type, listener] of pointerListeners) target.removeEventListener(type, listener as EventListener);
+      clock.clear(); pointerQueue.clear(); restingPointer = null; if (options.onPointer) for (const [target, type, listener] of pointerListeners) target.removeEventListener(type, listener as EventListener);
       clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true;
       entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf);
       // Unsubscribed before the peek view is closed below, so that store change runs no sync.
-      observer.disconnect(); stopPixelRatio(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose();
+      observer.disconnect(); stopPixelRatio(); stopOnScreen(); fonts?.removeEventListener?.('loadingdone', invalidateLabelWidths); unsubscribe(); pan?.dispose(); wheelZoom?.dispose();
       container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); }

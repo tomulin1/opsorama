@@ -65,6 +65,8 @@ interface Batch { key: string; members: Mesh[]; geometry: BufferGeometry | null;
 export function createInstanceBatcher(container: Object3D): InstanceBatcher {
   const root = new Group(); root.name = INSTANCED_BATCH_NAME; root.matrixAutoUpdate = false; container.add(root);
   const batches = new Map<string, Batch>(), owners = new Map<Object3D, Mesh[]>(), batchOf = new Map<Mesh, Batch>(), signatures = new WeakMap<BufferGeometry, string>();
+  /** Index of each member in its batch's `members`, so removing a member costs O(1). */
+  const memberIndex = new Map<Mesh, number>();
   const hidden = new Matrix4().makeScale(0, 0, 0).elements;
   let pending = false;
 
@@ -93,9 +95,16 @@ export function createInstanceBatcher(container: Object3D): InstanceBatcher {
       // A signature collision with different bytes gets its own batch.
       for (let n = 1; batch && !sameGeometry(batch.members[0].geometry, mesh.geometry); n++) { key = `${base}#${n}`; batch = batches.get(key); }
       if (!batch) { batch = { key, members: [], geometry: null, material: null, mesh: null, dirty: false }; batches.set(key, batch); }
-      batch.members.push(mesh); batchOf.set(mesh, batch); batch.dirty = true;
+      memberIndex.set(mesh, batch.members.length); batch.members.push(mesh); batchOf.set(mesh, batch); batch.dirty = true;
     }
     owners.set(object, members); pending = true;
+  }
+
+  /** Swap-remove: the last member takes the removed one's place. A dirty batch rewrites every instance in `flush`. */
+  function removeMember(batch: Batch, mesh: Mesh): void {
+    const index = memberIndex.get(mesh)!, last = batch.members.pop()!;
+    memberIndex.delete(mesh);
+    if (last !== mesh) { batch.members[index] = last; memberIndex.set(last, index); }
   }
 
   function remove(object: Object3D): void {
@@ -104,7 +113,7 @@ export function createInstanceBatcher(container: Object3D): InstanceBatcher {
     owners.delete(object);
     for (const mesh of members) {
       const batch = batchOf.get(mesh)!; batchOf.delete(mesh); mesh.visible = true;
-      batch.members.splice(batch.members.indexOf(mesh), 1); batch.dirty = true; pending = true;
+      removeMember(batch, mesh); batch.dirty = true; pending = true;
       if (!batch.members.length) { release(batch); batches.delete(batch.key); }
     }
   }
