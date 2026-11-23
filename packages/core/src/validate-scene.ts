@@ -4,7 +4,7 @@ import { MARKER_ICONS, MARKER_SHAPES, MARKER_SIZES, MARKER_TONES } from './marke
 import { NODE_VIEWS } from './containment';
 import { MAX_ROUTE_ACCELERATION, MAX_ROUTE_CORNER_RADIUS, MAX_ROUTE_POINTS, MAX_ROUTE_SPEED, MAX_ROUTE_STOP_SECONDS, MAX_ROUTE_TURN_RATE } from './route';
 import { collectProblems, pointer, type AddProblem, type SceneProblem } from './scene-problems';
-import { CONTAINER_NODE_KINDS, MAX_LINE_WIDTH, MOTION_NODE_KINDS, SHAPE_TYPES } from './shapes';
+import { CONTAINER_NODE_KINDS, IMAGE_SRC_PATTERN, MAX_IMAGE_SIZE, MAX_IMAGE_SRC_LENGTH, MAX_LINE_WIDTH, MAX_TEXT_LENGTH, MOTION_NODE_KINDS, SHAPE_TYPES, TEXT_ALIGNS, TEXT_SIZE_RANGE } from './shapes';
 
 /*
  * Problem collectors behind `validateScene` and every throwing `validate*` function of core. Each collector reports all
@@ -33,7 +33,7 @@ const typeName = (value: unknown) => value === null ? 'null' : Array.isArray(val
 
 /** Documented visual states; the schema test checks this list against `VisualState`. */
 const VISUAL_STATES = ['normal', 'busy', 'warning', 'critical', 'inactive'] as const;
-const NODE_KINDS = ['ground', 'zone', 'asset', 'path', 'marker', 'shape', 'line', 'group'] as const;
+const NODE_KINDS = ['ground', 'zone', 'asset', 'path', 'marker', 'shape', 'line', 'group', 'text', 'image'] as const;
 const BASE_KEYS = ['id', 'kind', 'parentId', 'attachment', 'entityId', 'label', 'labelMode', 'position', 'rotation', 'scale', 'state', 'selectable'] as const;
 
 /**
@@ -49,6 +49,8 @@ export const NODE_KEYS: Readonly<Record<SceneNode['kind'], readonly string[]>> =
   shape: [...BASE_KEYS, 'shape', 'color', 'opacity', 'route', 'controller', 'transfer'],
   line: [...BASE_KEYS, 'points', 'color', 'width', 'dashed'],
   group: [...BASE_KEYS, 'route', 'controller', 'transfer'],
+  text: [...BASE_KEYS, 'text', 'size', 'color', 'billboard', 'align'],
+  image: [...BASE_KEYS, 'src', 'size', 'billboard'],
 });
 /** Known keys of nested objects, named after their schema definitions. */
 export const NESTED_KEYS = /* @__PURE__ */ Object.freeze({
@@ -253,6 +255,36 @@ export function lineChecks(node: Data, at: string, add: AddProblem, name: string
   if (node.dashed !== undefined && typeof node.dashed !== 'boolean') add(pointer(at, 'dashed'), 'field-type', `dashed of ${name} must be boolean.`, 'Set dashed to true or false, or omit it for a continuous line.');
 }
 
+const billboardFix = "Set billboard to true to face the camera, false to lie in the node's x-y plane, or omit it.";
+/** Checks the fields of a text node other than `color`. */
+export function textChecks(node: Data, at: string, add: AddProblem, name: string): void {
+  const text = node.text, length = typeof text === 'string' ? [...text].length : 0;
+  if (typeof text !== 'string' || !text.trim() || length > MAX_TEXT_LENGTH) add(pointer(at, 'text'), 'text', typeof text !== 'string' ? `Text ${name} requires a text string; received ${typeName(text)}.` : length > MAX_TEXT_LENGTH ? `Text ${name} has ${length} characters; at most ${MAX_TEXT_LENGTH} are allowed.` : `Text ${name} has no visible characters.`, `Set text to 1 to ${MAX_TEXT_LENGTH} characters with at least one visible character; use \\n for a line break. Put longer content in host HTML.`);
+  if (node.size !== undefined && !(isFiniteNumber(node.size) && node.size >= TEXT_SIZE_RANGE.min && node.size <= TEXT_SIZE_RANGE.max)) add(pointer(at, 'size'), 'text-size', `Text size of ${name} must be from ${TEXT_SIZE_RANGE.min} to ${TEXT_SIZE_RANGE.max} m.`, `Set size to the height of capital letters in metres, from ${TEXT_SIZE_RANGE.min} to ${TEXT_SIZE_RANGE.max} (received ${shown(node.size)}), or omit it for 0.4.`);
+  if (node.billboard !== undefined && typeof node.billboard !== 'boolean') add(pointer(at, 'billboard'), 'field-type', `billboard of ${name} must be boolean.`, billboardFix);
+  if (node.align !== undefined && !TEXT_ALIGNS.includes(node.align as never)) add(pointer(at, 'align'), 'allowed-value', `Invalid text alignment for ${name}: ${shown(node.align)}.`, `Set align to ${TEXT_ALIGNS.join(', ')}, or omit it for center.`);
+}
+
+const imageSrcFix = "Set src to a relative URL such as '/images/logo.png', an http(s) or blob: URL, or a data:image/ URL.";
+/** Why `src` is not an accepted `ImageNode.src`, or undefined when it is; the acceptance rule is `IMAGE_SRC_PATTERN`. */
+function imageSrcReason(src: string): string | undefined {
+  if (src.length > MAX_IMAGE_SRC_LENGTH) return `is ${src.length} characters long; at most ${MAX_IMAGE_SRC_LENGTH} are allowed`;
+  if (IMAGE_SRC_PATTERN.test(src)) return undefined;
+  if (/[\u0000-\u001f\u007f]/.test(src)) return 'contains a control character (a tab or line break, for example)';
+  if (/^\s|\s$/.test(src)) return 'starts or ends with whitespace';
+  const scheme = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(src)?.[1].toLowerCase();
+  if (scheme === 'data') return 'is a data: URL that is not an image (it must start with data:image/)';
+  return `uses the ${scheme ?? 'unknown'}: scheme, which images do not load from`;
+}
+/** Checks the fields of an image node. */
+export function imageChecks(node: Data, at: string, add: AddProblem, name: string): void {
+  const src = node.src, reason = typeof src !== 'string' ? `must be a URL string; received ${typeName(src)}` : !src ? 'is empty' : imageSrcReason(src);
+  if (reason) add(pointer(at, 'src'), 'image-src', `Image src of ${name} ${reason}.`, imageSrcFix);
+  const size = node.size;
+  if (!Array.isArray(size) || size.length !== 2 || !size.every(value => isFiniteNumber(value) && value > 0 && value <= MAX_IMAGE_SIZE)) add(pointer(at, 'size'), 'image-size', `Image ${name} requires a size of [width, height] in metres.`, `Set size to [width, height] in metres, each greater than 0 and at most ${MAX_IMAGE_SIZE} (received ${shown(size)}); match the picture's aspect ratio, as the image is stretched to fill it.`);
+  if (node.billboard !== undefined && typeof node.billboard !== 'boolean') add(pointer(at, 'billboard'), 'field-type', `billboard of ${name} must be boolean.`, billboardFix);
+}
+
 export function interiorChecks(node: Data, at: string, add: AddProblem): void {
   const interior = node.interior, id = String(node.id);
   if (interior === undefined) return;
@@ -322,6 +354,8 @@ export function nodeProblems(node: unknown, at: string, { validateAsset }: Scene
       if (node.opacity !== undefined && !(isFiniteNumber(node.opacity) && node.opacity >= 0 && node.opacity <= 1)) add(field('opacity'), 'opacity', `Opacity of ${name} must be from 0 to 1.`, `Set opacity to a number from 0 (invisible) to 1 (opaque) (received ${shown(node.opacity)}), or omit it for 1.`);
     }
     if (kind === 'line') lineChecks(node, at, add, name);
+    if (kind === 'text') textChecks(node, at, add, name);
+    if (kind === 'image') imageChecks(node, at, add, name);
     if (motion) {
       if (node.route !== undefined) routeChecks(node.route, field('route'), add);
       if (node.transfer !== undefined) transferChecks(node.transfer, field('transfer'), add);

@@ -68,11 +68,13 @@ export function addObjectRelease(object: THREE.Object3D, release: () => void): v
   if (list) list.push(release); else releases.set(object, [release]);
 }
 
-/** Releases a model: registered release callbacks, its animator, and every geometry, material and instanced buffer under it. Call it once per built model. */
+/** Releases a model: registered release callbacks, its animator, and every geometry, material and instanced buffer under it (a sprite's material, not the geometry all sprites share). Textures are not disposed: a factory that creates its own releases them with `addObjectRelease`. Call it once per built model. */
 export function disposeObject(object: THREE.Object3D) {
   object.traverse(child => { const list = releases.get(child); if (!list) return; releases.delete(child); for (const release of list) release(); });
   clearAssetAnimator(object);
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
-  object.traverse(child => { if (child instanceof THREE.InstancedMesh) child.dispose(); if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.LineSegments) { geometries.add(child.geometry); const list = Array.isArray(child.material) ? child.material : [child.material]; list.forEach(m => materials.add(m)); } });
+  object.traverse(child => { if (child instanceof THREE.InstancedMesh) child.dispose(); if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.LineSegments) { geometries.add(child.geometry); const list = Array.isArray(child.material) ? child.material : [child.material]; list.forEach(m => materials.add(m)); }
+    // Every sprite shares one geometry; only its material is its own.
+    else if (child instanceof THREE.Sprite) materials.add(child.material); });
   geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
 }

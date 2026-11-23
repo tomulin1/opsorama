@@ -11,7 +11,7 @@ export * from './interior';
 import { cloneNodeRoute } from './route';
 import { cloneNodeController } from './controller';
 import type { NodeBase } from './node-base';
-import { isMotionNode, type GroupNode, type LineNode, type MotionFields, type ShapeNode } from './shapes';
+import { isMotionNode, type GroupNode, type ImageNode, type LineNode, type MotionFields, type ShapeNode, type TextNode } from './shapes';
 export * from './shapes';
 import { isNodeVisible, type NodeView } from './containment';
 import { attachmentProblems, nodeListProblems, nodeProblems, parentProblems, validateScene } from './validate-scene';
@@ -137,7 +137,7 @@ export interface MarkerNode extends NodeBase, MarkerFields {
   label: string;
 }
 /** One visual node of a scene; `kind` selects its fields. */
-export type SceneNode = GroundNode | ZoneNode | AssetNode | PathNode | MarkerNode | ShapeNode | LineNode | GroupNode;
+export type SceneNode = GroundNode | ZoneNode | AssetNode | PathNode | MarkerNode | ShapeNode | LineNode | GroupNode | TextNode | ImageNode;
 /**
  * A scene file: visual nodes only. Settings, camera and host data are not part of it. Check one with `validateScene`, or
  * against the published JSON Schema `@opsorama/core/scene-definition.schema.json`.
@@ -209,6 +209,8 @@ function cloneNode(node: SceneNode): SceneNode {
   if (node.kind === 'ground' || node.kind === 'zone') return Object.freeze({ ...transform, size: Object.freeze([...node.size]) }) as GroundNode | ZoneNode;
   if (node.kind === 'shape') return Object.freeze({ ...transform, shape: Object.freeze(node.shape.type === 'box' ? { ...node.shape, size: Object.freeze([...node.shape.size]) } : { ...node.shape }) }) as ShapeNode;
   if (node.kind === 'group') return Object.freeze(transform) as GroupNode;
+  if (node.kind === 'text') return Object.freeze(transform) as TextNode;
+  if (node.kind === 'image') return Object.freeze({ ...transform, size: Object.freeze([...node.size]) }) as ImageNode;
   return Object.freeze({ ...transform, ...(node.footprint ? { footprint: Object.freeze([...node.footprint]) as Footprint } : {}) }) as AssetNode;
 }
 /**

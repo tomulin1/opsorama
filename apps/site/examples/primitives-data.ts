@@ -1,9 +1,10 @@
-import { createSceneStore, type GroundNode, type GroupNode, type LineNode, type SceneDefinition, type SceneNode, type SceneSettings, type SceneStore, type Selection, type ShapeNode, type Vec3 } from '@opsorama/core';
+import { createSceneStore, type GroundNode, type GroupNode, type ImageNode, type LineNode, type SceneDefinition, type SceneNode, type SceneSettings, type SceneStore, type Selection, type ShapeNode, type TextNode, type Vec3 } from '@opsorama/core';
 import type { AssetRegistry, SceneRenderer } from '@opsorama/three';
 
 /*
- * The primitives example: a 3D bar chart built from shape, line and group nodes, driven by data, and a small shuttle
- * made of shapes in a group that drives around the chart on a route. Values are illustrative, not records.
+ * The primitives example: a 3D bar chart built from shape, line, text and group nodes, driven by data, with billboard
+ * value labels over the bars, a flat title on the floor, an image node, and a small shuttle made of shapes in a group that
+ * drives around the chart on a route. Values are illustrative, not records.
  */
 
 /** The scene uses no catalog models: shape, line and group nodes need no asset factories. A module constant stays stable across renders. */
@@ -77,10 +78,28 @@ export function peakMarker(values: ChartValues): ShapeNode {
   return { id: 'peak-marker', kind: 'shape', parentId: chartGroup.id, position: [columnX(column), height(value) + 1.2, row * ROW], rotation: [Math.PI, 0, 0], shape: { type: 'cylinder', radiusTop: 0, radiusBottom: .32, height: .6 }, state: 'warning', label: `Peak ${value}`, labelMode: 'always' };
 }
 
-/** Every chart node for a data set, each group before its children. */
-export function chartNodes(values: ChartValues): SceneNode[] {
-  return [chartGroup, ...chartFrame, ...SERIES.flatMap((series, row) => [seriesGroup(series, row), ...values[row].map((value, column) => barNode(series, column, value)), trendLine(series, values[row])]), peakMarker(values)];
+export const valueLabelId = (series: ChartSeries, column: number) => `value-${series.id}-${MONTHS[column].toLowerCase()}`;
+/**
+ * A bar's value: billboard text that faces the camera from every direction, standing 0.35 m above the bar. It has no
+ * `color`, so it takes the palette `text` role or the theme's text color. Equal numbers share one texture. The text is a
+ * picture in the canvas; the page states the values in HTML as well.
+ */
+export const valueLabel = (series: ChartSeries, column: number, value: number): TextNode => ({ id: valueLabelId(series, column), kind: 'text', parentId: seriesGroupId(series), position: [columnX(column), height(value) + .35, 0], text: String(value), size: .26, billboard: true });
+/** The chart title, flat on the floor in front of the chart: a rotation of −π/2 about x lays the text down, reading from the camera. */
+export const chartTitle: TextNode = { id: 'chart-title', kind: 'text', parentId: chartGroup.id, position: [0, .02, DEPTH + 2.6], rotation: [-Math.PI / 2, 0, 0], text: 'Monthly volume by region', size: .42, align: 'left' };
+/** Months under the columns, flat on the floor in front of the chart. */
+export const monthLabels: readonly TextNode[] = MONTHS.map((month, column) => ({ id: `month-${month.toLowerCase()}`, kind: 'text', parentId: chartGroup.id, position: [columnX(column), .02, DEPTH + 1.4], rotation: [-Math.PI / 2, 0, 0], text: month, size: .3 }));
+
+/** Every chart node for a data set, each group before its children; `labels` adds the value labels over the bars. */
+export function chartNodes(values: ChartValues, labels = true): SceneNode[] {
+  return [chartGroup, ...chartFrame, chartTitle, ...monthLabels, ...SERIES.flatMap((series, row) => [seriesGroup(series, row), ...values[row].map((value, column) => barNode(series, column, value)), trendLine(series, values[row]), ...(labels ? values[row].map((value, column) => valueLabel(series, column, value)) : [])]), peakMarker(values)];
 }
+
+/**
+ * An image node: the project mark, a PNG from the site's own public folder (same origin, so no CORS header is needed),
+ * standing beside the chart as a billboard. It is selectable, so a click on the picture selects it.
+ */
+export const brandImage: ImageNode = { id: 'brand-image', kind: 'image', src: '/brand/apple-touch-icon.png', size: [1.6, 1.6], position: [7.4, 0, -2.4], billboard: true, label: 'Image node', selectable: true };
 
 /** The shuttle's loop around the chart: a closed route, so it ends where it starts. */
 export const SHUTTLE_ROUTE_POINTS: readonly Vec3[] = [[-9.5, 0, -6.2], [9.5, 0, -6.2], [9.5, 0, 6.4], [-9.5, 0, 6.4], [-9.5, 0, -6.2]];
@@ -96,8 +115,8 @@ export const shuttleParts: readonly ShapeNode[] = [
 
 /** The floor under the chart and the shuttle's loop. */
 export const floor: GroundNode = { id: 'floor', kind: 'ground', size: [24, 16], color: '#e6edf5' };
-/** The scene of data set `values`. */
-export const primitivesDefinition = (values: ChartValues = chartValues(0)): SceneDefinition => ({ schemaVersion: 1, nodes: [floor, ...chartNodes(values), shuttleGroup, ...shuttleParts] });
+/** The scene of data set `values`, with or without the value labels. */
+export const primitivesDefinition = (values: ChartValues = chartValues(0), labels = true): SceneDefinition => ({ schemaVersion: 1, nodes: [floor, ...chartNodes(values, labels), brandImage, shuttleGroup, ...shuttleParts] });
 /** The store of one mount. The adapters register the nodes themselves; plain JavaScript passes the whole definition. */
 export const makePrimitivesStore = (definition: SceneDefinition, settings: Partial<SceneSettings> = {}): SceneStore => createSceneStore(definition, settings);
 
@@ -106,10 +125,12 @@ export const valuesSummary = (values: ChartValues) => SERIES.map((series, row) =
 /** What the selection is, for the page's readout. */
 export const selectionSummary = (selection: Selection | null) => selection ? `Selected: ${selection.nodeId}${selection.entityId ? ` (${selection.entityId})` : ''}` : 'Selected: nothing';
 
-/** A mount of one adapter: the store, a way to show another data set, and disposal of the scene and store. */
-export interface PrimitivesSession { store: SceneStore; setValues(values: ChartValues): void; dispose(): void }
-/** Callbacks from a mount to the page. */
-export interface PrimitivesCallbacks { ready(renderer: SceneRenderer): void; select(selection: Selection | null): void }
+/** What the chart shows: a data set, and whether value labels stand over the bars. */
+export interface ChartData { values: ChartValues; labels: boolean }
+/** A mount of one adapter: the store, a way to show other data, and disposal of the scene and store. */
+export interface PrimitivesSession { store: SceneStore; setData(data: ChartData): void; dispose(): void }
+/** Callbacks from a mount to the page; `error` receives the renderer's errors, such as an image that fails to load. */
+export interface PrimitivesCallbacks { ready(renderer: SceneRenderer): void; select(selection: Selection | null): void; error(error: Error): void }
 
 /** Copyable snippet of the chart in each adapter. */
 export function primitivesSnippet(framework: 'react' | 'vue' | 'javascript'): string {
@@ -122,11 +143,17 @@ export function primitivesSnippet(framework: 'react' | 'vue' | 'javascript'): st
   })),
   { id: 'trend-north', kind: 'line', parentId: 'series-north', width: 0.06, color: '#4f7fd8',
     points: values.map((value, column) => [1.4 + column * 1.6, value * 0.06 + 0.12, 0]) },
+  ...values.map((value, column) => ({
+    id: \`value-north-\${column}\`, kind: 'text', parentId: 'series-north', text: String(value),
+    position: [1.4 + column * 1.6, value * 0.06 + 0.35, 0], size: 0.26, billboard: true,
+  })),
+  { id: 'brand-image', kind: 'image', src: '/brand/apple-touch-icon.png', size: [1.6, 1.6], position: [7.4, 0, -2.4], billboard: true },
   { id: 'shuttle', kind: 'group', selectable: true, route: { points: loop, speed: 2.2, loop: true } },
   { id: 'shuttle-body', kind: 'shape', parentId: 'shuttle', shape: { type: 'box', size: [0.9, 0.42, 1.5] } },
 ];
-store.replace([floor, ...nodes]); // a new data set: replace or upsert the bars
-const renderer = createSceneRenderer(container, store, { assets: {} }); // shapes, lines and groups need no models`;
+store.replace([floor, ...nodes]); // a new data set: replace or upsert the bars and labels
+// Shapes, lines, groups, text and images need no models; onError reports an image that fails to load.
+const renderer = createSceneRenderer(container, store, { assets: {}, onError: error => console.warn(error.message) });`;
   if (framework === 'react') return `<DashboardProvider store={store}>
   <SceneCanvas assets={assets} onSelect={setSelection} />
   <Group id="chart" position={[-5.6, 0, -3.4]} />
@@ -135,6 +162,9 @@ const renderer = createSceneRenderer(container, store, { assets: {} }); // shape
     position={[1.4 + column * 1.6, 0, 0]} shape={{ type: 'box', size: [0.8, value * 0.06, 0.8] }} color="#4f7fd8" />)}
   <Line id="trend-north" parentId="series-north" width={0.06} color="#4f7fd8"
     points={values.map((value, column) => [1.4 + column * 1.6, value * 0.06 + 0.12, 0])} />
+  {values.map((value, column) => <SceneText key={column} id={\`value-north-\${column}\`} parentId="series-north"
+    text={String(value)} position={[1.4 + column * 1.6, value * 0.06 + 0.35, 0]} size={0.26} billboard />)}
+  <SceneImage id="brand-image" src="/brand/apple-touch-icon.png" size={[1.6, 1.6]} position={[7.4, 0, -2.4]} billboard />
   <Group id="shuttle" selectable route={{ points: loop, speed: 2.2, loop: true }} />
   <Shape id="shuttle-body" parentId="shuttle" shape={{ type: 'box', size: [0.9, 0.42, 1.5] }} />
 </DashboardProvider>`;
@@ -146,6 +176,9 @@ const renderer = createSceneRenderer(container, store, { assets: {} }); // shape
     position: [1.4 + column * 1.6, 0, 0], shape: { type: 'box', size: [0.8, value * 0.06, 0.8] }, color: '#4f7fd8' })),
   h(Line, { id: 'trend-north', parentId: 'series-north', width: 0.06, color: '#4f7fd8',
     points: values.value.map((value, column) => [1.4 + column * 1.6, value * 0.06 + 0.12, 0]) }),
+  ...values.value.map((value, column) => h(SceneText, { key: \`value-\${column}\`, id: \`value-north-\${column}\`, parentId: 'series-north',
+    text: String(value), position: [1.4 + column * 1.6, value * 0.06 + 0.35, 0], size: 0.26, billboard: true })),
+  h(SceneImage, { id: 'brand-image', src: '/brand/apple-touch-icon.png', size: [1.6, 1.6], position: [7.4, 0, -2.4], billboard: true }),
   h(Group, { id: 'shuttle', selectable: true, route: { points: loop, speed: 2.2, loop: true } }),
   h(Shape, { id: 'shuttle-body', parentId: 'shuttle', shape: { type: 'box', size: [0.9, 0.42, 1.5] } }),
 ])`;

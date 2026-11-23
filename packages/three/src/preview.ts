@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { isMotionNode, nodeView, type SceneNode, type SceneStore } from '@opsorama/core';
 import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
-import { buildNodeObject } from './nodes';
+import { buildNodeObject, createNodeTextures } from './nodes';
 
 /** Default `NodePreviewOptions.maxNodes`: the copied node plus at most 239 visible descendants. */
 export const NODE_PREVIEW_MAX_NODES = 240;
@@ -106,13 +106,15 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
   const report = (error: unknown) => options.onError?.(error instanceof Error ? error : new Error(String(error)));
   const animated = () => { const settings = store.getSnapshot().settings; return settings.motion && !settings.paused && !reducedMotion.matches; };
   const clear = () => { for (const { object } of built) { object.removeFromParent(); disposeObject(object); } built = []; radius = 0; };
+  // Its own texture caches: text and image textures of the copy are released with it, independently of the scene.
+  const textures = createNodeTextures();
 
   function build(nodes: readonly SceneNode[]) {
     const { theme, palette } = store.getSnapshot().settings, objects = new Map<string, THREE.Object3D>();
     for (const node of nodes) {
       if (node.kind === 'marker') continue;
       if (node.kind === 'asset' && !Object.hasOwn(options.assets, node.asset)) throw new Error(`Unknown asset: ${node.asset}. Pass the scene renderer's asset registry to the preview, for example catalogAssets from @opsorama/objects.`);
-      const object = buildNodeObject(node, { assets: options.assets, theme, palette });
+      const object = buildNodeObject(node, { assets: options.assets, theme, palette, textures, onError: report, onTextureLoad: request });
       built.push({ node, object });
       object.position.set(...(node.position ?? [0, 0, 0])); if (node.rotation) object.rotation.set(...node.rotation); if (node.scale) object.scale.set(...node.scale);
       const ownerId = node.attachment?.nodeId ?? node.parentId, owner = ownerId === undefined ? undefined : objects.get(ownerId);
@@ -187,7 +189,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
       if (disposed) return; disposed = true; cancelAnimationFrame(raf); unsubscribe(); observer.disconnect(); reducedMotion.removeEventListener('change', onMotionPreference);
       canvas.removeEventListener('pointerdown', onPointerDown); canvas.removeEventListener('pointermove', onPointerMove); canvas.removeEventListener('pointerup', onPointerUp); canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('keydown', onKey); canvas.removeEventListener('webglcontextlost', onContextLost);
-      clear(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
+      clear(); textures.dispose(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
     },
   };
 }

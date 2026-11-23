@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode, GroupNode, ShapeNode, LineNode } from '@opsorama/core';
-import { createNodePreview, createRendererSlot, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
+import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode, GroupNode, ShapeNode, LineNode, TextNode, ImageNode } from '@opsorama/core';
+import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const Context = createContext<SceneStore | null>(null);
 const RendererContext = createContext<RendererSlot | null>(null);
@@ -67,7 +67,7 @@ export function SceneCanvas({ className, style, children, assets, controllers, i
   useEffect(() => {
     if (!ref.current) return; let renderer: SceneRenderer | undefined, unregister: (() => void) | undefined;
     setError(null); setLoad(null);
-    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loadingIndicator: false, onPointer: event => callbacks.current.onPointer?.(event), onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
+    try { renderer = createSceneRenderer(ref.current, store, { assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins, loadingIndicator: false, onPointer: event => callbacks.current.onPointer?.(event), onLoad: state => { setLoad(state); callbacks.current.onLoad?.(state); }, onSelect: selection => callbacks.current.onSelect?.(selection), onError: err => { if (err.name !== IMAGE_LOAD_ERROR) setError(err.message); callbacks.current.onError?.(err); } }); unregister = slot?.register(renderer); callbacks.current.onReady?.(renderer); }
     catch (err) { renderer?.dispose(); renderer = undefined; const error = err instanceof Error ? err : new Error(String(err)); setError(error.message); callbacks.current.onError?.(error); }
     return () => { unregister?.(); renderer?.dispose(); };
   }, [store, slot, assets, controllers, instancing, wheelZoom, touchGestures, buildBudget, plugins]);
@@ -116,5 +116,9 @@ export function Group(props: Omit<GroupNode, 'kind'>) { return <Node node={{ ...
 export function Shape(props: Omit<ShapeNode, 'kind'>) { return <Node node={{ ...props, kind: 'shape' }} />; }
 /** A polyline: a 1-pixel line, or a tube with `width` in metres. See `LineNode`. */
 export function Line(props: Omit<LineNode, 'kind'>) { return <Node node={{ ...props, kind: 'line' }} />; }
+/** Text drawn in the scene on a plane, or facing the camera with `billboard`; a canvas texture, not accessible text. See `TextNode`. Named SceneText so it does not shadow the DOM `Text` type. */
+export function SceneText(props: Omit<TextNode, 'kind'>) { return <Node node={{ ...props, kind: 'text' }} />; }
+/** A picture from `src` on a rectangle of `size` metres, or facing the camera with `billboard`, with a placeholder until it loads. See `ImageNode`. Named SceneImage so it does not shadow the DOM `Image` constructor. */
+export function SceneImage(props: Omit<ImageNode, 'kind'>) { return <Node node={{ ...props, kind: 'image' }} />; }
 export function EntityLayer<T>({ entities, mapEntity }: { entities: readonly T[]; mapEntity: (entity: T, index: number) => SceneNode }) { return <>{entities.map((entity, index) => { const node = mapEntity(entity, index); return <Node key={node.id} node={node} />; })}</>; }
 export function EntityInspector({ children }: { children: (selection: Selection | null) => ReactNode }) { return <>{children(useScene().selection)}</>; }

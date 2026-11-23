@@ -1,16 +1,42 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { LineNode, MaterialOverrides, SceneNode, ShapeGeometry, ShapeNode } from '@opsorama/core';
-import { assetFactory, type AssetRegistry } from './assets';
+import { DEFAULT_TEXT_SIZE, type ImageNode, type LineNode, type MaterialOverrides, type SceneNode, type ShapeGeometry, type ShapeNode, type TextNode } from '@opsorama/core';
+import { addObjectRelease, assetFactory, type AssetRegistry } from './assets';
 import { buildPrimitive } from './primitives';
+import { createImageTextureCache, createTextTextureCache, type ImageTextureCache, type LoadImage, type TextCanvasFactory, type TextTextureCache } from './text-texture';
 
 /*
  * Builds the Three.js object of every scene node kind, for the scene renderer and the node preview. Each built object
- * owns its geometries and materials; release it with `disposeObject`. Internal to the package.
+ * owns its geometries and materials, and holds its uses of shared text and image textures; release it with
+ * `disposeObject`. Internal to the package.
  */
 
-/** What building a node needs besides the node: the asset registry and the scene's theme and palette. */
-export interface NodeBuildContext { assets: AssetRegistry; theme: 'light' | 'midnight'; palette?: MaterialOverrides }
+/**
+ * What building a node needs besides the node: the asset registry, the scene's theme and palette, and for text and image
+ * nodes the renderer's texture caches and where image load results go. Without `textures` every text and image node owns
+ * its textures (nothing is shared).
+ */
+export interface NodeBuildContext {
+  assets: AssetRegistry; theme: 'light' | 'midnight'; palette?: MaterialOverrides;
+  textures?: NodeTextures;
+  /** An image failed to load; the message names the node and the URL. */
+  onError?: (error: Error) => void;
+  /** An image texture was applied after its node was built, so a renderer that draws on demand draws again. */
+  onTextureLoad?: () => void;
+}
+
+/** Texture caches of one renderer for text and image nodes. `dispose` releases every texture when the renderer is disposed. */
+export interface NodeTextures { text: TextTextureCache; images: ImageTextureCache; dispose(): void }
+/** Creates the texture caches of one renderer; tests pass a canvas factory and an image loader. */
+export function createNodeTextures(options: { createCanvas?: TextCanvasFactory; loadImage?: LoadImage } = {}): NodeTextures {
+  const text = createTextTextureCache(options.createCanvas), images = createImageTextureCache(options.loadImage);
+  return { text, images, dispose: () => { text.dispose(); images.dispose(); } };
+}
+
+/** Text colors without `color` or a palette `text` role, per theme. */
+export const TEXT_COLORS = Object.freeze({ light: '#1f2d3d', midnight: '#e6edf7' });
+/** Image placeholder colors per theme, shown until the image has loaded and kept when it fails. */
+export const IMAGE_PLACEHOLDER_COLORS = Object.freeze({ light: '#c9d3df', midnight: '#3b4a60' });
 
 /** Shape and line colors without `color` or a palette role, per theme; they match the catalog's default tones. */
 export const PRIMITIVE_COLORS = Object.freeze({
@@ -28,6 +54,10 @@ export function shapeColor(node: ShapeNode, context: Pick<NodeBuildContext, 'the
   if (node.color) return node.color;
   if (node.state && node.state !== 'normal') return context.palette?.[node.state] ?? STATE_COLORS[node.state];
   return context.palette?.accent ?? PRIMITIVE_COLORS[context.theme].accent;
+}
+/** Color of a text node: `color`, else the palette `text` role, else the theme default. */
+export function textColor(node: TextNode, context: Pick<NodeBuildContext, 'theme' | 'palette'>): string {
+  return node.color || (context.palette?.text ?? TEXT_COLORS[context.theme]);
 }
 /** Color of a line node: `color`, else the palette `structure` role, else the theme default. */
 export function lineColor(node: LineNode, context: Pick<NodeBuildContext, 'theme' | 'palette'>): string {
@@ -123,6 +153,69 @@ function buildLine(node: LineNode, context: NodeBuildContext): THREE.Group {
   return root;
 }
 
+/**
+ * Material of a text or image surface: unlit and not tone-mapped, so its colors show as given; transparent, so it is never
+ * merged or instanced; fully transparent pixels are discarded so they do not hide what is behind them.
+ */
+function surfaceMaterial(billboard: boolean, color: string, map: THREE.Texture | null): THREE.SpriteMaterial | THREE.MeshBasicMaterial {
+  const options = { color, map, transparent: true, alphaTest: .01, toneMapped: false };
+  return billboard ? new THREE.SpriteMaterial(options) : new THREE.MeshBasicMaterial({ ...options, side: THREE.DoubleSide });
+}
+/**
+ * A rectangle `width` × `height` standing on the origin, with the origin at `anchor` along its width (0 left, 1 right):
+ * a plane facing +z, or a sprite that faces the camera and anchors horizontally on screen.
+ */
+function surface(material: THREE.SpriteMaterial | THREE.MeshBasicMaterial, width: number, height: number, anchor: number): THREE.Object3D {
+  if (material instanceof THREE.SpriteMaterial) {
+    const sprite = new THREE.Sprite(material); sprite.center.set(anchor, .5); sprite.scale.set(width, height, 1); sprite.position.y = height / 2;
+    return sprite;
+  }
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height).translate((.5 - anchor) * width, height / 2, 0), material);
+  mesh.castShadow = false; mesh.receiveShadow = false;
+  return mesh;
+}
+const nodeTextures = (context: NodeBuildContext) => context.textures ?? createNodeTextures();
+
+/** A text: its cached canvas texture on a plane or sprite sized by `size`. The label sits 0.3 m above the text. */
+function buildText(node: TextNode, context: NodeBuildContext): THREE.Group {
+  const root = new THREE.Group(), handle = nodeTextures(context).text.acquire({ text: node.text, color: textColor(node, context), align: node.align ?? 'center' });
+  addObjectRelease(root, handle.release);
+  const { texture, width, height, anchor } = handle.value, size = node.size ?? DEFAULT_TEXT_SIZE;
+  // The texture carries the color; the material stays white.
+  const part = surface(surfaceMaterial(node.billboard === true, '#ffffff', texture), width * size, height * size, anchor);
+  part.name = 'text'; root.add(part); root.userData.labelHeight = height * size + .3;
+  return root;
+}
+
+/**
+ * `Error.name` of the error an image node reports to `onError` when its image fails to load. The scene keeps working (the
+ * node keeps its placeholder), so the React and Vue `SceneCanvas` report it without showing their "Scene unavailable" panel.
+ */
+export const IMAGE_LOAD_ERROR = 'ImageLoadError';
+/** Shortened `src` for messages: data URLs can be very long. */
+const shownSrc = (src: string) => JSON.stringify(src.length > 80 ? `${src.slice(0, 80)}…` : src);
+/**
+ * An image: a placeholder rectangle of `size` until the shared texture of `src` arrives, then the picture. A node rebuilt or
+ * removed before then has released its use, so a late image is never applied to it; the last use cancels the load or
+ * disposes the texture. A failed load keeps the placeholder and reports to `onError`. The label sits 0.3 m above the image.
+ */
+function buildImage(node: ImageNode, context: NodeBuildContext): THREE.Group {
+  const root = new THREE.Group(), [width, height] = node.size;
+  const material = surfaceMaterial(node.billboard === true, IMAGE_PLACEHOLDER_COLORS[context.theme], null);
+  const part = surface(material, width, height, .5); part.name = 'image'; root.add(part);
+  let built = false;
+  const release = nodeTextures(context).images.acquire(node.src, {
+    load: texture => { material.map = texture; material.color.set('#ffffff'); material.needsUpdate = true; if (built) context.onTextureLoad?.(); },
+    error: () => {
+      const error = new Error(`Image node ${node.id} could not load ${shownSrc(node.src)}. Check that the URL is reachable and that it is an image the browser can decode (PNG, JPEG, WebP, or SVG with width and height); an image from another origin also needs Access-Control-Allow-Origin from its server, because images load with crossOrigin "anonymous". The node keeps its placeholder.`);
+      error.name = IMAGE_LOAD_ERROR; context.onError?.(error);
+    },
+  });
+  addObjectRelease(root, release); built = true;
+  root.userData.labelHeight = height + .3;
+  return root;
+}
+
 /** Builds the object of a node of any kind. Asset nodes run their factory's `validate` first; unknown assets throw. */
 export function buildNodeObject(node: SceneNode, context: NodeBuildContext): THREE.Object3D {
   switch (node.kind) {
@@ -135,15 +228,19 @@ export function buildNodeObject(node: SceneNode, context: NodeBuildContext): THR
     case 'group': { const group = new THREE.Group(); group.userData.labelHeight = 0; return group; }
     case 'shape': return buildShape(node, context);
     case 'line': return buildLine(node, context);
+    case 'text': return buildText(node, context);
+    case 'image': return buildImage(node, context);
     case 'ground': case 'zone': case 'path': return buildPrimitive(node);
     default: return unknownKind(node);
   }
 }
 function unknownKind(node: never): never { throw new Error(`Unknown scene node kind: ${String((node as { kind?: unknown }).kind)}.`); }
 
+const SPRITE_QUAD = new THREE.Box3(new THREE.Vector3(-.5, -.5, 0), new THREE.Vector3(.5, .5, 0));
 /**
- * Bounds of every mesh under `object`, including the objects of nodes it contains, in `object`'s local metres. Used for
- * the selection marker of a group, whose own object has no geometry. Selection markers are skipped.
+ * Bounds of every mesh and sprite under `object`, including the objects of nodes it contains, in `object`'s local metres.
+ * Used for the selection marker of a group, whose own object has no geometry. Selection markers are skipped. A sprite
+ * counts as its unit quad placed by its world matrix; it turns with the camera, so its share is approximate.
  */
 export function contentBounds(object: THREE.Object3D): THREE.Box3 {
   object.updateWorldMatrix(true, true);
@@ -151,6 +248,7 @@ export function contentBounds(object: THREE.Object3D): THREE.Box3 {
   const visit = (current: THREE.Object3D) => {
     if (current.name === 'selection-corners') return;
     const mesh = current as THREE.Mesh;
+    if (current instanceof THREE.Sprite) bounds.union(part.copy(SPRITE_QUAD).applyMatrix4(matrix.multiplyMatrices(inverse, current.matrixWorld)));
     if (mesh.isMesh && !(current instanceof THREE.InstancedMesh)) {
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       if (!mesh.geometry.boundingBox!.isEmpty()) bounds.union(part.copy(mesh.geometry.boundingBox!).applyMatrix4(matrix.multiplyMatrices(inverse, mesh.matrixWorld)));

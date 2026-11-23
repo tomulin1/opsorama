@@ -140,6 +140,26 @@ console.log(selectionTarget('bar', id => byId.get(id))); // 'series': a click on
 // Later: renderer.dispose();
 ```
 
+### Text and images
+
+Text nodes are drawn into canvas textures with the system font stack of the labels (no font files), on a plane or, with `billboard`, on a sprite that faces the camera; equal text, color and alignment share one texture. Image nodes load `src` in the background with `crossOrigin = 'anonymous'` and show a neutral placeholder until it arrives; equal `src` values share one texture. A node removed or changed before its image arrives never receives it, and textures are released with the last node that uses them, so `getDiagnostics().textures` returns to its earlier count. An image that fails to load (unreachable, not an image, or from another origin without `Access-Control-Allow-Origin`) keeps its placeholder and reaches `onError` with `name` `IMAGE_LOAD_ERROR` and a message naming the node and the URL. Text and images are transparent: never instanced, no shadows, not covered by the glow selection style. Pointer events and selection hit them, billboards included. Canvas text is not accessible text.
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createSceneRenderer, IMAGE_LOAD_ERROR } from '@opsorama/three';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'floor', kind: 'ground', size: [12, 8] },
+  { id: 'sign', kind: 'text', text: 'Dock 4\nInbound', position: [0, 0, -2], size: 0.5 },
+  { id: 'logo', kind: 'image', src: '/images/logo.png', size: [1.5, 1.5], position: [3, 0, 0], billboard: true, selectable: true },
+] });
+const renderer = createSceneRenderer(container, store, {
+  assets: {},
+  onError: error => { if (error.name === IMAGE_LOAD_ERROR) console.warn(error.message); },
+});
+// Later: renderer.dispose(); // releases every text and image texture
+```
+
 ### Node preview
 
 `createNodePreview` shows a live copy of one scene node in its own small canvas, for an inspector or detail panel:

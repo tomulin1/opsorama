@@ -149,6 +149,27 @@ export function Chart({ values }: { values: readonly number[] }) {
 }
 ```
 
+### Text and images
+
+`SceneText` and `SceneImage` take the fields of `TextNode` and `ImageNode` as props; the `Scene` prefix keeps them from shadowing the DOM `Text` and `Image` globals. An image that fails to load is passed to `onError` (its `name` is `IMAGE_LOAD_ERROR`) without covering the scene.
+
+```tsx
+import { createSceneStore } from '@opsorama/core';
+import { DashboardProvider, SceneCanvas, SceneImage, SceneText, Shape } from '@opsorama/react';
+
+const store = createSceneStore();
+const assets = {};
+
+export function Bar({ value }: { value: number }) {
+  return <DashboardProvider store={store}>
+    <SceneCanvas assets={assets} style={{ height: 360 }} onError={error => console.warn(error.message)} />
+    <Shape id="bar" shape={{ type: 'box', size: [0.8, value / 20, 0.8] }} />
+    <SceneText id="bar-value" text={String(value)} position={[0, value / 20 + 0.35, 0]} size={0.26} billboard />
+    <SceneImage id="logo" src="/images/logo.png" size={[1.6, 1.6]} position={[3, 0, 0]} billboard />
+  </DashboardProvider>;
+}
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.
