@@ -40,6 +40,7 @@ The canvas fills the viewport below the site header. The floating HUD scrolls in
 - **Main-pass draws:** the latest `getDiagnostics().drawCalls`. The current installed Three.js resets render statistics after its shadow pass, so this counter excludes preceding shadow work. Do not compare it as total frame draw calls when changing shadows.
 - **Mounted scene nodes:** renderer entries, including the ground; not mesh count.
 - **Geometry/texture resources:** renderer counters, not byte-accurate memory or VRAM usage.
+- **Work counters:** `getDiagnostics().work` since mount; the readout shows node syncs (store changes that walked the node list), scene raycasts and label layouts, and the exported JSON holds every counter (`RendererWork`). Hover, selection and zoom leave node syncs unchanged, pointer moves add at most one raycast per frame, and a still camera over a static scene adds no label layouts.
 - **Environment:** user agent, device DPR, CSS canvas size, actual drawing-buffer dimensions and reduced-motion preference, captured in the exported JSON. The renderer currently caps device DPR at 2. GPU model, camera pose and build mode are not inferred; record the build/hardware manually and reset the view for comparable runs.
 
 This fixture exercises per-object resources, picking, label layout and continuous rendering. Its instancing switch compares one implemented optimization from the rendering analysis against the same build without it. Performance work should compare identical fixture versions rather than claiming a gain by reducing the workload.

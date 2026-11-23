@@ -41,6 +41,25 @@ export function buildSceneObject(node: SceneNode, contained: boolean, build: (no
   }
 }
 
+/**
+ * Detaches the objects of other scene nodes from the subtree of `object` and returns them: its child and attached nodes,
+ * which own their resources, so that `object` can be disposed without them. A node object is recognized by a
+ * `userData.nodeId` other than that of `object`; the walk does not enter it, so it visits only the objects `object` owns
+ * and is linear in the size of its own model.
+ */
+export function detachChildNodes(object: THREE.Object3D): THREE.Object3D[] {
+  const owner = object.userData.nodeId, found: THREE.Object3D[] = [];
+  const visit = (current: THREE.Object3D) => {
+    for (const child of current.children) {
+      const id = child.userData.nodeId;
+      if (id !== undefined && id !== owner) found.push(child); else visit(child);
+    }
+  };
+  visit(object);
+  for (const child of found) child.removeFromParent();
+  return found;
+}
+
 /** The error reported for an attachment to an anchor that the owner's model does not have. */
 export function attachmentAnchorError(nodeId: string, ownerId: string, anchor: string): Error {
   return new Error(`Scene node "${nodeId}" is attached to anchor "${anchor}" of "${ownerId}", but that model has no`

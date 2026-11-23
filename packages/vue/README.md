@@ -111,7 +111,7 @@ export const TourButtons = defineComponent({
 });
 ```
 
-`SceneCanvas` emits a validated `pointer` event (`@pointer`, or `onPointer` in a render function) and takes `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider; `options` may be a ref or getter, and it does nothing during server rendering:
+`SceneCanvas` emits a validated `pointer` event (`@pointer`, or `onPointer` in a render function; without a listener at mount the renderer does no pointer reporting work, and the first listener bound later remounts it once) and takes `plugins` (mount-time: keep the array stable). `useSceneFrame(listener, options?)` subscribes to the renderer's frame loop under the provider; `options` may be a ref or getter, and it does nothing during server rendering:
 
 ```ts
 import { defineComponent, h, ref } from 'vue';
