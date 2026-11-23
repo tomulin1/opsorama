@@ -16,7 +16,6 @@ import { attachmentAnchorError, buildSceneObject, detachChildNodes, nodeParent }
 import { createNodeSignatureCache } from './node-signature';
 import { createLabelGrid, labelPriority, placeLabel } from './labels';
 import { createCameraWatch, createPointerQueue, isRestingHover, pointerFrameWork, type QueuedPointer } from './pointer-frame';
-import { frameWork, watchOnScreen } from './visibility';
 import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
@@ -122,8 +121,6 @@ export interface RendererWork {
   labelMeasures: number;
   /** Frames that placed labels (collision avoidance and DOM writes). A frame in which no label, node pose, camera or viewport changed skips it. */
   labelLayouts: number;
-  /** Frames that advanced motion, controllers and frame listeners without drawing because the canvas was off-screen. */
-  offscreenFrames: number;
 }
 /** A playing camera path, returned by `renderer.playCameraPath`. */
 export interface CameraPathPlayback {
@@ -189,13 +186,11 @@ export interface SceneRenderer {
    * 0 while paused. With `step` (1/240–1/10 s) it runs on a fixed simulation step before node motion: zero or more times per
    * frame so that its scene time follows real time × speed, at most `maxSteps` (default 4) times per frame with the excess
    * dropped and reported in `SceneFrame.dropped`, never while paused or the document is hidden, and on with motion off.
-   * Listeners start with the first drawn frame. While the canvas is off-screen (scrolled out of view, or in a panel hidden
-   * with `display: none`) frames are not drawn, but listeners of both kinds keep running with node motion and controllers,
-   * so simulations stay on time. A throwing listener is reported to `onError` and the loop continues.
+   * Listeners start with the first drawn frame. A throwing listener is reported to `onError` and the loop continues.
    * Throws an actionable error for an invalid listener or options. See `SceneFrame`.
    */
   onFrame(listener: (frame: SceneFrame) => void, options?: FrameListenerOptions): () => void;
-  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. */ textures: number; /** Completed scene render calls since mount; excludes hidden-document callbacks and frames skipped while the canvas is off-screen. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
+  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. */ textures: number; /** Completed scene render calls since mount: every frame while the document is visible; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -227,6 +222,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // The orthographic near plane lies behind the camera, which stands only 40 m from its target: at low zoom a long scene reaches past it on the camera side.
   // Both cameras exist from the start; `CameraSettings.projection` picks the one drawn, and switching keeps target and angles.
   const scene = new THREE.Scene(), orthographic = new THREE.OrthographicCamera(-20, 20, 12, -12, -150, 150), perspective = new THREE.PerspectiveCamera(30, 1, .1, 1000);
+  // Memo of groundMeasures(). Declared before any camera update can run (the first resize already measures the ground).
+  let measuredNodes: readonly SceneNode[] | null = null, measuredGround = { extent: 1, radius: 20 };
   let cameraSettings = store.getSnapshot().settings.camera, camera: THREE.OrthographicCamera | THREE.PerspectiveCamera = cameraSettings.projection === 'perspective' ? perspective : orthographic;
   /** A `bounds` overview: target and extent fitted to the built content when the overview was applied. Null for the live `ground` overview. */
   type OverviewFit = { target: THREE.Vector3; extent: number };
@@ -290,7 +287,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
   let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
-  const work: Omit<RendererWork, 'nodeSignatures'> = { syncs: 0, nodeSyncs: 0, nodeUpdates: 0, nodeBuilds: 0, sceneRaycasts: 0, labelMeasures: 0, labelLayouts: 0, offscreenFrames: 0 };
+  const work: Omit<RendererWork, 'nodeSignatures'> = { syncs: 0, nodeSyncs: 0, nodeUpdates: 0, nodeBuilds: 0, sceneRaycasts: 0, labelMeasures: 0, labelLayouts: 0 };
   /**
    * Node work is skipped when nothing it depends on changed: the node list (store nodes are immutable, and `upsert` keeps
    * the objects of unchanged nodes) and `presentation`, the settings per-node state depends on. Signatures are cached per
@@ -577,7 +574,6 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   /** Scale at zoom 1 when no node is fitted: the `bounds` overview, or the live ground extent. */
   function overviewExtent() { return overviewFit?.extent ?? groundMeasures().extent; }
   /** Ground extent and radius of the current node list, measured once per list instead of every frame. */
-  let measuredNodes: readonly SceneNode[] | null = null, measuredGround = { extent: 1, radius: 20 };
   function groundMeasures() {
     const nodes = store.getSnapshot().nodes;
     if (nodes !== measuredNodes) { measuredNodes = nodes; measuredGround = { extent: groundExtent(nodes), radius: groundRadius(nodes) }; }
@@ -913,14 +909,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (loading) rejectLoaded(error);
   };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
-  let renderedFrames = 0;
   /**
-   * While the canvas is off-screen (scrolled away, or in a panel hidden with `display: none`) frames advance node motion,
-   * controllers, the camera and frame listeners but skip local part animation, label layout and drawing; the first frame
-   * after it returns shows the current state.
+   * Frames drawn since mount. Every frame is drawn while the document is visible, also while the canvas is scrolled out
+   * of view, so its pixels can be read at any time (exports, screenshots); a hidden document pauses the loop.
    */
-  let onScreen = true;
-  const stopOnScreen = watchOnScreen(renderer.domElement, value => { onScreen = value; if (value) labelsDirty = true; });
+  let renderedFrames = 0;
   /** Label widths depend on fonts and the viewport: measure every label again before the next layout. */
   function invalidateLabelWidths() { for (const entry of entries.values()) entry.labelWidth = null; labelsDirty = true; }
   const fonts = typeof document !== 'undefined' ? document.fonts as FontFaceSet | undefined : undefined;
@@ -974,8 +967,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       }
       raf = requestAnimationFrame(animate); return;
     }
-    const { simulate, draw } = frameWork({ hidden: document.hidden, loaded: loadState.phase === 'loaded', onScreen });
-    if (simulate) {
+    if (!document.hidden) {
       const animated = settings.motion && !reducedMotion.matches;
       // Pointer input first, against the frame the user saw; then fixed simulation steps, before node motion.
       processPointer();
@@ -1000,27 +992,25 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (!settings.paused && animated) {
         const animationDelta = dt * settings.speed; animationTime += animationDelta;
         // Local part animation only changes what is drawn; nodes without an animator get no frame object.
-        if (draw) for (const entry of entries.values()) if ((entry.node.kind !== 'asset' || entry.node.localMotion !== false) && hasAssetAnimator(entry.object)) animateAsset(entry.object, { time: animationTime, delta: animationDelta, ...(entry.follower.route || entry.controller.active ? { locomotion: { moving: entry.moving } } : {}) });
+        for (const entry of entries.values()) if ((entry.node.kind !== 'asset' || entry.node.localMotion !== false) && hasAssetAnimator(entry.object)) animateAsset(entry.object, { time: animationTime, delta: animationDelta, ...(entry.follower.route || entry.controller.active ? { locomotion: { moving: entry.moving } } : {}) });
       }
-      if (draw) for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
+      for (const entry of entries.values()) if (entry.corners) advanceCornerMarker(entry.corners, animated && !settings.paused ? dt : Infinity);
       // The camera moves after the nodes, so a followed node is met at this frame's pose.
       advanceCamera(dt, time);
       // Per-frame listeners see this frame's node poses and camera; what they change is drawn in this frame.
       clock.frame(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
       // Node poses and the camera changed: earlier raycast hits are stale.
       rayEpoch++;
-      if (draw) {
-        // Everything that moves nodes has run: brackets of a marked group follow its contents, then world matrices are
-        // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
-        if (settings.selectionStyle === 'corners') refitMarkedGroups();
-        scene.updateMatrixWorld(); if (areas.length) updatePlacements();
-        layoutLabels();
-        instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
-        if (loadState.phase !== 'loaded') {
-          renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
-          reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
-        }
-      } else work.offscreenFrames++;
+      // Everything that moves nodes has run: brackets of a marked group follow its contents, then world matrices are
+      // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
+      if (settings.selectionStyle === 'corners') refitMarkedGroups();
+      scene.updateMatrixWorld(); if (areas.length) updatePlacements();
+      layoutLabels();
+      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
+      if (loadState.phase !== 'loaded') {
+        renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
+        reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
+      }
     } raf = requestAnimationFrame(animate);
   }
   raf = requestAnimationFrame(animate);
@@ -1108,7 +1098,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true;
       entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf);
       // Unsubscribed before the peek view is closed below, so that store change runs no sync.
-      observer.disconnect(); stopPixelRatio(); stopOnScreen(); fonts?.removeEventListener?.('loadingdone', invalidateLabelWidths); unsubscribe(); pan?.dispose(); wheelZoom?.dispose();
+      observer.disconnect(); stopPixelRatio(); fonts?.removeEventListener?.('loadingdone', invalidateLabelWidths); unsubscribe(); pan?.dispose(); wheelZoom?.dispose();
       container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); }

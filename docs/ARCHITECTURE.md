@@ -216,7 +216,7 @@ Asset factories can return custom `THREE.Object3D` instances. The public rendere
 
 ## Performance, embedding, and lifecycle
 
-- One renderer and frame loop per scene; pause unnecessary work while its tab or panel is hidden. A hidden document pauses the frame loop; an off-screen canvas (scrolled away, or in a panel hidden with `display: none`, detected with an `IntersectionObserver`) keeps advancing node motion, controllers, the camera and frame listeners, so simulations stay on time, but skips local part animation, label layout and drawing.
+- One renderer and frame loop per scene; pause unnecessary work while its tab or panel is hidden. A hidden document pauses the frame loop. While the page is visible the renderer draws every frame, also while its canvas is scrolled out of view, so the canvas can be read at any time (exports with `toDataURL` or `drawImage`, screenshots); a host that wants to save work while a scene is off-screen can unmount it, or set `SceneSettings.paused` to stop its motion.
 - Do per-change work in proportion to the change: node signatures are cached per immutable node object (dropped on a theme or palette change), selection, hover, zoom and camera changes skip the node loop, pointer moves share one raycast per frame, and labels are measured once and laid out only when something moved. `getDiagnostics().work` (`RendererWork`) counts this work for tests and the performance playground.
 - DOM mounts, resize observers, listeners, subscriptions, and GPU resources have explicit owners and cleanup.
 - Share or instance repeated objects; removing one object must not dispose a shared material.
