@@ -51,19 +51,23 @@ test('SVG validation rejects active or external content before decoding and reco
 test('labels render and release bounded textures through native React, Vue and JavaScript props', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/docs/components/asset'); const preview = page.getByRole('region', { name: 'Surface label preview' });
+  // Counted against the loaded scene without a label: three.js keeps shared lookup textures for lit materials on the GPU.
+  const diagnostics = preview.getByTestId('label-diagnostics'), textures = async () => Number(/(\d+) textures/.exec(await diagnostics.innerText())![1]);
   for (const adapter of ['React', 'Vue', 'JavaScript']) {
     await preview.getByRole('button', { name: adapter, exact: true }).click(); await expect(preview.locator('canvas')).toHaveCount(1);
-    await preview.getByLabel('Surface label type').selectOption('none'); await expect(preview.getByTestId('label-diagnostics')).toContainText('0 textures');
+    await preview.getByLabel('Surface label type').selectOption('none'); await expect(diagnostics).toContainText('1 node');
+    await expect.poll(async () => { const before = await textures(); await page.waitForTimeout(400); return before === await textures(); }).toBe(true);
+    const baseline = await textures(); expect(baseline).toBeLessThanOrEqual(1);
     await preview.getByLabel('Surface label type').selectOption('text'); await preview.getByLabel('Surface label text', { exact: true }).fill('North');
-    await expect(preview.getByTestId('label-diagnostics')).toContainText('1 textures');
+    await expect.poll(textures).toBe(baseline + 1);
     const textImage = await preview.locator('canvas').screenshot();
     await preview.getByLabel('Surface label type').selectOption('svg'); await preview.getByLabel('Surface label SVG', { exact: true }).fill(logo);
     await expect.poll(async () => (await preview.locator('canvas').screenshot()).equals(textImage)).toBe(false);
-    for (const value of ['#cc3344', '#44bb99', '#fffaf2']) { await preview.getByLabel('Surface label background').fill(value); await expect(preview.getByTestId('label-diagnostics')).toContainText('1 textures'); }
+    for (const value of ['#cc3344', '#44bb99', '#fffaf2']) { await preview.getByLabel('Surface label background').fill(value); await expect.poll(textures).toBe(baseline + 1); }
     await expect(preview.getByRole('button', { name: 'Select North branch', exact: true })).toBeVisible();
     await preview.getByRole('button', { name: 'Unmount label preview', exact: true }).click(); await expect(preview.locator('canvas')).toHaveCount(0); await expect(preview.locator('.kit-node-label')).toHaveCount(0);
-    await preview.getByRole('button', { name: 'Mount label preview', exact: true }).click(); await expect(preview.locator('canvas')).toHaveCount(1); await expect(preview.getByTestId('label-diagnostics')).toContainText('1 textures');
-    await preview.getByLabel('Surface label type').selectOption('none'); await expect(preview.getByTestId('label-diagnostics')).toContainText('0 textures');
+    await preview.getByRole('button', { name: 'Mount label preview', exact: true }).click(); await expect(preview.locator('canvas')).toHaveCount(1); await expect(diagnostics).toContainText('1 node'); await expect.poll(textures).toBe(baseline + 1);
+    await preview.getByLabel('Surface label type').selectOption('none'); await expect.poll(textures).toBe(baseline);
   }
   expect(errors).toEqual([]);
 });
