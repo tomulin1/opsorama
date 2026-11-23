@@ -1,7 +1,7 @@
 {
   "name": "@opsorama/cli",
   "version": "0.0.1",
-  "description": "Opsorama command line: check scene files against the scene rules and the asset catalog without a browser, and render a scene to a PNG image in headless Chromium, so people and AI agents can verify both structure and appearance.",
+  "description": "Opsorama command line: check scene files without a browser, render scenes to PNG in headless Chromium, search the object catalog, read the documentation and install the agent skill, so people and AI coding agents can build and verify scenes from a terminal.",
   "license": "MIT",
   "private": true,
   "type": "module",

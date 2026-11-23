@@ -8,7 +8,7 @@
  *    peer dependencies from this workspace, and type-checks one import of every export subpath with TypeScript, once with
  *    `moduleResolution: bundler` and once with `node16` (an ESM project), with library checking on; errors inside third-party declarations are counted but ignored.
  * 4. Imports every JavaScript entry point in Node from the packed files, and parses every JSON export (the scene schema).
- * 5. Runs the packed `opsorama check` command on a valid scene and on one with a catalog typo.
+ * 5. Runs the packed `opsorama` command: check on a valid scene and on one with a catalog typo, catalog show, docs and skill --print.
  * Exit 1 when any check fails. Usage: pnpm check:packages
  */
 import { execFileSync } from 'node:child_process';
@@ -83,14 +83,16 @@ const loader = imports.map(specifier => `await import(${JSON.stringify(specifier
 const runtime = run(process.execPath, ["--input-type=module", "-e", loader], consumer, { shell: false });
 console.log(`runtime imports (node, ${imports.length} entry points): ${runtime.ok ? 'ok' : 'FAILED'}`);
 if (!runtime.ok) { console.log(runtime.output.trim().split('\n').slice(0, 20).join('\n')); failed = true; }
-// The opsorama command from the packed files: a valid scene passes, and a catalog typo fails with a suggestion. Rendering
-// needs a browser and is covered by the e2e suite.
+// The opsorama command from the packed files: a valid scene passes, a catalog typo fails with a suggestion, and catalog show,
+// docs and skill read the packed catalog, documentation and skill. Rendering needs a browser and is covered by the e2e suite.
 const command = path.join(modules, '@opsorama/cli/bin/opsorama.js');
 fs.writeFileSync(path.join(consumer, 'good.json'), JSON.stringify({ schemaVersion: 1, nodes: [{ id: 'lift', kind: 'asset', asset: 'forklift' }] }));
 fs.writeFileSync(path.join(consumer, 'bad.json'), JSON.stringify({ schemaVersion: 1, nodes: [{ id: 'lift', kind: 'asset', asset: 'forklif' }] }));
 const good = run(process.execPath, [command, 'check', 'good.json'], consumer, { shell: false }), bad = run(process.execPath, [command, 'check', 'bad.json'], consumer, { shell: false });
-const commandOk = good.ok && !bad.ok && bad.output.includes('Did you mean forklift?');
-console.log(`opsorama check (packed command): ${commandOk ? 'ok' : 'FAILED'}`);
-if (!commandOk) { console.log(`${good.output}\n${bad.output}`.trim().split('\n').slice(0, 20).join('\n')); failed = true; }
+const show = run(process.execPath, [command, 'catalog', 'show', 'forklift'], consumer, { shell: false }), docs = run(process.execPath, [command, 'docs', 'camera'], consumer, { shell: false });
+const skill = run(process.execPath, [command, 'skill', '--print'], consumer, { shell: false });
+const commandOk = good.ok && !bad.ok && bad.output.includes('Did you mean forklift?') && show.ok && show.output.includes("import { vehiclesKit } from '@opsorama/objects/vehicles'") && docs.ok && docs.output.startsWith('## Camera') && skill.ok && skill.output.startsWith('---\nname: opsorama');
+console.log(`opsorama check, catalog show, docs and skill (packed command): ${commandOk ? 'ok' : 'FAILED'}`);
+if (!commandOk) { console.log([good.output, bad.output, show.output.slice(0, 400), docs.output.slice(0, 200), skill.output.slice(0, 200)].join('\n').trim().split('\n').slice(0, 30).join('\n')); failed = true; }
 fs.rmSync(temp, { recursive: true, force: true });
 process.exit(failed ? 1 : 0);

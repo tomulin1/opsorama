@@ -31,7 +31,7 @@ export { FORK_LIMITS, MAX_FORK_MOVE_SECONDS, validateForkMotion, forkMoveSeconds
 export type { ForkPose, ForkMove, ForkMotion } from './forks';
 export { PERSON_ASSETS, isPersonAsset, PERSON_FIGURES, validatePersonOptions, PERSON_HAIR_COLORS, personHairColor } from './people';
 export type { PersonAsset, PersonFigure, PersonOptions, PersonHairColor } from './people';
-export { catalogAssets, CATALOG_KITS, type CatalogKit } from './catalog';
+export { catalogAssets, catalogKitAssets, CATALOG_KITS, type CatalogKit } from './catalog';
 export { BUILDING_TYPES, BUILDING_TYPE_LABELS, BUILDING_SIZE, BUILDING_PALETTES, validateBuilding, validateBuildingNode, isBuilding } from './building';
 export type { BuildingType, BuildingOptions, BuildingPalette, BuildingNode } from './building';
 export type { WorkerVariant } from './worker';

@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeAgentData } from './lib/agent-data.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Build order follows the dependency graph. */
@@ -45,6 +46,8 @@ for (const name of PACKAGES.filter(name => selected.includes(name))) {
   for (const file of sources.filter(file => file.endsWith('.css'))) fs.copyFileSync(path.join(dir, file), path.join(dir, 'dist', path.basename(file)));
   // The scene JSON Schema ships in schema/ (not dist/), generated from the core types; see scripts/build-scene-schema.mjs.
   if (name === 'core') execFileSync(process.execPath, [path.join(root, 'scripts/build-scene-schema.mjs')], { stdio: 'inherit' });
+  // The command line ships the documentation pages and the agent skill for opsorama docs and opsorama skill.
+  if (name === 'cli') await writeAgentData(path.join(dir, 'dist/agent'));
   if (name === 'objects') execFileSync(process.execPath, [path.join(root, 'scripts/build-catalog-json.mjs')], { stdio: 'inherit' });
   console.log(`built @opsorama/${name}: ${Object.keys(entry).length} entries`);
 }
