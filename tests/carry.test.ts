@@ -106,6 +106,42 @@ describe('carrying items', () => {
     expect(runner.getItems().size).toBe(0);
   });
 
+  it('reassigns an agent in the middle of a task: queue places and slots are released, carried items stay with the agent', () => {
+    const agents = ['a', 'b', 'c'].map(id => picker([pickStep, packStep], { id }));
+    const runner = createBehaviorRunner({ graph, slots, agents, items: [{ id: 'p1', at: onShelf(-.5) }, { id: 'p2', at: onShelf(.5) }] });
+    const events: BehaviorEvent[] = []; runner.subscribeEvents(event => events.push(event));
+    const until = (done: () => boolean) => { for (let i = 0; i < 2000 && !done(); i++) runner.advance(.05); expect(done()).toBe(true); };
+    // a walks to the shelf with the slot reserved; b and c queue behind it.
+    expect(runner.getReservations().get('shelf:pick-0')).toBe('a');
+    expect([runner.getAgent('b')?.queuePlace, runner.getAgent('c')?.queuePlace]).toEqual([1, 2]);
+    // A queued agent leaves its queue, and the agent behind it moves up.
+    runner.assign('b', [{ kind: 'wait', seconds: 1 }]);
+    expect(runner.getAgent('b')?.queuePlace).toBeUndefined();
+    expect(runner.getAgent('c')?.queuePlace).toBe(1);
+    // An agent on its way to a reserved slot gives the slot to the queue; it never interacted, so no interaction ends.
+    runner.assign('a', [{ kind: 'wait', seconds: 1 }]);
+    expect(runner.getReservations().get('shelf:pick-0')).toBe('c');
+    expect(events.filter(event => event.type === 'interaction-ended')).toEqual([]);
+    // c picks p1 up and heads for the desk; reassigned on the way, it keeps holding p1.
+    until(() => runner.getAgent('c')?.carrying?.[0] === 'p1');
+    runner.assign('c', [{ kind: 'move', to: 'aisle' }]);
+    runner.advance(10);
+    expect(runner.getAgent('c')).toMatchObject({ phase: 'idle', at: 'aisle', carrying: ['p1'] });
+    expect(runner.getItems().get('p1')).toMatchObject({ holder: 'c', anchor: 'carry' });
+    expect(runner.getReservations().size).toBe(0);
+    // Reassigned while putting it down, the put-down does not happen: the desk is free and c still holds p1.
+    runner.assign('c', [packStep]);
+    until(() => runner.getAgent('c')?.phase === 'interacting');
+    runner.assign('c', [{ kind: 'wait', seconds: 1 }]);
+    expect(events.filter(event => event.type === 'interaction-ended')).toMatchObject([{ agent: 'c', slot: 'shelf:pick-0' }, { agent: 'c', slot: 'desk:work', interrupted: true }]);
+    expect(runner.getReservations().has('desk:work')).toBe(false);
+    expect(runner.getItems().get('p1')).toMatchObject({ holder: 'c' });
+    // New steps take the carried item where it belongs.
+    runner.assign('c', [packStep]); runner.advance(30);
+    expect(runner.getAgent('c')?.carrying).toBeUndefined();
+    expect(runner.getItems().get('p1')).toMatchObject({ node: 'desk', anchor: 'output' });
+  });
+
   it('runs host item rules at the event time, independent of tick size', () => {
     const run = (ticks: readonly number[]) => {
       let next = 2;
