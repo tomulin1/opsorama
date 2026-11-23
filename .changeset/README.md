@@ -1,6 +1,6 @@
 # Changesets
 
-Every pull request that changes a published package (`@opsorama/core`, `three`, `objects`, `ui`, `react`, `vue`) adds a changeset:
+Every pull request that changes a published package (`@opsorama/core`, `three`, `objects`, `ui`, `react`, `vue`, `cli`) adds a changeset:
 
 ```sh
 pnpm changeset

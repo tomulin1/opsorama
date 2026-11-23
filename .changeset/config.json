@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@opsorama/core", "@opsorama/three", "@opsorama/objects", "@opsorama/ui", "@opsorama/react", "@opsorama/vue"]],
+  "fixed": [["@opsorama/core", "@opsorama/three", "@opsorama/objects", "@opsorama/ui", "@opsorama/react", "@opsorama/vue", "@opsorama/cli"]],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
