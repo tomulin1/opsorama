@@ -11,7 +11,7 @@ const command = path.resolve(process.cwd(), '../../scripts/opsorama.mjs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opsorama-cli-render-'));
 test.afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-interface RenderOutput { ok: boolean; out: string | null; problems: unknown[]; errors: string[]; diagnostics: { objects: number; loaded: boolean; drawCalls: number } | null }
+interface RenderOutput { ok: boolean; out: string | null; problems: unknown[]; errors: string[]; diagnostics: { objects: number; loaded: boolean; drawCalls: number; instanceBatches: number } | null }
 const opsorama = (...args: string[]) => new Promise<{ code: number; output: RenderOutput }>((resolve, reject) => {
   execFile(process.execPath, [command, ...args], { encoding: 'utf8', timeout: 120_000 }, (error, stdout, stderr) => {
     const code = error ? (typeof error.code === 'number' ? error.code : -1) : 0;
@@ -68,4 +68,20 @@ test('does not render a scene with errors', async () => {
   const { code, output } = await opsorama('render', bad, '--json');
   expect(code).toBe(1); expect(output).toMatchObject({ ok: false, out: null, errors: [], diagnostics: null, problems: [{ rule: 'asset-validator' }] });
   expect(fs.existsSync(path.join(dir, 'bad.png'))).toBe(false);
+});
+
+test('renders glTF models from an asset module once their file has loaded', async () => {
+  fs.copyFileSync(path.resolve(process.cwd(), 'public/models/drone.glb'), path.join(dir, 'drone.glb'));
+  const assets = path.join(dir, 'gltf-assets.ts');
+  fs.writeFileSync(assets, `import { gltfAsset } from '@opsorama/three/gltf';\nexport default { drone: gltfAsset('drone.glb', { height: 0.7 }) };\n`);
+  const drones = Array.from({ length: 4 }, (_, index) => ({ id: `drone-${index}`, kind: 'asset', asset: 'drone', position: [index - 1.5, 0, 0] }));
+  const scene = write('gltf.json', { schemaVersion: 1, nodes: [nodes[0], ...drones] });
+  const { code, output } = await opsorama('render', scene, '--assets', assets, '--width', '480', '--height', '300', '--json');
+  expect(output).toMatchObject({ ok: true, errors: [], diagnostics: { objects: 5, loaded: true } }); expect(code).toBe(0);
+  // Four drones share the file's parts: their repeated meshes are drawn as instanced batches.
+  expect(output.diagnostics!.instanceBatches).toBeGreaterThan(0);
+  const missing = write('gltf-missing.json', { schemaVersion: 1, nodes: [{ id: 'ghost', kind: 'asset', asset: 'ghost' }] });
+  fs.writeFileSync(path.join(dir, 'missing-assets.ts'), `import { gltfAsset } from '@opsorama/three/gltf';\nexport default { ghost: gltfAsset('nowhere.glb') };\n`);
+  const failed = await opsorama('render', missing, '--assets', path.join(dir, 'missing-assets.ts'), '--width', '320', '--height', '200', '--json');
+  expect(failed.code).toBe(1); expect(failed.output.errors.join('\n')).toContain('Could not load the glTF model nowhere.glb');
 });
