@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { isMotionNode, nodeView, type SceneNode, type SceneStore } from '@opsorama/core';
-import { disposeObject, type AssetRegistry } from './assets';
+import { disposeObject, setAssetRebuildHandler, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { buildNodeObject, createNodeTextures } from './nodes';
 import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
@@ -155,6 +155,8 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
       if (node.kind === 'asset' && !Object.hasOwn(options.assets, node.asset)) throw new Error(`Unknown asset: ${node.asset}. Pass the scene renderer's asset registry to the preview, for example catalogAssets from @opsorama/objects.`);
       const object = buildNodeObject(node, { assets: options.assets, theme, palette, textures, onError: report, onTextureLoad: request });
       built.push({ node, object });
+      // A model that loads asynchronously (glTF) asks for the copy to be built again once it has arrived.
+      setAssetRebuildHandler(object, () => { if (!disposed && built.some(item => item.object === object)) { signature = ''; queueMicrotask(() => { if (!disposed) sync(); }); } });
       object.position.set(...(node.position ?? [0, 0, 0])); if (node.rotation) object.rotation.set(...node.rotation); if (node.scale) object.scale.set(...node.scale);
       const ownerId = node.attachment?.nodeId ?? node.parentId, owner = ownerId === undefined ? undefined : objects.get(ownerId);
       const parent = !owner ? holder : node.attachment?.anchor ? owner.getObjectByName(`anchor-${node.attachment.anchor}`) : owner;

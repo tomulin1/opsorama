@@ -62,13 +62,13 @@ const LABEL_STYLE = [
   '.kit-node-selected{background:#4c70a6;color:#fff;border-color:#4c70a6}',
   '.kit-node-selected.kit-node-warning{background:#705018;color:#fff;border-color:#705018}',
 ].join('');
-const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.avif': 'image/avif' };
+const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.avif': 'image/avif', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.ktx2': 'image/ktx2' };
 
 /** The browser page script: the renderer, the catalog and the host's factories in one bundle with one copy of three.js. */
 async function pageScript(assetsModule?: string): Promise<string> {
   const contents = [
     `import { createSceneStore } from '@opsorama/core';`,
-    `import { createAssetRegistry, createSceneRenderer } from '@opsorama/three';`,
+    `import { assetLoadsSettled, createAssetRegistry, createSceneRenderer } from '@opsorama/three';`,
     `import { catalogAssets } from '@opsorama/objects';`,
     assetsModule ? `import * as custom from ${JSON.stringify(path.resolve(assetsModule))};` : 'const custom = undefined;',
     `const assets = custom ? createAssetRegistry(catalogAssets, custom.default ?? custom.assets) : catalogAssets;`,
@@ -78,6 +78,8 @@ async function pageScript(assetsModule?: string): Promise<string> {
     `  const store = createSceneStore(scene, settings);`,
     `  const renderer = createSceneRenderer(container, store, { assets, onError: error => errors.push(error.message) });`,
     `  try { await renderer.loaded; } catch (error) { errors.push(error.message); }`,
+    // Models that load asynchronously (glTF) are built again when they arrive; their frames follow.
+    `  await assetLoadsSettled();`,
     `  await frames(3);`,
     `  const { objects, loaded, drawCalls, geometries, textures, instanceBatches, instances } = renderer.getDiagnostics();`,
     `  return { errors, diagnostics: { objects, loaded, drawCalls, geometries, textures, instanceBatches, instances } };`,
@@ -126,7 +128,7 @@ export async function renderScene(options: RenderOptions): Promise<RenderResult>
       const { pathname } = new URL(route.request().url());
       if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
       if (pathname === '/opsorama-render.js') return route.fulfill({ contentType: 'text/javascript', body: script });
-      // Relative image sources resolve against the scene's directory; nothing outside it is served.
+      // Relative image and model URLs resolve against the scene's directory; nothing outside it is served.
       const file = path.resolve(root, `.${decodeURIComponent(pathname)}`);
       if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return route.fulfill({ status: 404, body: 'Not found' });
       return route.fulfill({ contentType: MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream', body: fs.readFileSync(file) });

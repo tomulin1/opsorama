@@ -88,7 +88,7 @@ export function addObjectRelease(object: THREE.Object3D, release: () => void): v
   if (list) list.push(release); else releases.set(object, [release]);
 }
 
-/** Releases a model: registered release callbacks, its animator, and every geometry, material and instanced buffer under it (a sprite's material, not the geometry all sprites share). Textures are not disposed: a factory that creates its own releases them with `addObjectRelease`. Call it once per built model. */
+/** Releases a model: registered release callbacks, its animator, and every geometry, material and instanced buffer under it (a sprite's material, not the geometry all sprites share). Shared resources (`shareAssetResource`) and textures are not disposed: a factory that creates its own textures releases them with `addObjectRelease`. Call it once per built model. */
 export function disposeObject(object: THREE.Object3D) {
   object.traverse(child => { const list = releases.get(child); if (!list) return; releases.delete(child); for (const release of list) release(); });
   clearAssetAnimator(object);
@@ -96,5 +96,54 @@ export function disposeObject(object: THREE.Object3D) {
   object.traverse(child => { if (child instanceof THREE.InstancedMesh) child.dispose(); if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.LineSegments) { geometries.add(child.geometry); const list = Array.isArray(child.material) ? child.material : [child.material]; list.forEach(m => materials.add(m)); }
     // Every sprite shares one geometry; only its material is its own.
     else if (child instanceof THREE.Sprite) materials.add(child.material); });
-  geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
+  geometries.forEach(g => { if (!shared.has(g)) g.dispose(); }); materials.forEach(m => { if (!shared.has(m)) m.dispose(); });
+}
+
+const shared = new WeakSet<object>();
+/**
+ * Marks a geometry or material that several models use at once, such as the parts of a loaded glTF model that every
+ * instance shares. `disposeObject` and the renderer's static merging leave it alone; the factory that shares it disposes
+ * it when the last model using it is released (see `addObjectRelease`). Meshes with shared parts can still be drawn as
+ * one `InstancedMesh` by the renderer.
+ */
+export function shareAssetResource(resource: THREE.BufferGeometry | THREE.Material): void { shared.add(resource); }
+/** Whether `shareAssetResource` marked `resource`. */
+export function isSharedAssetResource(resource: object): boolean { return shared.has(resource); }
+
+const rebuildHandlers = new WeakMap<THREE.Object3D, () => void>();
+/**
+ * Internal to renderers: called with every model a factory returned, so the factory can ask for its node to be built
+ * again with `requestAssetRebuild`. The handler is dropped with the model.
+ */
+export function setAssetRebuildHandler(object: THREE.Object3D, handler: () => void): void { rebuildHandlers.set(object, handler); }
+/**
+ * Asks the renderer that holds `object` (a model returned by an asset factory) to build its node again, for example
+ * after content the factory loads asynchronously has arrived: the factory returns a placeholder at first, and the rebuild
+ * calls it again when it can return the real model. Returns false when no renderer holds the model any more, for
+ * example after it was disposed or when the factory was called outside a renderer.
+ */
+export function requestAssetRebuild(object: THREE.Object3D): boolean {
+  const handler = rebuildHandlers.get(object);
+  if (!handler) return false;
+  rebuildHandlers.delete(object); handler();
+  return true;
+}
+
+const pendingLoads = new Set<Promise<unknown>>();
+/**
+ * Registers a load an asset factory started, such as a glTF file, so `assetLoadsSettled` can wait for it. The promise
+ * may reject; a rejection is the factory's to report (usually by rebuilding and throwing an actionable error).
+ */
+export function trackAssetLoad(load: Promise<unknown>): void {
+  pendingLoads.add(load);
+  const done = () => { pendingLoads.delete(load); };
+  load.then(done, done);
+}
+/**
+ * Resolves once every load registered with `trackAssetLoad` has settled, including loads that start while it waits. Tools
+ * that capture a scene (screenshots, the `opsorama render` command) await it after `SceneRenderer.loaded`, then wait for
+ * the next frames, so asynchronously loaded models are drawn.
+ */
+export async function assetLoadsSettled(): Promise<void> {
+  while (pendingLoads.size) await Promise.allSettled([...pendingLoads]);
 }
