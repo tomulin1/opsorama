@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 /** Publishable packages in dependency order; each lives in packages/<name> as @opsorama/<name>. */
-export const PACKAGES = ['core', 'three', 'objects', 'ui', 'react', 'vue'];
+export const PACKAGES = ['core', 'three', 'objects', 'ui', 'react', 'vue', 'cli'];
 
 /**
  * Runs a command and returns `{ ok, output }` instead of throwing. Windows needs a shell for .cmd shims (pnpm, publint);

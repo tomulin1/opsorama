@@ -17,6 +17,9 @@ importers:
       '@eslint/eslintrc':
         specifier: ^3.3.1
         version: 3.3.7(supports-color@7.2.0)
+      '@opsorama/cli':
+        specifier: workspace:*
+        version: link:packages/cli
       '@opsorama/core':
         specifier: workspace:*
         version: link:packages/core
@@ -150,6 +153,28 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  packages/cli:
+    dependencies:
+      '@opsorama/core':
+        specifier: workspace:*
+        version: link:../core
+      '@opsorama/objects':
+        specifier: workspace:*
+        version: link:../objects
+      '@opsorama/three':
+        specifier: workspace:*
+        version: link:../three
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      three:
+        specifier: ^0.187.0
+        version: 0.187.0
+    devDependencies:
+      playwright-core:
+        specifier: 1.65.1
+        version: 1.65.1
 
   packages/core: {}
 

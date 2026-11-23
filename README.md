@@ -11,7 +11,7 @@ Opsorama (pronounced "ops-oh-RAH-ma", operations + panorama) is an open-source t
 - **161 procedural models** in 21 kits (vehicles, work items, furniture, datacenter, restaurant, …), with typed options, semantic palettes, static poses and documented anchors. No downloaded models or textures.
 - **One renderer** for every framework, with selection, labels, markers, camera control, motion, instancing and explicit disposal.
 - **Optional HTML panels** for metrics, inspectors and lists that you can replace with your own UI.
-- **Built for AI coding agents**: typed contracts, scene validation that reports every problem with its location and a fix (`validateScene`, plus a JSON Schema in `@opsorama/core/scene-definition.schema.json`), a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama). Headless checks and agent tools are [planned](docs/PROJECT_VISION.md#building-with-ai-agents).
+- **Built for AI coding agents**: typed contracts, scene validation that reports every problem with its location and a fix (`validateScene`, plus a JSON Schema in `@opsorama/core/scene-definition.schema.json`), a machine-readable object catalog (`@opsorama/objects/catalog.json`) and an agent skill in [`skills/opsorama`](skills/opsorama), and the `opsorama` command (`@opsorama/cli`), which checks scene files without a browser and renders a scene to a PNG so an agent can see what it built. Agent tools are [planned](docs/PROJECT_VISION.md#building-with-ai-agents).
 
 Four of the [domain examples on opsorama.dev](https://opsorama.dev/examples), with fictional data:
 
@@ -119,6 +119,7 @@ Complete projects for plain TypeScript, Vite + React, Vite + Vue and Next.js are
 | `@opsorama/react` | Native React adapter: `DashboardProvider`, `SceneCanvas`, hooks and scene components. `@opsorama/react/ui` adds panels. |
 | `@opsorama/vue` | Native Vue adapter with the same contract (no React runtime). `@opsorama/vue/ui` adds panels. |
 | `@opsorama/ui` | Optional framework-neutral panel builders, a DOM mount and scoped CSS. |
+| `@opsorama/cli` | The `opsorama` command: checks scene files against the scene rules and the catalog without a browser, and renders a scene to a PNG image in headless Chromium. |
 
 All packages are ESM-only, ship TypeScript declarations and declare `"sideEffects": false` (the UI stylesheet excepted). `three` is a peer dependency.
 

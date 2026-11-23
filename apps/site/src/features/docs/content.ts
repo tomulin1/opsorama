@@ -17,6 +17,7 @@ import { validationArticle } from './validation-content';
 import { cameraArticle } from './camera-content';
 import { engineHooksArticle } from './engine-hooks-content';
 import { primitivesArticle } from './primitives-content';
+import { cliArticle } from './cli-content';
 /** Live sample rendered at the end of a section. */
 export type DocDemo = 'metric-configurator' | 'metric-matrix' | 'metric-tones' | 'panel-states' | 'hud-composition' | 'panel-adapters';
 export interface DocSection { id: string; title: string; paragraphs?: string[]; code?: string; language?: string; rows?: string[][]; headers?: string[]; list?: string[]; demo?: DocDemo; }
@@ -48,6 +49,7 @@ export const docs: DocArticle[] = [
   cameraArticle,
   engineHooksArticle,
   primitivesArticle,
+  cliArticle,
   motionArticle,
   objectContractArticle,
   handlingArticle,
@@ -77,6 +79,6 @@ export const docsNavigation = [
   { title: 'FOUNDATIONS', items: [{ title: 'Scene model', slug: 'concepts' }, { title: 'Scene validation', slug: 'validation' }, { title: 'Configuration', slug: 'configuration' }, { title: 'Camera', slug: 'camera' }, { title: 'Engine hooks', slug: 'engine-hooks' }, { title: 'Primitives & groups', slug: 'primitives' }, { title: 'Data & commands', slug: 'data' }, { title: 'Measured indicators', slug: 'measurements' }, { title: 'Displays & time', slug: 'displays' }, { title: 'Motion & routes', slug: 'motion' }, { title: 'Building containers', slug: 'buildings' }, { title: 'Object contract', slug: 'object-contract' }, { title: 'Handling compatibility', slug: 'handling' }] },
   { title: 'OBJECT LIBRARY', items: [{ title: 'Browse objects', slug: 'objects' }] },
   { title: 'COMPONENTS', items: [{ title: 'Panels', slug: 'data-panels' }, { title: 'Zoom control', slug: 'zoom-control' }, { title: 'Scene markers', slug: 'scene-markers' }, ...componentReferences.map(c => ({ title: c.name, slug: `components/${c.slug}` }))] },
-  { title: 'API REFERENCE', items: [{ title: 'Core', slug: 'api/core' }, { title: 'Renderer', slug: 'api/renderer' }, { title: 'React', slug: 'api/react' }, { title: 'Vue', slug: 'api/vue' }] },
+  { title: 'API REFERENCE', items: [{ title: 'Core', slug: 'api/core' }, { title: 'Renderer', slug: 'api/renderer' }, { title: 'React', slug: 'api/react' }, { title: 'Vue', slug: 'api/vue' }, { title: 'Command line', slug: 'api/cli' }] },
   { title: 'RECIPES', items: [{ title: 'E-commerce', slug: 'recipes/ecommerce' }, { title: 'Open office', slug: 'recipes/office' }] },
 ];

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Build order follows the dependency graph. */
-const PACKAGES = ['core', 'three', 'objects', 'ui', 'react', 'vue'];
+const PACKAGES = ['core', 'three', 'objects', 'ui', 'react', 'vue', 'cli'];
 const selected = process.argv.slice(2).length ? process.argv.slice(2) : PACKAGES;
 for (const name of selected) if (!PACKAGES.includes(name)) throw new Error(`Unknown package ${name}. Choose from: ${PACKAGES.join(', ')}.`);
 
@@ -23,10 +23,13 @@ for (const name of PACKAGES.filter(name => selected.includes(name))) {
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
   const sources = Object.values(manifest.exports);
   const entry = Object.fromEntries(sources.filter(file => /\.tsx?$/.test(file)).map(file => [file.replace(/^\.\/src\//, '').replace(/\.tsx?$/, ''), path.join(dir, file)]));
+  // The command line package runs in Node, and its `opsorama` command (bin/opsorama.js) imports dist/bin.js.
+  const node = name === 'cli';
+  if (node) entry.bin = path.join(dir, 'src/bin.ts');
   const external = [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})].map(dep => new RegExp(`^${dep.replace('/', '\/')}(?:/|$)`));
   fs.rmSync(path.join(dir, 'dist'), { recursive: true, force: true });
   await build({
-    entry, outDir: path.join(dir, 'dist'), format: ['esm'], target: 'es2022', platform: 'browser', splitting: true, sourcemap: true, clean: false,
+    entry, outDir: path.join(dir, 'dist'), format: ['esm'], target: node ? 'node22' : 'es2022', platform: node ? 'node' : 'browser', splitting: true, sourcemap: true, clean: false,
     outExtension: () => ({ js: '.js' }), dts: { compilerOptions: { composite: false } }, tsconfig: path.join(root, 'tsconfig.build.json'), external, silent: true,
   });
   // tsup names declarations .d.mts and lets one entry's declarations import another's as './x.mjs'. The JavaScript is .js,

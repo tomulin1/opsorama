@@ -66,3 +66,6 @@ tests/.readme-snippets/
 
 # Static export of the website (pnpm build:static)
 apps/site/out/
+
+# Development bundle of the opsorama command (scripts/opsorama.mjs)
+packages/cli/.dev/

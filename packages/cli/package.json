@@ -1,0 +1,57 @@
+{
+  "name": "@opsorama/cli",
+  "version": "0.0.1",
+  "description": "Opsorama command line: check scene files against the scene rules and the asset catalog without a browser, and render a scene to a PNG image in headless Chromium, so people and AI agents can verify both structure and appearance.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "bin": {
+    "opsorama": "./bin/opsorama.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@opsorama/core": "workspace:*",
+    "@opsorama/objects": "workspace:*",
+    "@opsorama/three": "workspace:*",
+    "esbuild": "0.28.2",
+    "three": "^0.187.0"
+  },
+  "peerDependencies": {
+    "playwright-core": ">=1.50.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "playwright-core": "1.65.1"
+  },
+  "author": {
+    "name": "Tomas Jirsa",
+    "email": "contact@opsorama.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomulin1/opsorama.git",
+    "directory": "packages/cli"
+  }
+}

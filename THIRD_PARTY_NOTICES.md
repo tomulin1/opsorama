@@ -4,7 +4,7 @@ Reviewed November 5, 2026 with `pnpm licenses list --prod` and an inspection of 
 
 ## Published packages
 
-The `@opsorama/*` packages contain only original Opsorama code under the [MIT License](LICENSE). Their builds bundle no third-party code: `three`, `react` and `vue` (all MIT) stay external peer dependencies, including the `three/examples/jsm` modules the object catalog imports (`RoundedBoxGeometry`, `BufferGeometryUtils`). Models are procedural; no third-party meshes, textures or fonts are included.
+The `@opsorama/*` packages contain only original Opsorama code under the [MIT License](LICENSE). Their builds bundle no third-party code: `three`, `react` and `vue` (all MIT) stay external peer dependencies, including the `three/examples/jsm` modules the object catalog imports (`RoundedBoxGeometry`, `BufferGeometryUtils`). Models are procedural; no third-party meshes, textures or fonts are included. `@opsorama/cli` also bundles no third-party code: it depends on `esbuild` (MIT) and `three` (MIT), and its optional peer dependency `playwright-core` (Apache-2.0) downloads no browser itself; Chromium is installed separately with `npx playwright install chromium` under its own licenses.
 
 ## Documentation website
 

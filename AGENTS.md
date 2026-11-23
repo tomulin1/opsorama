@@ -73,7 +73,7 @@ This repository contains only public material. `scripts/check-public-boundary.mj
 
 ## Repository layout
 
-- `packages/core`, `packages/three`, `packages/objects`, `packages/ui`, `packages/react`, `packages/vue`: the published `@opsorama/*` packages (not on npm yet). Workspace code imports their `src/` through `exports`; published tarballs use `publishConfig.exports` (`dist/`).
+- `packages/core`, `packages/three`, `packages/objects`, `packages/ui`, `packages/react`, `packages/vue`, `packages/cli`: the published `@opsorama/*` packages (not on npm yet). Workspace code imports their `src/` through `exports`; published tarballs use `publishConfig.exports` (`dist/`).
 - `apps/site`: the private website `@opsorama/site` (Next.js in `apps/site/src/`, website fixtures and adapter samples in `apps/site/examples/`, Playwright specs in `apps/site/e2e/`).
 - `examples/`: standalone starters (`vanilla`, `vite-react`, `vite-vue`, `next`) outside the workspace; they never import repository sources.
 - `tests/`: workspace-wide unit tests. `scripts/`: build, package, bundle and boundary tooling. `skills/`: the agent skill for people building with Opsorama.

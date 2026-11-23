@@ -29,11 +29,13 @@
     "test:e2e:measure": "pnpm --filter @opsorama/site test:e2e:measure",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm build:packages && changeset publish"
+    "release": "pnpm build:packages && changeset publish",
+    "opsorama": "node scripts/opsorama.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "3.0.3",
     "@eslint/eslintrc": "^3.3.1",
+    "@changesets/cli": "3.0.3",
+    "@opsorama/cli": "workspace:*",
     "@opsorama/core": "workspace:*",
     "@opsorama/objects": "workspace:*",
     "@opsorama/react": "workspace:*",
