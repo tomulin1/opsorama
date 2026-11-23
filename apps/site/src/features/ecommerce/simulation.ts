@@ -3,7 +3,7 @@ import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, person
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement } from '@opsorama/objects/handling';
 import {
   CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, stagedFor,
-  type ActivityEvent, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
+  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
   APRON_Y, BELT_END_X, BELT_Y, BELT_Z, CAGE_X, CAGE_Z, CART_AT_INDUCT, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
@@ -60,6 +60,10 @@ function reachPut(level: number) {
   return { before: forkMoves({ height: FORK_TRAVEL }, { height: clear }, { height: clear, reach: FORK_REACH }, { height: under, reach: FORK_REACH }), after: forkMoves({ height: under, reach: FORK_REACH }, { height: under }, { height: FORK_FLOOR }) };
 }
 const FACE_DEPARTMENT = Object.fromEntries(Object.entries(DEPARTMENT_FACES).map(([department, face]) => [face, department])) as Partial<Record<LocationId, DepartmentId>>;
+/** People who carry by hand and can move between these zones. */
+const HAND_ZONES: readonly StaffZone[] = ['packing', 'replenishing', 'restocking'];
+/** Names for a checkout that opens without its own cashier. */
+const CASHIERS = ['Mira', 'Jonas', 'Ada', 'Noor'];
 const SUPPLIERS = ['Baltic Home Supply', 'Toyworks', 'Nordic Outdoor', 'Volt & Co'];
 const CUSTOMERS = ['M. Larsen', 'A. Okafor', 'J. Petrov', 'S. Haddad', 'L. Moreau', 'K. Tanaka', 'R. Silva', 'E. Novak', 'T. Brennan', 'I. Rossi'];
 
@@ -77,7 +81,48 @@ interface Task {
 interface Unit { kind: UnitKind; label: string; sku?: string; orderId?: string; /** Cartons left on a pallet. */ load?: number; /** Waiting unseen for its hand-over. */ hidden?: boolean; /** Riding the conveyor. */ ride?: { points: readonly Vec3[]; start: number }; }
 interface Truck { docked: boolean; color: string; }
 interface Shopper { inside: boolean; items: number; basket: boolean; }
-interface Replenishment { pallet: string; sku: string; ready: boolean; }
+interface Replenishment { pallet: string; sku: string; ready: boolean; /** Cartons people are on their way to take. */ promised: number; }
+
+/**
+ * Where a person works. Machines (forklift, reach truck, robots) keep their roles.
+ * Pickers push a picking cart and only pick, sorters stand behind their put wall,
+ * and the dispatcher pushes roll cages, so each of them has one zone; the people
+ * who carry by hand (packers, the replenisher and the shelf filler) can move
+ * between packing, replenishing and restocking.
+ */
+export type StaffZone = 'picking' | 'sorting' | 'packing' | 'replenishing' | 'restocking' | 'dispatch';
+export interface StaffMember {
+  /** Agent and scene node ID. */
+  id: string;
+  label: string;
+  zone: StaffZone;
+  /** Zones the person can move to now; packing needs a free bench. */
+  zones: readonly StaffZone[];
+  /** The packing bench or put wall the person works at. */
+  station?: PackStationId | PutWallId;
+  /** Doing a task, or owning unfinished work: a person changes zone only when this is false. */
+  busy: boolean;
+}
+/**
+ * The decisions of a shift, asked by the simulation as it runs. Every answer is
+ * read again later, so a director changes its mind by answering differently.
+ */
+export interface EcommerceDirector {
+  /** The zone a person works in next; asked whenever the person is free, and applied before their next task. */
+  zone(person: StaffMember): StaffZone;
+  /** Pickers and packers take orders with a higher priority first; equal priorities keep the order of arrival. */
+  priority(order: Order): number;
+  /** Whether a checkout lane should be open. A closing lane takes no new customers and closes once its queue is served. */
+  checkoutOpen(lane: Checkout): boolean;
+  /** Whether the forklift may unload the truck at an inbound dock now. A docked truck waits until it may. */
+  unload(dock: Dock): boolean;
+}
+/** The automatic director of the dashboard: everyone keeps their zone, orders go first come, first served, lanes stay as they are and trucks unload on arrival. */
+export const automaticDirector: EcommerceDirector = { zone: person => person.zone, priority: () => 0, checkoutOpen: lane => lane.open, unload: () => true };
+export interface EcommerceSimulationOptions {
+  /** Decisions that replace the automatic ones; the rest stay automatic. */
+  director?: Partial<EcommerceDirector>;
+}
 
 export interface EcommerceSimulation {
   /** Simulated seconds since the start. */
@@ -90,6 +135,8 @@ export interface EcommerceSimulation {
   advance(seconds: number): void;
   snapshot(): EcommerceSnapshot;
   nodes(): SceneNode[];
+  /** The people on shift, with their zones. */
+  staff(): StaffMember[];
   dispose(): void;
 }
 
@@ -108,8 +155,13 @@ const pathLength = (points: readonly Vec3[]) => points.slice(1).reduce((sum, poi
  * when its tote reaches the put wall. Count-based fixtures (flow lanes, gondolas,
  * put walls, cages, the counter) absorb a unit on arrival and show it in their
  * count. A real host replaces this file with its WMS and shop events.
+ *
+ * A director makes the shift's decisions: who works where, which orders go
+ * first, which checkouts are open and when trucks unload. The automatic one
+ * runs the dashboard; a game passes its own.
  */
-export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', seed = 7): EcommerceSimulation {
+export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', seed = 7, options: EcommerceSimulationOptions = {}): EcommerceSimulation {
+  const director: EcommerceDirector = { ...automaticDirector, ...options.director };
   const start = SCENARIOS[scenario], random = seeded(seed), pick = <T>(list: readonly T[]) => list[Math.floor(random() * list.length)];
   let records: EcommerceSnapshot = start, recordsRevision = 0, sceneRevision = 0, cached: EcommerceSnapshot | null = null;
   let carry = 0, serial = 1000, nextOrder = Math.max(...start.orders.map(order => Number(order.id.slice(1)))) + 1, nextEvent = 1, nextReference = 7800, minute = minutesOf(start.time);
@@ -121,6 +173,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   const claimed = new Set<string>(), staging: (string | null)[] = STAGING_SPOTS.map(() => null), stagingBooked = new Set<number>(), replenishing = new Map<string, Replenishment>(), belt: { tote: string; place: number; arrived: boolean }[] = [];
   const truckLoads = new Map<DockId, string[]>(), trucks = new Map<DockId, Truck>(), carts: Record<string, number> = {}, shoppers = new Map<string, Shopper>(), transfers: DepartmentId[] = [], forks = new Map<string, ForkMotion>();
   let outboundTrips = 0, bookedCage: string | null = null, lastEntry = -Infinity;
+  /** Docked inbound trucks waiting for the director, lanes closing once served, and the lane each paying customer heads for. */
+  const holding = new Set<DockId>(), closing = new Set<CheckoutId>(), heading = new Map<string, CheckoutId>();
 
   /* ── Records ──────────────────────────────────────────────────────────── */
 
@@ -262,10 +316,18 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const dock = records.docks.find(item => item.id === id)!;
     dockTruck(id, '#4a7fb0', () => {
       truckLoads.set(id, Array.from({ length: dock.pallets?.total ?? PALLETS_PER_TRUCK }, () => skuForInbound()));
-      patchDock(id, { status: 'unloading', late: false, note: 'Forklift is unloading into the staging lane.' });
-      log(`${dock.partner} docked at ${id}; ${dock.reference} unloading started.`);
-      refreshAlerts();
+      if (director.unload(records.docks.find(item => item.id === id)!)) { startUnloading(id); return; }
+      // The truck stands on the dock until the director lets the forklift unload it.
+      holding.add(id);
+      patchDock(id, { late: false, note: 'Docked; waits for the unload.' });
+      log(`${dock.partner} docked at ${id}; ${dock.reference} waits for the unload.`);
     });
+  }
+  function startUnloading(id: DockId) {
+    const dock = records.docks.find(item => item.id === id)!, waited = holding.delete(id);
+    patchDock(id, { status: 'unloading', late: false, note: 'Forklift is unloading into the staging lane.' });
+    log(waited ? `${dock.reference} unloading started at ${id}.` : `${dock.partner} docked at ${id}; ${dock.reference} unloading started.`);
+    refreshAlerts();
   }
   /** Reserve positions no pallet in staging or on a truck will take. */
   const freePositions = () => LOCATIONS.filter(value => value.kind === 'rack').reduce((sum, value) => sum + value.capacity - records.occupancy[value.id], 0) - records.staging - records.docks.reduce((sum, dock) => sum + (dock.pallets ? dock.pallets.total - dock.pallets.done : 0), 0);
@@ -287,7 +349,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     leaveDock(id); later(70, bookInbound);
   }
   function forkliftJob(): Task | undefined {
-    const dock = records.docks.find(item => item.direction === 'inbound' && item.status === 'unloading' && item.pallets && item.pallets.done < item.pallets.total), spot = staging.findIndex((value, i) => !value && !stagingBooked.has(i));
+    const dock = records.docks.find(item => item.direction === 'inbound' && item.status === 'unloading' && item.pallets && item.pallets.done < item.pallets.total && director.unload(item)), spot = staging.findIndex((value, i) => !value && !stagingBooked.has(i));
     if (!dock || spot < 0 || !dock.pallets || !truckLoads.get(dock.id)?.length) return undefined;
     const sku = truckLoads.get(dock.id)!.shift()!, pallet = spawn('pallet', dockMouth(dock.id), '', { sku, load: PALLET_CARTONS });
     units.get(pallet)!.label = palletLabel(pallet, sku); stagingBooked.add(spot);
@@ -336,7 +398,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     return reachTask(`Taking an empty pallet from ${face} to the stack`, take, put, { 0: () => { replenishing.delete(face); refreshAlerts(); }, 2: () => absorb(job.pallet, () => patch({ emptyPallets: Math.min(MAX_EMPTY_PALLETS, records.emptyPallets + 1) }), .1) });
   }
   function replenishJob(sku: string): Task {
-    const { pick: face } = SKUS[sku], pallet = reservePallets(sku)[0], rack = inRack(pallet)!, job: Replenishment = { pallet, sku, ready: false }, place = rackPlace(pallet);
+    const { pick: face } = SKUS[sku], pallet = reservePallets(sku)[0], rack = inRack(pallet)!, job: Replenishment = { pallet, sku, ready: false, promised: 0 }, place = rackPlace(pallet);
     claimed.add(pallet); replenishing.set(face, job); refreshAlerts();
     log(`${sku} is below its minimum; replenishment from ${rack} to ${face} started.`, onHand[sku] ? 'info' : 'critical');
     const take = reachVisit(0, reachTake(place.level), { kind: 'interact', node: `rack:${rack}`, slot: place.slot, seconds: 0, pickUp: [pallet], label: 'Taking the pallet out of the rack' });
@@ -363,15 +425,17 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   /* ── Replenisher: carton by carton from the pallet into the pick face ─── */
 
   function replenisherJob(): Task | undefined {
-    const entry = [...replenishing].find(([, job]) => job.ready && (units.get(job.pallet)?.load ?? 0) > 0);
+    const entry = [...replenishing].find(([, job]) => job.ready && (units.get(job.pallet)?.load ?? 0) > job.promised);
     if (!entry) return undefined;
-    const [face, job] = entry, sku = job.sku, x = replenishSpot(face)[0], carton = spawn('carton', [x - .35, FLOOR_Y + .75, -5.35], `Carton · ${sku}`, { sku, hidden: true });
+    const [face, job] = entry;
+    job.promised++;
+    const sku = job.sku, x = replenishSpot(face)[0], carton = spawn('carton', [x - .35, FLOOR_Y + .75, -5.35], `Carton · ${sku}`, { sku, hidden: true });
     return {
       what: `Filling ${face} with ${sku}`,
       steps: [{ kind: 'interact', node: `replen:${face}`, slot: 'take', seconds: 1.8, pose: 'picking', pickUp: [carton], label: 'Taking a carton off the pallet' }, { kind: 'interact', node: `replen:${face}`, slot: 'fill', seconds: 1.8, pose: 'placing', putDown: 'all', putOn: handed(`replen:${face}:fill`, [x + .35, FLOOR_Y + 1.4, -4.35]), label: 'Filling the lane' }],
       started: { 0: () => show(carton) },
       items: {
-        0: () => { const pallet = units.get(job.pallet); if (pallet?.load) { pallet.load--; sceneRevision++; } },
+        0: () => { job.promised--; const pallet = units.get(job.pallet); if (pallet?.load) { pallet.load--; sceneRevision++; } },
         1: () => absorb(carton, () => { onHand[sku] += UNITS_PER_CARTON; faceUnits[face] += UNITS_PER_CARTON; occupy(face as LocationId, Math.ceil(faceUnits[face] / UNITS_PER_CARTON)); refreshAlerts(); }),
       },
     };
@@ -380,7 +444,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   /* ── Orders: picker → conveyor → robot → put wall → packer → cage ─────── */
 
   function pickerJob(id: string): Task | undefined {
-    const order = [...records.orders.filter(value => value.stage === 'picking'), ...records.orders.filter(value => value.stage === 'released')].find(value => !claimed.has(value.id) && canPick(value));
+    const order = ranked([...records.orders.filter(value => value.stage === 'picking'), ...records.orders.filter(value => value.stage === 'released')]).find(value => !claimed.has(value.id) && canPick(value));
     if (!order) return undefined;
     claimed.add(order.id);
     patchOrder(order.id, { stage: 'picking', issue: undefined });
@@ -436,17 +500,17 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   }
   function freeCage(value: CarrierId): string | undefined { return carrierOf(value).cages.find(cage => handling.placement(`cage:${cage}`) && 'position' in handling.placement(`cage:${cage}`)! && cage !== bookedCage); }
   function packerJob(id: string): Task | undefined {
-    const bench = id.slice(7) as PackStationId, here = records.orders.find(order => order.at === bench && !claimed.has(order.id));
+    const bench = benches.get(id)!, here = ranked(records.orders).find(order => order.at === bench && !claimed.has(order.id));
     if (here) return packJob(id, bench, here);
-    const order = records.orders.find(value => value.at?.startsWith('P') && !claimed.has(value.id));
+    const order = ranked(records.orders).find(value => value.at?.startsWith('P') && !claimed.has(value.id));
     if (!order) return undefined;
-    claimed.add(order.id);
+    claimed.add(order.id); fetching.set(bench, (fetching.get(bench) ?? 0) + 1);
     const wall = order.at as PutWallId, carton = spawn('carton', [PUT_WALL_X[wall], FLOOR_Y + 1.1, -.95], `Goods · ${order.id}`, { orderId: order.id, hidden: true });
     return {
       what: `Fetching ${order.id} from put wall ${wall}`,
       steps: [{ kind: 'interact', node: `putwall:${wall}`, group: 'pick', seconds: 1.8, pose: 'picking', pickUp: [carton], label: 'Taking the order from the wall' }, { kind: 'interact', node: `pack:${bench}`, group: 'work', seconds: 1.6, pose: 'placing', putDown: 'all', putOn: { receptacle: 'surface' }, label: 'Putting it on the bench' }],
       started: { 0: () => show(carton) },
-      items: { 0: () => patchOrder(order.id, { at: undefined, stage: 'packing' }), 1: () => absorb(carton, () => { patchOrder(order.id, { at: bench }); claimed.delete(order.id); }) },
+      items: { 0: () => patchOrder(order.id, { at: undefined, stage: 'packing' }), 1: () => absorb(carton, () => { patchOrder(order.id, { at: bench }); claimed.delete(order.id); fetching.set(bench, fetching.get(bench)! - 1); }) },
     };
   }
   function packJob(id: string, bench: PackStationId, order: Order): Task {
@@ -506,18 +570,19 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
 
   /* ── Shop: shelf → basket → checkout → bag → street ───────────────────── */
 
-  const openLanes = () => records.shop.checkouts.filter(lane => lane.open);
+  const openLanes = () => records.shop.checkouts.filter(lane => lane.open && !closing.has(lane.id));
   const insideCount = () => [...shoppers.values()].filter(item => item.inside).length;
   const LEAVE: BehaviorStep = { kind: 'move', to: 'street', label: 'Leaving the shop' };
   const patchLane = (id: CheckoutId, delta: number) => patchShop({ checkouts: records.shop.checkouts.map(lane => lane.id === id ? { ...lane, queue: Math.max(0, lane.queue + delta) } : lane) });
   const finishVisit = (id: string, unit?: string) => { if (unit) retire(unit); shoppers.set(id, { inside: false, items: 0, basket: false }); sceneRevision++; };
   function checkoutSteps(id: string, lane: CheckoutId): Task {
     const bag = spawn('bag', [CHECKOUT_X[lane], FLOOR_Y + 1, .25], 'Shopping bag', { hidden: true }), shopper = shoppers.get(id)!;
+    heading.set(id, lane);
     return {
       what: `Paying at checkout ${lane.slice(1)}`,
       steps: [{ kind: 'interact', node: `checkout:${lane}`, group: 'customer', seconds: 3.5, queue: queuePoints(lane), pose: 'placing', pickUp: [bag], label: 'Paying' }, LEAVE],
       started: { 0: () => { patchLane(lane, -1); show(bag); } },
-      items: { 0: () => { patchShop({ sales: records.shop.sales + shopper.items * (12 + Math.floor(random() * 40)) }); shopper.basket = false; sceneRevision++; } },
+      items: { 0: () => { heading.delete(id); patchShop({ sales: records.shop.sales + shopper.items * (12 + Math.floor(random() * 40)) }); shopper.basket = false; sceneRevision++; } },
       done: () => finishVisit(id, bag),
     };
   }
@@ -574,14 +639,75 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     };
   }
 
-  /* ── Scheduling ───────────────────────────────────────────────────────── */
+  /* ── Scheduling: the director's decisions ─────────────────────────────── */
 
-  const JOBS: readonly (readonly [string, () => Task | undefined])[] = [
-    ...(forklift ? [['forklift', forkliftJob] as const] : []), ...(reachTruck ? [['reach-truck', reachJob] as const] : []), ...(replenisher ? [['replenisher', replenisherJob] as const] : []),
-    ...pickers.map(id => [id, () => pickerJob(id)] as const), ...robots.map(id => [id, () => robotJob(id)] as const), ...packers.map(id => [id, () => packerJob(id)] as const),
-    ...(dispatcher ? [['dispatcher', dispatcherJob] as const] : []), ...(filler ? [['shelf-filler', fillerJob] as const] : []),
-  ];
-  function dispatch() { for (const [agent, job] of JOBS) { if (tasks.has(agent)) continue; const task = job(); if (task) give(agent, task); } }
+  /** Orders by the director's priority; equal priorities keep their order. */
+  function ranked(orders: readonly Order[]): readonly Order[] { return [...orders].sort((a, b) => director.priority(b) - director.priority(a)); }
+  const homeZone = (id: string): StaffZone => id.startsWith('picker:') ? 'picking' : id.startsWith('sorter:') ? 'sorting' : id.startsWith('packer:') ? 'packing' : id === 'replenisher' ? 'replenishing' : id === 'dispatcher' ? 'dispatch' : 'restocking';
+  const zones = new Map(definitions.filter(item => item.agent === 'picker' || item.agent === 'staff').map(item => [item.id, homeZone(item.id)]));
+  /** Each packing person's bench, and fetches on their way to a bench. */
+  const benches = new Map(packers.map(id => [id, id.slice(7) as PackStationId])), fetching = new Map<PackStationId, number>();
+  const freeBench = () => (Object.keys(PACK_X) as PackStationId[]).find(bench => ![...benches.values()].includes(bench));
+  /** A person who packs owns the orders on their bench, and finishes them before moving. */
+  const busy = (id: string) => tasks.has(id) || zones.get(id) === 'packing' && ((fetching.get(benches.get(id)!) ?? 0) > 0 || records.orders.some(order => order.at === benches.get(id)));
+  function member(id: string): StaffMember {
+    const zone = zones.get(id)!, station = zone === 'packing' ? benches.get(id) : zone === 'sorting' ? id.slice(7) as PutWallId : undefined;
+    const movable = HAND_ZONES.includes(homeZone(id)), label = definitions.find(item => item.id === id)!.node.label ?? id;
+    return { id, label, zone, zones: movable ? HAND_ZONES.filter(value => value !== 'packing' || zone === 'packing' || freeBench()) : [zone], ...(station ? { station } : {}), busy: busy(id) };
+  }
+  /** Apply the director's zone for a free person. */
+  function rezone(id: string) {
+    const person = member(id), zone = director.zone(person);
+    if (zone === person.zone) return;
+    if (!person.zones.includes(zone)) throw new Error(`${person.label} cannot move to ${zone} now; possible zones: ${person.zones.join(', ')}.`);
+    if (person.zone === 'packing') benches.delete(id);
+    if (zone === 'packing') benches.set(id, freeBench()!);
+    zones.set(id, zone);
+    log(`${person.label} moves to ${zone}${zone === 'packing' ? ` at bench ${benches.get(id)}` : ''}.`);
+  }
+  function directShop() {
+    if (!start.shopOpen) return;
+    for (const { id } of records.shop.checkouts) {
+      const lane = records.shop.checkouts.find(item => item.id === id)!, open = director.checkoutOpen(lane), name = `Checkout ${id.slice(1)}`;
+      if (open && closing.delete(id)) log(`${name} stays open.`);
+      else if (open && !lane.open) {
+        const cashier = lane.cashier ?? CASHIERS.find(value => !records.shop.checkouts.some(item => item.cashier === value));
+        patchShop({ checkouts: records.shop.checkouts.map(item => item.id === id ? { ...item, open: true, ...(cashier ? { cashier } : {}) } : item) });
+        log(`${name} opened.`);
+      } else if (!open && lane.open && !closing.has(id)) { closing.add(id); log(`${name} closes once its queue is served.`); }
+      // A closing lane takes no new customers; it closes once nobody queues or walks to it.
+      if (closing.has(id) && !lane.queue && ![...heading.values()].includes(id)) {
+        closing.delete(id);
+        patchShop({ checkouts: records.shop.checkouts.map(item => item.id === id ? { ...item, open: false, queue: 0 } : item) });
+        log(`${name} closed.`);
+      }
+    }
+  }
+  function directDocks() { for (const id of holding) if (director.unload(records.docks.find(dock => dock.id === id)!)) startUnloading(id); }
+  function jobOf(id: string): Task | undefined {
+    if (id === 'forklift') return forkliftJob();
+    if (id === 'reach-truck') return reachJob();
+    if (id.startsWith('robot:')) return robotJob(id);
+    switch (zones.get(id)) {
+      case 'picking': return pickerJob(id);
+      case 'packing': return packerJob(id);
+      case 'replenishing': return replenisherJob();
+      case 'restocking': return fillerJob();
+      case 'dispatch': return dispatcherJob();
+      // Sorters take what the robots bring.
+      default: return undefined;
+    }
+  }
+  /** Who looks for work, in this order each step. */
+  const ROSTER = [...(forklift ? ['forklift'] : []), ...(reachTruck ? ['reach-truck'] : []), ...(replenisher ? ['replenisher'] : []), ...pickers, ...robots, ...packers, ...(dispatcher ? ['dispatcher'] : []), ...(filler ? ['shelf-filler'] : []), ...sorters];
+  function dispatch() {
+    directShop(); directDocks();
+    for (const agent of ROSTER) {
+      if (tasks.has(agent)) continue;
+      if (zones.has(agent) && !busy(agent)) rezone(agent);
+      const task = jobOf(agent); if (task) give(agent, task);
+    }
+  }
   function handle(event: BehaviorEvent) {
     const task = tasks.get(event.agent);
     if (event.type === 'blocked') { log(`${event.agent} stopped: ${event.violations[0]?.message ?? 'blocked'}`, 'critical'); tasks.delete(event.agent); cached = null; recordsRevision++; return; }
@@ -679,6 +805,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     },
     snapshot,
     nodes: () => ecommerceNodes(snapshot(), { movers: movers(), cages: cagePlacements() }),
+    staff: () => [...zones.keys()].map(member),
     dispose() { stopEvents(); stopState(); runner.dispose(); },
   };
 }
