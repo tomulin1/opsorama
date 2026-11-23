@@ -5,7 +5,8 @@ import { ciScaled, expect, test, type Page } from './fixtures';
 /*
  * Renderer work in a real browser, read from `getDiagnostics().work`: hover, selection and zoom do no per-node work, a
  * theme change signs and builds each node once, pointer moves cost at most one scene raycast per frame, a static view
- * lays out and measures no labels, and an off-screen canvas keeps simulating without drawing. Like
+ * lays out and measures no labels, and a canvas scrolled out of view keeps drawing every frame, so its pixels can be
+ * read. Like
  * renderer-lifecycle.spec.ts, each test loads the renderer and the core store, bundled from the workspace sources, into a
  * blank page.
  */
@@ -59,7 +60,7 @@ async function mountScene(page: Page, count: number): Promise<void> {
     const { THREE, core, three } = (window as unknown as HarnessWindow).opsorama, host = document.getElementById('host')!;
     const nodes: import('@opsorama/core').SceneNode[] = [{ id: 'floor', kind: 'ground', size: [40, 40] }];
     for (let index = 0; index < count; index++) nodes.push({ id: `box-${index}`, kind: 'shape', shape: { type: 'box', size: [.6, .6, .6] }, position: [index % 20 * 1.6 - 15, 0, Math.floor(index / 20) * 1.6 - 12], label: `Box ${index}`, selectable: true });
-    nodes.push({ id: 'cart', kind: 'asset', asset: 'cart', position: [-6, 0, 14], route: { points: [[-6, 0, 14], [6, 0, 14]], speed: 2, loop: true } });
+    nodes.push({ id: 'cart', kind: 'asset', asset: 'cart', position: [-6, 0, 14], route: { points: [[-6, 0, 14], [6, 0, 14], [-6, 0, 14]], speed: 2, loop: true } });
     const store = core.createSceneStore({ schemaVersion: 1, nodes }, { motion: false });
     const assets = { cart: () => new THREE.Mesh(new THREE.BoxGeometry(1, .5, 1), new THREE.MeshStandardMaterial({ color: '#d98c2b' })) };
     const probe = { store, frames: 0, moves: 0, context: null } as Probe;
@@ -166,7 +167,7 @@ test('a static view lays out no labels and reads no label widths; a changed labe
   expect(errors).toEqual([]);
 });
 
-test('an off-screen canvas keeps motion and frame listeners running without drawing, and draws again on return', async ({ page }) => {
+test('a canvas scrolled out of view keeps drawing every frame, so its pixels can be read', async ({ page }) => {
   test.setTimeout(ciScaled(90000));
   const errors = await openHarness(page, 3000);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -174,31 +175,14 @@ test('an off-screen canvas keeps motion and frame listeners running without draw
   await page.evaluate(() => (window as unknown as ProbeWindow).probe.store.configure({ motion: true }));
   await frames(page, 5);
   const cartX = () => page.evaluate(() => (window as unknown as ProbeWindow).probe.context!.nodeObject('cart')!.position.x);
-  const visible = await read(page);
-  // Scrolled out of view.
   await page.evaluate(() => window.scrollTo(0, 2500));
   await frames(page, 5);
   const leaving = await read(page), leavingX = await cartX(); await frames(page, 30);
   const away = await read(page), awayX = await cartX();
-  expect(away.renderedFrames - leaving.renderedFrames).toBe(0);
-  expect(away.work.offscreenFrames - leaving.work.offscreenFrames).toBeGreaterThanOrEqual(25);
+  // Every frame is drawn and the frame listener and the route keep running.
+  expect(away.renderedFrames - leaving.renderedFrames).toBeGreaterThanOrEqual(25);
   expect(away.frames - leaving.frames).toBeGreaterThanOrEqual(25);
-  expect(away.work.labelLayouts - leaving.work.labelLayouts).toBe(0);
-  // The route keeps advancing off-screen.
   expect(Math.abs(awayX - leavingX)).toBeGreaterThan(.2);
-  // Back in view: frames are drawn again.
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await frames(page, 10);
-  const back = await read(page);
-  expect(back.renderedFrames - away.renderedFrames).toBeGreaterThan(0);
-  // A panel hidden with display: none counts as off-screen too.
-  await page.evaluate(() => { document.getElementById('host')!.style.display = 'none'; });
-  await frames(page, 5);
-  const hiding = await read(page); await frames(page, 20);
-  const hidden = await read(page);
-  expect(hidden.renderedFrames - hiding.renderedFrames).toBe(0);
-  expect(hidden.frames - hiding.frames).toBeGreaterThanOrEqual(15);
-  expect(visible.work.offscreenFrames).toBe(0);
   await page.evaluate(() => (window as unknown as ProbeWindow).probe.renderer.dispose());
   expect(errors).toEqual([]);
 });

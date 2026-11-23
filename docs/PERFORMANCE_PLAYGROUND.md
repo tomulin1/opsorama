@@ -36,7 +36,7 @@ The canvas fills the viewport below the site header. The floating HUD scrolls in
 
 ## What is measured
 
-- **Rendered FPS:** completed shared-renderer calls divided by actual elapsed time. Timer delays are included. The recording reports a time-weighted mean and the minimum/maximum interval rates. Those extrema are not individual frame times, stutter percentiles or GPU execution timings.
+- **Rendered FPS:** completed shared-renderer calls divided by actual elapsed time. The renderer draws every frame while the page is visible, also while its canvas is scrolled out of view, so the canvas can be read at any time (exports, screenshots); a host that wants to save work while a scene is off-screen can unmount it, or set `SceneSettings.paused` to stop its motion. Timer delays are included. The recording reports a time-weighted mean and the minimum/maximum interval rates. Those extrema are not individual frame times, stutter percentiles or GPU execution timings.
 - **Main-pass draws:** the latest `getDiagnostics().drawCalls`. The current installed Three.js resets render statistics after its shadow pass, so this counter excludes preceding shadow work. Do not compare it as total frame draw calls when changing shadows.
 - **Mounted scene nodes:** renderer entries, including the ground; not mesh count.
 - **Geometry/texture resources:** renderer counters, not byte-accurate memory or VRAM usage.

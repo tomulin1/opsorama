@@ -6,11 +6,10 @@ import { createLabelGrid, LABEL_STEP, labelPriority, labelsCollide, placeLabel, 
 import { createNodeSignatureCache, nodeSignature } from '../packages/three/src/node-signature';
 import { createCameraWatch, createPointerQueue, isRestingHover, pointerFrameWork, type PointerSample } from '../packages/three/src/pointer-frame';
 import { detachChildNodes } from '../packages/three/src/scene-build';
-import { frameWork, watchOnScreen, type OnScreenEnvironment } from '../packages/three/src/visibility';
 
 /*
- * The pure parts behind the renderer's performance work: what a store change, a hover, a theme change, a pointer move and
- * an off-screen canvas cost. The renderer itself needs WebGL; its counters (`getDiagnostics().work`) are checked in the
+ * The pure parts behind the renderer's performance work: what a store change, a hover, a theme change and a pointer move
+ * cost. The renderer itself needs WebGL; its counters (`getDiagnostics().work`) are checked in the
  * browser by apps/site/e2e/renderer-performance.spec.ts.
  */
 
@@ -197,26 +196,5 @@ describe('pointer input per frame', () => {
     watch.record(camera); expect(watch.changed(other)).toBe(true);
     // The tail of an easing glide is far below a pixel and counts as still.
     camera.position.x += 1e-9; camera.updateMatrixWorld(); expect(watch.changed(camera)).toBe(false);
-  });
-});
-
-describe('off-screen frames', () => {
-  it('simulate without drawing while the canvas is off-screen, and draw until the first frame', () => {
-    expect(frameWork({ hidden: false, loaded: true, onScreen: true })).toEqual({ simulate: true, draw: true });
-    expect(frameWork({ hidden: false, loaded: true, onScreen: false })).toEqual({ simulate: true, draw: false });
-    expect(frameWork({ hidden: false, loaded: false, onScreen: false })).toEqual({ simulate: true, draw: true });
-    expect(frameWork({ hidden: true, loaded: true, onScreen: true })).toEqual({ simulate: false, draw: false });
-  });
-
-  it('reports intersection changes once each and treats a missing IntersectionObserver as always on screen', () => {
-    let callback: ((entries: { isIntersecting: boolean }[]) => void) | null = null; const disconnect = vi.fn(), observed: Element[] = [];
-    const environment: OnScreenEnvironment = { IntersectionObserver: class { constructor(next: typeof callback) { callback = next; } observe(target: Element) { observed.push(target); } disconnect() { disconnect(); } } };
-    const element = {} as Element, seen: boolean[] = [];
-    const stop = watchOnScreen(element, value => seen.push(value), environment);
-    expect(observed).toEqual([element]);
-    callback!([{ isIntersecting: true }]); callback!([{ isIntersecting: true }]); callback!([{ isIntersecting: true }, { isIntersecting: false }]); callback!([{ isIntersecting: true }]);
-    expect(seen).toEqual([true, false, true]);
-    stop(); expect(disconnect).toHaveBeenCalledTimes(1);
-    const listener = vi.fn(); watchOnScreen(element, listener, {})(); expect(listener).not.toHaveBeenCalled();
   });
 });
