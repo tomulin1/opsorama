@@ -38,10 +38,12 @@ test('engine hooks report pointer events, keep the selection on a prevented clic
     await expect(click).toContainText('(label, mouse)');
     await expect(charger).toHaveClass(/kit-node-selected/);
 
-    // A click on open ground in front of the zones sends the robot and prevents the default selection change.
+    // A click on open ground in front of the zones sends the robot and prevents the default selection change. Selecting
+    // the charger moved the camera toward it, so the point sits between the view centre and the bottom edge, where the
+    // yard (28 × 16 m) still covers the floor; a zone is floor too.
     const box = (await sceneCanvas(page).boundingBox())!;
-    await page.mouse.click(box.x + box.width * .5, box.y + box.height * .82);
-    await expect(click).toContainText('Last click: yard at');
+    await page.mouse.click(box.x + box.width * .5, box.y + box.height * .66);
+    await expect(click).toContainText(/Last click: (yard|charging-zone|storage-zone) at/);
     await expect(click).toContainText('(canvas, mouse) · robot sent');
     await expect(charger).toHaveClass(/kit-node-selected/);
   }

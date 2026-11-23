@@ -42,10 +42,12 @@ export const makeCamerasStore = (camera: Partial<CameraSettings>) => createScene
 
 /** Degrees with one decimal, for readouts. */
 const degrees = (radians: number) => `${(radians * 180 / Math.PI).toFixed(1)}°`;
+/** One decimal without a minus sign on values that round to zero ("-0.0" reads as a different position). */
+const metres = (value: number) => (Math.abs(value) < .05 ? 0 : value).toFixed(1);
 /** One line describing a camera view, the same in every adapter. */
 export function cameraReadout(projection: CameraSettings['projection'], view: CameraView | null): string {
   if (!view) return 'Camera: not mounted';
-  return `${projection} · target ${view.target.map(value => value.toFixed(1)).join(', ')} · yaw ${degrees(view.yaw)} · pitch ${degrees(view.pitch)} · zoom ${view.zoom.toFixed(2)}`;
+  return `${projection} · target ${view.target.map(metres).join(', ')} · yaw ${degrees(view.yaw)} · pitch ${degrees(view.pitch)} · zoom ${view.zoom.toFixed(2)}`;
 }
 /** Class of the readout element every adapter renders over its scene. */
 export const CAMERA_READOUT_CLASS = 'camera-readout';
