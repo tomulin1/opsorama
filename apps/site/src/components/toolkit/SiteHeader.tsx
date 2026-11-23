@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowUpRight, BookOpen, Github } from 'lucide-react';
+import { ArrowUpRight, BookOpen } from 'lucide-react';
+import { GithubMark } from './GithubMark';
 import { projectIdentity } from '@/features/brand/project';
 export function SiteHeader({ active = 'examples' }: { active?: 'docs' | 'examples' | null }) {
   return <header className="kit-site-header">
@@ -13,7 +14,7 @@ export function SiteHeader({ active = 'examples' }: { active?: 'docs' | 'example
     </nav>
     <div className="kit-header-links">
       <span className="kit-preview-version">LOCAL PREVIEW · 0.0.1</span>
-      <a className="kit-header-github" href={projectIdentity.repositoryUrl} target="_blank" rel="noopener noreferrer" aria-label="Opsorama on GitHub (opens in a new tab)" title="Opsorama on GitHub"><Github size={18} aria-hidden="true" /><span>GitHub</span></a>
+      <a className="kit-header-github" href={projectIdentity.repositoryUrl} target="_blank" rel="noopener noreferrer" aria-label="Opsorama on GitHub (opens in a new tab)" title="Opsorama on GitHub"><GithubMark size={18} /><span>GitHub</span></a>
       <Link className="kit-header-action" href={active === 'docs' ? '/examples' : '/docs'} aria-label={active === 'docs' ? 'Browse examples' : 'Developer docs'}>{active === 'docs' ? <><span>Browse examples</span><ArrowUpRight size={15} aria-hidden="true" /></> : <><BookOpen size={15} aria-hidden="true" /><span>Developer docs</span></>}</Link>
     </div>
   </header>;

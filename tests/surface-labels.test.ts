@@ -59,7 +59,8 @@ describe('static surface labels', () => {
       expect(label.material.map).not.toBe(other.material.map); expect(label.position.toArray()).toEqual([...surface.position]);
       expect(label.geometry.parameters).toMatchObject({ width: surface.size[0], height: surface.size[1] });
       if (a.userData.displayBounds) expect(a.userData.displayBounds.equals(new THREE.Box3().setFromObject(a))).toBe(true);
-      expect(Math.max(label.material.map!.image.width, label.material.map!.image.height)).toBe(surface.resolution ?? 1024);
+      const image = label.material.map!.image as { width: number; height: number };
+      expect(Math.max(image.width, image.height)).toBe(surface.resolution ?? 1024);
       disposeObject(a); disposeObject(b);
     }
     expect(() => catalogAssets['tree-pine']({ ...node, asset: 'tree-pine' })).toThrow('Asset tree-pine does not accept options.surfaceLabel');
@@ -71,8 +72,8 @@ describe('static surface labels', () => {
     expect(() => validateSurfaceLabel(label)).not.toThrow();
     for (const value of [{ ...label, text: 'x'.repeat(81) }, { ...label, text: Array(7).fill('row').join('\n') }, { ...label, text: 'x'.repeat(481) }, { ...label, layout: 'invalid' }]) expect(() => validateSurfaceLabel(value as SurfaceLabel)).toThrow();
     const object = catalogAssets.monitor({ id: 'screen', kind: 'asset', asset: 'monitor', options: { surfaceLabel: label } });
-    const texture = stickers(object)[0].material.map!;
-    expect(texture.image.width).toBe(2048); expect(texture.image.height).toBe(Math.round(2048 * 1.2 / 2.2));
+    const texture = stickers(object)[0].material.map!, image = texture.image as { width: number; height: number };
+    expect(image.width).toBe(2048); expect(image.height).toBe(Math.round(2048 * 1.2 / 2.2));
     expect(texture.anisotropy).toBe(8); expect(texture.magFilter).toBe(THREE.LinearFilter); expect(texture.minFilter).toBe(THREE.LinearMipmapLinearFilter);
     expect(context.fillText.mock.calls.map(call => call[0])).toEqual(['TEST', '2 workflow attempts', '1 failed | 1 cancelled']);
     expect(context.fillText.mock.calls[0][2]).toBeLessThan(context.fillText.mock.calls[1][2]);
