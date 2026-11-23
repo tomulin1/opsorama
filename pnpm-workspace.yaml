@@ -4,3 +4,6 @@ packages:
 allowBuilds:
   esbuild: true
   unrs-resolver: true
+# Security floor for a transitive dependency of vitest; remove once vitest resolves a fixed vite by itself.
+overrides:
+  'vite@>=7.0.0 <7.3.7': 7.3.8

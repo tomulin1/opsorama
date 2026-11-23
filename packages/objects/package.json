@@ -136,7 +136,7 @@
     "@opsorama/three": "workspace:*"
   },
   "peerDependencies": {
-    "three": "^0.180.0"
+    "three": "^0.187.0"
   },
   "author": {
     "name": "Tomas Jirsa",

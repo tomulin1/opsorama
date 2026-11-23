@@ -14,6 +14,7 @@ The website (`apps/site`, not published as a package) is built with these main c
 | --- | --- |
 | Next.js, React, React DOM, Vue, three.js | MIT |
 | lucide-react (interface icons) | ISC |
+| GitHub mark from Octicons (repository link icon, `GithubMark.tsx`) | MIT |
 | Tailwind CSS (build tooling) | MIT |
 | caniuse-lite (browser data used by build tooling) | CC-BY-4.0 |
 | sharp and its libvips binaries (optional Next.js image tooling, not used by the static export) | Apache-2.0, LGPL-3.0-or-later |
