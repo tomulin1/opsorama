@@ -31,7 +31,7 @@ Agent support applies to every target use and is part of every capability, not a
 
 A capability is complete only when the skill, `llms.txt`, the catalog and the schema cover it.
 
-Dashboards are fully supported today. Games and visualizations need the engine capabilities listed in the [roadmap](ROADMAP.md) (cameras, primitives, a frame hook, pointer events, plugins, glTF), which follow the first release.
+Dashboards are fully supported today. The engine capabilities that games and visualizations build on are implemented: cameras, primitives (shapes, lines, text, images and groups), a frame hook, pointer events and plugins. glTF models and the other content capabilities in the [roadmap](ROADMAP.md) follow the first release.
 
 **Product = domain-free core + shared renderer + framework adapters + object catalog and optional domain packages + data and motion contracts + documentation and runnable examples.**
 

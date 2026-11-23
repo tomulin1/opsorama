@@ -168,6 +168,30 @@ const values = [42, 65, 30];
 </template>
 ```
 
+### Text and images
+
+`SceneText` and `SceneImage` take the node fields as props (`text`, `src`, `billboard`, `align`, and `size` as a number for text or `[width, height]` for images). An image that fails to load is emitted as `error` (its `name` is `IMAGE_LOAD_ERROR`) without covering the scene.
+
+```vue
+<script setup lang="ts">
+import { createSceneStore } from '@opsorama/core';
+import { DashboardProvider, SceneCanvas, SceneImage, SceneText, Shape } from '@opsorama/vue';
+
+const store = createSceneStore();
+const assets = {};
+const value = 42;
+</script>
+
+<template>
+  <DashboardProvider :store="store">
+    <SceneCanvas :assets="assets" style="height: 360px" />
+    <Shape id="bar" :shape="{ type: 'box', size: [0.8, value / 20, 0.8] }" />
+    <SceneText id="bar-value" :text="String(value)" :position="[0, value / 20 + 0.35, 0]" :size="0.26" billboard />
+    <SceneImage id="logo" src="/images/logo.png" :size="[1.6, 1.6]" :position="[3, 0, 0]" billboard />
+  </DashboardProvider>
+</template>
+```
+
 ## Links
 
 - [Opsorama on GitHub](https://github.com/tomulin1/opsorama): documentation website source, object browser, starters and guides.

@@ -1,6 +1,6 @@
 # @opsorama/core
 
-Framework-free scene model for Opsorama 3D scenes and dashboards: typed nodes (ground, zone, path, asset, marker, and the primitive shape, line and group), scene validation with located problems and a JSON Schema, immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
+Framework-free scene model for Opsorama 3D scenes and dashboards: typed nodes (ground, zone, path, asset, marker, and the primitive shape, line, text, image and group), scene validation with located problems and a JSON Schema, immutable snapshots, validated settings, selection and subscriptions, plus containment, movement graphs, routes, interaction slots, behaviors with carried items and a generic item policy hook. No DOM, Three.js, React or Vue imports, so it runs anywhere, including servers and tests.
 
 ## Install
 
@@ -25,7 +25,7 @@ store.dispose();
 
 Nodes are visual records only; your application keeps business data and links nodes to it through `entityId`. Model-specific settings go in an asset node's `options` (`AssetOptions`): core accepts any plain JSON-like object and freezes it, model packages such as `@opsorama/objects` type and validate their options, and `createSceneStore(definition, settings, { validateAsset })` can reject invalid asset nodes before the store accepts them. Render the store with `@opsorama/three` directly or through `@opsorama/react` / `@opsorama/vue`.
 
-## Shapes, lines and groups
+## Shapes, lines, text, images and groups
 
 Content that no catalog model represents (chart bars, connections, simple markers of your own) uses primitive nodes, which need no asset registry. A `shape` node is a box, sphere or cylinder standing on its position; a `line` node is a polyline in local coordinates, 1 pixel wide or a tube with `width` in metres; a `group` node has no geometry and holds the nodes whose `parentId` names it, always open (`nodeView` is `'open'`). Assets, shapes and groups take `route`, `controller` and `transfer` (`MotionFields`), so a group with a route carries its contents. Only asset and group nodes can be parents.
 
@@ -43,6 +43,22 @@ console.log(store.getSnapshot().nodes.filter(isMotionNode).length); // 4: the gr
 ```
 
 A shape without `color` takes the scene palette (the role of its `state` for busy, warning, critical and inactive, otherwise `accent`), and `opacity` below 1 makes it transparent. A click on a node that is not selectable selects its nearest selectable group. Groups do not change the indoor shadow policy: `isContained` counts only asset containers.
+
+A `text` node draws up to 500 characters with `size` as the capital-letter height in metres (0.05–20, default 0.4), flat in the node's x-y plane or facing the camera with `billboard`, anchored by `align`. An `image` node shows `src` on a rectangle of `size` [width, height] metres; `src` must be a relative, `http:`, `https:`, `blob:` or `data:image/` URL (`IMAGE_SRC_PATTERN`), so `javascript:` and other schemes are rejected. Like lines, text and images take no route or controller: put them in a group to move them. Text drawn in the canvas is not accessible text, so state essential information in labels or host HTML too.
+
+```ts
+import { createSceneStore, validateScene, type SceneNode } from '@opsorama/core';
+
+const nodes: SceneNode[] = [
+  { id: 'bar', kind: 'shape', shape: { type: 'box', size: [0.8, 2.5, 0.8] } },
+  { id: 'bar-value', kind: 'text', text: '42', position: [0, 2.85, 0], size: 0.26, billboard: true },
+  { id: 'title', kind: 'text', text: 'Volume', position: [-1, 0.02, 1.5], rotation: [-Math.PI / 2, 0, 0], align: 'left' },
+  { id: 'logo', kind: 'image', src: '/images/logo.png', size: [1.6, 1.6], position: [3, 0, 0], billboard: true },
+];
+const store = createSceneStore({ schemaVersion: 1, nodes });
+console.log(validateScene({ schemaVersion: 1, nodes: [{ id: 'bad', kind: 'image', src: 'javascript:alert(1)', size: [1, 1] }] })[0].rule); // 'image-src'
+console.log(store.getSnapshot().nodes.length); // 4
+```
 
 ## Validate a scene
 

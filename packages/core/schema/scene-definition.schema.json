@@ -53,6 +53,12 @@
         },
         {
           "$ref": "#/definitions/GroupNode"
+        },
+        {
+          "$ref": "#/definitions/TextNode"
+        },
+        {
+          "$ref": "#/definitions/ImageNode"
         }
       ],
       "description": "One visual node of a scene; `kind` selects its fields."
@@ -1417,6 +1423,210 @@
       ],
       "additionalProperties": false,
       "description": "A container without geometry: its children (nodes whose `parentId` names it) use its local coordinates, so moving, turning or scaling the group moves them together. A group is always open: its children show while the group shows. Selection bubbles through groups: a click on a node that is not selectable selects its nearest selectable group ancestor. A group does not make its children indoor (shadows); only asset containers do. Its label sits at its origin."
+    },
+    "TextNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "description": "The text, 1 to 500 characters with at least one visible character; `\\n` breaks lines.",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        },
+        "size": {
+          "type": "number",
+          "description": "Height of capital letters in metres, from 0.05 to 20. Default 0.4. Lines are 1.75 times this apart.",
+          "minimum": 0.05,
+          "maximum": 20
+        },
+        "color": {
+          "type": "string",
+          "description": "Text color, a CSS color. Default: the palette `text` role, else the theme's text color."
+        },
+        "billboard": {
+          "type": "boolean",
+          "description": "Face the camera from every direction (a sprite) instead of lying in the node's local x-y plane. A billboard keeps its size in metres and ignores `rotation`. Default false."
+        },
+        "align": {
+          "$ref": "#/definitions/TextAlign",
+          "description": "Where the node origin sits along the text and how lines align: `left`, `center` (default) or `right`."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "Text drawn in the scene: a flat panel in the node's local coordinates, or with `billboard` a sprite that always faces the camera. The renderer draws it with the system font stack (the font of the projected labels) into a texture, so it scales with the scene; it is not extruded geometry. The bottom of the text block sits on the node origin, and `align` decides whether the origin is at its left end, centre or right end. A flat text faces +z and reads mirrored from behind. Line breaks (`\\n`) start new lines; there is no automatic wrapping. Without `color` it uses the palette `text` role, else the theme's text color. Text is transparent: it casts and receives no shadow, is not covered by the glow selection style and is never instanced. Pointer events and selection hit its whole rectangle. Canvas text is not accessible text: put information that users must read in `label`, `entityId` details or host HTML as well. Text nodes have no route or controller; put them in a group to move them. Its label sits 0.3 m above the text."
+    },
+    "TextAlign": {
+      "type": "string",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "description": "Horizontal alignment of a text node; see `TextNode.align`."
+    },
+    "ImageNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID within the scene. Used for updates, selection and references from `parentId` and `attachment.nodeId`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Containing asset or group: the node uses its local coordinates and shows only while that asset's `view` is not `'closed'` (a group always shows its children). Any asset or group can be a parent; missing parents remain dormant. Exclusive with `attachment`. See `validateParents`.",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "attachment": {
+          "$ref": "#/definitions/Attachment",
+          "description": "Carries the node on another node, at its origin or a named anchor; the transform becomes local to it. Exclusive with `parentId`."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the host record this node represents. A node with an `entityId` is selectable, and selections report it."
+        },
+        "label": {
+          "type": "string",
+          "description": "Projected HTML label text, escaped safely."
+        },
+        "labelMode": {
+          "type": "string",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "description": "`always` (default) shows the label at all times; `active` only while the node is hovered or selected."
+        },
+        "position": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Metres in world space, or in the container's local space with `parentId`. Default [0, 0, 0]."
+        },
+        "rotation": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Euler rotation in radians. Default [0, 0, 0]."
+        },
+        "scale": {
+          "$ref": "#/definitions/Vec3",
+          "description": "Per-axis scale factors. Default [1, 1, 1]. Never encode quantities with scale; use `count`."
+        },
+        "state": {
+          "$ref": "#/definitions/VisualState",
+          "description": "Host visual alert. Default `normal`."
+        },
+        "selectable": {
+          "type": "boolean",
+          "description": "Makes the node selectable without an `entityId`. Default false."
+        },
+        "kind": {
+          "type": "string",
+          "const": "image"
+        },
+        "src": {
+          "type": "string",
+          "description": "The image URL: relative, `http:`, `https:`, `blob:` or `data:image/…`, at most 1,000,000 characters. See `IMAGE_SRC_PATTERN` for the exact rule. Prefer raster images (PNG, JPEG, WebP); an SVG needs `width` and `height` attributes to load in every browser.",
+          "minLength": 1,
+          "maxLength": 1000000,
+          "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]?:|[Bb][Ll][Oo][Bb]:|[Dd][Aa][Tt][Aa]:[Ii][Mm][Aa][Gg][Ee]/|(?![A-Za-z][A-Za-z0-9+.-]*:))(?!\\s)[^\\u0000-\\u001f\\u007f]*(?<!\\s)$"
+        },
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "items": [
+            {
+              "type": "number",
+              "description": "Metres, greater than 0 and at most 100.",
+              "exclusiveMinimum": 0,
+              "maximum": 100,
+              "title": "width"
+            },
+            {
+              "type": "number",
+              "description": "Metres, greater than 0 and at most 100.",
+              "exclusiveMinimum": 0,
+              "maximum": 100,
+              "title": "height"
+            }
+          ],
+          "maxItems": 2,
+          "description": "Width and height in metres, each greater than 0 and at most 100."
+        },
+        "billboard": {
+          "type": "boolean",
+          "description": "Face the camera from every direction (a sprite) instead of lying in the node's local x-y plane. A billboard keeps its size in metres and ignores `rotation`. Default false."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "size",
+        "src"
+      ],
+      "additionalProperties": false,
+      "description": "A picture in the scene: a flat rectangle of `size` in the node's local coordinates, or with `billboard` a sprite that always faces the camera. The bottom edge's centre sits on the node origin, and the image is stretched to `size`, so give `size` the image's aspect ratio. The renderer loads `src` in the background and shows a neutral placeholder until it arrives; a failed load keeps the placeholder and reports an error naming the node and the URL to `onError`. Images load with `crossOrigin = 'anonymous'`, so an image from another origin needs a server that sends `Access-Control-Allow-Origin`; same-origin, `data:` and `blob:` URLs need nothing. Equal `src` values share one texture. Images are transparent where the picture is: they cast and receive no shadow, are not covered by the glow selection style and are never instanced. Pointer events and selection hit the whole rectangle. An image is not accessible content: describe essential information in `label` or host HTML. Image nodes have no route or controller; put them in a group to move them. Its label sits 0.3 m above the image."
     }
   }
 }
