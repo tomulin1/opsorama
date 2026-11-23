@@ -45,8 +45,28 @@ export function createAssetRegistry(...registries: readonly AssetRegistry[]): As
 
 /** Internal to the renderer: the factory of `asset`; throws an actionable error for an asset name the registry does not contain. */
 export function assetFactory(registry: AssetRegistry, asset: string): AssetFactory {
-  if (!Object.hasOwn(registry, asset)) throw new Error(`Unknown asset: ${asset}. Add its AssetFactory to the renderer's assets option, for example catalogAssets from @opsorama/objects.`);
+  if (!Object.hasOwn(registry, asset)) {
+    const near = closestAssetName(asset, Object.keys(registry));
+    throw new Error(`Unknown asset: ${asset}.${near ? ` Did you mean ${near}?` : ''} Add its AssetFactory to the renderer's assets option, for example catalogAssets from @opsorama/objects.`);
+  }
   return registry[asset];
+}
+
+/** The registered name closest to `asset` by edit distance, when it is close enough to be a likely typo. */
+function closestAssetName(asset: string, names: readonly string[]): string | undefined {
+  const wanted = asset.toLowerCase();
+  let best: string | undefined, bestDistance = Infinity;
+  for (const name of names) {
+    const candidate = name.toLowerCase();
+    let previous = Array.from({ length: candidate.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= wanted.length; i++) {
+      const row = [i];
+      for (let j = 1; j <= candidate.length; j++) row[j] = Math.min(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + (wanted[i - 1] === candidate[j - 1] ? 0 : 1));
+      previous = row;
+    }
+    if (previous[candidate.length] < bestDistance) { best = name; bestDistance = previous[candidate.length]; }
+  }
+  return best !== undefined && bestDistance <= Math.max(1, Math.floor(Math.max(asset.length, best.length) / 3)) ? best : undefined;
 }
 
 /**
