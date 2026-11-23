@@ -152,13 +152,26 @@ export interface Selection { nodeId: string; entityId?: string; origin: 'pointer
 /** `corners`: floor brackets around the model footprint, hidden where objects cover them. `glow`: colored tint over the model. */
 export const SELECTION_STYLES = Object.freeze(['corners', 'glow'] as const);
 export type SelectionStyle = typeof SELECTION_STYLES[number];
-export interface SceneSettings { theme: 'light' | 'midnight'; labels: boolean; grid: boolean; shadows: boolean; motion: boolean; paused: boolean; speed: number; /** Zoom multiplier of both projections, within `ZOOM_RANGE`. */ zoom: number; /** How the selected and hovered node are marked. */ selectionStyle: SelectionStyle; palette?: MaterialOverrides; /** Projection, controls, overview direction and framing; see `CameraSettings`. Replacing it resets omitted fields to `DEFAULT_CAMERA_SETTINGS`. */ camera: CameraSettings; }
+/**
+ * Lighting presets: `studio` (the default, even and bright), `daylight` (a high, warm sun and a blue sky), `overcast`
+ * (soft light, faint shadows), `dusk` (a low orange sun) and `night` (dim blue light). Each preset sets the ambient and
+ * sun light, the exposure, the background and the sky and fog colors, with a variant per theme.
+ */
+export const LIGHTING_PRESETS = Object.freeze(['studio', 'daylight', 'overcast', 'dusk', 'night'] as const);
+export type LightingPreset = typeof LIGHTING_PRESETS[number];
+/**
+ * Rendering quality: `high` (the default: pixel ratio up to 2, 2048 px soft shadows), `balanced` (up to 1.5, 1024 px) and
+ * `low` (1, 512 px hard-edged shadows) for large scenes and weak devices. Quality never changes what the scene shows.
+ */
+export const QUALITY_LEVELS = Object.freeze(['high', 'balanced', 'low'] as const);
+export type QualityLevel = typeof QUALITY_LEVELS[number];
+export interface SceneSettings { theme: 'light' | 'midnight'; labels: boolean; grid: boolean; shadows: boolean; motion: boolean; paused: boolean; speed: number; /** Zoom multiplier of both projections, within `ZOOM_RANGE`. */ zoom: number; /** How the selected and hovered node are marked. */ selectionStyle: SelectionStyle; /** Lighting preset: light colors, exposure, background, sky and fog colors. */ lighting: LightingPreset; /** A sky gradient instead of the flat background. */ sky: boolean; /** Distance fog in the background color. */ fog: boolean; /** Rendering quality profile. */ quality: QualityLevel; palette?: MaterialOverrides; /** Projection, controls, overview direction and framing; see `CameraSettings`. Replacing it resets omitted fields to `DEFAULT_CAMERA_SETTINGS`. */ camera: CameraSettings; }
 /**
  * Settings accepted by `createSceneStore` and `SceneStore.configure`: any subset of `SceneSettings`, where `camera` may also be
  * partial. A given `camera` replaces the current one, and its omitted fields take their `DEFAULT_CAMERA_SETTINGS` values.
  */
 export type SceneSettingsPatch = Partial<Omit<SceneSettings, 'camera'>> & { camera?: Partial<CameraSettings> };
-export const DEFAULT_SETTINGS: Readonly<SceneSettings> = Object.freeze({ theme: 'light', labels: true, grid: false, shadows: true, motion: true, paused: false, speed: 1, zoom: 1, selectionStyle: 'corners', palette: Object.freeze({}), camera: DEFAULT_CAMERA_SETTINGS });
+export const DEFAULT_SETTINGS: Readonly<SceneSettings> = Object.freeze({ theme: 'light', labels: true, grid: false, shadows: true, motion: true, paused: false, speed: 1, zoom: 1, selectionStyle: 'corners', lighting: 'studio', sky: false, fog: false, quality: 'high', palette: Object.freeze({}), camera: DEFAULT_CAMERA_SETTINGS });
 export const SETTING_DEFINITIONS = {
   palette: { type: 'MaterialOverrides', description: 'Semantic colors for assets that declare palette support; replacing the map resets omitted roles to theme defaults.' },
   theme: { type: "'light' | 'midnight'", description: 'Canvas palette and environment lighting.' },
@@ -170,6 +183,10 @@ export const SETTING_DEFINITIONS = {
   speed: { type: 'number (0.25–3)', description: 'Multiplier for interpolation and asset animation; does not change business-event time.' },
   zoom: { type: 'number (0.65–5)', description: 'Camera zoom multiplier for both projections: the orthographic zoom, or the perspective distance divided by it.' },
   selectionStyle: { type: "'corners' | 'glow'", description: 'How the selected and hovered node are marked: floor brackets around the model footprint, hidden where objects cover them, or a colored tint over the model.' },
+  lighting: { type: "'studio' | 'daylight' | 'overcast' | 'dusk' | 'night'", description: 'Lighting preset: ambient and sun light, exposure, background, and the sky and fog colors, each with a light and a midnight variant. studio is the default look.' },
+  sky: { type: 'boolean', description: 'Draw a sky gradient from the lighting preset behind the scene instead of the flat background color.' },
+  fog: { type: 'boolean', description: 'Fade distant parts of the scene into the background (or horizon) color; the fog follows the camera distance.' },
+  quality: { type: "'high' | 'balanced' | 'low'", description: 'Rendering quality: the highest canvas pixel ratio (2, 1.5, 1) and the shadow map (2048 px soft, 1024 px soft, 512 px hard). Lower quality is for large scenes and weak devices; it never changes what the scene shows.' },
   camera: { type: 'CameraSettings', description: "Camera: projection ('orthographic' or 'perspective'), controls ('pan' or 'none'), fov (degrees 20–75, perspective only), yaw and pitch (overview direction in radians), overview ('ground' or 'bounds') and frameOnSelect. Replacing it resets omitted fields to DEFAULT_CAMERA_SETTINGS." },
 } as const satisfies Record<keyof SceneSettings, { type: string; description: string }>;
 export interface SceneSnapshot { nodes: readonly SceneNode[]; selection: Selection | null; settings: Readonly<SceneSettings>; revision: number; }
@@ -227,7 +244,9 @@ function validateSettings(settings: SceneSettings) {
   if (settings.palette !== undefined) validateMaterialOverrides(settings.palette);
   if (!['light', 'midnight'].includes(settings.theme)) throw new Error('Unknown scene theme.');
   if (!SELECTION_STYLES.includes(settings.selectionStyle)) throw new Error(`Unknown selection style: ${settings.selectionStyle}. Use ${SELECTION_STYLES.join(', ')}.`);
-  for (const key of ['labels', 'grid', 'shadows', 'motion', 'paused'] as const) if (typeof settings[key] !== 'boolean') throw new Error(`Setting ${key} must be boolean.`);
+  if (!LIGHTING_PRESETS.includes(settings.lighting)) throw new Error(`Unknown lighting preset: ${String(settings.lighting)}. Use ${LIGHTING_PRESETS.join(', ')}.`);
+  if (!QUALITY_LEVELS.includes(settings.quality)) throw new Error(`Unknown quality level: ${String(settings.quality)}. Use ${QUALITY_LEVELS.join(', ')}.`);
+  for (const key of ['labels', 'grid', 'shadows', 'motion', 'paused', 'sky', 'fog'] as const) if (typeof settings[key] !== 'boolean') throw new Error(`Setting ${key} must be boolean.`);
   for (const [key, min, max] of [['speed', .25, 3], ['zoom', ZOOM_RANGE.min, ZOOM_RANGE.max]] as const) if (!Number.isFinite(settings[key]) || settings[key] < min || settings[key] > max) throw new Error(`Setting ${key} must be between ${min} and ${max}.`);
   validateCameraSettings(settings.camera);
 }

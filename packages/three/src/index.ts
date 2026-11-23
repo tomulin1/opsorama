@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { CameraFollowEnd, CameraFollowHeading, CameraFollowOptions, CameraKeyframe, CameraPath, CameraTransition, CameraTransitionResult, CameraView, SceneNode, SceneSnapshot, SceneStore, Selection, SceneOverlay, Vec3 } from '@opsorama/core';
+import type { CameraFollowEnd, CameraFollowHeading, CameraFollowOptions, CameraKeyframe, CameraPath, CameraTransition, CameraTransitionResult, CameraView, SceneNode, SceneSettings, SceneSnapshot, SceneStore, Selection, SceneOverlay, Vec3 } from '@opsorama/core';
 import { DEFAULT_CAMERA_TRANSITION, validateCameraFollow, validateCameraPath, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
 import { applyOrthographic, applyPerspective, clampPitch, ease, fitBounds, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
 import { createCameraPathPlayer } from './camera-path';
@@ -17,6 +17,7 @@ import { createNodeSignatureCache } from './node-signature';
 import { createLabelGrid, labelPriority, placeLabel } from './labels';
 import { createCameraWatch, createPointerQueue, isRestingHover, pointerFrameWork, type QueuedPointer } from './pointer-frame';
 import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
+import { applyLights, fogRange, lightingLook, QUALITY_PROFILES, setShadowMapSize, skyTexture } from './lighting';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
 import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
@@ -306,6 +307,23 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   /** Labels in placement order (null: sort again), and whether the next drawn frame must place them even if nothing moved. */
   let labelOrder: Entry[] | null = null, labelsDirty = true, layoutWidth = 0, layoutHeight = 0;
   let fittedExtent: number | undefined; let shadowExtent = 24; let areas: InteriorArea[] = [];
+  // Applied lighting, sky and fog (theme|lighting|sky|fog) and quality; the first sync applies both.
+  let appliedEnvironment = '', appliedQuality: SceneSettings['quality'] | null = null, sky: THREE.Texture | null = null, pixelRatioCap = QUALITY_PROFILES.high.maxPixelRatio;
+  function applyEnvironment(settings: SceneSettings) {
+    const look = lightingLook(settings.lighting, settings.theme);
+    applyLights(look, ambient, sun, renderer);
+    sky?.dispose(); sky = settings.sky ? skyTexture(look.sky.top, look.sky.horizon) : null;
+    scene.background = sky ?? new THREE.Color(look.background);
+    // Fog takes the color the scene fades into: the horizon of the sky, or the flat background. The frame loop sets its range.
+    const color = settings.sky ? look.sky.horizon : look.background;
+    if (!settings.fog) scene.fog = null; else if (scene.fog instanceof THREE.Fog) scene.fog.color.set(color); else scene.fog = new THREE.Fog(color, 1, 1000);
+  }
+  function applyQuality(level: SceneSettings['quality']) {
+    const profile = QUALITY_PROFILES[level]; pixelRatioCap = profile.maxPixelRatio;
+    const ratio = Math.min(canvasPixelRatio(window.devicePixelRatio), pixelRatioCap);
+    if (ratio !== renderer.getPixelRatio()) renderer.setPixelRatio(ratio);
+    renderer.shadowMap.type = profile.shadowType; setShadowMapSize(sun, profile.shadowMapSize);
+  }
   const pivot: [number, number, number] = [0, 0, 0];
   // Indoor nodes neither cast nor receive shadows; moving nodes are re-tested every frame against the interior areas.
   const updatePlacements = () => {
@@ -402,7 +420,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
     const restyled = signatures.present(settings.theme, settings.palette);
     // Host label styles may follow the theme: labels are measured again.
-    if (restyled) { scene.background = new THREE.Color(settings.theme === 'midnight' ? '#17243b' : '#edf2fa'); ambient.intensity = settings.theme === 'midnight' ? 1.05 : 2; invalidateLabelWidths(); }
+    if (restyled) invalidateLabelWidths();
+    // Lighting, sky and fog follow the theme and the preset; models keep their materials, so nothing is rebuilt.
+    const environment = `${settings.theme}|${settings.lighting}|${settings.sky}|${settings.fog}`;
+    if (environment !== appliedEnvironment) { appliedEnvironment = environment; applyEnvironment(settings); }
+    if (settings.quality !== appliedQuality) { appliedQuality = settings.quality; applyQuality(settings.quality); }
     grid.visible = settings.grid; renderer.shadowMap.enabled = settings.shadows;
     labelLayer.dataset.motion = settings.motion && !settings.paused ? 'on' : 'off';
     // A refresh stays pending until a node loop completes, so a sync that throws is not forgotten by the next one.
@@ -549,7 +571,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   function teardown() {
     clearTimeout(sliceTimer); unsubscribe(); indicator?.dispose(); indicator = null;
     entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); instancing?.dispose();
-    disposeObject(grid); sun.shadow.dispose();
+    disposeObject(grid); sun.shadow.dispose(); sky?.dispose();
     renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove();
   }
   try { sync(); } catch (error) { teardown(); throw error; }
@@ -560,7 +582,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   };
   const observer = new ResizeObserver(resize); observer.observe(container); resize();
   // The display's pixel ratio changes with browser zoom or another screen; the canvas keeps its CSS size.
-  const stopPixelRatio = watchPixelRatio(ratio => { if (ratio !== renderer.getPixelRatio()) renderer.setPixelRatio(ratio); });
+  const stopPixelRatio = watchPixelRatio(ratio => { const next = Math.min(ratio, pixelRatioCap); if (next !== renderer.getPixelRatio()) renderer.setPixelRatio(next); });
   function frame(id: string, options: { fit?: boolean; transition?: CameraTransition } = {}): Promise<CameraTransitionResult> {
     if (options.transition) validateCameraTransition(options.transition);
     if (disposed) return Promise.resolve('interrupted');
@@ -1021,6 +1043,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
       if (settings.selectionStyle === 'corners') refitMarkedGroups();
       scene.updateMatrixWorld(); if (areas.length) updatePlacements();
+      if (scene.fog instanceof THREE.Fog) { const range = fogRange(camera.position.distanceTo(currentTarget), shadowExtent); scene.fog.near = range.near; scene.fog.far = range.far; }
       layoutLabels();
       instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
       if (loadState.phase !== 'loaded') {
