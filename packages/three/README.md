@@ -32,6 +32,42 @@ const renderer = createSceneRenderer(container, store, { assets: createAssetRegi
 - Large scenes load in slices of `buildBudget` milliseconds (default 12) with a loading indicator over the scene until the first frame. `onLoad` reports progress, `renderer.loaded` resolves after the first frame, and `loadingIndicator: false` hides the built-in indicator.
 - `three` is a peer dependency.
 
+### Errors, load states and a lost graphics context
+
+`onError` receives what the renderer reports instead of throwing. `createSceneRenderer` itself throws when WebGL is unavailable, the plugin list is invalid or a plugin setup fails; a renderer that fails to mount removes only the canvas, label layer and indicator it added, so fallback HTML in the container stays.
+
+- **A node that fails to build** (its factory or `validate` throws, or its asset is not in the registry) is reported once, with a message naming the node and the original error as `cause`. The node stays as an empty placeholder: its children and attached nodes keep their place, the rest of the scene renders, and the initial load still finishes. It is built again when the node changes in more than its position or route, or when the theme or palette changes.
+- **An attachment to an anchor the owner's model lacks** (`attachment.anchor`; the store cannot check model anchors) is reported once per owner build, and the node is placed at the owner's origin.
+- **An image that fails to load** keeps its placeholder; the error's `name` is `IMAGE_LOAD_ERROR`.
+- Listener, controller and plugin errors are reported, and the frame loop continues.
+
+`onLoad` and `getLoadState()` report the initial load as `SceneLoadState`: `building` (with `built` of `total` visible nodes), `compiling`, then `loaded` after the first frame, when `renderer.loaded` resolves. If the browser loses the graphics context before the first frame, the load ends in the final phase `error`, `onError` receives the error and `renderer.loaded` rejects with it; a lost context later is reported to `onError` only. Either way the renderer stops drawing for good and ignores input; it does not resume when the browser restores the context. Dispose it and create a new one (in React and Vue, remount the `SceneCanvas`, for example by changing its `key`).
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry, createSceneRenderer } from '@opsorama/three';
+import { vehiclesKit } from '@opsorama/objects/vehicles';
+
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'floor', kind: 'ground', size: [20, 12] },
+  { id: 'truck', kind: 'asset', asset: 'truck' },
+  // The truck model has no `roof` anchor: reported once, and the pallet sits at the truck's origin.
+  { id: 'pallet', kind: 'asset', asset: 'pallet', attachment: { nodeId: 'truck', anchor: 'roof' } },
+] });
+const status = document.createElement('p');
+container.append(status); // stays when mounting fails
+const renderer = createSceneRenderer(container, store, {
+  assets: createAssetRegistry(vehiclesKit), // no `pallet` factory: that node is reported and stays empty
+  onError: error => console.warn(error.message, error.cause),
+  onLoad: state => { status.textContent = state.phase === 'error' ? 'Scene unavailable' : state.phase; },
+});
+try {
+  await renderer.loaded;
+} catch {
+  renderer.dispose(); // the context was lost before the first frame; mount a new renderer to try again
+}
+```
+
 ### Camera
 
 The camera follows `SceneSettings.camera` (projection, controls, field of view, overview direction; see `@opsorama/core`) and `SceneSettings.zoom`. The renderer reads and moves it:

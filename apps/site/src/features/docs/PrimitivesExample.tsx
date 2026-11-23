@@ -27,7 +27,7 @@ export function PrimitivesExample() {
     let active = true, view: PrimitivesSession | null = null, renderer: SceneRenderer | null = null;
     setError(null); setLoaded(false); setSelection(null); setDiagnostics(null);
     const callbacks: PrimitivesCallbacks = {
-      ready: value => { if (!active) return; renderer = value; void value.loaded.then(() => { if (active) setLoaded(true); }); },
+      ready: value => { if (!active) return; renderer = value; void value.loaded.then(() => { if (active) setLoaded(true); }, () => undefined); },
       select: value => { if (active) setSelection(value); },
       error: failure => { if (active) setError(failure.message); },
     };

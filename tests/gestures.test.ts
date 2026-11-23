@@ -403,3 +403,74 @@ describe('touch gestures', () => {
     expect(r.canvas.captured.size).toBe(0); expect(r.state.target.length()).toBe(0); expect(r.click).not.toHaveBeenCalled(); expect(r.hover).not.toHaveBeenCalled();
   });
 });
+
+describe('gestures across a canvas resize', () => {
+  const frames: (FrameRequestCallback | null)[] = [];
+  beforeEach(() => {
+    frames.length = 0;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames[id - 1] = null; });
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const flush = () => { const pending = frames.map((callback, index) => [callback, index] as const); pending.forEach(([callback, index]) => { frames[index] = null; callback?.(0); }); };
+
+  /** A canvas whose size changes, with the camera placed by the renderer's camera rig for that size. */
+  function sizedRig(touch = false) {
+    const size = { width: 600, height: 400 };
+    class SizedCanvas extends TestCanvas { getBoundingClientRect() { return { left: 0, top: 0, width: size.width, height: size.height } as DOMRect; } }
+    const canvas = new SizedCanvas(), camera = new OrthographicCamera(), state = { target: new Vector3(), zoom: 1 };
+    const place = () => applyOrthographic(camera, { target: state.target.toArray() as unknown as Vec3, yaw: .5, pitch: .6, zoom: state.zoom, extent: 1 }, { width: size.width, height: size.height, fov: 30, radius: 20 });
+    place();
+    const click = vi.fn(), zoomWrites = vi.fn();
+    const gestures = bindCameraGestures(canvas as unknown as HTMLCanvasElement, () => camera, {
+      getTarget: () => state.target, setTarget: value => { state.target.copy(value); place(); }, onClick: click, onHover: () => undefined,
+      getZoom: () => state.zoom, setZoom: zoom => { zoomWrites(zoom); state.zoom = zoom; place(); },
+    }, { touch });
+    /** What the renderer does on a resize: the camera gets the new viewport first, then the gestures follow. */
+    const resize = (width: number, height: number) => { size.width = width; size.height = height; place(); gestures.resize(); };
+    const screen = (point: Vector3) => { const projected = point.clone().project(camera); return { x: (projected.x + 1) * size.width / 2, y: (1 - projected.y) * size.height / 2 }; };
+    const groundAt = (x: number, y: number) => {
+      const ray = new Raycaster(); ray.setFromCamera(new Vector2(x / size.width * 2 - 1, 1 - y / size.height * 2), camera);
+      return ray.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), new Vector3())!;
+    };
+    const finger = (type: string, id: number, x: number, y: number) => canvas.send(type, { pointerType: 'touch', pointerId: id, isPrimary: id === 11, clientX: x, clientY: y, button: 0, buttons: type === 'pointerup' ? 0 : 1 });
+    return { canvas, state, gestures, click, zoomWrites, resize, screen, groundAt, finger };
+  }
+
+  it('keeps a mouse pan going and the grabbed point under the pointer', () => {
+    const r = sizedRig();
+    r.canvas.send('pointerdown', { clientX: 300, clientY: 200 }); r.canvas.send('pointermove', { clientX: 340, clientY: 220 });
+    r.resize(800, 400);
+    expect(r.canvas.captured.has(1)).toBe(true); expect(r.canvas.style.cursor).toBe('grabbing');
+    const grabbed = r.groundAt(340, 220);
+    r.canvas.send('pointermove', { clientX: 380, clientY: 250 });
+    const shown = r.screen(grabbed);
+    expect(shown.x).toBeCloseTo(380); expect(shown.y).toBeCloseTo(250);
+    r.canvas.send('pointerup', { clientX: 380, clientY: 250 }); expect(r.click).not.toHaveBeenCalled(); r.gestures.dispose();
+  });
+
+  it('keeps a pinch going from the zoom and finger distance at the resize', () => {
+    const r = sizedRig(true);
+    r.finger('pointerdown', 11, 250, 200); r.finger('pointerdown', 12, 350, 200);
+    r.finger('pointermove', 11, 240, 200); r.finger('pointermove', 12, 360, 200); flush();
+    r.finger('pointermove', 11, 190, 200); r.finger('pointermove', 12, 410, 200); flush();
+    expect(r.state.zoom).toBeCloseTo(220 / 120, 3);
+    r.resize(800, 500);
+    const between = r.groundAt(300, 200);
+    r.finger('pointermove', 11, 140, 200); r.finger('pointermove', 12, 460, 200); flush();
+    expect(r.state.zoom).toBeCloseTo(320 / 120, 3);
+    const shown = r.screen(between);
+    expect(shown.x).toBeCloseTo(300, 0); expect(shown.y).toBeCloseTo(200, 0);
+    r.finger('pointerup', 12, 460, 200); r.finger('pointerup', 11, 140, 200); expect(r.click).not.toHaveBeenCalled(); r.gestures.dispose();
+  });
+
+  it('cancels the gesture when the canvas loses its size, and does nothing without a gesture', () => {
+    const r = sizedRig();
+    r.resize(700, 400); expect(r.state.target.length()).toBe(0);
+    r.canvas.send('pointerdown'); r.canvas.send('pointermove', { clientX: 340 }); const target = r.state.target.clone();
+    r.resize(0, 0);
+    expect(r.canvas.captured.size).toBe(0);
+    r.canvas.send('pointermove', { clientX: 400 }); r.canvas.send('pointerup');
+    expect(r.state.target.equals(target)).toBe(true); expect(r.click).not.toHaveBeenCalled(); r.gestures.dispose();
+  });
+});

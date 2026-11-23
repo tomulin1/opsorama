@@ -12,15 +12,16 @@ import { startTransfer, advanceTransfer, type TransferState } from './transfer';
 import { createRouteFollower, createControllerSlot, basicControllers, type ControllerContext, type ControllerOutput, type ControllerRegistry, type ControllerSlot, type RouteFollower, type RouteSample } from '@opsorama/core';
 import { interiorAreas, isContained, isMotionNode, isNodeVisible, isWithinInteriorArea, nodeView, setNodeView, type InteriorArea } from '@opsorama/core';
 import { applyShadowPolicy } from './shadows';
-import { mergeStaticParts } from './static-merge';
+import { attachmentAnchorError, buildSceneObject, nodeParent } from './scene-build';
+import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 import { createInstanceBatcher } from './instancing';
-import { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
+import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
 import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
 import { createMarkerElement, MARKER_STYLES } from './markers';
-import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, type LoadingIndicator, type SceneLoadState } from './loading';
+import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, isProgramLinking, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildNodeObject, contentBounds, createNodeTextures } from './nodes';
 import { createFrameClock, validateFrameListener, type FrameListenerOptions, type SceneFrame } from './frame-clock';
-import { createScenePointerEvent, hoverTransitions, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
+import { createScenePointerEvent, hoverTransitions, labelClickOrigin, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
 import { setupRendererPlugins, validateRendererPlugins, type PluginHost, type RendererPlugin } from './plugins';
 export { createFrameClock, validateFrameListener, DEFAULT_MAX_FRAME_STEPS, FRAME_STEP_RANGE, MAX_FRAME_STEPS } from './frame-clock';
 export type { FrameClock, FrameClockState, FrameListenerOptions, SceneFrame } from './frame-clock';
@@ -53,7 +54,23 @@ export { animateAsset, setAssetAnimator, hasAssetAnimator, assetAnimatedParts, c
 export { mergeStaticParts, keepPartsSeparate, MERGED_PART_NAME } from './static-merge';
 export type { StaticMergeReport } from './static-merge';
 export type { AssetFrame, AssetAnimator } from './animation';
-export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`, and every shape, line, text and image node with its palette colors. Shape, line, group, text and image nodes need no registry entry. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean; /** Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn. */ onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void; /** Errors the renderer reports instead of throwing: a node that fails to build, an image node whose image fails to load (`name` is `IMAGE_LOAD_ERROR`; the message names the node and the URL, and the node keeps its placeholder), a lost graphics context, and errors thrown by listeners, controllers and plugins. */ onError?: (error: Error) => void;
+export interface RendererOptions { /** Required. Factories for every `AssetNode.asset` in the scene; the renderer has no built-in models. Use `catalogAssets` from `@opsorama/objects`, your own factories, or both merged with `createAssetRegistry`. An asset name missing from the registry fails with an error when its node is built. A theme or palette change rebuilds every asset node with the new `MaterialContext`, and every shape, line, text and image node with its palette colors. Shape, line, group, text and image nodes need no registry entry. */ assets: AssetRegistry; /** Default true. Draw repeated identical meshes of different nodes as one `InstancedMesh` per batch; false draws every mesh on its own, for comparisons and debugging. Rendering, picking, anchors and bounds are the same either way. Mount-time option: changing it remounts an adapter's renderer. */ instancing?: boolean; /** Default false. Mouse wheel over the canvas and its labels changes `SceneSettings.zoom` around the view centre, within `ZOOM_RANGE`, about 10% per notch. It takes the wheel from the page, so a scene embedded in a scrolling page enables it deliberately; at a zoom bound the wheel scrolls the page again. Hosts observe the change through the store. Mount-time option: changing it remounts an adapter's renderer. */ wheelZoom?: boolean; /** Default false: touch input stays with the page, so a scene embedded in a scrolling page scrolls and zooms with it, and a tap selects. True sets `touch-action: none` on the canvas (restored on dispose) and handles touch: one finger pans (ends following); two fingers pinch-zoom `SceneSettings.zoom` within `ZOOM_RANGE` (written at most once per animation frame) and keep the ground point between them in place (while following, the pinch zooms around the followed node instead); with `camera.controls: 'orbit'` a two-finger twist turns the yaw and a two-finger vertical drag the pitch (both keep following). With `controls: 'none'` one finger does nothing and two fingers only zoom. A tap that moves less than 5 px still selects; a gesture interrupts a running camera move or path like a mouse drag. Pens behave like a mouse either way. Mount-time option: changing it remounts an adapter's renderer. */ touchGestures?: boolean; /** Motion controllers by kind, added to (or overriding) `basicControllers`. */ controllers?: ControllerRegistry; /** Default `DEFAULT_BUILD_BUDGET` (12). Milliseconds of model building per slice during the initial load; the renderer then yields to the browser so the page stays responsive and the loading indicator updates. At least one node is built per slice. `Infinity` builds the whole scene inside `createSceneRenderer`. Later store changes always build at once. In a hidden document the load is not sliced. */ buildBudget?: number; /** Default true. Show the built-in loading indicator over the scene until the first frame. Adapters pass false and render their own. */ loadingIndicator?: boolean;
+  /**
+   * Each change of the initial load: building progress, shader compilation, then `loaded` once the first frame is drawn,
+   * or `error` when the graphics context is lost before it (final; `SceneRenderer.loaded` then rejects).
+   */
+  onLoad?: (state: SceneLoadState) => void; onSelect?: (selection: Selection | null) => void;
+  /**
+   * Errors the renderer reports instead of throwing. A node that fails to build (its factory or `validate` throws) is
+   * reported once with a message naming the node, the original error as `cause`; it stays empty while the rest of the
+   * scene renders and loads, and is built again when the node changes in more than its position or route, or when the
+   * theme or the palette changes. An attachment to an
+   * anchor the owner's model lacks is reported once per owner build and the node is placed at the owner's origin. Also:
+   * an image node whose image fails to load (`name` is `IMAGE_LOAD_ERROR`; the message names the node and the URL, and the
+   * node keeps its placeholder), a lost graphics context (the renderer stops drawing for good; dispose it and mount a new
+   * one), and errors thrown by listeners, controllers and plugins.
+   */
+  onError?: (error: Error) => void;
   /**
    * Pointer events on the scene: `down`, `up`, `click`, `enter`, `leave` and `move` (at most once per animation frame), with
    * the nearest node under the pointer (selectable or not, grounds included), its `parentId` ancestors, the world point (on
@@ -76,7 +93,14 @@ export interface CameraPathPlayback {
   /** `'completed'` after the last keyframe's hold (never for a loop), `'interrupted'` when stopped or taken over. */
   finished: Promise<CameraTransitionResult>;
 }
-export interface SceneRenderer { /** Resolves once the whole initial scene is built and its first frame drawn. Stays pending when the renderer is disposed earlier. */ loaded: Promise<void>; /** Current state of the initial load. */ getLoadState(): SceneLoadState; /**
+export interface SceneRenderer {
+  /**
+   * Resolves once the whole initial scene is built and its first frame drawn; nodes that failed to build (reported to
+   * `onError`) do not hold it back. Rejects with the error reported to `onError` when the graphics context is lost before
+   * the first frame (load phase `error`). Stays pending when the renderer is disposed earlier.
+   */
+  loaded: Promise<void>;
+  /** Current state of the initial load. */ getLoadState(): SceneLoadState; /**
    * Clear the selection and return to the overview: the overview target (`CameraSettings.overview`), the settings' `yaw` and
    * `pitch`, and the overview scale. Without `transition` the target glides there (angles and scale change at once) and the
    * promise resolves at once; with `transition` the whole view moves on the transition's timing.
@@ -145,8 +169,7 @@ function compileScene(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera:
   return new Promise(resolve => {
     const check = () => {
       if (cancelled()) { resolve(); return; }
-      // `isReady` is false while linking and null after a lost context; only false keeps waiting.
-      for (const material of pending) { const program = (renderer.properties.get(material) as { currentProgram?: { isReady(): boolean | null } }).currentProgram; if (!program || program.isReady() !== false) pending.delete(material); }
+      for (const material of pending) if (!isProgramLinking(renderer.properties, material)) pending.delete(material);
       if (pending.size === 0) resolve(); else setTimeout(check, 10);
     };
     check();
@@ -157,7 +180,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // Checked before anything is created, so an invalid list leaves nothing to clean up.
   if (options.plugins !== undefined) validateRendererPlugins(options.plugins);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(canvasPixelRatio(window.devicePixelRatio)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.16;
   renderer.domElement.setAttribute('aria-label', 'Interactive 3D operational scene'); renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;';
   // The orthographic near plane lies behind the camera, which stands only 40 m from its target: at low zoom a long scene reaches past it on the camera side.
@@ -198,7 +221,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   const settleDeferredFrame = (result: CameraTransitionResult) => { const pending = deferredFrame; deferredFrame = null; pending?.resolve(result); };
   /** Between build slices: entries waiting for instancing, and the snapshot and nodes the last slice left unbuilt. */
   let buildPending: Entry[] = [], sliceSnapshot: SceneSnapshot | null = null, sliceDeferred = new Set<string>();
-  let resolveLoaded: () => void = () => undefined; const loaded = new Promise<void>(resolve => { resolveLoaded = resolve; });
+  let resolveLoaded: () => void = () => undefined, rejectLoaded: (error: Error) => void = () => undefined;
+  const loaded = new Promise<void>((resolve, reject) => { resolveLoaded = resolve; rejectLoaded = reject; });
+  // A host that never awaits `loaded` gets no unhandled rejection when the load fails.
+  loaded.catch(() => undefined);
   let indicator: LoadingIndicator | null = options.loadingIndicator === false ? null : createLoadingIndicator(container, store.getSnapshot().settings.theme);
   renderer.domElement.style.opacity = '0'; labelLayer.style.opacity = '0';
   const reportLoad = (next: SceneLoadState) => {
@@ -207,7 +233,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     try { options.onLoad?.(next); } catch (error) { options.onError?.(error instanceof Error ? error : new Error(String(error))); }
   };
   const assets = options.assets, controllers: ControllerRegistry = { ...basicControllers, ...options.controllers };
-  type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: the node or its carrier chain has a parent container (`isContained`). */ contained: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean };
+  type Entry = { node: SceneNode; object: THREE.Object3D; target: THREE.Vector3; label: HTMLButtonElement | null; labelHeight: number; /** Model-local bounds of selectable nodes, measured before instance transforms. */ bounds: THREE.Box3 | null; /** Built on first use. */ corners: CornerMarker | null; signature: string; follower: RouteFollower; controller: ControllerSlot; moving: boolean; transfer?: TransferState; /** Fixed per build: the node or its carrier chain has a parent container (`isContained`). */ contained: boolean; /** Current shadow placement, see `applyShadowPolicy`. */ indoor: boolean;
+    /** The node failed to build and `object` is an empty stand-in, until the node's signature changes. */
+    failed: boolean;
+    /** The owner object whose missing attachment anchor was reported, so it is reported once per owner build. */
+    anchorReported: THREE.Object3D | null };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
   let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
@@ -228,6 +258,24 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // Text and image textures are shared by equal nodes and released with the last of them; images report failed loads.
   const textures = createNodeTextures(), reportImageError = (error: Error) => { if (!disposed) options.onError?.(error); };
   const build = (node: SceneNode): THREE.Object3D => { const { theme, palette } = store.getSnapshot().settings; return buildNodeObject(node, { assets, theme, palette, textures, onError: reportImageError }); };
+  /** Fits a marked group's brackets to its contents as they are now; see `refitCornerMarker`. */
+  function refitGroupCorners(entry: Entry): CornerMarker {
+    const bounds = contentBounds(entry.object), level = bounds.isEmpty() ? 0 : bounds.min.y;
+    const corners = refitCornerMarker(entry.corners, entry.bounds, bounds, level);
+    if (corners !== entry.corners) {
+      if (!entry.corners) entry.object.add(corners.object);
+      entry.corners = corners; entry.bounds = bounds;
+    }
+    return corners;
+  }
+  /** Brackets of the marked groups follow their contents while they move, measured once per frame. */
+  function refitMarkedGroups() {
+    const selectedId = store.getSnapshot().selection?.nodeId ?? null;
+    for (const id of [selectedId, hovered === selectedId ? null : hovered]) {
+      const entry = id ? entries.get(id) : undefined;
+      if (entry?.node.kind === 'group' && entry.corners?.emphasis) refitGroupCorners(entry);
+    }
+  }
   /** Whether a click or hover can mark the node: it is selectable, and it has geometry or is a group of other nodes. */
   const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && (entry.node.entityId || entry.node.selectable)));
   function sync() {
@@ -257,12 +305,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (!entry || entry.signature !== signature) {
         // A child waits for a deferred parent or carrier, so it is never built against an old one.
         if (building && (deferred.has(node.parentId ?? '') || deferred.has(node.attachment?.nodeId ?? '') || !slice.allow())) { deferred.add(node.id); continue; }
-        // Narrow shadows per part first, then merge static parts grouped by the decided flags.
-        const object = build(node); applyShadowPolicy(object, { interior: contained }); mergeStaticParts(object);
+        // A node that fails to build becomes an empty stand-in with this signature: it is reported once, the rest of the
+        // scene still builds, and it is built again only when its signature changes (the node beyond its position or
+        // route, the theme or the palette).
+        const { object, error } = buildSceneObject(node, contained, build);
+        if (error) options.onError?.(error);
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
         const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         // A group has no geometry of its own: its marker bounds are measured from its children when it is marked.
-        const bounds = node.kind !== 'marker' && node.kind !== 'group' && (node.entityId || node.selectable) ? new THREE.Box3().setFromObject(object) : null;
+        const measured = !error && node.kind !== 'marker' && node.kind !== 'group' && (node.entityId || node.selectable);
+        const bounds = measured ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
         // A transfer starts from the last rendered world pose; the old parent may already have been rebuilt in this sync.
@@ -276,7 +328,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = Boolean(node.entityId || node.selectable); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
         else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
-        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
+        entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, failed: error !== null, anchorReported: null, ...(transfer ? { transfer } : {}) }; entries.set(node.id, entry); scene.add(object); built.push(entry);
       }
       entry.node = node; entry.target.set(...(node.position || [0, 0, 0]));
       const route = isMotionNode(node) ? node.route : undefined, wasFollowing = entry.follower.route !== null;
@@ -292,11 +344,15 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (entry.corners) showCornerMarker(entry.corners, style === 'corners' ? emphasis : null, selectionColor(node.state, snapshot.settings.palette));
       if (entry.label) { entry.label.hidden = !snapshot.settings.labels || (node.labelMode === 'active' && snapshot.selection?.nodeId !== node.id && hovered !== node.id); entry.label.classList.toggle('kit-node-selected', snapshot.selection?.nodeId === node.id); }
     }
+    const objectOf = (id: string) => entries.get(id)?.object;
     for (const entry of entries.values()) {
-      const attachment = entry.node.attachment;
-      const owner = attachment ? entries.get(attachment.nodeId)?.object : undefined;
-      const parent = attachment ? attachment.anchor ? owner?.getObjectByName(`anchor-${attachment.anchor}`) : owner : entry.node.parentId ? entries.get(entry.node.parentId)?.object : scene;
-      if (attachment && owner && !parent) throw new Error(`Unknown attachment anchor ${attachment.anchor} on ${attachment.nodeId}.`);
+      const { parent, missingAnchor } = nodeParent(entry.node, objectOf, scene);
+      // The store cannot check model anchors: a missing one is reported once per owner build, and the node goes to the
+      // owner's root. An owner that failed to build has no anchors and was reported already.
+      const ownerId = entry.node.attachment?.nodeId ?? '', owner = entries.get(ownerId);
+      if (missingAnchor && owner && !owner.failed && entry.anchorReported !== owner.object) {
+        entry.anchorReported = owner.object; options.onError?.(attachmentAnchorError(entry.node.id, ownerId, missingAnchor));
+      }
       if (parent && entry.object.parent !== parent) parent.add(entry.object);
     }
     // Register new objects once their world matrices and shadow placement are current. Nothing is drawn during the initial build, so this waits for its last slice.
@@ -312,11 +368,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (style === 'corners') for (const id of new Set([selectedId, hovered])) {
       const entry = id ? entries.get(id) : undefined;
       if (!entry || entry.node.kind !== 'group' || !markable(entry)) continue;
-      const bounds = contentBounds(entry.object);
-      if (entry.corners && entry.bounds && !entry.bounds.equals(bounds)) { entry.corners.object.removeFromParent(); disposeObject(entry.corners.object); entry.corners = null; }
-      entry.bounds = bounds;
-      if (!entry.corners) { entry.corners = createCornerMarker(bounds, bounds.isEmpty() ? 0 : bounds.min.y); entry.object.add(entry.corners.object); }
-      showCornerMarker(entry.corners, id === selectedId ? 'selected' : 'hovered', selectionColor(entry.node.state, snapshot.settings.palette));
+      const color = selectionColor(entry.node.state, snapshot.settings.palette);
+      showCornerMarker(refitGroupCorners(entry), id === selectedId ? 'selected' : 'hovered', color);
     }
     // A group's glow covers the meshes of the nodes inside it and is renewed on every sync, as they may have been rebuilt.
     for (const [emphasis, id] of [['selected', selectedId], ['hovered', hovered === selectedId ? null : hovered]] as const) { const entry = id ? entries.get(id) : undefined; glow.show(emphasis, style === 'glow' && markable(entry) ? entry!.object : null, selectionColor(entry?.node.state, snapshot.settings.palette), { descendants: entry?.node.kind === 'group' }); }
@@ -334,9 +387,26 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   const safeSync = () => { try { sync(); } catch (error) { if (loadState.phase !== 'loaded') { indicator?.dispose(); indicator = null; } options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
   const unsubscribe = store.subscribe(safeSync);
-  try { sync(); } catch (error) { clearTimeout(sliceTimer); unsubscribe(); entries.forEach(cleanEntry); textures.dispose(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); container.replaceChildren(); throw error; }
-  const resize = () => { pan?.cancel(); const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height); renderer.setSize(width, height, false); updateCamera(); };
+  /**
+   * Releases what exists from the first sync on: the build timer, the store subscription, the loading indicator, node
+   * objects, GPU resources and the graphics context, the canvas and the label layer. Other content of the container (a
+   * host's fallback HTML) stays. Used by `dispose`, so also when a plugin setup fails, and when the first sync fails.
+   */
+  function teardown() {
+    clearTimeout(sliceTimer); unsubscribe(); indicator?.dispose(); indicator = null;
+    entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); instancing?.dispose();
+    disposeObject(grid); sun.shadow.dispose();
+    renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove();
+  }
+  try { sync(); } catch (error) { teardown(); throw error; }
+  // A resize keeps a drag or touch gesture going from where the pointers are now; see `bindCameraGestures`.
+  const resize = () => {
+    const bounds = container.getBoundingClientRect(); width = Math.max(1, bounds.width); height = Math.max(1, bounds.height);
+    renderer.setSize(width, height, false); updateCamera(); pan?.resize();
+  };
   const observer = new ResizeObserver(resize); observer.observe(container); resize();
+  // The display's pixel ratio changes with browser zoom or another screen; the canvas keeps its CSS size.
+  const stopPixelRatio = watchPixelRatio(ratio => { if (ratio !== renderer.getPixelRatio()) renderer.setPixelRatio(ratio); });
   function frame(id: string, options: { fit?: boolean; transition?: CameraTransition } = {}): Promise<CameraTransitionResult> {
     if (options.transition) validateCameraTransition(options.transition);
     if (disposed) return Promise.resolve('interrupted');
@@ -471,7 +541,16 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (!sample) return; entry.object.position.set(...sample.position); entry.moving = sample.moving;
     const delta = Math.atan2(Math.sin(sample.yaw - entry.object.rotation.y), Math.cos(sample.yaw - entry.object.rotation.y)); entry.object.rotation.y += delta * turn;
   };
-  function select(id: string | null, origin: Selection['origin']) { store.select(id, origin); if (cameraSettings.frameOnSelect) { if (id) void frame(id); else if (!follow) target.copy(overviewTarget()); } options.onSelect?.(store.getSnapshot().selection); }
+  /**
+   * A user selection. A changed selection is framed by the sync that `store.select` runs; a click on the node that is
+   * already selected (or on empty space with nothing selected) frames it again, for example after a pan.
+   */
+  function select(id: string | null, origin: Selection['origin']) {
+    const unchanged = id === previousSelection;
+    store.select(id, origin);
+    if (unchanged && cameraSettings.frameOnSelect) { if (id) void frame(id); else if (!follow) target.copy(overviewTarget()); }
+    options.onSelect?.(store.getSnapshot().selection);
+  }
   const aim = (event: PointerEvent) => { const rect = renderer.domElement.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / width * 2 - 1, -(event.clientY - rect.top) / height * 2 + 1); raycaster.setFromCamera(pointer, camera); };
   /** Index of the pick target under the pointer, nearest first, or null. */
   function pickTargetAt(event: PointerEvent): number | null {
@@ -545,10 +624,13 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     pendingMove = { event, label };
   };
   const onPointerLeave = (event: PointerEvent) => { pendingMove = null; if (pointerNode) hoverPointer({ nodeId: null, point: null, source: 'canvas' }, event); };
-  /** A label click (pointer or keyboard): report it, then select unless prevented. */
+  /**
+   * A label click (pointer or keyboard): report it, then select unless prevented. Like a canvas click it does nothing
+   * before the first frame, while labels are still transparent.
+   */
   function labelClick(event: MouseEvent, id: string, selectable: boolean) {
-    const allowed = loadState.phase !== 'loaded' || emitPointer('click', labelTarget(id), event);
-    if (allowed && selectable) select(id, 'keyboard');
+    if (loadState.phase !== 'loaded') return;
+    if (emitPointer('click', labelTarget(id), event) && selectable) select(id, labelClickOrigin(event));
   }
   const pointerListeners: [EventTarget, string, (event: PointerEvent) => void][] = [
     [renderer.domElement, 'pointerdown', onPointerButton('down', 'canvas')], [renderer.domElement, 'pointerup', onPointerButton('up', 'canvas')], [renderer.domElement, 'pointermove', onPointerMove('canvas')],
@@ -604,7 +686,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     if (pickTargets) {
       const index = pickTargetAt(event);
       highlightPickTarget(pickTargets.object, index);
-      if (index !== null) { renderer.domElement.style.cursor = 'pointer'; return; }
+      // The pick target takes the pointer: no node under it stays marked as hovered.
+      if (index !== null) { renderer.domElement.style.cursor = 'pointer'; if (hovered) { hovered = null; safeSync(); } return; }
     }
     const labelId = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-node-id]')?.dataset.nodeId : undefined;
     const picked = pick(event), next = labelId || picked || null;
@@ -623,7 +706,21 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     // A pinch writes the zoom setting like the wheel; while following it zooms and turns around the followed node, so following continues.
     getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }), pinchPans: () => follow === null }, { touch: options.touchGestures === true });
   const wheelZoom = options.wheelZoom ? bindWheelZoom([renderer.domElement, labelLayer], { getZoom: () => store.getSnapshot().settings.zoom, setZoom: zoom => store.configure({ zoom }) }) : null;
-  const onContextLost = (event: Event) => { event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; options.onError?.(new Error('Graphics context lost. Reload the scene to recover; records remain available in the host HTML view.')); };
+  /**
+   * A lost graphics context stops drawing for good: the frame loop, the build timer and camera input end. A load that has
+   * not drawn its first frame ends in the `error` phase and `loaded` rejects. The renderer does not resume when the
+   * browser restores the context; the host disposes it and mounts a new one.
+   */
+  const onContextLost = (event: Event) => {
+    event.preventDefault(); pan?.cancel(); cancelAnimationFrame(raf); clearTimeout(sliceTimer); sliceTimer = undefined;
+    indicator?.dispose(); indicator = null;
+    const error = new Error('Graphics context lost. Dispose the renderer and mount a new one to recover;'
+      + ' records remain available in the host HTML view.');
+    const loading = loadState.phase !== 'loaded';
+    if (loading) reportLoad({ ...loadState, phase: 'error' });
+    options.onError?.(error);
+    if (loading) rejectLoaded(error);
+  };
   renderer.domElement.addEventListener('webglcontextlost', onContextLost);
   let renderedFrames = 0;
   function animate(time: number) {
@@ -667,6 +764,10 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       advanceCamera(dt, time);
       // Per-frame listeners see this frame's node poses and camera; what they change is drawn in this frame.
       clock.frame(dt, { speed: settings.speed, paused: settings.paused, animated, hidden: false });
+      // Everything that moves nodes has run: brackets of a marked group follow its contents, then world matrices are
+      // updated once, so shadow placement, labels, instancing and the drawn frame all use this frame's poses.
+      if (settings.selectionStyle === 'corners') refitMarkedGroups();
+      scene.updateMatrixWorld(); if (areas.length) updatePlacements();
       const labelRects: { x: number; y: number; width: number }[] = [];
       const selectionId = store.getSnapshot().selection?.nodeId;
       // Markers are placed first and never move or hide; other labels make way for them.
@@ -691,7 +792,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         entry.label.style.visibility = overlaps ? 'hidden' : 'visible';
         entry.label.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`;
         if (!overlaps) labelRects.push({ x, y, width: labelWidth });
-      } if (areas.length) updatePlacements(); scene.updateMatrixWorld(); instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
+      }
+      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
       if (loadState.phase !== 'loaded') {
         renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
         reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
@@ -737,7 +839,14 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (!player.result) transition = move;
       return { stop: () => { if (transition === move) interruptTransition(); else player.finish('interrupted'); }, finished: player.finished };
     },
-    getAnchor: (id, name) => { if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null; scene.updateMatrixWorld(true); const rotation = new THREE.Euler().setFromQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion())); return { position: anchor.getWorldPosition(new THREE.Vector3()).toArray() as [number, number, number], rotation: [rotation.x, rotation.y, rotation.z] }; },
+    getAnchor: (id, name) => {
+      if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null;
+      // Only the anchor and its ancestors need current world matrices, not the whole scene.
+      anchor.updateWorldMatrix(true, false);
+      const rotation = new THREE.Euler().setFromQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion()));
+      const position = anchor.getWorldPosition(new THREE.Vector3()).toArray() as [number, number, number];
+      return { position, rotation: [rotation.x, rotation.y, rotation.z] };
+    },
     setPickTargets: (targets, onPick) => {
       if (disposed) return;
       clearPickTargets();
@@ -773,7 +882,15 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       // Plugins clean up first, while everything they may hold is still alive.
       const host = plugins; plugins = null; host?.dispose();
       clock.clear(); pendingMove = null; if (options.onPointer) for (const [target, type, listener] of pointerListeners) target.removeEventListener(type, listener as EventListener);
-      clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true; clearTimeout(sliceTimer); indicator?.dispose(); indicator = null; entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf); observer.disconnect(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose(); container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('webglcontextlost', onContextLost); if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); } clearOverlay(); entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); instancing?.dispose(); disposeObject(grid); sun.shadow.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove(); },
+      clearPickTargets(); interruptTransition(); endFollow('stopped'); settleDeferredFrame('interrupted'); cameraListeners.clear(); disposed = true;
+      entries.forEach(entry => entry.controller.cancel('disposed')); clearTimeout(peekTimer); cancelAnimationFrame(raf);
+      // Unsubscribed before the peek view is closed below, so that store change runs no sync.
+      observer.disconnect(); stopPixelRatio(); unsubscribe(); pan?.dispose(); wheelZoom?.dispose();
+      container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove);
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
+      if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); }
+      clearOverlay(); teardown();
+    },
   };
   if (options.plugins?.length) {
     try {

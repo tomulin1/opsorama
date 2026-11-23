@@ -3,6 +3,7 @@ import { isMotionNode, nodeView, type SceneNode, type SceneStore } from '@opsora
 import { disposeObject, type AssetRegistry } from './assets';
 import { animateAsset } from './animation';
 import { buildNodeObject, createNodeTextures } from './nodes';
+import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 
 /** Default `NodePreviewOptions.maxNodes`: the copied node plus at most 239 visible descendants. */
 export const NODE_PREVIEW_MAX_NODES = 240;
@@ -77,6 +78,44 @@ export interface NodePreview {
   dispose(): void;
 }
 
+/** The element `bindTurntableDrag` listens on: the preview canvas, or a stand-in in tests. */
+export type TurntableDragTarget = Pick<HTMLElement, 'addEventListener' | 'removeEventListener' | 'style'>
+  & Partial<Pick<HTMLElement, 'setPointerCapture' | 'releasePointerCapture' | 'hasPointerCapture'>>;
+
+/**
+ * Turning the preview by hand: a primary-button press of the primary pointer captures it, and its horizontal moves call
+ * `turn` with the CSS pixels moved. Release, cancel or a lost capture (another element took it, or the canvas left the
+ * document) ends the drag and calls `end`. A second pointer, a non-primary pointer or another button is ignored.
+ * `dragging()` tells whether a drag runs; `dispose()` removes the listeners and releases a running capture.
+ */
+export function bindTurntableDrag(canvas: TurntableDragTarget, callbacks: { turn(pixels: number): void; end(): void }) {
+  let drag: { pointer: number; x: number } | null = null;
+  const down = (event: PointerEvent) => {
+    if (drag || event.button !== 0 || !event.isPrimary) return;
+    drag = { pointer: event.pointerId, x: event.clientX }; canvas.setPointerCapture?.(event.pointerId); canvas.style.cursor = 'grabbing';
+  };
+  const move = (event: PointerEvent) => {
+    if (drag?.pointer !== event.pointerId) return;
+    const pixels = event.clientX - drag.x; drag.x = event.clientX; callbacks.turn(pixels);
+  };
+  const up = (event: PointerEvent) => {
+    if (drag?.pointer !== event.pointerId) return;
+    drag = null; canvas.style.cursor = 'grab';
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture?.(event.pointerId);
+    callbacks.end();
+  };
+  const listeners = { pointerdown: down, pointermove: move, pointerup: up, pointercancel: up, lostpointercapture: up };
+  for (const [type, listener] of Object.entries(listeners)) canvas.addEventListener(type, listener as EventListener);
+  return {
+    dragging: () => drag !== null,
+    dispose() {
+      const active = drag; drag = null;
+      for (const [type, listener] of Object.entries(listeners)) canvas.removeEventListener(type, listener as EventListener);
+      if (active && canvas.hasPointerCapture?.(active.pointer)) canvas.releasePointerCapture?.(active.pointer);
+    },
+  };
+}
+
 const CAMERA_DIRECTION = new THREE.Vector3(16, 22, 30).normalize();
 const FIELD_OF_VIEW = 30;
 
@@ -90,7 +129,7 @@ const FIELD_OF_VIEW = 30;
  */
 export function createNodePreview(container: HTMLElement, store: SceneStore, options: NodePreviewOptions): NodePreview {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(canvasPixelRatio(window.devicePixelRatio)); renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.16;
   const canvas = renderer.domElement;
   canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab;'; canvas.tabIndex = 0; canvas.setAttribute('role', 'img');
@@ -102,7 +141,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const spin = options.spin ?? NODE_PREVIEW_SPIN, maxNodes = options.maxNodes ?? NODE_PREVIEW_MAX_NODES;
   let nodeId = options.nodeId ?? null, signature = '', builtFor: string | null = null, built: { node: SceneNode; object: THREE.Object3D }[] = [], radius = 0;
-  let width = 1, height = 1, raf = 0, lastTime = 0, animationTime = 0, renderedFrames = 0, disposed = false, drag: { pointer: number; x: number } | null = null;
+  let width = 1, height = 1, raf = 0, lastTime = 0, animationTime = 0, renderedFrames = 0, disposed = false;
   const report = (error: unknown) => options.onError?.(error instanceof Error ? error : new Error(String(error)));
   const animated = () => { const settings = store.getSnapshot().settings; return settings.motion && !settings.paused && !reducedMotion.matches; };
   const clear = () => { for (const { object } of built) { object.removeFromParent(); disposeObject(object); } built = []; radius = 0; };
@@ -160,24 +199,23 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
     const delta = Math.min(.05, lastTime ? (time - lastTime) / 1000 : .016), moving = animated() && built.length > 0; lastTime = time;
     if (moving) {
       const speed = store.getSnapshot().settings.speed; animationTime += delta * speed;
-      if (!drag) turntable.rotation.y += spin * delta;
+      if (!turntableDrag.dragging()) turntable.rotation.y += spin * delta;
       for (const { node, object } of built) if (node.kind !== 'asset' || node.localMotion !== false) animateAsset(object, { time: animationTime, delta: delta * speed });
     }
     turntable.updateMatrixWorld(true); renderer.render(scene, camera); renderedFrames++;
     // Without motion the preview draws once per change; the next frame starts from a fresh clock.
-    if (moving || drag) request(); else lastTime = 0;
+    if (moving || turntableDrag.dragging()) request(); else lastTime = 0;
   }
 
   const resize = () => { const rect = container.getBoundingClientRect(); width = Math.max(1, rect.width); height = Math.max(1, rect.height); renderer.setSize(width, height, false); camera.aspect = width / height; frameCamera(); request(); };
   const observer = new ResizeObserver(resize); observer.observe(container);
   const turn = (radians: number) => { turntable.rotation.y += radians; request(); };
-  const onPointerDown = (event: PointerEvent) => { if (event.button !== 0) return; drag = { pointer: event.pointerId, x: event.clientX }; canvas.setPointerCapture?.(event.pointerId); canvas.style.cursor = 'grabbing'; };
-  const onPointerMove = (event: PointerEvent) => { if (drag?.pointer !== event.pointerId) return; turn((event.clientX - drag.x) * Math.PI / Math.max(width, 160)); drag.x = event.clientX; };
-  const onPointerUp = (event: PointerEvent) => { if (drag?.pointer !== event.pointerId) return; drag = null; canvas.releasePointerCapture?.(event.pointerId); canvas.style.cursor = 'grab'; request(); };
+  // Dragging across the canvas width (at least 160 px) turns the copy half a turn.
+  const turntableDrag = bindTurntableDrag(canvas, { turn: pixels => turn(pixels * Math.PI / Math.max(width, 160)), end: request });
   const onKey = (event: KeyboardEvent) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); turn(event.key === 'ArrowLeft' ? -Math.PI / 12 : Math.PI / 12); } };
   const onContextLost = (event: Event) => { event.preventDefault(); cancelAnimationFrame(raf); raf = 0; report(new Error('Graphics context lost in the 3D preview. Reopen the panel to recover.')); };
   const onMotionPreference = () => request();
-  canvas.addEventListener('pointerdown', onPointerDown); canvas.addEventListener('pointermove', onPointerMove); canvas.addEventListener('pointerup', onPointerUp); canvas.addEventListener('pointercancel', onPointerUp);
+  const stopPixelRatio = watchPixelRatio(ratio => { if (ratio !== renderer.getPixelRatio()) { renderer.setPixelRatio(ratio); request(); } });
   canvas.addEventListener('keydown', onKey); canvas.addEventListener('webglcontextlost', onContextLost); reducedMotion.addEventListener('change', onMotionPreference);
   const unsubscribe = store.subscribe(sync);
   resize(); sync();
@@ -187,7 +225,7 @@ export function createNodePreview(container: HTMLElement, store: SceneStore, opt
     getState: () => ({ nodeId, nodes: built.length, renderedFrames, disposed }),
     dispose() {
       if (disposed) return; disposed = true; cancelAnimationFrame(raf); unsubscribe(); observer.disconnect(); reducedMotion.removeEventListener('change', onMotionPreference);
-      canvas.removeEventListener('pointerdown', onPointerDown); canvas.removeEventListener('pointermove', onPointerMove); canvas.removeEventListener('pointerup', onPointerUp); canvas.removeEventListener('pointercancel', onPointerUp);
+      turntableDrag.dispose(); stopPixelRatio();
       canvas.removeEventListener('keydown', onKey); canvas.removeEventListener('webglcontextlost', onContextLost);
       clear(); textures.dispose(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
     },

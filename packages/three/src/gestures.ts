@@ -70,7 +70,8 @@ const midpointOf = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y
  * ground point (y = 0) grabbed under the pointer stays under it, for orthographic and perspective cameras alike. Mouse and
  * pen: the primary button pans; with `canOrbit` a right-button or Ctrl + primary-button drag turns the view. Touch: see
  * `GestureOptions.touch`. `cancel()` ends any drag or touch gesture without a click (the renderer calls it when another
- * camera move takes over); `dispose()` also removes every listener and restores the canvas cursor and `touch-action`.
+ * camera move takes over); `resize()` keeps a gesture going after the canvas changed size; `dispose()` also removes every
+ * listener and restores the canvas cursor and `touch-action`.
  */
 export function bindCameraGestures(canvas: HTMLCanvasElement, getCamera: () => Camera, callbacks: GestureCallbacks, options: GestureOptions = {}) {
   const touchEnabled = options.touch === true;
@@ -78,8 +79,13 @@ export function bindCameraGestures(canvas: HTMLCanvasElement, getCamera: () => C
   const originalCursor = canvas.style.cursor, originalTouchAction = canvas.style.touchAction, idleCursor = () => callbacks.canDrag?.() === false ? '' : 'grab';
   let disposed = false;
   type View = { camera: Camera; target: Vector3; anchor: Vector3 };
-  /** A mouse or pen press: a click until it moves past the threshold, then a pan or an orbit. */
-  let drag: { id: number; x: number; y: number; mode: 'pan' | 'orbit'; buttons: number; view: View | null; rect: DOMRect; dragged: boolean } | null = null;
+  /**
+   * A mouse or pen press: a click until it moves past the threshold, then a pan or an orbit. `x` and `y` are the press
+   * position (the previous position while orbiting), `last` the latest pointer position.
+   */
+  let drag: {
+    id: number; x: number; y: number; last: Point; mode: 'pan' | 'orbit'; buttons: number; view: View | null; rect: DOMRect; dragged: boolean;
+  } | null = null;
   /**
    * Touch contacts on the canvas (at most two are tracked). `press`: one finger below the threshold (`tap`: lifting it
    * selects); `pan`: one finger panning; `blocked`: one finger past the threshold without drag controls; `two`: two fingers.
@@ -130,6 +136,38 @@ export function bindCameraGestures(canvas: HTMLCanvasElement, getCamera: () => C
   }
   function cancel() { cancelDrag(); cancelTouch(); }
 
+  /**
+   * Keeps a drag or touch gesture going after the canvas changed size or position; the renderer calls it once its camera
+   * has the new viewport. The canvas rectangle is read again, and a pan or pinch restarts from the pointers' current
+   * positions against the camera as drawn now, so the grabbed ground point stays under the pointer. An orbit only takes
+   * the new height. A canvas without size cancels the gesture.
+   */
+  function resize() {
+    if (!drag && !touch) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) { cancel(); return; }
+    if (drag) {
+      drag.rect = rect;
+      if (drag.mode === 'pan') drag.view = snapshot(drag.last.x, drag.last.y, rect) ?? drag.view;
+    }
+    if (touch) resizeTouch(touch, rect);
+  }
+  function resizeTouch(active: NonNullable<typeof touch>, rect: DOMRect) {
+    // A pending pinch update belongs to the size it was measured at.
+    if (frame) { cancelAnimationFrame(frame); applyPinch(); }
+    active.rect = rect;
+    const two = active.two;
+    if (two) {
+      // A twist that already turns the view keeps turning without crossing the threshold again.
+      const twisting = two.twistStart !== null, [a, b] = two.ids.map(id => active.points.get(id)!) as [Point, Point];
+      restart(two, a, b);
+      if (twisting) two.twistStart = 0;
+      return;
+    }
+    const [point] = [...active.points.values()];
+    if (point && (active.phase === 'press' || active.phase === 'pan')) active.view = snapshot(point.x, point.y, rect);
+  }
+
   // Mouse and pen.
   function mouseDown(event: PointerEvent) {
     if (drag || !event.isPrimary) return;
@@ -139,13 +177,15 @@ export function bindCameraGestures(canvas: HTMLCanvasElement, getCamera: () => C
     if (!rect.width || !rect.height) return;
     const view = orbit ? null : snapshot(event.clientX, event.clientY, rect);
     if (!orbit && !view) return;
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, mode: orbit ? 'orbit' : 'pan', buttons: event.button === 2 ? 2 : 1, view, rect, dragged: false };
+    const at = { x: event.clientX, y: event.clientY };
+    drag = { id: event.pointerId, ...at, last: at, mode: orbit ? 'orbit' : 'pan', buttons: event.button === 2 ? 2 : 1, view, rect, dragged: false };
     canvas.setPointerCapture(event.pointerId);
   }
   function mouseMove(event: PointerEvent) {
     if (!drag) { callbacks.onHover(event); return; }
     if (drag.id !== event.pointerId) return;
     if (!(event.buttons & drag.buttons)) { cancelDrag(); return; }
+    drag.last = { x: event.clientX, y: event.clientY };
     if (!drag.dragged && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < DRAG_THRESHOLD) return;
     if (callbacks.canDrag?.() === false) { drag.dragged = true; return; }
     if (!drag.dragged) {
@@ -286,6 +326,7 @@ export function bindCameraGestures(canvas: HTMLCanvasElement, getCamera: () => C
   for (const [type, listener] of Object.entries(listeners)) canvas.addEventListener(type, listener as EventListener);
   return {
     cancel,
+    resize,
     dispose() {
       if (disposed) return; disposed = true; cancel();
       for (const [type, listener] of Object.entries(listeners)) canvas.removeEventListener(type, listener as EventListener);

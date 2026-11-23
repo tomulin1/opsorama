@@ -38,10 +38,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * the shape, line and group nodes (their validation rules and messages in core, and nodes.ts with the unit shape geometry,
  * the line tube and the shared node builder in the renderer) grew every renderer entry by 5.0 KiB (gzip 1.7): the engine
  * from 90.5 to 95.5, the catalog from 348.4 to 353.4 and the largest kit (vehicles) from 156.6 to 161.6, so the engine,
- * catalog and kit budgets were each raised by 7, the measured growth plus a margin of about 2. Raise a budget only with a
- * note that explains the growth.
+ * catalog and kit budgets were each raised by 7, the measured growth plus a margin of about 2. On November 23, 2026 the
+ * renderer lifecycle fixes (a failing node reported per node with an empty stand-in, missing attachment anchors, a lost
+ * context ending the load, a single teardown, gestures kept across a resize, the pixel ratio following the display, group
+ * brackets following their contents, with their error messages; scene-build.ts 0.9 and pixel-ratio.ts 0.3 KiB minified)
+ * grew every renderer entry by 2.7 KiB (gzip 1.0): the engine from 100.6 to 103.3, the catalog from 358.5 to 361.1 and the
+ * largest kit (vehicles) from 166.7 to 169.4, so the engine, catalog and kit budgets were each raised by 4, the measured
+ * growth plus a margin of about 1. Raise a budget only with a note that explains the growth.
  */
-const BUDGETS_KIB = { engine: 104, catalog: 362, kit: 168, handling: 30 };
+const BUDGETS_KIB = { engine: 108, catalog: 366, kit: 172, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));
