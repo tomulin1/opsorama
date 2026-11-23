@@ -29,6 +29,8 @@ const renderer = createSceneRenderer(container, store, { assets: createAssetRegi
 - An `AssetFactory` may carry `validate(node)`, which checks the node (for example its `options`) without building it; the renderer calls it before building. `createSceneStore(definition, settings, { validateAsset: assetValidator(assets) })` runs the same checks, plus unknown asset names, before the store accepts a node.
 - Factories can set `userData.labelHeight`, `userData.labelText` and `userData.labelWrap` for the floating label, and `userData.containerBounds` for hover peeking; the renderer reads no model-specific node fields.
 - `disposeObject` releases a model; `addObjectRelease` registers extra cleanup (image requests, object URLs) for custom factories.
+- glTF and GLB models: `gltfAsset(url, options)` from `@opsorama/three/gltf` is an asset factory that loads the file once, shares its geometry, materials and textures between nodes (repeated parts render instanced), shows a placeholder until the file arrives, plays an animation clip and releases the file with its last node. `preloadGltf(url)` loads ahead of the scene.
+- Asynchronous factories: `requestAssetRebuild(placeholder)` asks the renderer to build a node again once its content has arrived, `trackAssetLoad(promise)` and `assetLoadsSettled()` wait for loads, and `shareAssetResource(geometry | material)` marks parts several models share, which disposal and static merging leave alone.
 - Large scenes load in slices of `buildBudget` milliseconds (default 12) with a loading indicator over the scene until the first frame. `onLoad` reports progress, `renderer.loaded` resolves after the first frame, and `loadingIndicator: false` hides the built-in indicator.
 - `three` is a peer dependency.
 
@@ -242,6 +244,29 @@ store.subscribe(() => preview.setNode(store.getSnapshot().selection?.nodeId ?? n
 - The copy contains the node and its visible descendants: attached nodes, and the children of an open container such as a building (`previewNodes` lists them; at most `maxNodes`, default 240). Markers have no geometry and show nothing. Routes, controllers and transfers are left out, so nothing travels.
 - The copy turns slowly (`spin`, default 0.4 rad/s, 0 to keep it still); dragging horizontally or the left and right arrow keys turn it by hand. It never selects or changes the store.
 - The canvas is transparent and draws only while something moves. Each preview owns one WebGL context: use one per panel, not one per list row.
+
+### glTF models
+
+```ts
+import { createSceneStore } from '@opsorama/core';
+import { createAssetRegistry, createSceneRenderer } from '@opsorama/three';
+import { gltfAsset } from '@opsorama/three/gltf';
+
+const assets = createAssetRegistry({
+  drone: gltfAsset('/models/drone.glb', { height: 0.7 }),
+  'drone-flying': gltfAsset('/models/drone.glb', { height: 0.7, animation: 'rotors' }),
+});
+const store = createSceneStore({ schemaVersion: 1, nodes: [
+  { id: 'drone-1', kind: 'asset', asset: 'drone', position: [0, 0, 0] },
+  { id: 'drone-2', kind: 'asset', asset: 'drone-flying', position: [2, 1.5, 0] },
+] });
+const renderer = createSceneRenderer(container, store, { assets, onError: error => console.warn(error.message) });
+```
+
+- The file loads once per URL; every node shares its geometry, materials and textures, and repeated meshes render as instanced batches. Each node shows a placeholder box until the file has loaded, then it is built again with the model.
+- `height` (or `scale`), `rotation` and the default `pivot: 'base-center'` normalize the model so it stands on its node position like catalog models; `animation` loops a clip while scene motion is on.
+- A file that fails to load is reported through `onError` with the node and the URL. The file's resources are released with the last node that uses it.
+- Compressed files need a loader with decoders: `gltfAsset(url, { loader: new GLTFLoader().setDRACOLoader(draco) })`.
 
 ## Links
 

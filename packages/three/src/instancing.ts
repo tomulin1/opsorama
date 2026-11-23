@@ -85,7 +85,7 @@ export function createInstanceBatcher(container: Object3D): InstanceBatcher {
     const owner = object.userData.nodeId, animated = new Set(assetAnimatedParts(object)), members: Mesh[] = [];
     const visit = (current: Object3D) => {
       if (current !== object && current.userData.nodeId !== undefined && current.userData.nodeId !== owner) return;
-      if (isPlainOpaqueMesh(current) && current.visible && !animated.has(current) && !isKeptSeparate(current, object) && current.matrixWorld.determinant() > 0) members.push(current);
+      if (isPlainOpaqueMesh(current, true) && current.visible && !animated.has(current) && !isKeptSeparate(current, object) && current.matrixWorld.determinant() > 0) members.push(current);
       current.children.forEach(visit);
     };
     visit(object);

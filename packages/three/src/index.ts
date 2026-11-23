@@ -3,7 +3,7 @@ import type { CameraFollowEnd, CameraFollowHeading, CameraFollowOptions, CameraK
 import { DEFAULT_CAMERA_TRANSITION, validateCameraFollow, validateCameraPath, validateCameraTransition, validateCameraView, ZOOM_RANGE } from '@opsorama/core';
 import { applyOrthographic, applyPerspective, clampPitch, ease, fitBounds, followExtent, followYaw, frameTarget, glideStep, groundExtent, groundRadius, groundTarget, interpolatePose, normalizeAngle, type CameraPose } from './camera-rig';
 import { createCameraPathPlayer } from './camera-path';
-import { disposeObject, type AssetRegistry } from './assets';
+import { disposeObject, setAssetRebuildHandler, type AssetRegistry } from './assets';
 import { animateAsset, hasAssetAnimator } from './animation';
 import { createOverlayObject } from './overlay';
 import { bindCameraGestures } from './gestures';
@@ -49,7 +49,7 @@ export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection
 export { createPickTargetObject, highlightPickTarget } from './pick-targets';
 export type { PickTarget, PickTargetMarker } from './pick-targets';
 export { createOverlayObject } from './overlay';
-export { addObjectRelease, assetValidator, createAssetRegistry, disposeObject } from './assets';
+export { addObjectRelease, assetLoadsSettled, assetValidator, createAssetRegistry, disposeObject, requestAssetRebuild, shareAssetResource, trackAssetLoad } from './assets';
 export type { AssetFactory, AssetRegistry, MaterialContext } from './assets';
 export { applyShadowPolicy, SHADOW_MIN_WIDTH, SHADOW_CONTAINMENT_TOLERANCE } from './shadows';
 export type { ShadowPlacement } from './shadows';
@@ -294,6 +294,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
    * node object and dropped when the theme or palette changes.
    */
   const signatures = createNodeSignatureCache(); let syncedNodes: readonly SceneNode[] | null = null, syncedPresentation = '', refreshPending = false;
+  // Set by requestNodeRebuild (declared early: any sync may read it).
+  let rebuildPending = false, rebuildQueued = false;
   /** The selected and hovered node IDs whose emphasis (brackets, glow, label state) is applied. */
   let marked: { selected: string | null; hovered: string | null } = { selected: null, hovered: null };
   /**
@@ -411,7 +413,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     // The selected label is placed before other labels.
     if (selectedId !== marked.selected) labelOrder = null;
     // Selection, hover, zoom and camera changes keep the node list: only the emphasis moves.
-    const progress = building || refresh || snapshot.nodes !== syncedNodes ? syncNodes(snapshot, refresh, building) : null;
+    const progress = building || refresh || rebuildPending || snapshot.nodes !== syncedNodes ? syncNodes(snapshot, refresh, building) : null;
     if (!progress) applyEmphasis(snapshot, false);
     if (follow && !entries.has(follow.id)) endFollow('removed');
     if (selectedId !== previousSelection) { previousSelection = selectedId; if (cameraSettings.frameOnSelect) { if (selectedId) void frame(selectedId); else { pan?.cancel(); interruptTransition(); endFollow('interrupted'); target.copy(overviewTarget()); } } }
@@ -456,6 +458,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         work.nodeBuilds++;
         const { object, error } = buildSceneObject(node, contained, build);
         if (error) options.onError?.(error);
+        // A factory that loads content asynchronously (a glTF model) returns a placeholder and asks for this node to be built again.
+        else setAssetRebuildHandler(object, () => requestNodeRebuild(node.id, object));
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
         const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         // A group has no geometry of its own: its marker bounds are measured from its children when it is marked.
@@ -520,8 +524,20 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
     applyEmphasis(snapshot, true);
     // Recorded last: after a throw, the next sync walks the nodes again.
-    syncedNodes = snapshot.nodes; refreshPending = false;
+    syncedNodes = snapshot.nodes; refreshPending = false; rebuildPending = false;
     return { total: visibleNodes.length, deferred };
+  }
+  /**
+   * An asset factory asked for the node of `object` to be built again (`requestAssetRebuild`), for example because its glTF
+   * model has loaded: the entry loses its signature, so the next node loop builds it. Requests in one task share one sync.
+   */
+  function requestNodeRebuild(id: string, object: THREE.Object3D) {
+    const entry = entries.get(id);
+    if (disposed || !entry || entry.object !== object) return;
+    entry.signature = ''; rebuildPending = true;
+    if (rebuildQueued) return;
+    rebuildQueued = true;
+    queueMicrotask(() => { rebuildQueued = false; if (!disposed) safeSync(); });
   }
   const safeSync = () => { try { sync(); } catch (error) { if (loadState.phase !== 'loaded') { indicator?.dispose(); indicator = null; } options.onError?.(error instanceof Error ? error : new Error(String(error))); } };
   const unsubscribe = store.subscribe(safeSync);

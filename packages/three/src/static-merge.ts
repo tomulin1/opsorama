@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, Color, Material, Matrix3, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, MeshPhysicalMaterial, MeshStandardMaterial, Object3D, Vector3 } from 'three';
 import { assetAnimatedParts } from './animation';
+import { isSharedAssetResource } from './assets';
 
 /** Name of every mesh `mergeStaticParts` creates. */
 export const MERGED_PART_NAME = 'merged-static-parts';
@@ -96,16 +97,17 @@ export function isKeptSeparate(part: Object3D, root: Object3D): boolean {
 
 /**
  * A plain visible `Mesh` leaf with one opaque standard, physical, Lambert, Phong or basic material
- * without textures, clipping or custom shader or render hooks, and a geometry without morph targets
- * or draw range. Shared by `mergeStaticParts` and the renderer's instancing; vertex colors are allowed here.
+ * without textures (unless `textures`), clipping or custom shader or render hooks, and a geometry without morph targets
+ * or draw range. Shared by `mergeStaticParts` and the renderer's instancing, which allows textures (members of a batch then
+ * share the texture objects); vertex colors are allowed here.
  */
-export function isPlainOpaqueMesh(node: Object3D): node is Mesh {
+export function isPlainOpaqueMesh(node: Object3D, textures = false): node is Mesh {
   if (Object.getPrototypeOf(node) !== Mesh.prototype || node.children.length) return false;
   const mesh = node as Mesh, geometry = mesh.geometry, material = mesh.material;
   if (Array.isArray(material) || !MATERIAL_TYPES.some(type => Object.getPrototypeOf(material) === type.prototype)) return false;
   if (material.transparent || material.opacity !== 1 || material.alphaTest > 0 || material.alphaHash || material.clippingPlanes || !material.visible || ('wireframe' in material && material.wireframe)) return false;
   if (material.onBeforeCompile !== Material.prototype.onBeforeCompile || material.customProgramCacheKey !== Material.prototype.customProgramCacheKey) return false;
-  if (Object.values(material).some(value => (value as { isTexture?: boolean } | null)?.isTexture)) return false;
+  if (!textures && Object.values(material).some(value => (value as { isTexture?: boolean } | null)?.isTexture)) return false;
   if (mesh.onBeforeRender !== Object3D.prototype.onBeforeRender || mesh.onAfterRender !== Object3D.prototype.onAfterRender || mesh.raycast !== Mesh.prototype.raycast || !mesh.frustumCulled) return false;
   const position = geometry.getAttribute('position');
   if (!position || position.itemSize !== 3 || Object.keys(geometry.morphAttributes).length) return false;
@@ -113,7 +115,8 @@ export function isPlainOpaqueMesh(node: Object3D): node is Mesh {
 }
 
 function isMergeable(node: Object3D): node is Mesh {
-  if (!isPlainOpaqueMesh(node) || (node.material as Material).vertexColors) return false;
+  // Shared parts (shareAssetResource) stay as built: merging would copy them per model, and instancing draws them instead.
+  if (!isPlainOpaqueMesh(node) || (node.material as Material).vertexColors || isSharedAssetResource(node.geometry) || isSharedAssetResource(node.material as Material)) return false;
   const normal = node.geometry.getAttribute('normal');
   return Boolean(normal) && normal.itemSize === 3;
 }
@@ -137,6 +140,8 @@ function groupKey(mesh: Mesh): string {
 function serialize(value: unknown): string {
   if (value === null || typeof value !== 'object') return String(value);
   if (value instanceof Color) return value.getHexString();
+  // A texture is one object shared by the meshes of a batch; equal pixels in two texture objects stay apart.
+  if ((value as { isTexture?: boolean }).isTexture) return `texture:${(value as { uuid: string }).uuid}`;
   if ('toArray' in value && typeof value.toArray === 'function') return JSON.stringify(value.toArray());
   return JSON.stringify(value);
 }
