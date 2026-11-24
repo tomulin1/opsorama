@@ -1,6 +1,6 @@
-import { computed, defineComponent, getCurrentInstance, h, inject, onUpdated, shallowReadonly, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType, type ShallowRef } from 'vue';
+import { computed, defineComponent, getCurrentInstance, h, inject, Teleport, onUpdated, shallowReadonly, toValue, type MaybeRefOrGetter, onMounted, onUnmounted, provide, ref, shallowRef, watch, type InjectionKey, type PropType, type ShallowRef } from 'vue';
 import type { CameraView, MarkerIcon, MarkerShape, MarkerSize, MarkerTone, ShapeGeometry, TextAlign, Attachment, AssetOptions, SceneNode, SceneStore, SceneSnapshot, Selection, NodeRoute, CountLayout, NodeView, MaterialOverrides, Footprint, NodeController, NodeTransfer, ControllerRegistry } from '@opsorama/core';
-import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, SCENE_POINTER_EVENT_TYPES, type AssetRegistry, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type RendererPlugin, type RendererSlot, type SceneFrame, type SceneLoadState, type ScenePointerEvent, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, SCENE_POINTER_EVENT_TYPES, type AssetRegistry, type FrameListenerOptions, type NodePreview as NodePreviewHandle, NODE_HTML_ALIGNS, type NodeHtmlAlign, type NodeHtmlHandle, type NodeHtmlOptions, type RendererPlugin, type RendererSlot, type SceneFrame, type SceneLoadState, type ScenePointerEvent, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
 const storeKey: InjectionKey<SceneStore> = Symbol('dashboard-store');
 const rendererKey: InjectionKey<{ slot: RendererSlot; renderer: Readonly<ShallowRef<SceneRenderer | null>> }> = Symbol('dashboard-renderer');
@@ -81,6 +81,32 @@ export const NodePreview = defineComponent({
     watch(() => props.nodeId, id => { error.value = null; preview?.setNode(id); });
     onUnmounted(() => { stop?.(); preview?.dispose(); });
     return () => h('div', { ...attrs, style: [{ position: 'relative', width: '100%', height: '160px' }, attrs.style || {}] }, [h('div', { ref: container, style: { position: 'absolute', inset: 0 } }), error.value ? h('div', { class: 'kit-scene-error', role: 'alert' }, [h('strong', 'Preview unavailable'), h('p', error.value)]) : null]);
+  },
+});
+/**
+ * Vue content shown over a node of the provider's scene, such as a context menu: teleported into an element that the
+ * provider's `SceneCanvas` renderer attaches with `attachHtml`, so it follows the node and the camera every frame. Clicks,
+ * hover and the wheel over it stay away from the scene. Renders nothing until a `SceneCanvas` under the provider has
+ * mounted, during server rendering, and after the renderer unmounts; a remounted renderer gets the content again. Class and
+ * style apply to the box that holds the default slot. `anchor`, `offset` and `align` update without re-attaching; a new
+ * `nodeId` moves the same content to the other node. Emits `attach` with the handle while attached and null when detached.
+ */
+export const NodeHtml = defineComponent({
+  name: 'NodeHtml', inheritAttrs: false,
+  props: { /** The scene node to follow. */ nodeId: { type: String, required: true }, /** See `NodeHtmlOptions.anchor`. */ anchor: String, /** See `NodeHtmlOptions.offset`: [x, y, z] metres in the node's local space. */ offset: Array as unknown as PropType<NodeHtmlOptions['offset']>, /** See `NodeHtmlOptions.align`; default `above`. */ align: { type: String as PropType<NodeHtmlAlign>, validator: (value: string) => (NODE_HTML_ALIGNS as readonly string[]).includes(value) } },
+  emits: { attach: (handle: NodeHtmlHandle | null) => handle === null || typeof handle.remove === 'function' },
+  setup(props, { slots, attrs, emit }) {
+    const renderer = useSceneRenderer(), element = shallowRef<HTMLDivElement | null>(null); let handle: NodeHtmlHandle | null = null;
+    const options = (): NodeHtmlOptions => ({ ...(props.anchor !== undefined ? { anchor: props.anchor } : {}), ...(props.offset !== undefined ? { offset: props.offset } : {}), ...(props.align !== undefined ? { align: props.align } : {}) });
+    const detach = () => { if (!handle) return; handle.remove(); handle = null; emit('attach', null); };
+    // The attached element is created in the browser only.
+    onMounted(() => {
+      element.value = document.createElement('div');
+      watch(() => [renderer.value, element.value, props.nodeId] as const, ([value, target, nodeId]) => { detach(); if (value && target) { handle = value.attachHtml(nodeId, target, options()); emit('attach', handle); } }, { immediate: true });
+      watch(() => [props.anchor, props.offset?.join(','), props.align], () => handle?.update(options()));
+    });
+    onUnmounted(detach);
+    return () => renderer.value && element.value ? h(Teleport, { to: element.value }, [h('div', attrs, slots.default?.())]) : null;
   },
 });
 export const SceneElement = defineComponent({ name: 'SceneElement', props: { node: { type: Object as PropType<SceneNode>, required: true } }, setup(props) { const store = useSceneStore(); let id: string | undefined; watch(() => props.node, node => { if (id && id !== node.id) store.remove(id); store.upsert(node); id = node.id; }, { immediate: true, deep: true }); onUnmounted(() => { if (id) store.remove(id); }); return () => null; } });
