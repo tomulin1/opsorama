@@ -1,0 +1,74 @@
+/* Cut-off shift game: the shared HUD in hud.css, with the game's command panel, event cards and dialogs. */
+.cutoff-page { background: #eef2f5; color: #2a3646; }
+.co-viewport { --hud-accent: #c8553d; --hud-accent-strong: #a43f29; --hud-accent-soft: #fbe9e4; --hud-focus: #c8553d; --hud-scene: #eef1f6; }
+.co-clock strong { font-size: 22px; }
+.co-seed { width: 70px; padding: 6px 8px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--hud-tint); color: var(--panel-text); font: inherit; font-size: 12px; }
+.hud-navigation-control > button { display: inline-flex; align-items: center; gap: 5px; }
+
+/* Command panel: selection, staff, carriers, checkouts and docks. */
+.co-commands { --hud-panel-width: 430px; top: 152px; bottom: 136px; width: var(--hud-panel-width); max-height: none; }
+.co-message { margin: 0 0 10px; padding: 7px 9px; border-radius: 8px; font-size: 11px; background: var(--hud-tint); }
+.co-message[data-tone="critical"] { color: var(--panel-critical); background: #fdecef; }
+.co-message[data-tone="success"] { color: var(--panel-success); background: #e9f6f1; }
+.co-selected { margin: 0 0 12px; padding: 10px; border: 1px solid color-mix(in srgb, var(--hud-accent) 35%, transparent); border-radius: 10px; background: var(--hud-accent-soft); font-size: 12px; }
+.co-selected p { margin: 0; line-height: 1.5; }
+.co-selected p > button, .co-zones > button, .co-list button {
+  padding: 5px 9px; border: 1px solid var(--panel-border); border-radius: 7px; background: #fff; color: var(--hud-accent-strong); font-size: 11px; font-weight: 650;
+}
+.co-zones { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.co-zones > button[aria-pressed="true"], .co-list button[aria-pressed="true"] { background: var(--hud-accent); border-color: var(--hud-accent); color: #fff; }
+.co-section h3, .co-score h3 { display: flex; justify-content: space-between; margin: 12px 0 6px; font-size: 11px; font-weight: 650; color: var(--panel-muted); }
+.co-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-list li { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--hud-line); font-size: 11px; }
+.co-list li[data-selected] { background: var(--hud-accent-soft); }
+.co-list li > span { color: var(--panel-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.co-list .co-name { padding: 0; border: 0; background: none; text-align: left; font-weight: 650; color: var(--hud-accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+.co-list .co-hint { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
+.co-section .hud-text-button { margin-top: 6px; }
+
+/* Events, score and the shift log share the side panel. */
+.co-side { width: 360px; }
+.co-events { display: flex; flex-direction: column; gap: 8px; }
+.co-event { padding: 10px; border: 1px solid #f0c9a8; border-radius: 10px; background: #fff7ef; }
+.co-event header { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.co-event header span { color: #9c650d; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.co-event p { margin: 6px 0 8px; font-size: 11px; line-height: 1.5; color: var(--panel-text); }
+.co-choices { display: grid; gap: 6px; }
+.co-choices button { display: grid; gap: 2px; padding: 7px 9px; text-align: left; border: 1px solid var(--panel-border); border-radius: 8px; background: #fff; font-size: 11px; }
+.co-choices button:hover { border-color: var(--hud-accent); }
+.co-choices button span { color: var(--panel-muted); }
+.co-empty { margin: 0; color: var(--panel-muted); font-size: 11px; }
+.co-score table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.co-score td { padding: 4px 0; border-bottom: 1px solid var(--hud-line); font-variant-numeric: tabular-nums; }
+.co-score td:not(:first-child) { text-align: right; padding-left: 8px; }
+.co-score td[data-tone="success"] { color: var(--panel-success); font-weight: 650; }
+.co-score td[data-tone="critical"] { color: var(--panel-critical); font-weight: 650; }
+.co-score h3 span { color: var(--panel-text); font-size: 13px; }
+.hud-side-panel .co-log { --panel-padding: 0; margin-top: 12px; padding-top: 10px; border: 0; border-top: 1px solid var(--hud-line); border-radius: 0; box-shadow: none; background: none; backdrop-filter: none; }
+.co-log .dp-title { font-size: 11px; }
+
+/* Briefing and end-of-shift report float over the scene. */
+.co-dialog-layer { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgb(32 48 64 / .18); }
+.co-dialog { width: min(560px, 100%); max-height: calc(100% - 40px); overflow: auto; --panel-padding: 18px; }
+.co-dialog .dp-title { font-size: 18px; }
+.co-dialog p { font-size: 12px; line-height: 1.6; margin: 0 0 10px; }
+.co-rules { margin: 0 0 14px; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--panel-text); }
+.co-primary, .co-actions > button { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid var(--hud-accent); border-radius: 9px; background: #fff; color: var(--hud-accent-strong); font-size: 12px; font-weight: 650; }
+.co-viewport .co-primary { background: var(--hud-accent); color: #fff; }
+.co-actions { display: flex; gap: 8px; margin-top: 14px; }
+.co-total { font-size: 14px !important; }
+.co-total strong { font-size: 28px; margin-left: 8px; }
+.co-totals { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--panel-muted); }
+.co-totals strong { display: block; font-size: 16px; color: var(--panel-text); }
+
+@media (max-width: 1150px) {
+  .co-commands { --hud-panel-width: 380px; }
+  .co-side { width: 300px; }
+}
+@media (max-width: 760px) {
+  .co-commands { top: auto; bottom: var(--hud-phone-panel-bottom); width: auto; max-height: min(300px, 38%); }
+  /* Phones show one panel: the events while one is open, the commands otherwise. */
+  .co-viewport:not([data-events="true"]) .co-side, .co-viewport[data-events="true"] .co-commands, .co-side .co-score, .co-side .co-log { display: none; }
+  .co-list li { grid-template-columns: 90px minmax(0, 1fr) auto; }
+  .co-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
