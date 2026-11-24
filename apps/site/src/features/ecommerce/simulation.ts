@@ -1,8 +1,8 @@
 import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type AgentState, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
-import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement } from '@opsorama/objects/handling';
+import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, stagedFor,
+  CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_LABELS, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
   type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
@@ -60,6 +60,12 @@ function reachPut(level: number) {
   return { before: forkMoves({ height: FORK_TRAVEL }, { height: clear }, { height: clear, reach: FORK_REACH }, { height: under, reach: FORK_REACH }), after: forkMoves({ height: under, reach: FORK_REACH }, { height: under }, { height: FORK_FLOOR }) };
 }
 const FACE_DEPARTMENT = Object.fromEntries(Object.entries(DEPARTMENT_FACES).map(([department, face]) => [face, department])) as Partial<Record<LocationId, DepartmentId>>;
+const RACKS = LOCATIONS.filter(value => value.kind === 'rack').map(value => value.id);
+const FACES = LOCATIONS.filter(value => value.kind !== 'rack').map(value => value.id);
+/** The moves each role makes. */
+const ROLE_MOVES: Readonly<Record<ActorRole, readonly MoveKind[]>> = { forklift: ['unload'], 'reach-truck': ['put-away', 'replenish', 'clear'], replenisher: ['decant'], 'shelf-filler': ['restock'], dispatcher: ['ship'] };
+const ZONE_ROLES: Partial<Record<StaffZone, ActorRole>> = { replenishing: 'replenisher', restocking: 'shelf-filler', dispatch: 'dispatcher' };
+const departmentLabel = (id: DepartmentId) => DEPARTMENTS.find(item => item.id === id)!.label;
 /** The note of an inbound dock whose truck stands docked until the director lets it unload. */
 export const DOCK_WAITING_NOTE = 'Docked; waits for the unload.';
 /** People who carry by hand and can move between these zones. */
@@ -79,6 +85,8 @@ interface Task {
   /** Run at the simulation time a unit of that step changes hands. */
   items?: Readonly<Record<number, () => void>>;
   done?: () => void;
+  /** The commanded move this task is part of. */
+  move?: Move;
 }
 interface Unit { kind: UnitKind; label: string; sku?: string; orderId?: string; /** Cartons left on a pallet. */ load?: number; /** Waiting unseen for its hand-over. */ hidden?: boolean; /** Riding the conveyor. */ ride?: { points: readonly Vec3[]; start: number }; }
 interface Truck { docked: boolean; color: string; }
@@ -122,12 +130,64 @@ export interface EcommerceDirector {
   running(machine: string): boolean;
   /** How many customers the shop draws in at once; `usual` is the scenario's number. */
   shoppers(usual: number): number;
+  /**
+   * The next move of a commanded actor, asked whenever it is free, so also between the tasks of a repeating move. `auto` returns
+   * the move the automatic director would choose. Return the same move again to continue it, another to switch, and undefined to
+   * stay idle. A move that ended (`move-ended`) is reported before the actor asks again.
+   */
+  job(actor: ActorRef, auto: () => Move | undefined): Move | undefined;
+  /** Whether the truck loading at the outbound dock leaves now; asked every step while no roll cage is on its way to it. */
+  depart(dock: Dock): boolean;
 }
 /** The automatic director of the dashboard: everyone keeps their zone, orders go first come, first served, lanes stay as they are and trucks unload on arrival. */
-export const automaticDirector: EcommerceDirector = { zone: person => person.zone, priority: () => 0, checkoutOpen: lane => lane.open, unload: () => true, running: () => true, shoppers: usual => usual };
+export const automaticDirector: EcommerceDirector = { zone: person => person.zone, priority: () => 0, checkoutOpen: lane => lane.open, unload: () => true, running: () => true, shoppers: usual => usual, job: (_actor, auto) => auto(), depart: () => false };
+
+/**
+ * The people and machines whose moves of material a director commands: the forklift, the reach truck, and whoever works in the
+ * replenishing (replenisher), restocking (shelf filler) or dispatch (dispatcher) zone.
+ */
+export type ActorRole = 'forklift' | 'reach-truck' | 'replenisher' | 'shelf-filler' | 'dispatcher';
+export interface ActorRef { id: string; role: ActorRole; label: string; }
+/**
+ * One move of material. `unload`, `decant` and `restock` from a pick face repeat, one pallet or carton per task, until their
+ * source is empty or their target full; the others take one task. Targets are booked when a task starts.
+ */
+export type Move =
+  /** Forklift: the next pallet off the truck at an inbound dock into the first free staging spot, until the truck is empty. */
+  | { kind: 'unload'; dock: DockId }
+  /** Reach truck: a pallet in staging into a rack, at its lowest free position, or on `level` (0 is the floor level). */
+  | { kind: 'put-away'; pallet: string; rack: LocationId; level?: number }
+  /** Reach truck: a pallet in a rack to the replenishment spot behind the pick face of its SKU. */
+  | { kind: 'replenish'; pallet: string }
+  /** Reach truck: the empty pallet behind a pick face to the empty-pallet stack. */
+  | { kind: 'clear'; face: LocationId }
+  /** Replenisher: cartons from the pallet behind a pick face into its lanes, until the pallet is empty. */
+  | { kind: 'decant'; face: LocationId }
+  /** Shelf filler: cartons from the department's pick face to its gondolas until they are full or the face reaches its minimum, or one shop transfer. */
+  | { kind: 'restock'; department: DepartmentId; source: 'face' | 'transfer' }
+  /** Dispatcher: a roll cage's parcels onto the truck of its carrier at the outbound dock. */
+  | { kind: 'ship'; cage: string };
+export type MoveKind = Move['kind'];
+/** Whether a move can start now: `wait` means it can once there is room, and the actor waits for it. */
+export type MoveCheckResult = { ok: true } | { ok: false; wait: boolean; reason: string };
+/** A possible move for a subject, ranked best first. `target` names the target, e.g. "R04 · level 2 · Outdoor". */
+export interface MoveOption { move: Move; target: string; /** Why the actor would wait before starting it, when it would. */ waits?: string; }
+/** A target the subject may not go to, with the reason, e.g. for a menu that explains what is missing. */
+export interface MoveRefusal { kind: MoveKind; target: string; reason: string; }
+export interface MoveChoices { options: readonly MoveOption[]; refused: readonly MoveRefusal[]; }
+/** A commanded actor now: its task, the move it works on, and what it waits for. */
+export interface ActorStatus extends ActorRef { task?: string; move?: Move; waiting?: string; }
+/** How a move ended: its one task done, its source `emptied` or its target `filled`, or `refused` when it could not start. */
+export type MoveOutcome = 'done' | 'emptied' | 'filled' | 'refused';
+
 export interface EcommerceSimulationOptions {
   /** Decisions that replace the automatic ones; the rest stay automatic. */
   director?: Partial<EcommerceDirector>;
+  /**
+   * Storage follows the type of goods: a pallet goes only into a rack of its type (`rackGoods`), or into a Bulky rack once every
+   * rack of its type is full (overflow); pick-face lanes take no more cartons than they hold. Off for the dashboard.
+   */
+  goodsRules?: boolean;
   /** A customer who finds this many people queuing at their lane leaves without paying. Without it, everyone queues. */
   walkOutAt?: number;
   /** Receives every event from the start, including those of the starting dispatch; `subscribe` adds listeners later. */
@@ -142,7 +202,18 @@ export type EcommerceEvent = { time: number } & (
   | { type: 'walked-out'; lane: CheckoutId }
   /** An order the pickers had to skip for lack of stock; reported once per order. */
   | { type: 'short-pick'; order: Order; sku: string }
-  | { type: 'put-away'; pallet: string; sku: string; rack: LocationId }
+  /** `overflow` when the rack holds another type of goods (only with `goodsRules`). */
+  | { type: 'put-away'; pallet: string; sku: string; rack: LocationId; overflow: boolean }
+  /** A pallet came off a truck into staging. */
+  | { type: 'unloaded'; dock: DockId; pallet: string; sku: string }
+  /** A carton filled a lane of a pick face. */
+  | { type: 'replenished'; face: LocationId; sku: string }
+  /** A carton filled a gondola; `transfer` when it was a shop transfer. */
+  | { type: 'restocked'; department: DepartmentId; sku: string; transfer: boolean }
+  /** A commanded move could not continue; emitted before the actor asks for its next job. */
+  | { type: 'move-ended'; actor: string; move: Move; outcome: MoveOutcome; reason: string }
+  /** A move waits for room; emitted once when the wait starts. */
+  | { type: 'move-waiting'; actor: string; move: Move; reason: string }
 );
 /** One event without its time, for each member of the union. */
 type EventDetail = EcommerceEvent extends infer E ? E extends EcommerceEvent ? Omit<E, 'time'> : never : never;
@@ -164,6 +235,16 @@ export interface EcommerceSimulation {
   subscribe(listener: (event: EcommerceEvent) => void): () => void;
   /** Cancel an order nobody is working on (released, or waiting to be picked); returns whether it was cancelled. */
   cancel(orderId: string): boolean;
+  /** The commanded actors on shift, with what they do now. */
+  actors(): ActorStatus[];
+  /** Whether `actor` could start `move` now, with the reason when not. Throws for an unknown actor. */
+  check(actor: string, move: Move): MoveCheckResult;
+  /**
+   * The moves `actor` can make with a subject, best target first, and the targets it may not use with their reasons. Subjects are
+   * scene node IDs: `dock:D1` (or `truck:D1`), `pallet:…`, a pick face (`flow:F1`, `shelf:S1`, `replen:F1`), a gondola
+   * (`gondola:kitchen:0`) and a roll cage (`cage:swift-1`). A subject the actor's role does not handle gives no choices.
+   */
+  moves(actor: string, subject: string): MoveChoices;
   dispose(): void;
 }
 
@@ -239,7 +320,21 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     handling: { ...assetHandling, 'cage-pusher': { receptacles: [{ name: 'cart', arrangement: 'stack', anchor: 'cart', capacity: 1, accepts: { families: ['wheeled'] }, envelope: { footprint: [1, 1], height: 2 } }] } } satisfies Record<string, AssetHandling>,
     profiles: handlingProfiles,
     instances: [...LOCATIONS.filter(value => value.kind === 'rack').map(value => ({ id: `rack:${value.id}`, asset: 'pallet-rack' })), ...Object.keys(PACK_X).map(id => ({ id: `pack:${id}`, asset: 'station' }))],
+    ...(options.goodsRules ? { rule: goodsRule } : {}),
   });
+  /** Pallets whose put-away has started, with their rack: the rule was checked when the task started and is not checked again. */
+  const approved = new Map<string, LocationId>();
+  /** Storage by type of goods: a pallet goes into a rack of its type, or into a Bulky rack once every rack of its type is full. */
+  function goodsRule({ unit, to }: { unit: string; to: UnitPlacement }): string | undefined {
+    if (!('container' in to) || !to.container.startsWith('rack:')) return undefined;
+    const rack = to.container.slice(5) as LocationId, sku = units.get(unit)?.sku;
+    if (!sku || approved.get(unit) === rack) return undefined;
+    const goods = skuGoods(sku), holds = rackGoods(rack);
+    if (goods === holds) return undefined;
+    if (holds !== 'bulky') return `${rack} holds ${GOODS_LABELS[holds]} goods and does not take ${GOODS_LABELS[goods]} (${sku}).`;
+    const own = RACKS.filter(id => rackGoods(id) === goods).map(id => `rack:${id}`);
+    return handling.targets(unit, { containers: own, limit: 1 }).length ? `${rack} takes ${GOODS_LABELS[goods]} only as overflow, once every ${GOODS_LABELS[goods]} rack is full.` : undefined;
+  }
   /** Register a unit at a world position. A hidden unit shows from its hand-over on. */
   function spawn(kind: UnitKind, at: Vec3, label: string, extra: Partial<Unit> = {}, id = `${kind}:${serial++}`): string {
     units.set(id, { kind, label, ...extra });
@@ -377,9 +472,16 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     log(`${dock.reference} unloaded at ${id}; the truck left with ${PALLETS_RETURNED} empty pallets.`, 'success');
     leaveDock(id); later(70, bookInbound);
   }
-  function forkliftJob(): Task | undefined {
-    const dock = records.docks.find(item => item.direction === 'inbound' && item.status === 'unloading' && item.pallets && item.pallets.done < item.pallets.total && director.unload(item)), spot = staging.findIndex((value, i) => !value && !stagingBooked.has(i));
-    if (!dock || spot < 0 || !dock.pallets || !truckLoads.get(dock.id)?.length) return undefined;
+  const freeSpot = () => staging.findIndex((value, i) => !value && !stagingBooked.has(i));
+  function autoUnload(): Move | undefined {
+    const dock = records.docks.find(item => item.direction === 'inbound' && item.status === 'unloading' && item.pallets && item.pallets.done < item.pallets.total && director.unload(item));
+    if (!dock || freeSpot() < 0 || !dock.pallets || !truckLoads.get(dock.id)?.length) return undefined;
+    return { kind: 'unload', dock: dock.id };
+  }
+  /** One pallet off the truck into the first free staging spot; a truck still waiting for its unload starts unloading. */
+  function unloadTask(id: DockId): Task {
+    if (holding.has(id)) startUnloading(id);
+    const dock = records.docks.find(item => item.id === id)!, spot = freeSpot();
     const sku = truckLoads.get(dock.id)!.shift()!, pallet = spawn('pallet', dockMouth(dock.id), '', { sku, load: PALLET_CARTONS });
     units.get(pallet)!.label = palletLabel(pallet, sku); stagingBooked.add(spot);
     const lift = forkMoves({ height: FORK_FLOOR }, { height: FORK_TRAVEL }), lower = forkMoves({ height: FORK_TRAVEL }, { height: FORK_FLOOR });
@@ -391,19 +493,38 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       ended: { 0: () => moveForks('forklift', lift) },
       items: {
         0: () => { const done = dock.pallets!.done + 1, current = records.docks.find(item => item.id === dock.id)!; patchDock(dock.id, { pallets: { done: current.pallets!.done + 1, total: current.pallets!.total } }); if (done >= dock.pallets!.total) later(6, () => finishInbound(dock.id)); },
-        2: () => { stagingBooked.delete(spot); staging[spot] = pallet; patch({ staging: staging.filter(Boolean).length }); },
+        2: () => { stagingBooked.delete(spot); staging[spot] = pallet; patch({ staging: staging.filter(Boolean).length }); emit({ type: 'unloaded', dock: dock.id, pallet, sku }); },
       },
     };
   }
 
   /* ── Reach truck: put-away, replenishment and empty pallets ───────────── */
 
-  function reachJob(): Task | undefined {
-    for (const [face, job] of replenishing) if (job.ready && (units.get(job.pallet)?.load ?? 0) === 0) return emptyJob(face, job);
+  function autoReach(): Move | undefined {
+    for (const [face, job] of replenishing) if (job.ready && (units.get(job.pallet)?.load ?? 0) === 0) return { kind: 'clear', face: face as LocationId };
     const low = Object.keys(onHand).filter(sku => onHand[sku] < minimum[sku] && !replenishing.has(SKUS[sku].pick) && reservePallets(sku).length).sort((a, b) => onHand[a] - onHand[b])[0];
-    if (low) return replenishJob(low);
-    return putAwayJob();
+    if (low) return { kind: 'replenish', pallet: reservePallets(low)[0] };
+    const spot = staging.findIndex(Boolean);
+    if (spot < 0) return undefined;
+    // The emptiest rack of the SKU's family comes first, so both rows fill evenly; any free rack is the fallback.
+    const pallet = staging[spot]!, sku = units.get(pallet)!.sku!;
+    const racks = [...RACKS.filter(id => reserveOf(id) === SKUS[sku].reserve).sort((a, b) => records.occupancy[a] - records.occupancy[b]), ...RACKS];
+    const rack = racks.find(id => rackTarget(pallet, id));
+    return rack && { kind: 'put-away', pallet, rack };
   }
+  /** The free place of a rack a pallet would take: the lowest free position, or one on `level`. */
+  function rackTarget(pallet: string, rack: LocationId, level?: number) {
+    const found = handling.targets(pallet, { containers: [`rack:${rack}`], ...(level === undefined ? { limit: 1 } : {}) });
+    return level === undefined ? found[0] : found.find(item => item.target.receptacle === `level-${level}`);
+  }
+  /** Why a rack takes no pallet (on `level`): the type-of-goods rule when it refuses, else the rack or level is full. */
+  function rackRefusal(pallet: string, rack: LocationId, level?: number): string {
+    const refusals = handling.refusals(pallet, { containers: [`rack:${rack}`] }).filter(item => level === undefined || item.receptacle === `level-${level}`);
+    return refusals.flatMap(item => item.violations).find(item => item.code === 'host-rule')?.message ?? (level === undefined ? `${rack} is full.` : `${rack} level ${level + 1} is full.`);
+  }
+  const palletName = (pallet: string) => `Pallet ${pallet.slice(7)}`;
+  /** The pick face whose replenishment spot a pallet stands on. */
+  const faceOfPallet = (pallet: string) => [...replenishing].find(([, job]) => job.pallet === pallet)?.[0] as LocationId | undefined;
   /** The rack level a pallet stands on, and the slot in front of it. */
   function rackPlace(pallet: string) {
     const placed = handling.placement(pallet) as { receptacle: string; position?: number };
@@ -420,44 +541,45 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function reachTask(what: string, take: ReturnType<typeof reachVisit>, put: ReturnType<typeof reachVisit>, items: Task['items']): Task {
     return { what, steps: [...take.steps, ...put.steps], started: { ...take.started, ...put.started }, ended: { ...take.ended, ...put.ended }, items };
   }
-  function emptyJob(face: string, job: Replenishment): Task {
-    const top = records.emptyPallets * STACKED_PALLET;
+  function clearTask(face: LocationId): Task {
+    const job = replenishing.get(face)!, top = records.emptyPallets * STACKED_PALLET;
     const take = reachVisit(0, reachTake(0), { kind: 'interact', node: `replen:${face}`, slot: 'drop', seconds: 0, pickUp: [job.pallet], label: 'Picking up the empty pallet' });
     const put = reachVisit(2, reachPut(top), { kind: 'interact', node: 'pallet-stack', slot: 'drop', seconds: 0, putDown: 'all', putOn: { position: above(PALLET_STACK, top), yaw: ALONG_Z }, label: 'Adding it to the stack' });
     return reachTask(`Taking an empty pallet from ${face} to the stack`, take, put, { 0: () => { replenishing.delete(face); refreshAlerts(); }, 2: () => absorb(job.pallet, () => patch({ emptyPallets: Math.min(MAX_EMPTY_PALLETS, records.emptyPallets + 1) }), .1) });
   }
-  function replenishJob(sku: string): Task {
-    const { pick: face } = SKUS[sku], pallet = reservePallets(sku)[0], rack = inRack(pallet)!, job: Replenishment = { pallet, sku, ready: false, promised: 0 }, place = rackPlace(pallet);
+  function replenishTask(pallet: string): Task {
+    const sku = units.get(pallet)!.sku!, { pick: face } = SKUS[sku], rack = inRack(pallet)!, job: Replenishment = { pallet, sku, ready: false, promised: 0 }, place = rackPlace(pallet);
     claimed.add(pallet); replenishing.set(face, job); refreshAlerts();
-    log(`${sku} is below its minimum; replenishment from ${rack} to ${face} started.`, onHand[sku] ? 'info' : 'critical');
+    if (onHand[sku] < minimum[sku]) log(`${sku} is below its minimum; replenishment from ${rack} to ${face} started.`, onHand[sku] ? 'info' : 'critical');
+    else log(`Replenishment of ${sku} from ${rack} to ${face} started.`);
     const take = reachVisit(0, reachTake(place.level), { kind: 'interact', node: `rack:${rack}`, slot: place.slot, seconds: 0, pickUp: [pallet], label: 'Taking the pallet out of the rack' });
     const put = reachVisit(2, reachPut(0), { kind: 'interact', node: `replen:${face}`, slot: 'drop', seconds: 0, putDown: 'all', putOn: { position: replenishSpot(face), yaw: ALONG_Z }, label: 'Setting it down behind the pick face' });
     return reachTask(`Replenishing ${face} from ${rack}`, take, put, { 0: () => occupy(rack, handling.contents(`rack:${rack}`).length), 2: () => { job.ready = true; claimed.delete(pallet); } });
   }
-  function putAwayJob(): Task | undefined {
-    const spot = staging.findIndex(Boolean);
-    if (spot < 0) return undefined;
-    // The emptiest rack of the SKU's family comes first, so both rows fill evenly; any free rack is the fallback.
-    const pallet = staging[spot]!, sku = units.get(pallet)!.sku!, allRacks = LOCATIONS.filter(value => value.kind === 'rack').map(value => value.id);
-    const racks = [...allRacks.filter(id => reserveOf(id) === SKUS[sku].reserve).sort((a, b) => records.occupancy[a] - records.occupancy[b]), ...allRacks];
-    const target = racks.flatMap(id => handling.targets(pallet, { containers: [`rack:${id}`], limit: 1 }).map(found => ({ id, found })))[0];
-    if (!target) return undefined;
+  function putAwayTask(pallet: string, rack: LocationId, at?: number): Task {
+    const spot = staging.indexOf(pallet), sku = units.get(pallet)!.sku!, target = { id: rack, found: rackTarget(pallet, rack, at)! }, overflow = !!options.goodsRules && rackGoods(rack) !== skuGoods(sku);
     const { receptacle, position } = target.found.target, level = RACK_LEVELS[Number(receptacle.slice(6))];
+    approved.set(pallet, rack);
     const take = reachVisit(0, reachTake(0), { kind: 'interact', node: `staging:${spot}`, slot: 'reach', seconds: 0, pickUp: [pallet], label: 'Taking a pallet from staging' });
     const put = reachVisit(2, reachPut(level), { kind: 'interact', node: `rack:${target.id}`, slot: `load-${position ?? 0}`, seconds: 0, putDown: 'all', putOn: { receptacle, position, turn: RACK_TURN }, label: `Lifting the pallet into ${target.id}` });
     return reachTask(`Putting ${sku} away to ${target.id}`, take, put, {
       0: () => { staging[spot] = null; patch({ staging: staging.filter(Boolean).length }); },
-      2: () => { occupy(target.id, handling.contents(`rack:${target.id}`).length); refreshAlerts(); log(`Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id}.`, 'success'); emit({ type: 'put-away', pallet, sku, rack: target.id }); },
+      2: () => { approved.delete(pallet); occupy(target.id, handling.contents(`rack:${target.id}`).length); refreshAlerts(); log(overflow ? `Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id} as overflow.` : `Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id}.`, overflow ? 'warning' : 'success'); emit({ type: 'put-away', pallet, sku, rack: target.id, overflow }); },
     });
   }
 
   /* ── Replenisher: carton by carton from the pallet into the pick face ─── */
 
-  function replenisherJob(): Task | undefined {
+  /** Units on their way into each pick face's lanes, and facings on their way to each department, not yet in the records. */
+  const incomingUnits: Partial<Record<LocationId, number>> = {}, incomingFacings: Partial<Record<DepartmentId, number>> = {};
+  const cartonsLeft = (face: LocationId) => { const job = replenishing.get(face); return job ? (units.get(job.pallet)?.load ?? 0) - job.promised : 0; };
+  function autoDecant(): Move | undefined {
     const entry = [...replenishing].find(([, job]) => job.ready && (units.get(job.pallet)?.load ?? 0) > job.promised);
-    if (!entry) return undefined;
-    const [face, job] = entry;
-    job.promised++;
+    return entry && { kind: 'decant', face: entry[0] as LocationId };
+  }
+  function decantTask(face: LocationId): Task {
+    const job = replenishing.get(face)!;
+    job.promised++; incomingUnits[face] = (incomingUnits[face] ?? 0) + UNITS_PER_CARTON;
     const sku = job.sku, x = replenishSpot(face)[0], carton = spawn('carton', [x - .35, FLOOR_Y + .75, -5.35], `Carton · ${sku}`, { sku, hidden: true });
     return {
       what: `Filling ${face} with ${sku}`,
@@ -465,7 +587,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       started: { 0: () => show(carton) },
       items: {
         0: () => { job.promised--; const pallet = units.get(job.pallet); if (pallet?.load) { pallet.load--; sceneRevision++; } },
-        1: () => absorb(carton, () => { onHand[sku] += UNITS_PER_CARTON; faceUnits[face] += UNITS_PER_CARTON; occupy(face as LocationId, Math.ceil(faceUnits[face] / UNITS_PER_CARTON)); refreshAlerts(); }),
+        1: () => absorb(carton, () => { incomingUnits[face]! -= UNITS_PER_CARTON; onHand[sku] += UNITS_PER_CARTON; faceUnits[face] += UNITS_PER_CARTON; occupy(face, Math.ceil(faceUnits[face] / UNITS_PER_CARTON)); refreshAlerts(); emit({ type: 'replenished', face, sku }); }),
       },
     };
   }
@@ -569,12 +691,16 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
 
   const outbound = () => records.docks.find(dock => dock.direction === 'outbound');
   const loadingCarrier = () => { const dock = outbound(); return dock?.status === 'loading' ? CARRIERS.find(item => item.name === dock.partner) : undefined; };
-  function dispatcherJob(): Task | undefined {
+  /** The automatic dispatcher loads the carrier's first cage and sends the truck off once nothing is staged or after three trips. */
+  function autoShip(): Move | undefined {
     const value = loadingCarrier();
     if (!value || !value.cages.length) return undefined;
     const parcels = stagedFor(records, value.id).length, dock = outbound()!;
     if (!parcels || outboundTrips >= 3) { departOutbound(dock); return undefined; }
-    const cage = value.cages[0], unit = `cage:${cage}`;
+    return { kind: 'ship', cage: value.cages[0] };
+  }
+  function shipTask(cage: string): Task {
+    const value = loadingCarrier()!, dock = outbound()!, unit = `cage:${cage}`;
     bookedCage = cage; outboundTrips++;
     return {
       what: `Loading ${value.name} at ${dock.id}`,
@@ -671,11 +797,19 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   }
   /** Customers set off from the same street point, so one waits for the next timer while the last is still close to it. */
   function fromStreet(visit: () => void) { if (runner.time - lastEntry < ENTRY_GAP) return; lastEntry = runner.time; visit(); }
-  function fillerJob(): Task | undefined {
+  /** Whether a pick face can spare a carton for the shop: one of its SKUs stays at or above its minimum. */
+  const spares = (face: LocationId) => Object.keys(SKUS).some(sku => SKUS[sku].pick === face && onHand[sku] >= minimum[sku] + UNITS_PER_CARTON);
+  const departmentFull = (department: DepartmentId) => records.shop.facings[department] + (incomingFacings[department] ?? 0) >= MAX_FACINGS;
+  function autoRestock(): Move | undefined {
     const transfer = transfers[0], low = DEPARTMENTS.map(item => item.id).filter(id => records.shop.facings[id] < RESTOCK_BELOW).sort((a, b) => records.shop.facings[a] - records.shop.facings[b]);
-    const department = transfer ?? low.find(id => Object.keys(SKUS).some(sku => SKUS[sku].pick === DEPARTMENT_FACES[id] && onHand[sku] >= minimum[sku] + UNITS_PER_CARTON));
-    if (!department) return undefined;
-    if (transfer) transfers.shift();
+    if (transfer) return { kind: 'restock', department: transfer, source: 'transfer' };
+    const department = low.find(id => spares(DEPARTMENT_FACES[id]));
+    return department && { kind: 'restock', department, source: 'face' };
+  }
+  function restockTask(department: DepartmentId, source: 'face' | 'transfer'): Task {
+    const transfer = source === 'transfer';
+    if (transfer) transfers.splice(transfers.indexOf(department), 1);
+    incomingFacings[department] = (incomingFacings[department] ?? 0) + FACINGS_PER_CARTON;
     const face = DEPARTMENT_FACES[department], sku = Object.keys(SKUS).filter(item => SKUS[item].pick === face).sort((a, b) => onHand[b] - onHand[a])[0];
     const gondola = GONDOLAS.filter(item => item.department === department)[records.shop.facings[department] % 2], x = replenishSpot(face)[0] + .75, carton = spawn('carton', [x, FLOOR_Y + 1, -4.35], `Carton · ${sku}`, { sku, hidden: true });
     return {
@@ -684,7 +818,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       started: { 0: () => show(carton) },
       items: {
         0: () => { if (!transfer) { onHand[sku] -= UNITS_PER_CARTON; faceUnits[face] = Math.max(0, faceUnits[face] - UNITS_PER_CARTON); occupy(face, Math.ceil(faceUnits[face] / UNITS_PER_CARTON)); refreshAlerts(); } },
-        1: () => absorb(carton, () => { patchShop({ facings: { ...records.shop.facings, [department]: Math.min(MAX_FACINGS, records.shop.facings[department] + FACINGS_PER_CARTON) } }); log(`${DEPARTMENTS.find(item => item.id === department)!.label} gondola restocked with ${sku}.`, 'success'); }),
+        1: () => absorb(carton, () => { incomingFacings[department]! -= FACINGS_PER_CARTON; patchShop({ facings: { ...records.shop.facings, [department]: Math.min(MAX_FACINGS, records.shop.facings[department] + FACINGS_PER_CARTON) } }); log(`${departmentLabel(department)} gondola restocked with ${sku}.`, 'success'); emit({ type: 'restocked', department, sku, transfer }); }),
       },
     };
   }
@@ -734,26 +868,220 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     }
   }
   function directDocks() { for (const id of holding) if (director.unload(records.docks.find(dock => dock.id === id)!)) startUnloading(id); }
+  function directOutbound() {
+    const dock = outbound();
+    if (dock?.status === 'loading' && trucks.get(dock.id)?.docked && !bookedCage && director.depart(dock)) departOutbound(dock);
+  }
   function jobOf(id: string): Task | undefined {
     if (MACHINES.has(id) && !director.running(id)) return undefined;
-    if (id === 'forklift') return forkliftJob();
-    if (id === 'reach-truck') return reachJob();
+    const role = roleOf(id);
+    if (role) return commanded(id, role);
     if (id.startsWith('robot:')) return robotJob(id);
     switch (zones.get(id)) {
       case 'picking': return pickerJob(id);
       case 'packing': return packerJob(id);
-      case 'replenishing': return replenisherJob();
-      case 'restocking': return fillerJob();
-      case 'dispatch': return dispatcherJob();
       // Sorters take what the robots bring.
       default: return undefined;
     }
+  }
+
+  /* ── Commanded moves ──────────────────────────────────────────────────── */
+
+  function roleOf(id: string): ActorRole | undefined {
+    if (id === 'forklift' || id === 'reach-truck') return id;
+    const zone = zones.get(id);
+    return zone && ZONE_ROLES[zone];
+  }
+  const labelOf = (id: string) => definitions.find(item => item.id === id)?.node.label ?? id;
+  function autoMove(role: ActorRole): Move | undefined {
+    switch (role) {
+      case 'forklift': return autoUnload();
+      case 'reach-truck': return autoReach();
+      case 'replenisher': return autoDecant();
+      case 'shelf-filler': return autoRestock();
+      case 'dispatcher': return autoShip();
+    }
+  }
+  /** The move each actor works on, until it ends or the director gives another, and what an actor waits for. */
+  const moving = new Map<string, Move>(), waits = new Map<string, { key: string; reason: string }>();
+  const sameMove = (a: Move | undefined, b: Move) => !!a && JSON.stringify(a) === JSON.stringify(b);
+  function endMove(actor: string, move: Move, outcome: MoveOutcome, reason: string) {
+    moving.delete(actor); waits.delete(actor); recordsRevision++;
+    emit({ type: 'move-ended', actor, move, outcome, reason });
+  }
+  /** Ask the director for an actor's next move and start it, wait for room, or report why it ended. */
+  function commanded(id: string, role: ActorRole): Task | undefined {
+    let automatic: Move | undefined;
+    const move = director.job({ id, role, label: labelOf(id) }, () => automatic = autoMove(role));
+    if (!move) { if (moving.delete(id) || waits.delete(id)) recordsRevision++; return undefined; }
+    // A repeating move whose last task emptied its source or filled its target ends here once its records caught up after the task.
+    // The automatic choice is valid by construction.
+    const end = move !== automatic && sameMove(moving.get(id), move) ? moveEnd(move) : undefined;
+    if (end) { endMove(id, move, end[0], end[1]); return undefined; }
+    const result = checkMove(role, move);
+    if (!result.ok && result.wait) {
+      const key = JSON.stringify(move);
+      if (waits.get(id)?.key !== key) { waits.set(id, { key, reason: result.reason }); moving.set(id, move); recordsRevision++; emit({ type: 'move-waiting', actor: id, move, reason: result.reason }); }
+      return undefined;
+    }
+    if (!result.ok) { endMove(id, move, 'refused', result.reason); return undefined; }
+    if (waits.delete(id)) recordsRevision++;
+    moving.set(id, move);
+    return { ...moveTask(move), move };
+  }
+  function moveTask(move: Move): Task {
+    switch (move.kind) {
+      case 'unload': return unloadTask(move.dock);
+      case 'put-away': return putAwayTask(move.pallet, move.rack, move.level);
+      case 'replenish': return replenishTask(move.pallet);
+      case 'clear': return clearTask(move.face);
+      case 'decant': return decantTask(move.face);
+      case 'restock': return restockTask(move.department, move.source);
+      case 'ship': return shipTask(move.cage);
+    }
+  }
+  /** How a move ends after a task: a one-task move is done; a repeating one once its source is empty or its target full. */
+  function moveEnd(move: Move): [MoveOutcome, string] | undefined {
+    switch (move.kind) {
+      case 'unload': return truckLoads.get(move.dock)?.length ? undefined : ['emptied', `The truck at ${move.dock} is empty.`];
+      case 'decant': return cartonsLeft(move.face) > 0 ? undefined : ['emptied', `The pallet behind ${move.face} is empty.`];
+      case 'restock': {
+        if (move.source === 'transfer') return ['done', `Shop transfer for ${departmentLabel(move.department)} restocked.`];
+        if (departmentFull(move.department)) return ['filled', `${departmentLabel(move.department)} is full.`];
+        return spares(DEPARTMENT_FACES[move.department]) ? undefined : ['emptied', `${DEPARTMENT_FACES[move.department]} is at its minimum.`];
+      }
+      default: return ['done', describeMove(move)];
+    }
+  }
+  function describeMove(move: Move): string {
+    switch (move.kind) {
+      case 'unload': return `Unload the truck at ${move.dock}.`;
+      case 'put-away': return `${palletName(move.pallet)} put away to ${move.rack}.`;
+      case 'replenish': return `${palletName(move.pallet)} brought behind ${SKUS[units.get(move.pallet)?.sku ?? '']?.pick ?? 'its pick face'}.`;
+      case 'clear': return `Empty pallet from ${move.face} taken to the stack.`;
+      case 'decant': return `Fill ${move.face} from its pallet.`;
+      case 'restock': return `Restock ${departmentLabel(move.department)}.`;
+      case 'ship': return `${move.cage} loaded on the truck.`;
+    }
+  }
+  const OK: MoveCheckResult = { ok: true };
+  const refuse = (reason: string): MoveCheckResult => ({ ok: false, wait: false, reason });
+  const waitFor = (reason: string): MoveCheckResult => ({ ok: false, wait: true, reason });
+  function checkMove(role: ActorRole, move: Move): MoveCheckResult {
+    if (!ROLE_MOVES[role].includes(move.kind)) return refuse(`The ${role.replace('-', ' ')} does not ${move.kind.replace('-', ' ')}; that is a move of the ${(Object.keys(ROLE_MOVES) as ActorRole[]).find(item => ROLE_MOVES[item].includes(move.kind))!.replace('-', ' ')}.`);
+    switch (move.kind) {
+      case 'unload': {
+        const dock = records.docks.find(item => item.id === move.dock);
+        if (!dock || dock.direction !== 'inbound') return refuse(`${move.dock} is not an inbound dock.`);
+        if (!trucks.get(dock.id)?.docked || !(dock.status === 'unloading' || holding.has(dock.id))) return refuse(`No truck is docked at ${dock.id}.`);
+        if (!truckLoads.get(dock.id)?.length) return refuse(`The truck at ${dock.id} is empty.`);
+        return freeSpot() < 0 ? waitFor('Waits for room in staging.') : OK;
+      }
+      case 'put-away': {
+        const unit = units.get(move.pallet);
+        if (unit?.kind !== 'pallet') return refuse(`${move.pallet} is not a pallet.`);
+        if (!staging.includes(move.pallet)) return refuse(`${palletName(move.pallet)} is not in staging.`);
+        if (!RACKS.includes(move.rack)) return refuse(`${move.rack} is not a reserve rack.`);
+        if (move.level !== undefined && !(Number.isInteger(move.level) && move.level >= 0 && move.level < RACK_LEVELS.length)) return refuse(`${move.rack} has levels 1 to ${RACK_LEVELS.length}.`);
+        return rackTarget(move.pallet, move.rack, move.level) ? OK : refuse(rackRefusal(move.pallet, move.rack, move.level));
+      }
+      case 'replenish': {
+        const unit = units.get(move.pallet);
+        if (unit?.kind !== 'pallet') return refuse(`${move.pallet} is not a pallet.`);
+        if (!inRack(move.pallet)) return refuse(`${palletName(move.pallet)} is not in a rack.`);
+        if (claimed.has(move.pallet)) return refuse(`${palletName(move.pallet)} is already on its way.`);
+        const face = SKUS[unit.sku!].pick;
+        return replenishing.has(face) ? waitFor(`Waits for room behind ${face}.`) : OK;
+      }
+      case 'clear': {
+        const job = replenishing.get(move.face);
+        if (!job) return refuse(`No pallet stands behind ${move.face}.`);
+        if (!job.ready) return refuse(`The pallet for ${move.face} has not arrived yet.`);
+        const load = units.get(job.pallet)?.load ?? 0;
+        return load ? refuse(`The pallet behind ${move.face} still holds ${load} ${load === 1 ? 'carton' : 'cartons'}.`) : OK;
+      }
+      case 'decant': {
+        const job = replenishing.get(move.face);
+        if (!job) return refuse(`No pallet stands behind ${move.face}.`);
+        if (!job.ready) return waitFor(`Waits for the pallet behind ${move.face}.`);
+        if (cartonsLeft(move.face) <= 0) return refuse(`The pallet behind ${move.face} is empty.`);
+        const lanes = Math.ceil((faceUnits[move.face] + (incomingUnits[move.face] ?? 0) + UNITS_PER_CARTON) / UNITS_PER_CARTON);
+        return options.goodsRules && lanes > location(move.face).capacity ? waitFor(`Waits for room in the lanes of ${move.face}.`) : OK;
+      }
+      case 'restock': {
+        const label = departmentLabel(move.department), face = DEPARTMENT_FACES[move.department];
+        if (!face) return refuse(`${move.department} is not a department.`);
+        if (move.source === 'transfer') return transfers.includes(move.department) ? OK : refuse(`No shop transfer waits for ${label}.`);
+        if (departmentFull(move.department)) return refuse(`${label} is full.`);
+        return spares(face) ? OK : refuse(`${face} is at its minimum.`);
+      }
+      case 'ship': {
+        const owner = CARRIERS.find(item => item.cages.includes(move.cage)), loading = loadingCarrier(), dock = outbound();
+        if (!owner) return refuse(`${move.cage} is not a roll cage.`);
+        if (!loading || !dock || !trucks.get(dock.id)?.docked) return refuse(`No truck is loading at the outbound dock.`);
+        if (loading.id !== owner.id) return refuse(`The truck at ${dock.id} is ${loading.name}'s; ${move.cage} goes with ${owner.name}.`);
+        if (bookedCage === move.cage) return refuse(`${move.cage} is already on its way.`);
+        return stagedFor(records, owner.id).length ? OK : refuse(`No ${owner.name} parcels are staged.`);
+      }
+    }
+  }
+  function actorRole(id: string): ActorRole {
+    const role = roleOf(id);
+    if (!role) throw new Error(`${id} is not a commanded actor; commanded actors now: ${ROSTER.filter(roleOf).join(', ') || 'none'}.`);
+    return role;
+  }
+  /** The pick face a subject names: the face, its replenishment spot, or the pallet standing there. */
+  function faceOf(subject: string): LocationId | undefined {
+    const [prefix, name] = subject.split(':');
+    if (prefix === 'pallet') return faceOfPallet(subject);
+    return (prefix === 'flow' || prefix === 'shelf' || prefix === 'replen') && FACES.includes(name as LocationId) ? name as LocationId : undefined;
+  }
+  function choices(id: string, subject: string): MoveChoices {
+    const role = actorRole(id), options: MoveOption[] = [], refused: MoveRefusal[] = [];
+    const offer = (move: Move, target: string) => {
+      const result = checkMove(role, move);
+      if (result.ok) options.push({ move, target });
+      else if (result.wait) options.push({ move, target, waits: result.reason });
+      else refused.push({ kind: move.kind, target, reason: result.reason });
+    };
+    const [prefix, name] = subject.split(':'), face = faceOf(subject);
+    switch (role) {
+      case 'forklift':
+        if ((prefix === 'dock' || prefix === 'truck') && records.docks.some(dock => dock.id === name && dock.direction === 'inbound')) offer({ kind: 'unload', dock: name as DockId }, 'Staging lane');
+        break;
+      case 'reach-truck':
+        if (prefix === 'pallet' && staging.includes(subject)) {
+          // Racks of the pallet's type first, emptiest first, then the Bulky racks for overflow, then the rest.
+          const goods = skuGoods(units.get(subject)!.sku!), rank = (rack: LocationId) => rackGoods(rack) === goods ? 0 : rackGoods(rack) === 'bulky' ? 1 : 2;
+          for (const rack of [...RACKS].sort((a, b) => rank(a) - rank(b) || records.occupancy[a] - records.occupancy[b])) {
+            const found = rackTarget(subject, rack), level = found ? Number(found.target.receptacle!.slice(6)) : undefined;
+            offer({ kind: 'put-away', pallet: subject, rack }, `${rack}${level === undefined ? '' : ` · level ${level + 1}`} · ${GOODS_LABELS[rackGoods(rack)]}`);
+          }
+        } else if (prefix === 'pallet' && inRack(subject)) {
+          const sku = units.get(subject)!.sku!;
+          offer({ kind: 'replenish', pallet: subject }, `Behind ${SKUS[sku].pick}`);
+        } else if (face) offer({ kind: 'clear', face }, 'Empty-pallet stack');
+        break;
+      case 'replenisher':
+        if (face) offer({ kind: 'decant', face }, `${face} lanes`);
+        break;
+      case 'shelf-filler': {
+        const departments = prefix === 'gondola' ? DEPARTMENTS.filter(item => item.id === name).map(item => item.id) : face ? DEPARTMENTS.filter(item => DEPARTMENT_FACES[item.id] === face).map(item => item.id) : [];
+        for (const department of departments) if (transfers.includes(department)) offer({ kind: 'restock', department, source: 'transfer' }, `${departmentLabel(department)} · shop transfer`);
+        for (const department of [...departments].sort((a, b) => records.shop.facings[a] - records.shop.facings[b])) offer({ kind: 'restock', department, source: 'face' }, `${departmentLabel(department)} · from ${DEPARTMENT_FACES[department]}`);
+        break;
+      }
+      case 'dispatcher':
+        if (prefix === 'cage' && CARRIERS.some(item => item.cages.includes(name))) offer({ kind: 'ship', cage: name }, `Truck at ${outbound()?.id ?? 'D3'}`);
+        break;
+    }
+    return { options, refused };
   }
   const MACHINES = new Set(['forklift', 'reach-truck', ...robots]);
   /** Who looks for work, in this order each step. */
   const ROSTER = [...(forklift ? ['forklift'] : []), ...(reachTruck ? ['reach-truck'] : []), ...(replenisher ? ['replenisher'] : []), ...pickers, ...robots, ...packers, ...(dispatcher ? ['dispatcher'] : []), ...(filler ? ['shelf-filler'] : []), ...sorters];
   function dispatch() {
-    directShop(); directDocks();
+    directShop(); directDocks(); directOutbound();
     for (const agent of ROSTER) {
       if (tasks.has(agent)) continue;
       if (zones.has(agent) && !busy(agent)) rezone(agent);
@@ -766,7 +1094,11 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     if (!task) return;
     if (event.type === 'interaction-started') task.started?.[event.step]?.();
     if (event.type === 'interaction-ended') task.ended?.[event.step]?.();
-    if (event.type === 'finished') { tasks.delete(event.agent); task.done?.(); cached = null; recordsRevision++; }
+    if (event.type === 'finished') {
+      tasks.delete(event.agent); task.done?.(); cached = null; recordsRevision++;
+      const end = task.move && sameMove(moving.get(event.agent), task.move) ? moveEnd(task.move) : undefined;
+      if (end) endMove(event.agent, task.move!, end[0], end[1]);
+    }
   }
   function everySoFar(seconds: number, run: () => void) { const tick = () => { run(); later(seconds * (.7 + random() * .6), tick); }; later(seconds, tick); }
   function newOrder() {
@@ -867,6 +1199,12 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       dropOrders([orderId]); log(`Order ${orderId} cancelled.`, 'warning');
       return true;
     },
+    actors: () => ROSTER.flatMap(id => {
+      const role = roleOf(id), task = tasks.get(id), move = moving.get(id), wait = waits.get(id);
+      return role ? [{ id, role, label: labelOf(id), ...(task ? { task: task.what } : {}), ...(move ? { move } : {}), ...(wait ? { waiting: wait.reason } : {}) }] : [];
+    }),
+    check: (actor, move) => checkMove(actorRole(actor), move),
+    moves: choices,
     dispose() { stopEvents(); stopState(); runner.dispose(); },
   };
 }

@@ -99,6 +99,15 @@ export const SKUS: Readonly<Record<string, { name: string; pick: LocationId; res
   'GFT-602': { name: 'Floor cushion', pick: 'S2', reserve: 'R07' },
 };
 
+/** Types of goods. Each front-row rack and the back-row rack behind it hold one type; Bulky racks also take overflow. */
+export type GoodsType = 'kitchen' | 'home' | 'outdoor' | 'toys' | 'tech' | 'bulky';
+export const GOODS_LABELS: Readonly<Record<GoodsType, string>> = { kitchen: 'Kitchen', home: 'Home', outdoor: 'Outdoor', toys: 'Toys', tech: 'Tech', bulky: 'Bulky' };
+const RESERVE_GOODS: readonly GoodsType[] = ['kitchen', 'kitchen', 'home', 'outdoor', 'toys', 'tech', 'bulky'];
+/** The type of goods a reserve rack holds: R01, R02, R08 and R09 hold Kitchen. */
+export const rackGoods = (id: LocationId): GoodsType => RESERVE_GOODS[(Number(id.slice(1)) - 1) % 7];
+/** The type of goods of a SKU, from its reserve rack. */
+export const skuGoods = (sku: string): GoodsType => rackGoods(SKUS[sku].reserve);
+
 /** Gondola rows run from the back of the shop to the front, two departments per row. */
 export const DEPARTMENTS: readonly { id: DepartmentId; label: string }[] = [
   { id: 'garden', label: 'Garden' }, { id: 'bath', label: 'Bath' }, { id: 'party', label: 'Party' }, { id: 'audio', label: 'Audio' },

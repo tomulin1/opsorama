@@ -1,6 +1,6 @@
 import type { SceneNode } from '@opsorama/core';
 import { CARRIERS, DEPARTMENTS, SKUS, location, minutesOf, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type EcommerceSnapshot, type Order } from '../ecommerce/model';
-import { DOCK_WAITING_NOTE, createEcommerceSimulation, type EcommerceDirector, type EcommerceEvent, type StaffMember, type StaffZone } from '../ecommerce/simulation';
+import { DOCK_WAITING_NOTE, automaticDirector, createEcommerceSimulation, type EcommerceDirector, type EcommerceEvent, type StaffMember, type StaffZone } from '../ecommerce/simulation';
 
 /**
  * Cut-off: the player runs one shift of the e-commerce shop and warehouse.
@@ -160,6 +160,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
   let rushUntil = -1, tempLanesUntil = -1;
 
   const director: EcommerceDirector = {
+    ...automaticDirector,
     zone: person => { const wanted = zoneWanted.get(person.id); return wanted && person.zones.includes(wanted) ? wanted : person.zone; },
     priority: order => (order.id === vipFirst ? 4 : 0) + (orderFirst.has(order.id) ? 2 : 0) + (order.carrier && order.carrier === carrierFirst ? 1 : 0),
     checkoutOpen: lane => step < tempLanesUntil || (laneWanted.get(lane.id) ?? lane.open),
