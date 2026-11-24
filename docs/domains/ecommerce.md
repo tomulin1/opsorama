@@ -53,8 +53,12 @@ A director decides who works where, which orders go first, which checkout lanes 
 - **Priorities:** pickers and packers take orders with a higher `priority(order)` first, for example one carrier's orders.
 - **Checkouts:** a lane for which `checkoutOpen(lane)` turns false takes no new customers and closes once the customers on their way to it are served; a closed lane opens with a cashier.
 - **Unloading:** while `unload(dock)` is false, a docked truck waits and an unloading truck pauses.
+- **Machines:** while `running(machine)` is false, the forklift, reach truck or a robot finishes its task, then stops and shows as critical.
+- **Footfall:** `shoppers(usual)` sets how many customers the shop draws in at once.
 
 The dashboard uses `automaticDirector`: everyone keeps their zone, orders go in order of arrival, lanes stay as they are and trucks unload on arrival. A director passes only the decisions it changes; the rest stay automatic.
+
+For a host that keeps score, `subscribe` (or the `onEvent` option, which also receives the events of the starting state) reports orders placed, parcels shipped per carrier, click & collect handovers, customers served, short picks and pallets put away. `cancel(orderId)` drops an order nobody works on yet, and the `walkOutAt` option makes customers who find that many people queuing leave without paying. The Cut-off shift game in `apps/site/src/features/cutoff/rules.ts` is built on these: plain TypeScript rules with player commands, events with choices, a score and an end-of-shift report.
 
 ## Integration boundary
 
