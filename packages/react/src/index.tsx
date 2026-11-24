@@ -1,8 +1,9 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import type { CameraView, SceneNode, SceneStore, SceneSnapshot, Selection, GroundNode, ZoneNode, AssetNode, PathNode, MarkerNode, GroupNode, ShapeNode, LineNode, TextNode, ImageNode } from '@opsorama/core';
-import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type ScenePointerEvent, type SceneRenderer } from '@opsorama/three';
+import { createNodePreview, createRendererSlot, IMAGE_LOAD_ERROR, createSceneRenderer, loadingIndicatorAttributes, loadProgress, loadStateText, sampleRendererFps, SCENE_LOADING_CLASSES, SCENE_LOADING_STYLES, validateFrameListener, type FrameListenerOptions, type NodePreview as NodePreviewHandle, type NodePreviewOptions, type NodeHtmlHandle, type NodeHtmlOptions, type RendererOptions, type RendererSlot, type SceneFrame, type SceneLoadState, type ScenePointerEvent, type SceneRenderer } from '@opsorama/three';
 import { ZOOM_RANGE } from '@opsorama/core';
+import { createPortal } from 'react-dom';
 const Context = createContext<SceneStore | null>(null);
 const RendererContext = createContext<RendererSlot | null>(null);
 /** Provides the scene store to every component below it, and a slot for the renderer of its one `SceneCanvas` (see `useSceneRenderer`). */
@@ -104,6 +105,40 @@ export function NodePreview({ nodeId, assets, spin, maxNodes, className, style, 
   useEffect(() => { setError(null); preview.current?.setNode(nodeId); }, [nodeId]);
   return <div className={className} style={{ position: 'relative', width: '100%', height: 160, ...style }}><div ref={ref} style={{ position: 'absolute', inset: 0 }} />{error && <div className="kit-scene-error" role="alert"><strong>Preview unavailable</strong><p>{error}</p></div>}</div>;
 }
+export interface NodeHtmlProps extends NodeHtmlOptions {
+  /** The scene node to follow. Changing it moves the same content to the other node. */
+  nodeId: string;
+  /** Class and style of the box that holds `children`; it is placed per `align` (default: standing over the node). */
+  className?: string; style?: CSSProperties;
+  children?: ReactNode;
+  /** Receives the handle while attached, and null when detached, for example to read `getState()` in tests. */
+  onAttach?: (handle: NodeHtmlHandle | null) => void;
+}
+/**
+ * React content shown over a node of the provider's scene, such as a context menu: rendered through a portal into an
+ * element that the provider's `SceneCanvas` renderer attaches with `attachHtml`, so it follows the node and the camera
+ * every frame. Clicks, hover and the wheel over it stay away from the scene. Renders nothing until a `SceneCanvas` under
+ * the provider has mounted, during server rendering, and after the renderer unmounts; a remounted renderer gets the
+ * content again. `anchor`, `offset` and `align` update without re-attaching. Needs `react-dom`.
+ */
+export function NodeHtml({ nodeId, anchor, offset, align, className, style, children, onAttach }: NodeHtmlProps) {
+  const renderer = useSceneRenderer(), [element, setElement] = useState<HTMLDivElement | null>(null), handle = useRef<NodeHtmlHandle | null>(null);
+  const latest = useRef({ anchor, offset, align, onAttach }); latest.current = { anchor, offset, align, onAttach };
+  // The attached element is created in the browser only.
+  useEffect(() => { setElement(document.createElement('div')); }, []);
+  useEffect(() => {
+    if (!renderer || !element) return;
+    const attached = renderer.attachHtml(nodeId, element, htmlOptions(latest.current));
+    handle.current = attached; latest.current.onAttach?.(attached);
+    return () => { attached.remove(); handle.current = null; latest.current.onAttach?.(null); };
+  }, [renderer, element, nodeId]);
+  // An inline offset array is a new array each render: compare its values.
+  const offsetKey = offset?.join(',');
+  useEffect(() => { handle.current?.update(htmlOptions(latest.current)); }, [anchor, offsetKey, align]);
+  return renderer && element ? createPortal(<div className={className} style={style}>{children}</div>, element) : null;
+}
+/** The options a `NodeHtml` passes on, without undefined fields. */
+const htmlOptions = ({ anchor, offset, align }: NodeHtmlOptions): NodeHtmlOptions => ({ ...(anchor !== undefined ? { anchor } : {}), ...(offset !== undefined ? { offset } : {}), ...(align !== undefined ? { align } : {}) });
 function Node({ node }: { node: SceneNode }) {
   const store = useSceneStore(); const signature = JSON.stringify(node);
   const id = node.id;
