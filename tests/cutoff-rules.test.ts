@@ -117,7 +117,7 @@ describe('Cut-off shift game', () => {
       const at = event.opened + back;
       until(game, () => game.time >= at - 1); expect(robot(game).state).toBe('critical');
       until(game, () => game.time >= at + .5); expect(robot(game).state).toBeUndefined();
-      expect(points(game, 'events').points).toBe(choice === 'repair' ? -15 : 0);
+      expect(points(game, 'events').points).toBe(choice === 'repair' ? -8 : 0);
       game.dispose();
     }
   });
@@ -164,13 +164,31 @@ describe('Cut-off shift game', () => {
     const promised = play('peak', [], { 'vip-order': 'first' }), declined = play('peak', [], { 'vip-order': 'decline' });
     const result = (notices: readonly ShiftNotice[]) => notices.flatMap(notice => notice.type === 'scored' && notice.line === 'events' && /Key customer/.test(notice.text) ? [notice.points] : []);
     expect(result(promised.notices)).toHaveLength(1);
-    expect([20, -20]).toContain(result(promised.notices)[0]);
+    expect([20, -10]).toContain(result(promised.notices)[0]);
     expect(result(declined.notices)).toEqual([]);
     const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'vip-order');
     expect(() => game.answer(event.id, 'maybe')).toThrow('Key customer has no choice maybe; choices: first, decline.');
     game.answer(event.id, 'first');
     expect(() => game.answer(event.id, 'first')).toThrow(`No open event ${event.id}.`);
     game.dispose();
+  });
+
+  it('reports the decisions, carrier countdowns and revisions the HUD reads', () => {
+    const game = createShiftGame({ scenario: 'peak' }), records = game.recordsRevision;
+    expect(game.carriers()).toMatchObject([{ carrier: 'swift', cutoff: '11:30', remaining: 90 }, { carrier: 'parcelo', cutoff: '16:00', remaining: 360 }]);
+    game.assign('packer:K3', 'restocking'); game.prioritize('swift'); game.setCheckout('C3', true); game.unloadTruck('D2');
+    expect(game.recordsRevision).toBeGreaterThan(records);
+    expect(game.decisions()).toMatchObject({ moving: { 'packer:K3': 'restocking' }, carrier: 'swift', orders: [], lanes: { C1: true, C2: true, C3: true }, unload: ['D1', 'D2'] });
+    const scene = game.sceneRevision;
+    game.advance(100);
+    expect(game.sceneRevision).toBeGreaterThan(scene);
+    expect(game.decisions().moving).toEqual({});
+    expect(game.carriers()[0].remaining).toBeNull();
+    expect(game.carriers()[1].remaining).toBeCloseTo(260);
+    game.dispose();
+    const night = createShiftGame({ scenario: 'night' });
+    expect(night.carriers().map(item => item.remaining)).toEqual([null, null]);
+    night.dispose();
   });
 
   it('applies the default choice when an event is not answered in time', () => {
@@ -204,4 +222,4 @@ describe('Cut-off shift game', () => {
 });
 
 /** Score, orders shipped, customers served and pallets put away of each scripted shift; record new ones only when the rules are meant to change. */
-const RECORDED_TOTALS = { steady: [118, 17, 28, 0], peak: [231, 31, 38, 4], night: [4, 0, 0, 11] };
+const RECORDED_TOTALS = { steady: [135, 17, 28, 0], peak: [250, 31, 38, 4], night: [37, 0, 0, 11] };
