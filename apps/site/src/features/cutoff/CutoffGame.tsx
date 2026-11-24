@@ -14,7 +14,7 @@ import { carrier as carrierOf, type CarrierId, type CheckoutId, type DockId, typ
 import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { StaffMember, StaffZone } from '../ecommerce/simulation';
 import { SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { ZONE_LABELS, gameNodes, movable, zoneAt } from './scene';
+import { FLOAT_SECONDS, ZONE_LABELS, lightingAt, movable, playNodes, zoneAt, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
 interface GameView {
@@ -33,7 +33,7 @@ const toneOf = (value: number): Tone => value > 0 ? 'success' : value < 0 ? 'cri
 type LogEntry = { id: number; time: string; text: string; points?: number };
 
 function createStore(game: ShiftGame): SceneStore {
-  return createSceneStore({ schemaVersion: 1, nodes: gameNodes(game.nodes(), game.staff(), null) }, { zoom: DEFAULT_ZOOM, selectionStyle: 'glow', paused: true });
+  return createSceneStore({ schemaVersion: 1, nodes: playNodes(game, null, []) }, { zoom: DEFAULT_ZOOM, selectionStyle: 'glow', paused: true, lighting: lightingAt(game.level, game.clock) });
 }
 
 /** The scene with the game's HUD. The rules run in `rules.ts`; this component only reads them and sends commands. */
@@ -46,7 +46,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const [message, setMessage] = useState<{ text: string; tone: Tone } | null>(null), [log, setLog] = useState<LogEntry[]>([]);
   const { metricSize } = useHudMetricSize();
   const selection = scene.selection?.nodeId ?? null, selected = useRef<string | null>(null);
-  const pending = useRef<LogEntry[]>([]), nextLog = useRef(1);
+  const pending = useRef<LogEntry[]>([]), nextLog = useRef(1), floats = useRef<Floating[]>([]);
   const person = view.staff.find(item => item.id === selection);
   const armed = movable(person) ? person! : null;
   selected.current = armed?.id ?? null;
@@ -54,9 +54,10 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   // The scene clock drives the game: pause and speed apply to both.
   useEffect(() => {
     const feed: LoopFeed<GameView> = {
-      get sceneRevision() { return game.current.sceneRevision; }, get recordsRevision() { return game.current.recordsRevision; },
+      // While point changes float, every step republishes so they rise.
+      get sceneRevision() { return game.current.sceneRevision + (floats.current.length ? Math.round(game.current.time * 10) : 0); }, get recordsRevision() { return game.current.recordsRevision; },
       advance: seconds => game.current.advance(seconds),
-      nodes: () => gameNodes(game.current.nodes(), game.current.staff(), selected.current),
+      nodes: () => { const time = game.current.time; floats.current = floats.current.filter(item => time - item.start < FLOAT_SECONDS); return playNodes(game.current, selected.current, floats.current); },
       snapshot: () => viewOf(game.current),
     };
     return runFeedLoop({ feed: () => feed, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace(nodes), onRecords: value => { setView(value); if (pending.current.length) { const entries = pending.current.splice(0); setLog(current => [...entries.reverse(), ...current].slice(0, LOG_SIZE)); } } });
@@ -64,12 +65,15 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   // Notices of the current game feed the shift log.
   useEffect(() => game.current.subscribe((notice: ShiftNotice) => {
     const time = game.current.clock, add = (text: string, points?: number) => pending.current.push({ id: nextLog.current++, time, text, ...(points !== undefined ? { points } : {}) });
-    if (notice.type === 'scored') add(notice.text, notice.points);
+    if (notice.type === 'scored') { add(notice.text, notice.points); if (notice.at) floats.current.push({ id: nextLog.current, points: notice.points, at: notice.at, start: notice.time }); }
     if (notice.type === 'event-opened') add(`${notice.event.title}: ${notice.event.text}`);
     if (notice.type === 'cutoff') add(`${carrierOf(notice.carrier).name} cut-off: ${notice.missed} ${notice.missed === 1 ? 'order' : 'orders'} missed`);
   }), [game, generation]);
   // Selecting a person marks the zones they can go to.
-  useEffect(() => { store.replace(gameNodes(game.current.nodes(), game.current.staff(), armed?.id ?? null)); }, [store, game, armed?.id]);
+  useEffect(() => { store.replace(playNodes(game.current, armed?.id ?? null, floats.current)); }, [store, game, armed?.id]);
+  // Time of day: studio light by day, dusk from 16:00, night light on the night shift.
+  const lighting = lightingAt(game.current.level, view.clock);
+  useEffect(() => { if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting }); }, [store, lighting]);
   useEffect(() => {
     const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape' && selected.current) store.select(null); };
     document.addEventListener('keydown', cancel); return () => document.removeEventListener('keydown', cancel);
@@ -97,7 +101,8 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const restart = (level: EcommerceScenario, value: number) => {
     game.current.dispose();
     game.current = createShiftGame({ scenario: level, seed: value });
-    store.select(null); store.replace(gameNodes(game.current.nodes(), game.current.staff(), null)); store.configure({ paused: true });
+    floats.current = [];
+    store.select(null); store.replace(playNodes(game.current, null, [])); store.configure({ paused: true, lighting: lightingAt(game.current.level, game.current.clock) });
     pending.current = []; setLog([]); setMessage(null); setStarted(false); setScenario(level); setSeed(value); setGeneration(current => current + 1); refresh();
   };
   const start = () => { setStarted(true); store.configure({ paused: false }); };
