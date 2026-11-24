@@ -30,7 +30,7 @@ export const SHIFT_LEVELS: Readonly<Record<EcommerceScenario, ShiftLevel>> = {
 
 /** Points per counted item; time costs count per started half hour (lanes) or quarter hour (waiting trucks) of the shift clock. */
 export const POINTS = {
-  'on-time': 10, late: 4, collected: 6, served: 2, 'put-away': 2,
+  'on-time': 10, late: 4, collected: 6, served: 2, 'put-away': 5,
   'missed-cutoff': -8, 'walked-out': -4, 'ran-empty': -5, 'short-pick': -3, 'lane-open': -1, 'truck-waiting': -1,
 } as const;
 export type ScoreId = keyof typeof POINTS | 'events';
@@ -58,6 +58,29 @@ export interface ShiftEvent {
   answer?: { choice: string; at: number; auto: boolean };
 }
 
+/** A parcel carrier as the shift sees it now. */
+export interface CarrierStatus {
+  carrier: CarrierId; name: string; cutoff: string;
+  /** Seconds of play until the cut-off; null once it passed or when it falls outside the shift. */
+  remaining: number | null;
+  /** Its orders still in the building. */
+  open: number;
+}
+/** The player's standing decisions. */
+export interface ShiftDecisions {
+  /** Zones asked for and not yet applied, by person. */
+  moving: Readonly<Record<string, StaffZone>>;
+  carrier: CarrierId | null;
+  orders: readonly string[];
+  /** Lanes the player wants open; a lane wanted closed may still serve its queue. */
+  lanes: Readonly<Partial<Record<CheckoutId, boolean>>>;
+  /** Inbound docks allowed to unload. */
+  unload: readonly DockId[];
+  /** Docks whose truck is late, until when (seconds of play). */
+  late: Readonly<Partial<Record<DockId, number>>>;
+  /** Stopped machines, until when (seconds of play; Infinity until the event is answered). */
+  stopped: Readonly<Record<string, number>>;
+}
 export interface CarrierTotals { carrier: CarrierId; name: string; cutoff: string; onTime: number; late: number; missed: number; }
 export interface ShiftReport {
   level: ShiftLevel; seed: number; over: boolean; clock: string;
@@ -85,6 +108,10 @@ export interface ShiftGame {
   /** Shift clock, e.g. `13:25`. */
   readonly clock: string;
   readonly over: boolean;
+  /** Bumped whenever scene nodes change; publish `nodes()` when it moves. */
+  readonly sceneRevision: number;
+  /** Bumped whenever records, score, events or decisions change. */
+  readonly recordsRevision: number;
   /** Advance by any number of seconds; the rules run in fixed steps, so the result does not depend on how it is sliced. Stops at the end of the shift. */
   advance(seconds: number): void;
   /** Move a person to a zone; they finish their current work first. */
@@ -97,6 +124,8 @@ export interface ShiftGame {
   answer(event: string, choice: string): void;
   score(): ShiftScore;
   report(): ShiftReport;
+  decisions(): ShiftDecisions;
+  carriers(): CarrierStatus[];
   /** Open events, oldest first. */
   events(): readonly ShiftEvent[];
   snapshot(): EcommerceSnapshot;
@@ -117,7 +146,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
   const level = SHIFT_LEVELS[scenario], random = seeded(seed ^ 0x5eed), startMinute = minutesOf(level.start), end = steps(SHIFT_SECONDS);
   /** The step of each carrier's cut-off within this shift; carriers whose cut-off falls outside it have none. */
   const cutoffs = new Map(PARCEL_CARRIERS.flatMap(item => { const offset = (minutesOf(item.cutoff) - startMinute + 1440) % 1440; return offset <= SHIFT_SECONDS ? [[item.id, steps(offset)] as const] : []; }));
-  let step = 0, carry = 0, over = false, nextEvent = 1;
+  let step = 0, carry = 0, over = false, nextEvent = 1, revision = 0;
 
   // The player's decisions, read by the director.
   const zoneWanted = new Map<string, StaffZone>(), orderFirst = new Set<string>();
@@ -148,7 +177,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
   const carriers = new Map(PARCEL_CARRIERS.map(item => [item.id, { carrier: item.id, name: item.name, cutoff: item.cutoff, onTime: 0, late: 0, missed: 0 }]));
   let eventPoints = 0, laneSteps = 0, truckSteps = 0;
   const listeners = new Set<(notice: ShiftNotice) => void>();
-  const notify = (notice: NoticeDetail) => { const timed = { ...notice, time: step * STEP } as ShiftNotice; listeners.forEach(listener => listener(timed)); };
+  const notify = (notice: NoticeDetail) => { revision++; const timed = { ...notice, time: step * STEP } as ShiftNotice; listeners.forEach(listener => listener(timed)); };
   function count(line: keyof typeof POINTS, text: string, amount = 1) { counts[line] += amount; notify({ type: 'scored', line, points: POINTS[line] * amount, text }); }
   function eventScore(points: number, text: string) { counts.events++; eventPoints += points; notify({ type: 'scored', line: 'events', points, text }); }
   function score(): ShiftScore {
@@ -185,7 +214,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
       if (step < at) continue;
       const snapshot = simulation.snapshot();
       if (kind === 'robot-breakdown') openEvent(kind, 'robot:0', 'Robot down', 'Robot 1 stopped at the conveyor.', [
-        { id: 'repair', label: 'Call the technician', effect: 'Back in 30 minutes; costs 15 points.' }, { id: 'wait', label: 'Run on one robot less', effect: 'Back 150 minutes after the breakdown; no cost.' }], 'wait');
+        { id: 'repair', label: 'Call the technician', effect: 'Back in 30 minutes; costs 8 points.' }, { id: 'wait', label: 'Run on one robot less', effect: 'Back 150 minutes after the breakdown; no cost.' }], 'wait');
       if (kind === 'store-rush') openEvent(kind, 'shop', 'Store rush', 'A coach party is heading for the shop.', [
         { id: 'temp', label: 'Call in temporary cashiers', effect: 'Costs 6 points; every lane is open for the rush.' }, { id: 'ride', label: 'Keep the lanes as they are', effect: 'No cost; long queues make customers leave.' }], 'ride');
       if (kind === 'late-truck') {
@@ -200,12 +229,13 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
         shortCandidate = null;
       }
       if (kind === 'vip-order') {
-        // A new parcel order, or else the oldest parcel order still in work that can make its cut-off.
-        const ahead = (order: Order) => order.carrier !== undefined && (cutoffs.get(order.carrier) ?? -1) > step + steps(60);
-        const order = snapshot.orders.find(item => item.id === vipCandidate) ?? snapshot.orders.find(item => IN_WORK.includes(item.stage) && ahead(item)), name = order?.carrier && carriers.get(order.carrier)!.name;
+        // A new parcel order, or else the oldest parcel order still in work for the carrier with the most time left.
+        const left = (order: Order) => order.carrier === undefined ? -1 : (cutoffs.get(order.carrier) ?? -1) - step;
+        const fallback = snapshot.orders.filter(item => IN_WORK.includes(item.stage) && left(item) > steps(120)).sort((a, b) => left(b) - left(a))[0];
+        const order = snapshot.orders.find(item => item.id === vipCandidate) ?? fallback, name = order?.carrier && carriers.get(order.carrier)!.name;
         vipCandidate = null;
         if (order && name) openEvent(kind, order.id, 'Key customer', `Order ${order.id} is for a key customer and goes with ${name}.`, [
-          { id: 'first', label: 'Promise it first', effect: 'Pickers take it first; +20 if it ships before the cut-off, -20 if not.' }, { id: 'decline', label: 'Handle it normally', effect: 'No promise, no bonus.' }], 'decline');
+          { id: 'first', label: 'Promise it first', effect: 'Pickers take it first; +20 if it ships before the cut-off, -10 if not.' }, { id: 'decline', label: 'Handle it normally', effect: 'No promise, no bonus.' }], 'decline');
       }
     }
   }
@@ -214,7 +244,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
     open.splice(open.indexOf(event), 1);
     const opened = steps(event.opened);
     switch (`${event.kind}:${choice}`) {
-      case 'robot-breakdown:repair': down.set(event.subject, step + steps(30)); eventScore(-15, 'Technician called'); break;
+      case 'robot-breakdown:repair': down.set(event.subject, step + steps(30)); eventScore(-8, 'Technician called'); break;
       case 'robot-breakdown:wait': down.set(event.subject, opened + steps(150)); break;
       case 'late-truck:expedite': lateUntil.delete(event.subject as DockId); eventScore(-10, 'Priority slot paid'); break;
       case 'late-truck:wait': lateUntil.set(event.subject as DockId, opened + steps(90)); break;
@@ -244,7 +274,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
           if (promise) { promise.settled = true; if (vipFirst === order.id) vipFirst = null; if (timely) eventScore(20, `Key customer ${order.id} shipped in time`); }
         }
         break;
-      case 'ordered': if ((plan.get('vip-order') ?? Infinity) <= step && !vipCandidate && event.order.carrier && (cutoffs.get(event.order.carrier) ?? -1) > step + steps(60)) vipCandidate = event.order.id; break;
+      case 'ordered': if ((plan.get('vip-order') ?? Infinity) <= step && !vipCandidate && event.order.carrier && (cutoffs.get(event.order.carrier) ?? -1) > step + steps(120)) vipCandidate = event.order.id; break;
       case 'collected': count('collected', `${event.order.id} collected`); break;
       case 'served': count('served', `Customer served at checkout ${event.lane.slice(1)}`); break;
       case 'walked-out': count('walked-out', `A customer left checkout ${event.lane.slice(1)}`); break;
@@ -267,7 +297,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
       carriers.get(carrier)!.missed += missed.length;
       if (missed.length) count('missed-cutoff', `${missed.length} orders missed the ${carriers.get(carrier)!.name} cut-off`, missed.length);
       notify({ type: 'cutoff', carrier, missed: missed.length });
-      for (const promise of vip.filter(value => value.carrier === carrier && !value.settled)) { promise.settled = true; if (vipFirst === promise.order) vipFirst = null; eventScore(-20, `Key customer ${promise.order} missed the cut-off`); }
+      for (const promise of vip.filter(value => value.carrier === carrier && !value.settled)) { promise.settled = true; if (vipFirst === promise.order) vipFirst = null; eventScore(-10, `Key customer ${promise.order} missed the cut-off`); }
     }
     if (snapshot.shopOpen) for (const department of DEPARTMENTS) {
       const now = snapshot.shop.facings[department.id];
@@ -298,12 +328,28 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
 
   /* ── Commands ─────────────────────────────────────────────────────────── */
 
-  const playing = () => { if (over) throw new Error('The shift is over.'); };
+  const playing = () => { if (over) throw new Error('The shift is over.'); revision++; };
+  const seconds = (at: number) => at === Infinity ? Infinity : at * STEP;
+  function decisions(): ShiftDecisions {
+    const staff = simulation.staff();
+    return {
+      moving: Object.fromEntries([...zoneWanted].filter(([id, zone]) => staff.find(person => person.id === id)?.zone !== zone)),
+      carrier: carrierFirst, orders: [...orderFirst], lanes: Object.fromEntries(laneWanted), unload: [...released],
+      late: Object.fromEntries([...lateUntil].filter(([, at]) => at > step).map(([id, at]) => [id, seconds(at)])),
+      stopped: Object.fromEntries([...down].filter(([, at]) => at > step).map(([id, at]) => [id, seconds(at)])),
+    };
+  }
+  function carrierStatus(): CarrierStatus[] {
+    const orders = simulation.snapshot().orders;
+    return PARCEL_CARRIERS.map(item => { const at = cutoffs.get(item.id); return { carrier: item.id, name: item.name, cutoff: item.cutoff, remaining: at === undefined || at < step ? null : (at - step) * STEP, open: orders.filter(order => order.carrier === item.id).length }; });
+  }
   return {
     level, seed,
     get time() { return step * STEP; },
     get clock() { return clockOf(startMinute + Math.floor(step * STEP)); },
     get over() { return over; },
+    get sceneRevision() { return simulation.sceneRevision; },
+    get recordsRevision() { return simulation.recordsRevision + revision; },
     advance(seconds) {
       if (!Number.isFinite(seconds) || seconds < 0) throw new Error('Advance requires a finite, non-negative number of seconds.');
       carry += seconds;
@@ -348,6 +394,8 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
     },
     score,
     report,
+    decisions,
+    carriers: carrierStatus,
     events: () => [...open],
     snapshot: () => simulation.snapshot(),
     staff: () => simulation.staff(),
