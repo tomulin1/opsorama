@@ -33,7 +33,7 @@ describe('e-commerce director', () => {
   it('reproduces the recorded shift with the automatic director in every scenario', () => {
     for (const scenario of Object.keys(RECORDED) as EcommerceScenario[]) {
       // A director that answers like the automatic one through its own functions takes the same decisions.
-      const echo: EcommerceDirector = { zone: person => automaticDirector.zone(person), priority: order => automaticDirector.priority(order), checkoutOpen: lane => automaticDirector.checkoutOpen(lane), unload: dock => automaticDirector.unload(dock) };
+      const echo: EcommerceDirector = { zone: person => automaticDirector.zone(person), priority: order => automaticDirector.priority(order), checkoutOpen: lane => automaticDirector.checkoutOpen(lane), unload: dock => automaticDirector.unload(dock), running: machine => automaticDirector.running(machine), shoppers: usual => automaticDirector.shoppers(usual) };
       for (const simulation of [createEcommerceSimulation(scenario), createEcommerceSimulation(scenario, 7, { director: echo })]) {
         expect(digests(simulation), scenario).toEqual(RECORDED[scenario]);
         simulation.dispose();
