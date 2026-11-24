@@ -55,8 +55,31 @@ A director decides who works where, which orders go first, which checkout lanes 
 - **Unloading:** while `unload(dock)` is false, a docked truck waits and an unloading truck pauses.
 - **Machines:** while `running(machine)` is false, the forklift, reach truck or a robot finishes its task, then stops and shows as critical.
 - **Footfall:** `shoppers(usual)` sets how many customers the shop draws in at once.
+- **Moves of material:** `job(actor, auto)` gives the next move of a commanded actor, asked whenever it is free; `auto()` returns the automatic choice. See below.
+- **Departure:** while `depart(dock)` is true, the truck loading at the outbound dock leaves as soon as no roll cage is on its way to it.
 
-The dashboard uses `automaticDirector`: everyone keeps their zone, orders go in order of arrival, lanes stay as they are and trucks unload on arrival. A director passes only the decisions it changes; the rest stay automatic.
+The dashboard uses `automaticDirector`: everyone keeps their zone, orders go in order of arrival, lanes stay as they are, trucks unload on arrival, every commanded actor takes its automatic move and the outbound truck leaves when nothing is staged for it or after three trips. A director passes only the decisions it changes; the rest stay automatic.
+
+### Commanded moves
+
+The forklift, the reach truck and whoever works in the replenishing, restocking or dispatch zone (the replenisher, the shelf filler and the dispatcher) move material only through moves the director returns. Every automatic job is split into choosing a move and building its task, so a director can give any move the automatic one could make:
+
+| Move | Actor | Material and target | Repeats until |
+| --- | --- | --- | --- |
+| `unload` | Forklift | the next pallet off the truck at an inbound dock into the first free staging spot | the truck is empty |
+| `put-away` | Reach truck | a pallet in staging into a rack, on its lowest free position or a given `level` | one pallet |
+| `replenish` | Reach truck | a pallet in a rack to the spot behind the pick face of its SKU | one pallet |
+| `clear` | Reach truck | the empty pallet behind a pick face to the empty-pallet stack | one pallet |
+| `decant` | Replenisher | cartons from the pallet behind a pick face into its lanes | the pallet is empty |
+| `restock` | Shelf filler | cartons from a department's pick face to its gondolas, or one shop transfer | the department is full or the face reaches its minimum |
+| `ship` | Dispatcher | a roll cage's parcels onto the truck of its carrier at the outbound dock | one cage |
+
+- **Repeating:** a repeating move is a series of short tasks. The director is asked between them and continues the move by returning it again, or stops it after the current pallet or carton by returning something else or nothing. Tasks are never undone halfway.
+- **Checks:** a move is checked when it starts. When its target has no room (staging full, the spot behind a pick face taken, the lanes full, the pallet not yet behind the face), the actor waits and starts by itself once there is room. Otherwise the move ends as refused with its reason.
+- **Events:** `move-ended` reports a move that is `done`, whose source `emptied`, whose target `filled`, or that was `refused`, before the actor asks again; `move-waiting` reports the start of a wait. `unloaded`, `replenished` and `restocked` report material arriving, and `put-away` says whether a pallet went in as overflow.
+- **Menus:** `simulation.actors()` lists the commanded actors with their task, move and wait; `check(actor, move)` says whether a move can start now; `moves(actor, subject)` lists the moves an actor can make with a scene node (a dock, a pallet, a pick face, a gondola or a roll cage), best target first, and the targets it may not use with their reasons, for example `R04 holds Outdoor goods and does not take Toys (TOY-120).`
+
+The `goodsRules` option makes storage follow the type of goods (`rackGoods`, `skuGoods`): Kitchen, Home, Outdoor, Toys and Tech each have a front-row rack and the back-row rack behind it (Kitchen two of each), and Bulky racks hold bulky goods. A pallet goes only into a rack of its type; once every rack of its type is full, a Bulky rack takes it as overflow. The check is a host `rule` on the shared `HandlingState`, so `targets` and `refusals` give the same answers that `moves` shows. With `goodsRules`, pick-face lanes also take no more cartons than they hold. The dashboard runs without it.
 
 For a host that keeps score, `subscribe` (or the `onEvent` option, which also receives the events of the starting state) reports orders placed, parcels shipped per carrier, click & collect handovers, customers served, short picks and pallets put away. `cancel(orderId)` drops an order nobody works on yet, and the `walkOutAt` option makes customers who find that many people queuing leave without paying. The Cut-off shift game in `apps/site/src/features/cutoff/rules.ts` is built on these: plain TypeScript rules with player commands, events with choices, a score and an end-of-shift report. Its page, `/examples/cutoff`, plays a shift in React: select a person in the scene with the `glow` selection style, then a zone; the command panel puts a carrier first, opens checkouts and lets trucks unload; the HUD uses the same panels as the dashboard.
 
