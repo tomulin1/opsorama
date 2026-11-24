@@ -1,5 +1,5 @@
 import type { SceneNode } from '@opsorama/core';
-import { CARRIERS, DEPARTMENTS, minutesOf, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type EcommerceSnapshot, type Order } from '../ecommerce/model';
+import { CARRIERS, DEPARTMENTS, SKUS, location, minutesOf, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type EcommerceSnapshot, type Order } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, createEcommerceSimulation, type EcommerceDirector, type EcommerceEvent, type StaffMember, type StaffZone } from '../ecommerce/simulation';
 
 /**
@@ -94,7 +94,8 @@ export interface ShiftReport {
 export type ShiftNotice = { time: number } & (
   | { type: 'event-opened'; event: ShiftEvent }
   | { type: 'event-answered'; event: ShiftEvent }
-  | { type: 'scored'; line: ScoreId; points: number; text: string }
+  /** `at` names the scene node where it happened, when there is one, for feedback over it. */
+  | { type: 'scored'; line: ScoreId; points: number; text: string; at?: string }
   | { type: 'cutoff'; carrier: CarrierId; missed: number }
   | { type: 'shift-ended'; report: ShiftReport }
 );
@@ -141,6 +142,8 @@ const seeded = (seed: number) => () => { seed = seed + 0x6d2b79f5 >>> 0; let t =
 /** Carriers that collect parcels; NordFreight's wrapped pallets stay static in the simulation. */
 const PARCEL_CARRIERS = CARRIERS.filter(item => item.cages.length);
 const IN_WORK: readonly Order['stage'][] = ['released', 'picking', 'sorting', 'packing'];
+/** Where parcels leave: the outbound dock. */
+const SHIPPING_DOCK = 'dock:D3';
 
 export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: EcommerceScenario; seed?: number } = {}): ShiftGame {
   const level = SHIFT_LEVELS[scenario], random = seeded(seed ^ 0x5eed), startMinute = minutesOf(level.start), end = steps(SHIFT_SECONDS);
@@ -178,8 +181,8 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
   let eventPoints = 0, laneSteps = 0, truckSteps = 0;
   const listeners = new Set<(notice: ShiftNotice) => void>();
   const notify = (notice: NoticeDetail) => { revision++; const timed = { ...notice, time: step * STEP } as ShiftNotice; listeners.forEach(listener => listener(timed)); };
-  function count(line: keyof typeof POINTS, text: string, amount = 1) { counts[line] += amount; notify({ type: 'scored', line, points: POINTS[line] * amount, text }); }
-  function eventScore(points: number, text: string) { counts.events++; eventPoints += points; notify({ type: 'scored', line: 'events', points, text }); }
+  function count(line: keyof typeof POINTS, text: string, at?: string, amount = 1) { counts[line] += amount; notify({ type: 'scored', line, points: POINTS[line] * amount, text, ...(at ? { at } : {}) }); }
+  function eventScore(points: number, text: string, at?: string) { counts.events++; eventPoints += points; notify({ type: 'scored', line: 'events', points, text, ...(at ? { at } : {}) }); }
   function score(): ShiftScore {
     const lines = (Object.keys(counts) as ScoreId[]).map(id => ({ id, label: LABELS[id], count: counts[id], points: id === 'events' ? eventPoints : counts[id] * POINTS[id] }));
     return { total: lines.reduce((sum, line) => sum + line.points, 0), lines };
@@ -244,11 +247,11 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
     open.splice(open.indexOf(event), 1);
     const opened = steps(event.opened);
     switch (`${event.kind}:${choice}`) {
-      case 'robot-breakdown:repair': down.set(event.subject, step + steps(30)); eventScore(-8, 'Technician called'); break;
+      case 'robot-breakdown:repair': down.set(event.subject, step + steps(30)); eventScore(-8, 'Technician called', event.subject); break;
       case 'robot-breakdown:wait': down.set(event.subject, opened + steps(150)); break;
-      case 'late-truck:expedite': lateUntil.delete(event.subject as DockId); eventScore(-10, 'Priority slot paid'); break;
+      case 'late-truck:expedite': lateUntil.delete(event.subject as DockId); eventScore(-10, 'Priority slot paid', `dock:${event.subject}`); break;
       case 'late-truck:wait': lateUntil.set(event.subject as DockId, opened + steps(90)); break;
-      case 'store-rush:temp': tempLanesUntil = rushUntil; eventScore(-6, 'Temporary cashiers'); break;
+      case 'store-rush:temp': tempLanesUntil = rushUntil; eventScore(-6, 'Temporary cashiers', 'pin:checkout'); break;
       case 'short-pick:cancel': if (simulation.cancel(event.subject)) eventScore(-6, `Order ${event.subject} cancelled`); break;
       case 'vip-order:first': {
         const order = simulation.snapshot().orders.find(item => item.id === event.subject);
@@ -269,17 +272,22 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
         for (const order of event.orders) {
           const timely = onTime(order), totals = carriers.get(event.carrier);
           if (totals) { if (timely) totals.onTime++; else totals.late++; }
-          count(timely ? 'on-time' : 'late', `${order.id} shipped`);
+          count(timely ? 'on-time' : 'late', `${order.id} shipped`, SHIPPING_DOCK);
           const promise = vip.find(value => value.order === order.id && !value.settled);
-          if (promise) { promise.settled = true; if (vipFirst === order.id) vipFirst = null; if (timely) eventScore(20, `Key customer ${order.id} shipped in time`); }
+          if (promise) { promise.settled = true; if (vipFirst === order.id) vipFirst = null; if (timely) eventScore(20, `Key customer ${order.id} shipped in time`, SHIPPING_DOCK); }
         }
         break;
       case 'ordered': if ((plan.get('vip-order') ?? Infinity) <= step && !vipCandidate && event.order.carrier && (cutoffs.get(event.order.carrier) ?? -1) > step + steps(120)) vipCandidate = event.order.id; break;
-      case 'collected': count('collected', `${event.order.id} collected`); break;
-      case 'served': count('served', `Customer served at checkout ${event.lane.slice(1)}`); break;
-      case 'walked-out': count('walked-out', `A customer left checkout ${event.lane.slice(1)}`); break;
-      case 'put-away': count('put-away', `Pallet put away to ${event.rack}`); break;
-      case 'short-pick': count('short-pick', `${event.order.id} short of ${event.sku}`); if (plan.has('short-pick') && !shortCandidate) shortCandidate = { order: event.order.id, sku: event.sku }; break;
+      case 'collected': count('collected', `${event.order.id} collected`, 'collect:counter'); break;
+      case 'served': count('served', `Customer served at checkout ${event.lane.slice(1)}`, `checkout:${event.lane}`); break;
+      case 'walked-out': count('walked-out', `A customer left checkout ${event.lane.slice(1)}`, `checkout:${event.lane}`); break;
+      case 'put-away': count('put-away', `Pallet put away to ${event.rack}`, `rack:${event.rack}`); break;
+      case 'short-pick': {
+        const face = SKUS[event.sku].pick;
+        count('short-pick', `${event.order.id} short of ${event.sku}`, `${location(face).kind}:${face}`);
+        if (plan.has('short-pick') && !shortCandidate) shortCandidate = { order: event.order.id, sku: event.sku };
+        break;
+      }
     }
   }
 
@@ -295,13 +303,13 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
       if (step !== at) continue;
       const missed = snapshot.orders.filter(order => order.carrier === carrier);
       carriers.get(carrier)!.missed += missed.length;
-      if (missed.length) count('missed-cutoff', `${missed.length} orders missed the ${carriers.get(carrier)!.name} cut-off`, missed.length);
+      if (missed.length) count('missed-cutoff', `${missed.length} orders missed the ${carriers.get(carrier)!.name} cut-off`, SHIPPING_DOCK, missed.length);
       notify({ type: 'cutoff', carrier, missed: missed.length });
-      for (const promise of vip.filter(value => value.carrier === carrier && !value.settled)) { promise.settled = true; if (vipFirst === promise.order) vipFirst = null; eventScore(-10, `Key customer ${promise.order} missed the cut-off`); }
+      for (const promise of vip.filter(value => value.carrier === carrier && !value.settled)) { promise.settled = true; if (vipFirst === promise.order) vipFirst = null; eventScore(-10, `Key customer ${promise.order} missed the cut-off`, SHIPPING_DOCK); }
     }
     if (snapshot.shopOpen) for (const department of DEPARTMENTS) {
       const now = snapshot.shop.facings[department.id];
-      if (now === 0 && facings[department.id] > 0) count('ran-empty', `${department.label} ran empty`);
+      if (now === 0 && facings[department.id] > 0) count('ran-empty', `${department.label} ran empty`, `gondola:${department.id}:0`);
     }
     facings = { ...snapshot.shop.facings };
     // Time costs: open lanes, and trucks standing on a dock without unloading.
