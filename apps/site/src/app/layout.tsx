@@ -7,6 +7,7 @@ import './globals.css';
 import './toolkit.css';
 import './hud.css';
 import './ecommerce.css';
+import './cutoff.css';
 import './office.css';
 import './restaurant.css';
 import './aquatics.css';
