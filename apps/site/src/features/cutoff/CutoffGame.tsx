@@ -14,7 +14,7 @@ import { DEPARTMENTS, GOODS_LABELS, SKUS, carrier as carrierOf, skuGoods, type E
 import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { ActorRef, Move, MoveOption } from '../ecommerce/simulation';
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, choosesInScene, clickedNodes, menuSubjects, detailOf, eventNode, menuEntries, needsTargets, pickTarget, rackRoom, targetMarks, type MenuEntry } from './menu';
+import { GOODS_COLORS, choosesInScene, clickedNodes, detailOf, eventNode, needsTargets, nodeEntries, pickTarget, rackRoom, targetMarks, type MenuEntry } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating, type TargetMark } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -291,8 +291,7 @@ function ObjectMenu({ node, game, view, active, submenu, onSubmenu, onQueue, onP
   const actor = view.actors.find(item => item.id === node);
   // A rack offers the moves of the pallets in it, which are harder to click, and a pick face also those of the reserve pallets
   // of its SKUs. Options are read when the records change.
-  const subjects = useMemo(() => menuSubjects(node, view.snapshot), [node, view]);
-  const entries = useMemo(() => actor ? [] : subjects.flatMap(subject => menuEntries(game.options(subject), active).map(entry => ({ subject, entry }))), [actor, subjects, game, active]);
+  const entries = useMemo(() => actor ? [] : nodeEntries(node, view.snapshot, subject => game.options(subject), active), [actor, node, view, game, active]);
   if (actor) return <Menu title={actor.label} eyebrow={`CREW · ${actor.queue.length} OF ${QUEUE_LIMIT} COMMANDS`} label={`Commands of ${actor.label}`}>
     <p className="co-menu-note">{actorNow(actor)}</p>
     {actor.queue.map((move, index) => index === 0
@@ -314,7 +313,7 @@ function ObjectMenu({ node, game, view, active, submenu, onSubmenu, onQueue, onP
     {open.refused.length > 0 && <ul className="co-refused" aria-label="Refused targets">{open.refused.slice(0, 3).map(item => <li key={item.target}><strong>{item.target}</strong> {item.reason}</li>)}{open.refused.length > 3 && <li>{open.refused.length - 3} more refused</li>}</ul>}
   </Menu>;
 
-  const many = new Set(entries.map(item => item.entry.actor.id)).size > 1 || subjects.length > 1;
+  const many = new Set(entries.map(item => item.entry.actor.id)).size > 1 || entries.some(item => item.subject !== node);
   return <Menu title={title} eyebrow={EYEBROWS[prefix] ?? 'OBJECT'} label={`Menu of ${title}`}>
     {loading && <MenuItem disabled={view.decisions.departing} hint={view.decisions.departing ? 'Leaves once no cage is on its way' : `Otherwise it leaves at ${loading.cutoff}`} onClick={() => onCommand(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`)}>Send the {loading.name} truck now</MenuItem>}
     {entries.map(({ subject, entry }) => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
-import { GOODS_COLORS, choosesInScene, clickedNodes, detailOf, eventNode, menuEntries, menuSubjects, needsTargets, pickTarget, rackRoom, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
+import { GOODS_COLORS, choosesInScene, clickedNodes, detailOf, eventNode, menuEntries, menuSubjects, nodeEntries, needsTargets, pickTarget, rackRoom, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
 import { goodsColored, playNodes } from '../apps/site/src/features/cutoff/scene';
 
 const game = () => createShiftGame({ scenario: 'peak', seed: 1 });
@@ -63,6 +63,12 @@ describe('Cut-off context menus', () => {
     const [decant] = menuEntries(shift.options('flow:F3', 'replenisher'));
     expect(decant.options).toEqual([expect.objectContaining({ move: { kind: 'decant', face: 'F3' }, waits: expect.any(String) })]);
     expect(detailOf('flow:F3', contextOf(shift, 'flow:F3'))?.lines).toContainEqual({ label: 'Pallet', value: decant.options[0].waits });
+    // The pallet on its way to F3 would repeat the face's own moves; the face's menu lists each of them once.
+    shift.advance(3);
+    expect(menuEntries(shift.options(subjects[1])).map(entry => entry.key)).toContain('replenisher:decant');
+    const listed = nodeEntries('flow:F3', shift.snapshot(), subject => shift.options(subject)).map(item => item.entry.key);
+    expect(listed.filter(key => key === 'replenisher:decant')).toHaveLength(1);
+    expect(listed.filter(key => key === 'shelf-filler:restock')).toHaveLength(1);
     shift.dispose();
   });
 
