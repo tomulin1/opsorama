@@ -11,6 +11,7 @@ export const actionRingArticle: DocArticle = {
     ], demo: 'action-ring' },
     { id: 'place', title: 'Over a node', paragraphs: [
       'The ring is plain HTML from the panel package, so it works over a scene and in an ordinary page. To keep it over a node while the node and the camera move, render it inside NodeHtml (React, Vue) or attach it with renderer.attachHtml in plain JavaScript; align above (the default) puts the name pill just over the node and the actions over the name. Clicks on the ring never reach the scene. Attached HTML stacks in the order it was attached, so attach the chosen object\'s ring after any pills over other nodes when they may overlap.',
+      'When a command moves something, the scene shows the rest: renderer.setHighlights tints what the object can pick up, and setPickTargets with ghosts shows where it can bring it (see Handling compatibility, Picking up and moving). The ring keeps to the verbs.',
     ], code: `import { NodeHtml } from '@opsorama/react';
 import { ActionRing } from '@opsorama/react/ui';
 import { MapPin, Search, UserPlus } from 'lucide-react';
