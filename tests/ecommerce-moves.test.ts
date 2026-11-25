@@ -217,7 +217,7 @@ describe('e-commerce commanded moves', () => {
     expect(simulation.moves('shelf-filler', 'gondola:outdoor:1').options).toEqual([{ move: { kind: 'restock', department: 'outdoor', source: 'face' }, target: 'Outdoor · from F3' }]);
     expect(simulation.check('shelf-filler', { kind: 'restock', department: 'kitchen', source: 'transfer' })).toEqual({ ok: false, wait: false, reason: 'No shop transfer waits for Kitchen.' });
     // Sport (two gondolas, 37 of 48 facings) fills before S2 reaches its minimum.
-    expect(simulation.moves('shelf-filler', 'shelf:S2').options).toEqual([{ move: { kind: 'restock', department: 'sport', source: 'face' }, target: 'Sport · from S2' }]);
+    expect(simulation.moves('shelf-filler', 'flow:S2').options).toEqual([{ move: { kind: 'restock', department: 'sport', source: 'face' }, target: 'Sport · from S2' }]);
     game.command('shelf-filler', { kind: 'restock', department: 'sport', source: 'face' });
     game.until(() => game.queue('shelf-filler').length === 0, 300);
     const [end] = game.of('move-ended');

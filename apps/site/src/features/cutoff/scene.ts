@@ -1,7 +1,7 @@
 import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode } from '@opsorama/core';
-import { DEPARTMENTS, minutesOf, rackGoods, skuGoods, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
+import { DEPARTMENTS, minutesOf, type EcommerceSnapshot } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, type Move } from '../ecommerce/simulation';
-import { GOODS_COLORS, eventNode } from './menu';
+import { eventNode } from './menu';
 import type { ActorView, CarrierStatus, ShiftDecisions, ShiftEvent, ShiftGame, ShiftLevel } from './rules';
 
 const palletNumber = (pallet: string) => pallet.split(':')[1];
@@ -75,21 +75,9 @@ export function floatingNodes(floats: readonly Floating[], present: ReadonlySet<
   }));
 }
 
-/**
- * The scene as the game shows it: a pallet's cartons take the color of its SKU's type of goods (the pallet model colors its
- * load from `color`), a rack's uprights the color of the type it holds (`materials.accent`), and the area floors and pins no
- * longer take clicks, so a click either hits material or clears the menu.
- */
-export function goodsColored(nodes: readonly SceneNode[], snapshot: EcommerceSnapshot): SceneNode[] {
-  const pallets = new Map(snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku).map(unit => [unit.id, GOODS_COLORS[skuGoods(unit.sku!)]]));
-  return nodes.map(node => {
-    if (node.id.startsWith('area:') || node.id.startsWith('pin:')) return { ...node, selectable: false };
-    if (node.kind !== 'asset') return node;
-    const pallet = pallets.get(node.id);
-    if (pallet) return { ...node, color: pallet };
-    if (node.asset === 'pallet-rack' && node.entityId) return { ...node, materials: { ...node.materials, accent: GOODS_COLORS[rackGoods(node.entityId as LocationId)] } };
-    return node;
-  });
+/** The scene as the game shows it: the area floors and pins take no clicks, so a click either hits material or clears the menu. */
+export function playable(nodes: readonly SceneNode[]): SceneNode[] {
+  return nodes.map(node => node.id.startsWith('area:') || node.id.startsWith('pin:') ? { ...node, selectable: false } : node);
 }
 
 /** A target lit by "Choose in the scene…": the node and the target's name. */
@@ -102,11 +90,11 @@ export function targetMarkers(targets: readonly TargetMark[], present: ReadonlyS
 /** Most point changes floating at once; older ones give way. */
 const MAX_FLOATS = 12;
 /**
- * The scene of a game: its nodes colored by type of goods, with problem markers, floating point changes and, while the player
+ * The scene of a game: its nodes (colored by type of goods in the e-commerce scene), with problem markers, floating point changes and, while the player
  * chooses a target in the scene, a marker over every valid target instead of the problem markers.
  */
 export function playNodes(game: ShiftGame, floats: readonly Floating[], targets: readonly TargetMark[] = []): SceneNode[] {
-  const snapshot = game.snapshot(), nodes = goodsColored(game.nodes(), snapshot), present = new Set(nodes.map(node => node.id));
+  const snapshot = game.snapshot(), nodes = playable(game.nodes()), present = new Set(nodes.map(node => node.id));
   const markers = targets.length ? targetMarkers(targets, present) : problemMarkers({ snapshot, events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
   return [...nodes, ...markers, ...floatingNodes(floats.slice(-MAX_FLOATS), present, game.time)];
 }

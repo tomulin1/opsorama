@@ -20,8 +20,11 @@ const sphere = (group: THREE.Object3D, radius: number, position: readonly [numbe
 };
 const ring = (group: THREE.Object3D, radius: number, tube: number, arc: number, color: string, name: string) => part(group, new THREE.TorusGeometry(radius, tube, 8, 24, arc), color, name, { roughness: .5 });
 
-/** The main body tone of each item: the mug, the lamp shade, the lantern body, the bear's fur, the headphones and the ball. */
-export const GOODS_TONES: Readonly<Record<GoodsKind, string>> = Object.freeze({ kitchen: '#c8664a', home: '#f1e3c6', outdoor: '#3f8a52', toys: '#a8703f', tech: '#2f3542', sport: '#e07b2e' });
+/**
+ * The main body tone of each item: a red mug, a purple lamp shade, a green lantern, a brown teddy bear, blue headphones and an
+ * orange basketball. The tones differ enough to serve as the color code of each type of goods, for example on pallets.
+ */
+export const GOODS_TONES: Readonly<Record<GoodsKind, string>> = Object.freeze({ kitchen: '#c9423a', home: '#8a64c4', outdoor: '#3f8a52', toys: '#a8703f', tech: '#2f6fc0', sport: '#e07b2e' });
 
 /** Each item in real size, standing with its bottom on its origin, front toward +z; `body` is its main body tone. */
 const BUILDERS: Readonly<Record<GoodsKind, (group: THREE.Group, body: string) => void>> = {
@@ -59,7 +62,7 @@ const BUILDERS: Readonly<Record<GoodsKind, (group: THREE.Group, body: string) =>
     const band = ring(group, .065, .009, Math.PI, body, 'goods-headphones-band'); band.position.set(0, .08, 0);
     for (const x of [-.065, .065]) {
       const cup = cylinder(group, .035, .028, 0, body, 'goods-headphones-cup', { segments: 16, roughness: .5 }); cup.rotation.z = Math.PI / 2; cup.position.set(x, .035, 0);
-      const cushion = cylinder(group, .03, .012, 0, '#2f7fc4', 'goods-headphones-cushion', { segments: 16, roughness: .9 }); cushion.rotation.z = Math.PI / 2; cushion.position.set(x - Math.sign(x) * .019, .035, 0);
+      const cushion = cylinder(group, .03, .012, 0, '#2f3542', 'goods-headphones-cushion', { segments: 16, roughness: .9 }); cushion.rotation.z = Math.PI / 2; cushion.position.set(x - Math.sign(x) * .019, .035, 0);
     }
   },
   // A basketball, 12 cm across here (a shop's display size), with its black seams.

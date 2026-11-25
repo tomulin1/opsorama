@@ -2,7 +2,7 @@ import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type Ag
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
+  CARRIERS, DEPARTMENTS, GOODS_COLORS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
   type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type GoodsType, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
@@ -243,7 +243,7 @@ export interface EcommerceSimulation {
   check(actor: string, move: Move): MoveCheckResult;
   /**
    * The moves `actor` can make with a subject, best target first, and the targets it may not use with their reasons. Subjects are
-   * scene node IDs: `dock:D1` (or `truck:D1`), `pallet:…`, a pick face (`flow:F1`, `shelf:S1`, `replen:F1`), a gondola
+   * scene node IDs: `dock:D1` (or `truck:D1`), `pallet:…`, a pick face (`flow:F1`, `flow:S1`, `replen:F1`), a gondola
    * (`gondola:kitchen:0`) and a roll cage (`cage:swift-1`). A subject the actor's role does not handle gives no choices.
    */
   moves(actor: string, subject: string): MoveChoices;
@@ -403,7 +403,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     ...(forklift ? [{ id: 'forklift', agent: 'forklift', start: 'apron-staging-north', travelPose: 'operated', idlePose: 'operated', carry: onForks, backOut: true, handling: 'forklift', node: { asset: 'forklift', label: 'Forklift', labelMode: 'active' as const, selectable: true } }] : []),
     ...(reachTruck ? [{ id: 'reach-truck', agent: 'reach-truck', start: 'aisle:R04', travelPose: 'operated', idlePose: 'operated', carry: onForks, backOut: true, handling: 'reach-truck', node: { asset: 'reach-truck', label: 'Reach truck', labelMode: 'active' as const, selectable: true } }] : []),
     ...(replenisher ? [{ id: 'replenisher', agent: 'staff', start: 'back-west', carry: hands, handling: 'worker', node: staffNode('Replenisher', true) }] : []),
-    ...pickers.map((id, i) => ({ id, agent: 'picker', start: ['flow:F1:pick', 'flow:F3:pick', 'shelf:S1:pick-0'][i], travelPose: 'pushing', idlePose: 'pushing', handling: 'worker', node: staffNode(`Picker ${i + 1}`, i % 2 === 1) })),
+    ...pickers.map((id, i) => ({ id, agent: 'picker', start: ['flow:F1:pick', 'flow:F3:pick', 'flow:S1:pick'][i], travelPose: 'pushing', idlePose: 'pushing', handling: 'worker', node: staffNode(`Picker ${i + 1}`, i % 2 === 1) })),
     ...robots.map(id => ({ id, agent: 'robot', start: id === 'robot:0' ? 'amr-home-0' : 'amr-home-1', travelPose: 'deck', idlePose: 'deck', carry: { anchor: 'load' }, handling: 'mobile-robot', node: { asset: 'mobile-robot', selectable: false } })),
     ...sorters.map((id, i) => ({ id, agent: 'staff', start: `putwall:${id.slice(7)}:sort`, carry: hands, handling: 'worker', node: { ...staffNode(`Sorter ${id.slice(7)}`, i % 2 === 0), selectable: false } })),
     ...packers.map((id, i) => ({ id, agent: 'staff', start: `pack:${id.slice(7)}:work`, carry: hands, handling: 'worker', node: { ...staffNode(`Packer ${id.slice(7)}`, i % 2 === 1), selectable: false } })),
@@ -1158,7 +1158,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     // A pallet changes parent exactly where it stands, so it needs no hand-over animation.
     // A tote shows the goods of its order's first line.
     const goods = unit.kind === 'tote' && unit.orderId ? orderOf(unit.orderId)?.lines[0]?.sku : undefined;
-    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(goods ? { options: { goods: skuGoods(goods) } } : {}), ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
+    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(goods ? { options: { goods: skuGoods(goods) } } : {}), ...(unit.kind === 'pallet' && unit.sku ? { color: GOODS_COLORS[skuGoods(unit.sku)] } : {}), ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
     const node = itemNode(id, at, base);
     return unit.ride ? { ...node, position: unit.ride.points[unit.ride.points.length - 1], rotation: [0, Math.PI / 2, 0], route: { points: unit.ride.points, speed: BELT_SPEED, elapsed: time - unit.ride.start } } : node;
   }
