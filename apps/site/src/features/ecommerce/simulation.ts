@@ -3,7 +3,7 @@ import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, person
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
   CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_LABELS, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
-  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
+  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type GoodsType, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
   APRON_Y, BELT_END_X, BELT_Y, BELT_Z, CAGE_X, CAGE_Z, CART_AT_INDUCT, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
@@ -184,10 +184,12 @@ export interface EcommerceSimulationOptions {
   /** Decisions that replace the automatic ones; the rest stay automatic. */
   director?: Partial<EcommerceDirector>;
   /**
-   * Storage follows the type of goods: a pallet goes only into a rack of its type (`rackGoods`), or into a Bulky rack once every
-   * rack of its type is full (overflow); pick-face lanes take no more cartons than they hold. Off for the dashboard.
+   * Storage follows the type of goods: a pallet goes only into a rack of its type (`rackGoods`), and deliveries bring only as
+   * many pallets of a type as its racks can take; pick-face lanes take no more cartons than they hold. Off for the dashboard.
    */
   goodsRules?: boolean;
+  /** The outbound truck leaves only when the director's `depart` says so; the automatic dispatcher then never sends it. */
+  directorDeparts?: boolean;
   /** A customer who finds this many people queuing at their lane leaves without paying. Without it, everyone queues. */
   walkOutAt?: number;
   /** Receives every event from the start, including those of the starting dispatch; `subscribe` adds listeners later. */
@@ -202,8 +204,7 @@ export type EcommerceEvent = { time: number } & (
   | { type: 'walked-out'; lane: CheckoutId }
   /** An order the pickers had to skip for lack of stock; reported once per order. */
   | { type: 'short-pick'; order: Order; sku: string }
-  /** `overflow` when the rack holds another type of goods (only with `goodsRules`). */
-  | { type: 'put-away'; pallet: string; sku: string; rack: LocationId; overflow: boolean }
+  | { type: 'put-away'; pallet: string; sku: string; rack: LocationId }
   /** A pallet came off a truck into staging. */
   | { type: 'unloaded'; dock: DockId; pallet: string; sku: string }
   /** A carton filled a lane of a pick face. */
@@ -322,18 +323,13 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     instances: [...LOCATIONS.filter(value => value.kind === 'rack').map(value => ({ id: `rack:${value.id}`, asset: 'pallet-rack' })), ...Object.keys(PACK_X).map(id => ({ id: `pack:${id}`, asset: 'station' }))],
     ...(options.goodsRules ? { rule: goodsRule } : {}),
   });
-  /** Pallets whose put-away has started, with their rack: the rule was checked when the task started and is not checked again. */
-  const approved = new Map<string, LocationId>();
-  /** Storage by type of goods: a pallet goes into a rack of its type, or into a Bulky rack once every rack of its type is full. */
+  /** Storage by type of goods: a pallet goes only into a rack of its type. */
   function goodsRule({ unit, to }: { unit: string; to: UnitPlacement }): string | undefined {
     if (!('container' in to) || !to.container.startsWith('rack:')) return undefined;
     const rack = to.container.slice(5) as LocationId, sku = units.get(unit)?.sku;
-    if (!sku || approved.get(unit) === rack) return undefined;
+    if (!sku) return undefined;
     const goods = skuGoods(sku), holds = rackGoods(rack);
-    if (goods === holds) return undefined;
-    if (holds !== 'bulky') return `${rack} holds ${GOODS_LABELS[holds]} goods and does not take ${GOODS_LABELS[goods]} (${sku}).`;
-    const own = RACKS.filter(id => rackGoods(id) === goods).map(id => `rack:${id}`);
-    return handling.targets(unit, { containers: own, limit: 1 }).length ? `${rack} takes ${GOODS_LABELS[goods]} only as overflow, once every ${GOODS_LABELS[goods]} rack is full.` : undefined;
+    return goods === holds ? undefined : `${rack} holds ${GOODS_LABELS[holds]} goods and does not take ${GOODS_LABELS[goods]} (${sku}).`;
   }
   /** Register a unit at a world position. A hidden unit shows from its hand-over on. */
   function spawn(kind: UnitKind, at: Vec3, label: string, extra: Partial<Unit> = {}, id = `${kind}:${serial++}`): string {
@@ -368,7 +364,21 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       handling.move([{ unit: id, to: { ...target.target, turn: RACK_TURN } }]);
     }
   }
-  const skuForInbound = () => Object.keys(SKUS).sort((a, b) => records.occupancy[SKUS[a].reserve] - records.occupancy[SKUS[b].reserve] || a.localeCompare(b))[Math.floor(random() * 3)];
+  /**
+   * The SKU of the next inbound pallet: one of the three whose reserve rack is emptiest. With the goods rules, only SKUs whose type
+   * still has room count, so every pallet on its way, `drawn` included, has a rack of its type.
+   */
+  function skuForInbound(drawn: readonly string[] = []): string {
+    const skus = Object.keys(SKUS).sort((a, b) => records.occupancy[SKUS[a].reserve] - records.occupancy[SKUS[b].reserve] || a.localeCompare(b));
+    if (!options.goodsRules) return skus[Math.floor(random() * 3)];
+    const room = (goods: GoodsType) => RACKS.filter(id => rackGoods(id) === goods).reduce((sum, id) => sum + location(id).capacity, 0)
+      - [...units].filter(([id, unit]) => unit.kind === 'pallet' && unit.sku && skuGoods(unit.sku) === goods && ![...replenishing.values()].some(job => job.pallet === id)).length
+      - [...truckLoads.values(), drawn].flat().filter(sku => skuGoods(sku) === goods).length;
+    const open = skus.filter(sku => room(skuGoods(sku)) > 0), choice = Math.floor(random() * Math.min(3, open.length));
+    return open[choice] ?? skus[choice];
+  }
+  /** The SKUs of a truck's pallets. */
+  const inboundLoad = (count: number) => { const drawn: string[] = []; for (let i = 0; i < count; i++) drawn.push(skuForInbound(drawn)); return drawn; };
   for (let i = 0; i < Math.min(STAGING_SPOTS.length, start.staging); i++) {
     const sku = skuForInbound(), id = spawn('pallet', STAGING_SPOTS[i], '', { sku, load: PALLET_CARTONS });
     units.get(id)!.label = palletLabel(id, sku); staging[i] = id;
@@ -439,7 +449,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function arriveInbound(id: DockId) {
     const dock = records.docks.find(item => item.id === id)!;
     dockTruck(id, '#4a7fb0', () => {
-      truckLoads.set(id, Array.from({ length: dock.pallets?.total ?? PALLETS_PER_TRUCK }, () => skuForInbound()));
+      truckLoads.set(id, inboundLoad(dock.pallets?.total ?? PALLETS_PER_TRUCK));
       if (director.unload(records.docks.find(item => item.id === id)!)) { startUnloading(id); return; }
       // The truck stands on the dock until the director lets the forklift unload it.
       holding.add(id);
@@ -557,14 +567,13 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     return reachTask(`Replenishing ${face} from ${rack}`, take, put, { 0: () => occupy(rack, handling.contents(`rack:${rack}`).length), 2: () => { job.ready = true; claimed.delete(pallet); } });
   }
   function putAwayTask(pallet: string, rack: LocationId, at?: number): Task {
-    const spot = staging.indexOf(pallet), sku = units.get(pallet)!.sku!, target = { id: rack, found: rackTarget(pallet, rack, at)! }, overflow = !!options.goodsRules && rackGoods(rack) !== skuGoods(sku);
+    const spot = staging.indexOf(pallet), sku = units.get(pallet)!.sku!, target = { id: rack, found: rackTarget(pallet, rack, at)! };
     const { receptacle, position } = target.found.target, level = RACK_LEVELS[Number(receptacle.slice(6))];
-    approved.set(pallet, rack);
     const take = reachVisit(0, reachTake(0), { kind: 'interact', node: `staging:${spot}`, slot: 'reach', seconds: 0, pickUp: [pallet], label: 'Taking a pallet from staging' });
     const put = reachVisit(2, reachPut(level), { kind: 'interact', node: `rack:${target.id}`, slot: `load-${position ?? 0}`, seconds: 0, putDown: 'all', putOn: { receptacle, position, turn: RACK_TURN }, label: `Lifting the pallet into ${target.id}` });
     return reachTask(`Putting ${sku} away to ${target.id}`, take, put, {
       0: () => { staging[spot] = null; patch({ staging: staging.filter(Boolean).length }); },
-      2: () => { approved.delete(pallet); occupy(target.id, handling.contents(`rack:${target.id}`).length); refreshAlerts(); log(overflow ? `Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id} as overflow.` : `Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id}.`, overflow ? 'warning' : 'success'); emit({ type: 'put-away', pallet, sku, rack: target.id, overflow }); },
+      2: () => { occupy(target.id, handling.contents(`rack:${target.id}`).length); refreshAlerts(); log(`Pallet ${pallet.slice(7)} of ${sku} put away to ${target.id}.`, 'success'); emit({ type: 'put-away', pallet, sku, rack: target.id }); },
     });
   }
 
@@ -696,6 +705,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const value = loadingCarrier();
     if (!value || !value.cages.length) return undefined;
     const parcels = stagedFor(records, value.id).length, dock = outbound()!;
+    if (options.directorDeparts) return parcels ? { kind: 'ship', cage: value.cages[0] } : undefined;
     if (!parcels || outboundTrips >= 3) { departOutbound(dock); return undefined; }
     return { kind: 'ship', cage: value.cages[0] };
   }
@@ -1051,8 +1061,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         break;
       case 'reach-truck':
         if (prefix === 'pallet' && staging.includes(subject)) {
-          // Racks of the pallet's type first, emptiest first, then the Bulky racks for overflow, then the rest.
-          const goods = skuGoods(units.get(subject)!.sku!), rank = (rack: LocationId) => rackGoods(rack) === goods ? 0 : rackGoods(rack) === 'bulky' ? 1 : 2;
+          // Racks of the pallet's type first, emptiest first, then the rest.
+          const goods = skuGoods(units.get(subject)!.sku!), rank = (rack: LocationId) => rackGoods(rack) === goods ? 0 : 1;
           for (const rack of [...RACKS].sort((a, b) => rank(a) - rank(b) || records.occupancy[a] - records.occupancy[b])) {
             const found = rackTarget(subject, rack), level = found ? Number(found.target.receptacle!.slice(6)) : undefined;
             offer({ kind: 'put-away', pallet: subject, rack }, `${rack}${level === undefined ? '' : ` · level ${level + 1}`} · ${GOODS_LABELS[rackGoods(rack)]}`);
@@ -1112,7 +1122,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   // Starting state: docked trucks, people already at work in the shop, and the first deliveries.
   for (const dock of start.docks) if (dock.status === 'unloading' || dock.status === 'loading') { trucks.set(dock.id, { docked: true, color: dock.direction === 'outbound' ? '#c8553d' : '#4a7fb0' }); }
   for (const dock of start.docks) {
-    if (dock.status === 'unloading' && dock.pallets) { const left = dock.pallets.total - dock.pallets.done; truckLoads.set(dock.id, Array.from({ length: left }, () => skuForInbound())); if (!left) later(8, () => finishInbound(dock.id)); }
+    if (dock.status === 'unloading' && dock.pallets) { const left = dock.pallets.total - dock.pallets.done; truckLoads.set(dock.id, inboundLoad(left)); if (!left) later(8, () => finishInbound(dock.id)); }
     if (dock.status === 'expected') later(45, () => arriveInbound(dock.id));
   }
   if (start.parceloVan) later(30, () => arriveOutbound('parcelo'));

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetNode } from '@opsorama/core';
+import { rackGoods, skuGoods } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation, type ActorRole, type EcommerceEvent, type EcommerceSimulation, type EcommerceSimulationOptions, type Move } from '../apps/site/src/features/ecommerce/simulation';
 
 type EventOf<T extends EcommerceEvent['type']> = Extract<EcommerceEvent, { type: T }>;
@@ -100,17 +101,17 @@ describe('e-commerce commanded moves', () => {
   it('puts a pallet away only into a rack of its type, on the level asked for', () => {
     const game = scripted({ goodsRules: true }), { simulation } = game, pallet = 'pallet:1038';
     const choices = simulation.moves('reach-truck', pallet);
-    // TOY-120 is Toys: R12 and R05 hold Toys, the emptiest first; the Bulky racks take it only as overflow.
+    // TOY-120 is Toys: R12 and R05 hold Toys, the emptiest first; every other rack refuses it.
     expect(choices.options).toEqual([{ move: { kind: 'put-away', pallet, rack: 'R12' }, target: 'R12 · level 1 · Toys' }, { move: { kind: 'put-away', pallet, rack: 'R05' }, target: 'R05 · level 1 · Toys' }]);
     expect(choices.refused).toHaveLength(12);
     expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R04 · Outdoor', reason: 'R04 holds Outdoor goods and does not take Toys (TOY-120).' });
-    expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R07 · Bulky', reason: 'R07 takes Toys only as overflow, once every Toys rack is full.' });
+    expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R07 · Bulky', reason: 'R07 holds Bulky goods and does not take Toys (TOY-120).' });
     expect(simulation.check('reach-truck', { kind: 'put-away', pallet, rack: 'R05', level: 3 })).toEqual({ ok: false, wait: false, reason: 'R05 has levels 1 to 3.' });
     // A refused command ends without a task; the next one runs.
     game.command('reach-truck', { kind: 'put-away', pallet, rack: 'R04' }, { kind: 'put-away', pallet, rack: 'R05', level: 1 });
     game.until(() => game.queue('reach-truck').length === 0);
     expect(game.of('move-ended').map(event => [event.outcome, event.reason])).toEqual([['refused', 'R04 holds Outdoor goods and does not take Toys (TOY-120).'], ['done', 'Pallet 1038 put away to R05.']]);
-    expect(game.of('put-away')).toEqual([expect.objectContaining({ pallet, sku: 'TOY-120', rack: 'R05', overflow: false })]);
+    expect(game.of('put-away')).toEqual([expect.objectContaining({ pallet, sku: 'TOY-120', rack: 'R05' })]);
     expect(rackOf(simulation, pallet)).toBe('rack:R05');
     expect(pallets(simulation).find(node => node.id === pallet)!.attachment!.anchor).toMatch(/^slot-[23]$/);
     expect(inStaging(simulation)).not.toContain(pallet);
@@ -129,29 +130,38 @@ describe('e-commerce commanded moves', () => {
     simulation.dispose();
   });
 
-  it('lets a pallet overflow into a Bulky rack once every rack of its type is full', () => {
-    const game = scripted({ goodsRules: true }), { simulation } = game;
-    let full: ReturnType<EcommerceSimulation['moves']> | undefined;
+  it('brings only as many pallets of a type as its racks can take, so put-away never blocks', () => {
+    const game = scripted({ goodsRules: true }), { simulation } = game, racks = (simulation_: EcommerceSimulation) => simulation_.snapshot().occupancy;
     game.command('forklift', { kind: 'unload', dock: 'D1' }, { kind: 'unload', dock: 'D2' });
     game.until(() => {
+      // Every pallet in staging always has a rack of its type with room.
+      for (const pallet of inStaging(simulation)) expect(simulation.moves('reach-truck', pallet).options.length, pallet).toBeGreaterThan(0);
       if (!game.queue('reach-truck').length) {
-        const pallet = inStaging(simulation).find(id => simulation.moves('reach-truck', id).options.length);
-        const choices = pallet && simulation.moves('reach-truck', pallet);
-        const toys = simulation.snapshot().units.find(unit => unit.id === pallet)?.sku?.startsWith('TOY-');
-        if (choices && toys && /^R(07|14)/.test(choices.options[0].target)) full ??= choices;
-        if (choices) game.command('reach-truck', choices.options[0].move);
+        const pallet = inStaging(simulation)[0];
+        if (pallet) game.command('reach-truck', simulation.moves('reach-truck', pallet).options[0].move);
       }
-      return game.of('put-away').some(event => event.overflow);
+      return game.queue('forklift').length === 0 && inStaging(simulation).length === 0 && game.queue('reach-truck').length === 0;
     }, 1500);
-    const overflow = game.of('put-away').find(event => event.overflow)!;
-    expect(overflow).toMatchObject({ rack: expect.stringMatching(/^R(07|14)$/), overflow: true });
-    expect(overflow.sku).toMatch(/^TOY-/);
-    // With every Toys rack full, the Bulky racks are the only targets and the Toys racks are refused as full.
-    expect(full!.options.map(option => option.target)).toEqual([expect.stringMatching(/^R(07|14) · level \d · Bulky$/), expect.stringMatching(/^R(07|14) · level \d · Bulky$/)]);
-    expect(full!.refused).toContainEqual({ kind: 'put-away', target: 'R05 · Toys', reason: 'R05 is full.' });
-    expect(simulation.snapshot().events.some(event => event.text.endsWith(`put away to ${overflow.rack} as overflow.`))).toBe(true);
+    // Both trucks were emptied and every pallet went into a rack of its type.
+    expect(game.of('unloaded')).toHaveLength(16);
+    expect(game.of('put-away')).toHaveLength(21);
+    for (const event of game.of('put-away')) expect(rackGoods(event.rack), event.pallet).toBe(skuGoods(event.sku));
+    // The racks of the type the deliveries favour are full now, and still within their capacity.
+    expect(racks(simulation).R05 + racks(simulation).R12).toBe(12);
     expect(stopped(simulation)).toEqual([]);
     simulation.dispose();
+  }, 30000);
+
+  it('leaves the outbound truck to the director when it departs by the director', () => {
+    const departs = createEcommerceSimulation('peak', 7, { directorDeparts: true, director: { depart: () => false } });
+    departs.advance(400);
+    // The automatic dispatcher keeps loading and never sends the truck.
+    expect(departs.snapshot().docks.find(dock => dock.id === 'D3')!.status).toBe('loading');
+    departs.dispose();
+    const automatic = createEcommerceSimulation('peak', 7);
+    automatic.advance(400);
+    expect(automatic.snapshot().events.some(event => /left dock D3/.test(event.text))).toBe(true);
+    automatic.dispose();
   });
 
   it('replenishes a pick face: a pallet behind it, the replenisher empties it, the reach truck clears it', () => {
