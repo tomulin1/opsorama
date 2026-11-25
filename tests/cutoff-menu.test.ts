@@ -77,7 +77,7 @@ describe('Cut-off context menus', () => {
     const shift = game(), snapshot = shift.snapshot(), event = (kind: ShiftEvent['kind'], subject: string) => ({ kind, subject }) as ShiftEvent;
     const order = snapshot.orders.find(item => item.lines.some(line => snapshot.alerts.some(alert => alert.sku === line.sku)))!, short = order.lines.find(line => snapshot.alerts.some(alert => alert.sku === line.sku))!;
     expect([eventNode(snapshot, event('robot-breakdown', 'robot:0')), eventNode(snapshot, event('late-truck', 'D2')), eventNode(snapshot, event('store-rush', 'shop')), eventNode(snapshot, event('vip-order', order.id)), eventNode(snapshot, event('short-pick', order.id))])
-      .toEqual(['robot:0', 'dock:D2', 'pin:shop', 'dock:D3', `flow:${SKUS[short.sku].pick}`]);
+      .toEqual(['robot:0', 'dock:D2', 'checkout:C2', 'dock:D3', `flow:${SKUS[short.sku].pick}`]);
     expect(eventNode(snapshot, event('short-pick', 'no-such-order'))).toBeUndefined();
     shift.dispose();
   });
@@ -108,7 +108,8 @@ describe('Cut-off context menus', () => {
     expect((byId.get('pallet:1038') as AssetNode).color).toBe(GOODS_COLORS.toys);
     expect((byId.get('pallet:1024') as AssetNode).color).toBe(GOODS_COLORS.sport);
     expect((byId.get('rack:R12') as AssetNode).materials?.accent).toBe(GOODS_COLORS.toys);
-    expect(nodes.filter(node => node.id.startsWith('area:') || node.id.startsWith('pin:')).every(node => node.selectable === false)).toBe(true);
+    expect(nodes.filter(node => node.id.startsWith('area:')).every(node => node.selectable === false)).toBe(true);
+    expect(nodes.some(node => node.id.startsWith('pin:'))).toBe(false);
     const toys = rackRoom(snapshot).find(item => item.goods === 'toys')!;
     expect(toys).toEqual({ goods: 'toys', label: 'Toys', color: GOODS_COLORS.toys, free: 12 - snapshot.occupancy.R05 - snapshot.occupancy.R12, total: 12 });
     expect(rackRoom(snapshot).reduce((sum, item) => sum + item.total, 0)).toBe(14 * 6);

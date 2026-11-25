@@ -79,12 +79,12 @@ export function floatingNodes(floats: readonly Floating[], present: ReadonlySet<
  * The scene as the game shows it, colored by type of goods (`GOODS_COLORS`, the tone of each type's item in the shop) while the
  * dashboard keeps its neutral colors: a pallet's cartons take its SKU's color (`color`), a rack's uprights the color of the type
  * it holds (`materials.accent`), a pick face's cartons the color of its goods (`materials.surface`) and a gondola, with its sign,
- * the color of its department. The area floors and pins take no clicks, so a click either hits material or clears the menu.
+ * the color of its department. The area floors take no clicks, so a click either hits material or clears the menu.
  */
 export function playable(nodes: readonly SceneNode[], snapshot: EcommerceSnapshot): SceneNode[] {
   const pallets = new Map(snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku).map(unit => [unit.id, GOODS_COLORS[skuGoods(unit.sku!)]]));
   return nodes.map(node => {
-    if (node.id.startsWith('area:') || node.id.startsWith('pin:')) return { ...node, selectable: false };
+    if (node.id.startsWith('area:')) return { ...node, selectable: false };
     if (node.kind !== 'asset' || !node.entityId && !pallets.has(node.id)) return node;
     const pallet = pallets.get(node.id);
     if (pallet) return { ...node, color: pallet };

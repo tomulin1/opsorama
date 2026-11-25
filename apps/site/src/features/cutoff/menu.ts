@@ -110,7 +110,7 @@ export function eventNode(snapshot: EcommerceSnapshot, event: ShiftEvent): strin
   switch (event.kind) {
     case 'robot-breakdown': return event.subject;
     case 'late-truck': return `dock:${event.subject}`;
-    case 'store-rush': return 'pin:shop';
+    case 'store-rush': return 'checkout:C2';
     case 'vip-order': return 'dock:D3';
     case 'short-pick': {
       const order = snapshot.orders.find(item => item.id === event.subject), short = order?.lines.find(line => snapshot.alerts.some(alert => alert.sku === line.sku)) ?? order?.lines[0];

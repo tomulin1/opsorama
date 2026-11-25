@@ -6,7 +6,7 @@ Updated: October 31, 2026. Status: working local example at `/examples/ecommerce
 
 A shop or operations manager sees the shop floor and the warehouse that fulfils online orders on one site. They answer: which orders are at risk of the carrier cut-off, where is a given order, which pick faces are short, which inbound trucks are late, and how busy the checkouts and click & collect counter are.
 
-The scene is an illustrative floor plan, not a measured building. Each process area is a zone with a status pin:
+The scene is an illustrative floor plan, not a measured building. Each process area is a zone on the floor, without a sign in the scene; the HTML panels name the areas and show their status:
 
 | Area | Site | What the models show |
 | --- | --- | --- |

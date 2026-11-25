@@ -2,8 +2,8 @@ import { createNavGraph, resolveInteractionSlots, type AssetNode, type Controlle
 import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
   AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
-  areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
-  type AreaId, type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
+  cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
+  type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
 } from './model';
 import { closeWallJoints } from '../example-walls';
 
@@ -59,11 +59,6 @@ export const GONDOLAS: readonly { id: string; department: DepartmentId; index: n
   const { department, index } = GONDOLA_DEPARTMENTS[row * GONDOLA_X.length + column];
   return { id: `gondola:${department}:${index}`, department, index, position: p(x, z) };
 }));
-/** Free floor spots where each area's status pin stands. */
-const AREA_PINS: Readonly<Record<AreaId, Vec3>> = {
-  shop: p(-12.6, -7.4), checkout: p(-15.7, 3.9), collect: p(-9.8, 3.6), receiving: p(19.6, -12.4), storage: p(4.6, -6.4),
-  picking: p(-7.5, -.5), sorting: p(10.6, -.5), packing: p(6.5, .6), dispatch: p(21.1, .8), returns: p(-1.9, 1),
-};
 /** The staging lane: one column of pallets the forklift fills from the east and the reach truck empties from the west. */
 export const STAGING_X = 16.2;
 export const STAGING_SPOTS: readonly Vec3[] = [-12.4, -11.34, -10.28, -9.22, -8.16, -7.1].map(z => p(STAGING_X, z));
@@ -306,12 +301,10 @@ const split = (total: number, parts: number) => Array.from({ length: parts }, (_
 export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): SceneNode[] {
   const nodes: SceneNode[] = [...ecommerceBase, ...live.movers];
 
-  // Zone labels sit behind a zone's back edge, which lands inside the neighbouring area for most zones,
-  // so each area is named by a status pin standing in a free spot inside it instead.
+  // Each process area is a zone on the floor; the scene shows no area signs, and the HTML panels name the areas.
   for (const value of AREAS) {
-    const [x0, x1, z0, z1] = value.rect, status = areaStatus(snapshot, value.id), state = status.state === 'busy' ? undefined : status.state;
+    const [x0, x1, z0, z1] = value.rect;
     nodes.push({ id: `area:${value.id}`, entityId: value.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, 0, (z0 + z1) / 2], color: value.color, selectable: true, interior: true });
-    nodes.push({ id: `pin:${value.id}`, entityId: value.id, kind: 'asset', asset: 'map-pin', position: AREA_PINS[value.id], color: value.site === 'Shop' ? '#2f6f8f' : '#3f8a6d', state, label: value.label, labelMode: 'always', selectable: true });
   }
 
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
