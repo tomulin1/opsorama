@@ -3,7 +3,8 @@ import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
 import { GOODS_COLORS, choosesInScene, clickedNodes, detailOf, eventNode, menuEntries, menuSubjects, nodeEntries, needsTargets, pickTarget, rackRoom, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
-import { goodsColored, playNodes } from '../apps/site/src/features/cutoff/scene';
+import { playable, playNodes } from '../apps/site/src/features/cutoff/scene';
+import { GOODS_TONES } from '@opsorama/objects';
 
 const game = () => createShiftGame({ scenario: 'peak', seed: 1 });
 const contextOf = (shift: ReturnType<typeof game>, node: string): DetailContext => {
@@ -33,7 +34,7 @@ describe('Cut-off context menus', () => {
     const shift = game(), snapshot = shift.snapshot(), [putAway] = menuEntries(shift.options('pallet:1038'), 'reach-truck');
     expect(targetMarks(putAway)).toEqual([{ nodeId: 'rack:R12', label: 'R12 · level 1 · Toys' }, { nodeId: 'rack:R05', label: 'R05 · level 1 · Toys' }]);
     expect([targetNodes({ kind: 'restock', department: 'toys', source: 'face' }), targetNodes({ kind: 'decant', face: 'S1' }), targetNodes({ kind: 'unload', dock: 'D1' })])
-      .toEqual([['gondola:toys:0', 'gondola:toys:1', 'gondola:toys:2', 'gondola:toys:3'], ['shelf:S1'], []]);
+      .toEqual([['gondola:toys:0', 'gondola:toys:1', 'gondola:toys:2', 'gondola:toys:3'], ['flow:S1'], []]);
 
     // The light marker stands for its rack, and so does a pallet standing in the rack.
     expect(pickTarget(putAway, clickedNodes('target:rack:R05', [], snapshot))).toMatchObject({ node: 'rack:R05', option: { move: { kind: 'put-away', pallet: 'pallet:1038', rack: 'R05' } } });
@@ -98,8 +99,12 @@ describe('Cut-off context menus', () => {
     shift.dispose();
   });
 
-  it('colors pallets and racks by type of goods, counts free rack positions and keeps the floors out of clicks', () => {
-    const shift = game(), snapshot = shift.snapshot(), nodes = goodsColored(shift.nodes(), snapshot), byId = new Map(nodes.map(node => [node.id, node]));
+  it('colors pallets, racks, pick faces and gondolas by type of goods, counts free rack positions and keeps the floors out of clicks', () => {
+    const shift = game(), snapshot = shift.snapshot(), nodes = playable(shift.nodes()), byId = new Map(nodes.map(node => [node.id, node]));
+    // One color per type: the body tone of the type's iconic item in the shop.
+    expect(GOODS_COLORS).toEqual(GOODS_TONES);
+    expect([(byId.get('flow:F4') as AssetNode).materials?.surface, (byId.get('flow:S2') as AssetNode).materials?.surface, (byId.get('gondola:sport:1') as AssetNode).color]).toEqual([GOODS_COLORS.toys, GOODS_COLORS.sport, GOODS_COLORS.sport]);
+    expect((byId.get('flow:S1') as AssetNode).asset).toBe('carton-flow-rack');
     expect((byId.get('pallet:1038') as AssetNode).color).toBe(GOODS_COLORS.toys);
     expect((byId.get('pallet:1024') as AssetNode).color).toBe(GOODS_COLORS.sport);
     expect((byId.get('rack:R12') as AssetNode).materials?.accent).toBe(GOODS_COLORS.toys);

@@ -220,13 +220,13 @@ describe('e-commerce warehouse routes', () => {
     // Pick stops sit on the slot approaches of the pick faces.
     const pick = pickSlots.find(slot => slot.id === 'flow:F1:pick')!;
     expect(warehouseNavigation.point('flow:F1:pick')?.position).toEqual(pick.approach);
-    const plan = warehouseNavigation.plan({ agent: 'picker', from: 'flow:F1:pick', via: ['shelf:S1:pick-0', 'induct'], to: 'flow:F1:pick' });
+    const plan = warehouseNavigation.plan({ agent: 'picker', from: 'flow:F1:pick', via: ['flow:S1:pick', 'induct'], to: 'flow:F1:pick' });
     if (!plan.ok) throw new Error('expected a route');
     expect(warehouseNavigation.check('picker', plan.route.points)).toEqual([]);
     expect(plan.route.steps.every(step => step.lane === 'pick-loop')).toBe(true);
     // Pickers may not use the reach-truck aisle, and the pick lane is one way.
     expect(warehouseNavigation.check('picker', ['aisle:R02', 'rack:R02:load-1'])).toMatchObject([{ code: 'agent-not-allowed' }]);
-    expect(warehouseNavigation.check('picker', ['shelf:S1:pick-0', 'flow:F4:pick'])).toMatchObject([{ code: 'wrong-direction' }]);
+    expect(warehouseNavigation.check('picker', ['flow:S1:pick', 'flow:F4:pick'])).toMatchObject([{ code: 'wrong-direction' }]);
   });
 
   it('maps the planned routes of the mock feed onto worker and vehicle nodes', () => {

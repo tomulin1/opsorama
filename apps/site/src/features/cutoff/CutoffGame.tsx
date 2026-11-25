@@ -14,7 +14,7 @@ import { DEPARTMENTS, GOODS_LABELS, SKUS, carrier as carrierOf, skuGoods, type E
 import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { ActorRef, Move, MoveOption } from '../ecommerce/simulation';
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, choosesInScene, clickedNodes, detailOf, eventNode, needsTargets, nodeEntries, pickTarget, rackRoom, targetMarks, type MenuEntry } from './menu';
+import { GOODS_COLORS, choosesInScene, clickedNodes, faceNode, detailOf, eventNode, needsTargets, nodeEntries, pickTarget, rackRoom, targetMarks, type MenuEntry } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating, type TargetMark } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -219,7 +219,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
         <ul className="co-legend" aria-label="Free rack positions by type of goods">{rackRoom(snapshot).map(item => <li key={item.goods}><i style={{ background: item.color }} aria-hidden="true" /><span>{item.label}</span><strong>{item.free}/{item.total}</strong></li>)}</ul>
       </section>
       <section className="co-section" aria-label="Stock"><h3>Stock</h3><ul className="co-list">
-        {snapshot.alerts.length ? snapshot.alerts.map(alert => <li key={alert.sku}><button type="button" className="co-name" onClick={() => select(`${SKUS[alert.sku].pick.startsWith('S') ? 'shelf' : 'flow'}:${SKUS[alert.sku].pick}`)}>{SKUS[alert.sku].pick}</button><span>{alert.sku} below minimum · {alert.onHand}/{alert.min}</span></li>) : <li><span>Every pick face at its minimum</span></li>}
+        {snapshot.alerts.length ? snapshot.alerts.map(alert => <li key={alert.sku}><button type="button" className="co-name" onClick={() => select(faceNode(SKUS[alert.sku].pick))}>{SKUS[alert.sku].pick}</button><span>{alert.sku} below minimum · {alert.onHand}/{alert.min}</span></li>) : <li><span>Every pick face at its minimum</span></li>}
         {snapshot.shopOpen && DEPARTMENTS.filter(item => snapshot.shop.facings[item.id] === 0).map(item => <li key={item.id}><button type="button" className="co-name" onClick={() => select(`gondola:${item.id}:0`)}>{item.label}</button><span>Department empty</span></li>)}
       </ul></section>
       <section className="co-section" aria-label="Shipping"><h3>Shipping</h3><ul className="co-list">{view.carriers.map(item => <li key={item.carrier}><strong>{item.name}</strong><span>{item.cutoff}{item.remaining !== null ? ` · ${Math.ceil(item.remaining)} min left` : ' · passed or none'} · {item.open} open</span>

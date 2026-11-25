@@ -1,4 +1,5 @@
 import type { VisualState } from '@opsorama/core';
+import { GOODS_TONES } from '@opsorama/objects';
 
 /**
  * Host-side mock data for the online shop and fulfilment centre. Everything in
@@ -77,8 +78,8 @@ export const LOCATIONS: readonly LocationLayout[] = [
   { id: 'F2', kind: 'flow', family: 'Home', capacity: 12 },
   { id: 'F3', kind: 'flow', family: 'Outdoor', capacity: 12 },
   { id: 'F4', kind: 'flow', family: 'Toys', capacity: 12 },
-  { id: 'S1', kind: 'shelf', family: 'Tech accessories', capacity: 12 },
-  { id: 'S2', kind: 'shelf', family: 'Sport', capacity: 12 },
+  { id: 'S1', kind: 'flow', family: 'Tech', capacity: 12 },
+  { id: 'S2', kind: 'flow', family: 'Sport', capacity: 12 },
 ];
 export const LOCATION_UNITS: Readonly<Record<LocationLayout['kind'], string>> = { rack: 'pallet positions', flow: 'lanes', shelf: 'bins' };
 export const location = (id: LocationId) => LOCATIONS.find(item => item.id === id)!;
@@ -106,11 +107,18 @@ export const SKUS: Readonly<Record<string, { name: string; pick: LocationId; res
  */
 export type GoodsType = DepartmentId;
 export const GOODS_LABELS: Readonly<Record<GoodsType, string>> = { kitchen: 'Kitchen', home: 'Home', outdoor: 'Outdoor', toys: 'Toys', tech: 'Tech', sport: 'Sport' };
+/**
+ * The color of each type of goods, the body tone of its iconic item in the shop (`GOODS_TONES` of the `goods` object): pallet
+ * cartons, rack uprights, pick-face cartons, the shop's gondolas and the legends all use it.
+ */
+export const GOODS_COLORS: Readonly<Record<GoodsType, string>> = GOODS_TONES;
 const RESERVE_GOODS: readonly GoodsType[] = ['kitchen', 'kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'];
 /** The type of goods a reserve rack holds: R01, R02, R08 and R09 hold Kitchen. */
 export const rackGoods = (id: LocationId): GoodsType => RESERVE_GOODS[(Number(id.slice(1)) - 1) % 7];
 /** The type of goods of a SKU, from its reserve rack. */
 export const skuGoods = (sku: string): GoodsType => rackGoods(SKUS[sku].reserve);
+/** The type of goods of a pick face, from the SKUs picked there. */
+export const faceGoods = (face: LocationId): GoodsType => skuGoods(Object.keys(SKUS).find(sku => SKUS[sku].pick === face)!);
 
 /**
  * The shop's departments, one per type of goods, and their gondolas. They fill the shop's twenty gondolas from the back row

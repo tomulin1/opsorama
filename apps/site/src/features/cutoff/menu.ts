@@ -1,9 +1,9 @@
-import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_LABELS, LOCATIONS, SKUS, location, rackGoods, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
+import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_COLORS, GOODS_LABELS, LOCATIONS, SKUS, location, rackGoods, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
 import type { ActorRef, Move, MoveKind, MoveOption, MoveRefusal } from '../ecommerce/simulation';
 import { QUEUE_LIMIT, type ActorChoices, type ActorView, type CarrierStatus, type ShiftEvent } from './rules';
 
-/** The color of each type of goods: pallet loads, rack uprights and the legend use it. */
-export const GOODS_COLORS: Readonly<Record<GoodsType, string>> = { kitchen: '#e08a2e', home: '#8a64c4', outdoor: '#3f9a57', toys: '#d6453d', tech: '#2f7fc4', sport: '#159a9c' };
+/** The color of each type of goods, shared with the e-commerce scene and the shop's goods. */
+export { GOODS_COLORS };
 export const GOODS_TYPES = Object.keys(GOODS_LABELS) as GoodsType[];
 const RACKS = LOCATIONS.filter(item => item.kind === 'rack');
 

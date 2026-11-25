@@ -28,7 +28,7 @@ describe('goods', () => {
   it('recolors only the main body from the instance color', () => {
     const color = (object: THREE.Object3D, name: string) => ((object.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString();
     const plain = build('goods', { variant: 'kitchen' }), tinted = build('goods', { variant: 'kitchen', color: '#123456' });
-    expect([color(plain, 'goods-mug'), color(tinted, 'goods-mug'), color(tinted, 'goods-mug-rim')]).toEqual(['c8664a', '123456', 'f3e6d6']);
+    expect([color(plain, 'goods-mug'), color(tinted, 'goods-mug'), color(tinted, 'goods-mug-rim')]).toEqual(['c9423a', '123456', 'f3e6d6']);
     [plain, tinted].forEach(disposeObject);
   });
 

@@ -1,8 +1,8 @@
 import { createNavGraph, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
 import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
-  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
-  areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
+  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, GOODS_COLORS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
+  areaStatus, faceGoods, rackGoods, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
   type AreaId, type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
 } from './model';
 import { closeWallJoints } from '../example-walls';
@@ -33,10 +33,8 @@ export const FEMININE = { options: { person: { figure: 'feminine' } } } as const
 export const RACK_PLACES: Readonly<Record<string, { position: Vec3; aisle: number }>> = Object.fromEntries(LOCATIONS.filter(item => item.kind === 'rack').map((item, i) => [item.id, i < 7 ? { position: p(-6.3 + i * 2.95, -12.25), aisle: -9.6 } : { position: p(-6.3 + (i - 7) * 2.95, -19.65), aisle: -17 }]));
 const AISLE_Z = -9.6, DEEP_AISLE_Z = -17, BACK_WALL_Z = -21;
 const PICK_Z = -3.7, AISLE_RETURN_Z = -8.2, PICK_LINE_Z = -2.25, PICK_RETURN_Z = -1.3, INDUCT_X = 8.9, INDUCT_Z = -2.85;
-const PICK_FACES: Readonly<Record<string, { asset: 'carton-flow-rack' | 'shelf'; x: number }>> = {
-  F1: { asset: 'carton-flow-rack', x: -6.4 }, F2: { asset: 'carton-flow-rack', x: -4.2 }, F3: { asset: 'carton-flow-rack', x: -2 }, F4: { asset: 'carton-flow-rack', x: .2 },
-  S1: { asset: 'shelf', x: 3 }, S2: { asset: 'shelf', x: 6.2 },
-};
+/** Six carton flow racks, one pick face per type of goods. */
+const PICK_FACES: Readonly<Record<string, { x: number }>> = { F1: { x: -6.4 }, F2: { x: -4.2 }, F3: { x: -2 }, F4: { x: .2 }, S1: { x: 3 }, S2: { x: 6.2 } };
 export const DOCK_Z: Readonly<Record<DockId, number>> = { D1: -11.2, D2: -7.4, D3: 2.6 };
 const DOCK_X = 22.6;
 /** The building's edge at the docks, where the dock base ends and the apron drops away. */
@@ -94,7 +92,7 @@ export const dockMouth = (dock: DockId): Vec3 => p(DOCK_X - .2, DOCK_Z[dock], .1
 
 /** Fixtures that people and vehicles visit. */
 export const pickFaceNodes: readonly AssetNode[] = Object.entries(PICK_FACES).map(([id, face]) =>
-  selectable(`${face.asset === 'shelf' ? 'shelf' : 'flow'}:${id}`, id, face.asset, p(face.x, face.asset === 'shelf' ? PICK_Z + .05 : PICK_Z), `${id} · ${LOCATIONS.find(item => item.id === id)!.family}`));
+  selectable(`flow:${id}`, id, 'carton-flow-rack', p(face.x, PICK_Z), `${id} · ${LOCATIONS.find(item => item.id === id)!.family}`));
 const fixtureSlots = (nodes: readonly AssetNode[]) => nodes.flatMap(node => resolveInteractionSlots(node, assetInteractionSlots[node.asset]));
 /** Catalog slots of the pick faces; pickers stop on their approaches with the cart ahead of them. */
 export const pickSlots = fixtureSlots(pickFaceNodes);
@@ -319,7 +317,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
   for (const gondola of GONDOLAS) {
     const label = DEPARTMENTS.find(item => item.id === gondola.department)!.label;
-    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
+    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, color: GOODS_COLORS[gondola.department], options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: GOODS_COLORS[gondola.department] } } }));
   }
 
   // Checkouts face the shop floor; the queue forms toward it.
@@ -345,11 +343,13 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Reserve storage and forward picking.
   for (const value of LOCATIONS) {
     const state = locationState(snapshot, value.id), count = snapshot.occupancy[value.id];
-    if (value.kind === 'rack') nodes.push(selectable(`rack:${value.id}`, value.id, 'pallet-rack', RACK_PLACES[value.id].position, `${value.id} · ${count}/${value.capacity} pallets`, { count: 0, state: state === 'normal' ? undefined : state }));
+    // Rack uprights take the color of the type of goods the rack holds.
+    if (value.kind === 'rack') nodes.push(selectable(`rack:${value.id}`, value.id, 'pallet-rack', RACK_PLACES[value.id].position, `${value.id} · ${count}/${value.capacity} pallets`, { count: 0, state: state === 'normal' ? undefined : state, materials: { accent: GOODS_COLORS[rackGoods(value.id)] } }));
   }
   for (const node of pickFaceNodes) {
     const id = node.entityId as LocationId, value = LOCATIONS.find(item => item.id === id)!, count = snapshot.occupancy[id], state = locationState(snapshot, id);
-    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, ...(value.kind === 'flow' ? { options: { ...node.options, surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } } : {}) });
+    // The face's cartons take the color of its type of goods.
+    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, materials: { surface: GOODS_COLORS[faceGoods(id)] }, ...(value.kind === 'flow' ? { options: { ...node.options, surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } } : {}) });
   }
   nodes.push(fixture('pallet-stack', 'pallet-stack', PALLET_STACK, { count: snapshot.emptyPallets, rotation: yaw(HALF) }));
   if (!snapshot.crew.storage) nodes.push(fixture('reach-truck', 'reach-truck', p(-5.2, AISLE_RETURN_Z), { rotation: yaw(HALF), state: 'inactive' }));

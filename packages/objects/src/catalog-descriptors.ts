@@ -930,7 +930,7 @@ const entries: readonly CatalogEntry[] = [
     largest: {"node":{"variant":"home"},"bounds":{"min":[-0.0788,0,-0.08],"max":[0.0788,0.26,0.08]}},
     colorRole: "surface",
     roles: [{"role":"surface","parts":"The main body: the mug, the lamp shade, the lantern body, the bear's fur, the headphones, the ball. Each type has its own default tone; containers filled through options.goods always keep those tones."}],
-    fixed: "Default body tones per type: a terracotta mug, a cream lamp shade, a green lantern, a brown teddy bear, dark headphones and an orange basketball. The lamp foot, the lantern glass and handle, the bear's muzzle and belly, the headphone cushions and the ball's seams are fixed.",
+    fixed: "Default body tones per type (GOODS_TONES), which also serve as the color code of each type: a red mug, a purple lamp shade, a green lantern, a brown teddy bear, blue headphones and an orange basketball. The lamp foot, the lantern glass and handle, the bear's muzzle and belly, the headphone cushions and the ball's seams are fixed.",
     variants: ["kitchen","home","outdoor","toys","tech","sport"],
     anchors: [
     ],
@@ -2046,8 +2046,8 @@ const entries: readonly CatalogEntry[] = [
     placement: "Local origin is the ground centre of the default footprint. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
     largest: {"node":{"count":0},"bounds":{"min":[-1.03,0,-0.655],"max":[1.03,2.21,0.685]}},
     colorRole: "accent",
-    roles: [{"role":"structure","parts":"flow divider, flow rollers"},{"role":"trim","parts":"flow bed"},{"role":"accent","parts":"flow upright, flow beam, flow header"},{"role":"screen","parts":"flow pick light"},{"role":"normal","parts":"flow pick led"},{"role":"inactive","parts":"flow pick led"}],
-    fixed: "Flow cartons are the warehouse cartons of a pallet with their fixed tan, tape, sticker and barcode tones.",
+    roles: [{"role":"surface","parts":"flow cartons (materials.surface or the scene palette; color stays the frame)"},{"role":"structure","parts":"flow divider, flow rollers"},{"role":"trim","parts":"flow bed"},{"role":"accent","parts":"flow upright, flow beam, flow header"},{"role":"screen","parts":"flow pick light"},{"role":"normal","parts":"flow pick led"},{"role":"inactive","parts":"flow pick led"}],
+    fixed: "Flow cartons are the warehouse cartons of a pallet; their tape, sticker and barcode keep fixed tones.",
     anchors: [
       {"name":"front","purpose":"Front-facing approach or attachment point."},
       {"name":"back","purpose":"Back approach or attachment point."},

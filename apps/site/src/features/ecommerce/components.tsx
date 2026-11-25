@@ -272,7 +272,7 @@ export function StageLegend() {
 export const ECOMMERCE_CATALOG = [
   ['store-shelving', 'Store shelving'], ['checkout-counter', 'Checkout counter'], ['click-collect-counter', 'Click & collect counter'], ['parcel-locker', 'Parcel locker'], ['returns-drop-box', 'Returns drop box'],
   ['shopping-cart', 'Shopping cart'], ['hand-basket', 'Hand basket'], ['worker', 'Worker'], ['information-board', 'Information board'], ['sign', 'Sign'],
-  ['pallet-rack', 'Pallet rack'], ['reach-truck', 'Reach truck'], ['carton-flow-rack', 'Carton flow rack'], ['shelf', 'Storage shelf'], ['picking-cart', 'Picking cart'],
+  ['pallet-rack', 'Pallet rack'], ['reach-truck', 'Reach truck'], ['carton-flow-rack', 'Carton flow rack'], ['picking-cart', 'Picking cart'],
   ['conveyor', 'Conveyor'], ['tote', 'Tote'], ['mobile-robot', 'Mobile robot'], ['put-wall', 'Put wall'], ['station', 'Workstation'], ['packaging-supply', 'Packaging supply'],
   ['parcel', 'Parcel'], ['roll-cage', 'Roll cage'], ['stretch-wrapper', 'Stretch wrapper'], ['pallet', 'Pallet'], ['pallet-stack', 'Pallet stack'], ['pallet-jack', 'Pallet jack'],
   ['forklift', 'Forklift'], ['loading-dock', 'Loading dock'], ['truck', 'Delivery truck'], ['delivery-van', 'Delivery van'], ['hold-cage', 'Hold cage'], ['safety-barrier', 'Safety barrier'],

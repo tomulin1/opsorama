@@ -130,11 +130,14 @@ export const FLOW_RACK = Object.freeze({ lanes: 4, levels: 3, width: 2, depth: 1
 /**
  * Carton flow rack for picking: three inclined roller levels, four lanes each, picked at +z and replenished at −z.
  * `count` fills 0–12 lanes with four warehouse cartons each (the carton of a pallet), bottom level first; every lane has a
- * pick-to-light module whose LED is lit while the lane is filled. The header is a surface-label area. Color changes the frame.
+ * pick-to-light module whose LED is lit while the lane is filled. The header is a surface-label area. Color changes the frame;
+ * the cartons take the surface role (`materials.surface`, then the scene palette), tan by default.
  */
 export function createCartonFlowRack(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const p = kitPalette(node, context), frame = node.materials?.accent ?? node.color ?? p.accent, { lanes, levels, width, depth, slope, cartons } = FLOW_RACK, angle = Math.atan2(slope, depth);
   const { count } = resolveCountRepresentation(node, assetCountDefinitions['carton-flow-rack']);
+  // `color` keeps meaning the frame, so the cartons read only materials.surface and the scene palette.
+  const cartonTone = node.materials?.surface ?? context?.palette?.surface ?? CASE.color;
   const rack = new THREE.Group(); rack.name = 'carton-flow-rack';
   for (const x of [-width / 2, width / 2]) for (const [z, h] of [[depth / 2, 2], [-depth / 2, 2.2]] as const) block(rack, [.06, h, .06], [x, h / 2, z], frame, 'flow-upright', { roughness: .45 });
   for (let level = 0; level < levels; level++) {
@@ -153,7 +156,7 @@ export function createCartonFlowRack(node: AssetNode, context?: MaterialContext)
       if (slot < count) {
         // The lane's cartons stand on the rollers touching end to end, the first against the front beam.
         const filled = new THREE.Group(); filled.name = `count-part-${slot}`; bed.add(filled); filled.position.set(x, -.01, depth / 2 - .02 - CASE.front);
-        for (let i = 0; i < cartons; i++) { const carton = casePart(CASE.color, 'flow-carton'); carton.position.z = -i * CASE.depth; filled.add(carton); }
+        for (let i = 0; i < cartons; i++) { const carton = casePart(cartonTone, 'flow-carton'); carton.position.z = -i * CASE.depth; filled.add(carton); }
       }
     }
   }
