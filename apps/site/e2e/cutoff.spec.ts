@@ -11,7 +11,8 @@ test('Cut-off plays receiving, put-away, replenishing, restocking and shipping t
   await expect(page.getByRole('region', { name: 'Shift briefing' })).toContainText('Peak');
   await expect(page.getByRole('timer', { name: 'Shift clock' })).toHaveText('10:00');
   await page.getByRole('button', { name: 'Start shift', exact: true }).click();
-  await toolbar.getByRole('button', { name: 'Speed 3×', exact: true }).click();
+  // Commands work while the shift is paused; pausing keeps the software-rendered run ahead of SwiftPost's 11:30 cut-off.
+  await toolbar.getByRole('button', { name: 'Pause shift', exact: true }).click();
 
   // Receiving: the dock's menu commands the forklift, which unloads until the truck is empty.
   await summary.getByRole('region', { name: 'Receiving', exact: true }).getByRole('button', { name: 'Dock D1', exact: true }).click();
@@ -54,6 +55,9 @@ test('Cut-off plays receiving, put-away, replenishing, restocking and shipping t
   await expect(message).toHaveText('The SwiftPost truck leaves once no cage is on its way.');
 
   // The short pick of the peak opens over its pick face about 20 minutes into the shift.
+  await expect(page.getByRole('timer', { name: 'Shift clock' })).toHaveText('10:00');
+  await toolbar.getByRole('button', { name: 'Resume shift', exact: true }).click();
+  await toolbar.getByRole('button', { name: 'Speed 3×', exact: true }).click();
   const event = page.getByRole('article', { name: 'Short pick', exact: true });
   await expect(event).toBeVisible({ timeout: ciScaled(45000) });
   await event.getByRole('button', { name: /Cancel the order/ }).click();

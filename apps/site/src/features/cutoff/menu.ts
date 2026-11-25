@@ -48,6 +48,14 @@ export function menuSubjects(node: string, snapshot: EcommerceSnapshot): string[
   if (prefix === 'flow' || prefix === 'shelf') return [node, ...snapshot.units.filter(unit => unit.at.startsWith('Rack ') && unit.sku && SKUS[unit.sku].pick === name).slice(0, FACE_PALLETS).map(unit => unit.id)];
   return [node];
 }
+/**
+ * The entries of a node's menu with the subject each belongs to. The node lists all its entries; the reserve pallets a rack
+ * or pick face adds list only bringing them to their pick face, because a pallet already on its way to a face would repeat
+ * the face's own decant, clear and restock.
+ */
+export function nodeEntries(node: string, snapshot: EcommerceSnapshot, options: (subject: string) => readonly ActorChoices[], active?: string | null): { subject: string; entry: MenuEntry }[] {
+  return menuSubjects(node, snapshot).flatMap(subject => menuEntries(options(subject), active).filter(entry => subject === node || entry.kind === 'replenish').map(entry => ({ subject, entry })));
+}
 /** Whether an entry needs a target submenu: more than one target, or targets that may not be used and should be explained. */
 export const needsTargets = (entry: MenuEntry) => entry.options.length !== 1 || entry.refused.length > 0;
 
