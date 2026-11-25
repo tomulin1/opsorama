@@ -1,8 +1,7 @@
-import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode, Vec3 } from '@opsorama/core';
+import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode } from '@opsorama/core';
 import { DEPARTMENTS, GOODS_COLORS, faceGoods, minutesOf, rackGoods, skuGoods, type DepartmentId, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, type Move } from '../ecommerce/simulation';
-import { STAGING_TARGET, eventNode, type LitMark } from './menu';
-import { STAGING_SPOTS } from '../ecommerce/scene';
+import { eventNode } from './menu';
 import type { ActorView, CarrierStatus, ShiftDecisions, ShiftEvent, ShiftGame, ShiftLevel } from './rules';
 
 const palletNumber = (pallet: string) => pallet.split(':')[1];
@@ -99,29 +98,14 @@ export function playable(nodes: readonly SceneNode[], snapshot: EcommerceSnapsho
   });
 }
 
-/** Where the staging lane's light stands: over the middle of its spots. */
-const STAGING_LIGHT: Vec3 = [STAGING_SPOTS[0][0], MARKER_HEIGHT, STAGING_SPOTS.reduce((sum, spot) => sum + spot[2], 0) / STAGING_SPOTS.length];
-/**
- * Markers over the lit sources (blue, "TAKE") or targets (green, "TARGET"), which a click picks like their node. The staging lane
- * has no node, so its light stands over the middle of its spots.
- */
-export function litMarkers(marks: readonly LitMark[], present: ReadonlySet<string>): MarkerNode[] {
-  return marks.filter(item => item.key === STAGING_TARGET || present.has(item.key)).map(item => ({
-    id: `${item.kind}:${item.key}`, kind: 'marker', ...(item.key === STAGING_TARGET ? { position: STAGING_LIGHT } : { attachment: { nodeId: item.key }, position: [0, MARKER_HEIGHT, 0] as Vec3 }),
-    tone: item.kind === 'source' ? 'info' : 'success', eyebrow: item.kind === 'source' ? 'TAKE' : 'TARGET', label: item.label,
-    detail: item.kind === 'source' ? 'Click to take it' : 'Click to bring it here',
-  }));
-}
-
 /** Most point changes floating at once; older ones give way. */
 const MAX_FLOATS = 12;
 /**
- * The scene of a game: its nodes colored by type of goods, with problem markers, floating point changes and, while the player
- * gives one of the crew a command, a light over every source it can take or every target of the chosen source instead of the
- * problem markers.
+ * The scene of a game: its nodes colored by type of goods, with problem markers and floating point changes. While the player
+ * gives one of the crew a command (`commanding`), the problem markers step aside for the page's action pills.
  */
-export function playNodes(game: ShiftGame, floats: readonly Floating[], lit: readonly LitMark[] = []): SceneNode[] {
+export function playNodes(game: ShiftGame, floats: readonly Floating[], commanding = false): SceneNode[] {
   const snapshot = game.snapshot(), nodes = playable(game.nodes(), snapshot), present = new Set(nodes.map(node => node.id));
-  const markers = lit.length ? litMarkers(lit, present) : problemMarkers({ snapshot, events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
+  const markers = commanding ? [] : problemMarkers({ snapshot, events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
   return [...nodes, ...markers, ...floatingNodes(floats.slice(-MAX_FLOATS), present, game.time)];
 }

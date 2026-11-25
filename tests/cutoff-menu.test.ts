@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
-import { GOODS_COLORS, STAGING_TARGET, actorSources, menuSources, clickedNodes, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
+import { GOODS_COLORS, STAGING_TARGET, actorSources, clickedNodes, markAnchor, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
 import { playable, playNodes } from '../apps/site/src/features/cutoff/scene';
 import { GOODS_TONES } from '@opsorama/objects';
 
@@ -26,8 +26,6 @@ describe('Cut-off commands: actor, source, target', () => {
     // The menu lists the staged pallets first, then reserve pallets of SKUs below their minimum (OUT-215, KIT-104, TOY-120).
     expect(reach.slice(0, 5).every(source => source.options[0].move.kind === 'put-away')).toBe(true);
     expect(reach[5].label).toMatch(/KIT-104|OUT-215|TOY-120/);
-    // The menu keeps one reserve pallet per SKU, so the short SKUs with a reserve pallet (TOY-120 has none) follow the staged pallets.
-    expect(menuSources(reach, snapshot).slice(5, 7).map(source => source.label.split(' · ')[1]).sort()).toEqual(['KIT-104', 'OUT-215']);
     expect(reach.length).toBeGreaterThan(30);
     expect(sources('replenisher')).toEqual([]);
     expect(sources('shelf-filler').map(source => source.node)).toEqual(expect.arrayContaining(['flow:F3', 'flow:S2']));
@@ -67,14 +65,14 @@ describe('Cut-off commands: actor, source, target', () => {
     expect(pickTarget(staged, ['checkout:C1'], snapshot)).toBeUndefined();
     expect(pickTarget(rack, ['flow:F3'], snapshot)).toMatchObject({ option: { move: { kind: 'replenish', pallet: 'pallet:1016' } } });
 
-    // The scene lights sources in blue and targets in green, instead of the problem markers; the staging lane has its own light.
-    const markers = (marks: Parameters<typeof playNodes>[2]) => playNodes(shift, [], marks).filter((node): node is MarkerNode => node.kind === 'marker');
-    expect(markers(targetMarks(staged, snapshot)).map(marker => [marker.id, marker.tone, marker.eyebrow, marker.label])).toEqual([['target:rack:R12', 'success', 'TARGET', 'R12 · level 1 · Toys'], ['target:rack:R05', 'success', 'TARGET', 'R05 · level 1 · Toys']]);
-    expect(markers(sourceMarks(reach)).every(marker => marker.tone === 'info' && marker.eyebrow === 'TAKE')).toBe(true);
-    const [staging] = markers([{ key: STAGING_TARGET, kind: 'target', label: 'Staging lane' }]);
-    expect(staging).toMatchObject({ id: 'target:staging', label: 'Staging lane' });
-    expect(staging.attachment).toBeUndefined();
-    expect(validateScene({ schemaVersion: 1, nodes: playNodes(shift, [], sourceMarks(reach)) })).toEqual([]);
+    // The page puts a Take pill over every source and a Bring here pill over every target; the staging lane's pill stands over
+    // the receiving check beside it, and the problem markers step aside while a command is given.
+    expect(sourceMarks(reach).every(mark => mark.kind === 'source')).toBe(true);
+    expect([markAnchor('rack:R12'), markAnchor(STAGING_TARGET)]).toEqual(['rack:R12', 'qa:station']);
+    const markers = (commanding: boolean) => playNodes(shift, [], commanding).filter((node): node is MarkerNode => node.kind === 'marker');
+    expect(markers(false).length).toBeGreaterThan(0);
+    expect(markers(true)).toEqual([]);
+    expect(validateScene({ schemaVersion: 1, nodes: playNodes(shift, [], true) })).toEqual([]);
     shift.dispose();
   });
 

@@ -1,20 +1,22 @@
 import { ciScaled, expect, test } from './fixtures';
 
-test('Cut-off commands the crew in three steps (actor, source, target) for every process, then reaches the report', async ({ page }) => {
+test('Cut-off commands the crew with an action ring and Take and Bring here pills for every process, then reaches the report', async ({ page }) => {
   test.setTimeout(ciScaled(150000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('canvas')).toHaveCount(1);
   const summary = page.getByRole('region', { name: 'Shift summary', exact: true }), toolbar = page.getByRole('region', { name: 'Viewport controls', exact: true });
   const message = summary.getByRole('status'), step = page.getByRole('status', { name: 'Giving a command' });
-  // One command: the actor's portrait, a source from its menu (or a panel button), then a target from the next menu.
-  // The menu over an actor is placed by the renderer's first frames, which software rendering may take a while to draw.
+  // One command: the actor's portrait opens its action ring, a Take pill over a source, then a Bring here pill over a target.
+  // The pills stand over scene nodes, which may lie outside the visible part of the canvas, so they are clicked by event.
+  // The ring over an actor is placed by the renderer's first frames, which software rendering may take a while to draw.
+  const ring = (actor: string) => page.getByRole('toolbar', { name: `Commands of ${actor}` });
   const commandActor = async (actor: string) => {
     await summary.getByRole('button', { name: new RegExp(`^${actor}:`) }).click();
-    await expect(page.getByRole('menu', { name: `Commands of ${actor}` })).toBeVisible({ timeout: ciScaled(20000) });
+    await expect(ring(actor)).toBeVisible({ timeout: ciScaled(20000) });
   };
-  const take = async (actor: string, source: RegExp) => page.getByRole('menu', { name: `Commands of ${actor}` }).getByRole('menuitem', { name: source }).first().click();
-  const bring = async (target: RegExp) => page.getByRole('menu', { name: /^Targets for / }).getByRole('menuitem', { name: target }).first().click();
+  const take = async (source: RegExp) => page.getByRole('button', { name: source }).first().dispatchEvent('click');
+  const bring = async (target: RegExp) => page.getByRole('button', { name: target }).first().dispatchEvent('click');
 
   // The shift waits on its briefing; commands work while the shift is paused, which keeps the software-rendered run ahead of
   // SwiftPost's 11:30 cut-off.
@@ -25,41 +27,42 @@ test('Cut-off commands the crew in three steps (actor, source, target) for every
   // Receiving: the forklift takes the truck at D1 to the staging lane.
   await commandActor('Forklift');
   await expect(step).toContainText('click a lit object to take');
-  await take('Forklift', /^Dock D1/);
-  await bring(/Staging lane/);
+  await take(/^Take Dock D1/);
+  await bring(/^Bring here: Staging lane/);
   await expect(message).toHaveText('Forklift: Unload the truck at D1.');
 
   // Put-away: the reach truck takes a staged pallet from the panel; Escape goes back to its sources, then a target is picked.
   await commandActor('Reach truck');
   await summary.getByRole('group', { name: 'Pallets in staging' }).getByRole('button').first().click();
-  await expect(page.getByRole('menu', { name: /^Targets for Pallet/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Bring here: R\d+ · level/ }).first()).toBeAttached();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('menu', { name: 'Commands of Reach truck' })).toBeVisible();
-  await take('Reach truck', /staging/);
-  await bring(/level/);
+  await expect(page.getByRole('button', { name: /^Bring here:/ })).toHaveCount(0);
+  await take(/^Take Pallet \d+ · [A-Z]+-\d+ · staging/);
+  await bring(/^Bring here: R\d+ · level/);
   await expect(message).toContainText('Reach truck: Put pallet');
 
   // Replenishing: the reach truck brings a reserve pallet of the short SKU behind F3, and the replenisher fills F3 from it.
-  await take('Reach truck', /OUT-215 · rack/);
-  await bring(/Behind F3/);
+  await take(/^Take Pallet \d+ · OUT-215 · rack/);
+  await bring(/^Bring here: Behind F3/);
   await expect(message).toContainText('Reach truck: Bring pallet');
   await commandActor('Replenisher');
-  await take('Replenisher', /F3 lanes/);
-  await bring(/F3 lanes/);
+  await take(/^Take F3 lanes/);
+  await bring(/^Bring here: F3 lanes/);
   await expect(message).toHaveText('Replenisher: Fill F3 from its pallet.');
 
   // Restocking: the shelf filler takes cartons from F3 to Outdoor.
   await commandActor('Shelf filler');
-  await take('Shelf filler', /F3 lanes/);
-  await bring(/Outdoor/);
+  await take(/^Take F3 lanes/);
+  await bring(/^Bring here: Outdoor/);
   await expect(message).toHaveText('Shelf filler: Restock Outdoor.');
 
-  // Shipping: the dispatcher works by itself from its menu, and the panel sends the SwiftPost truck.
+  // Shipping: the dispatcher works by itself from its action ring, and the panel sends the SwiftPost truck.
   await commandActor('Dispatch');
-  await page.getByRole('menu', { name: 'Commands of Dispatch' }).getByRole('menuitemcheckbox', { name: /Work by yourself/ }).click();
+  await ring('Dispatch').getByRole('button', { name: 'Work by yourself', exact: true }).dispatchEvent('click');
   await expect(message).toHaveText('Dispatch works by itself without a command.');
+  await expect(ring('Dispatch').getByRole('button', { name: 'Work by yourself', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(page.getByRole('toolbar', { name: /^Commands of/ })).toHaveCount(0);
   await summary.getByRole('region', { name: 'Shipping', exact: true }).getByRole('button', { name: 'Send the SwiftPost truck now', exact: true }).click();
   await expect(message).toHaveText('The SwiftPost truck leaves once no cage is on its way.');
 

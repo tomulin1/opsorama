@@ -1,8 +1,8 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
-import { Bell, Boxes, ChevronLeft, Clock3, Crosshair, Eye, EyeOff, FastForward, Flag, Info, Pause, Play, RotateCcw, Timer, Trophy, Truck } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Bell, Bot, Boxes, Check, Clock3, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
-import { ActivityFeed, DataPanel, StatusBadge, type Tone } from '@opsorama/react/ui';
+import { ActionRing, ActivityFeed, DataPanel, StatusBadge, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
 import type { ScenePointerEvent, SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
@@ -15,7 +15,7 @@ import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, actorSources, menuSources, clickedNodes, faceNode, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, type LitMark, type Source } from './menu';
+import { GOODS_COLORS, actorSources, clickedNodes, faceNode, detailOf, eventNode, markAnchor, pickTarget, rackRoom, sourceMarks, targetMarks } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -59,15 +59,15 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const { metricSize } = useHudMetricSize();
   const selection = scene.selection?.nodeId ?? null;
   const pending = useRef<LogEntry[]>([]), nextLog = useRef(1), floats = useRef<Floating[]>([]);
-  const lit = useRef<LitMark[]>([]), litRevision = useRef(0);
+  const quiet = useRef(false), quietRevision = useRef(0);
 
   // The scene clock drives the game: pause and speed apply to both.
   useEffect(() => {
     const feed: LoopFeed<GameView> = {
       // While point changes float, every step republishes so they rise.
-      get sceneRevision() { return game.current.sceneRevision + litRevision.current * 1e6 + (floats.current.length ? Math.round(game.current.time * 10) : 0); }, get recordsRevision() { return game.current.recordsRevision; },
+      get sceneRevision() { return game.current.sceneRevision + quietRevision.current * 1e6 + (floats.current.length ? Math.round(game.current.time * 10) : 0); }, get recordsRevision() { return game.current.recordsRevision; },
       advance: seconds => game.current.advance(seconds),
-      nodes: () => { const time = game.current.time; floats.current = floats.current.filter(item => time - item.start < FLOAT_SECONDS); return playNodes(game.current, floats.current, lit.current); },
+      nodes: () => { const time = game.current.time; floats.current = floats.current.filter(item => time - item.start < FLOAT_SECONDS); return playNodes(game.current, floats.current, quiet.current); },
       snapshot: () => viewOf(game.current),
     };
     return runFeedLoop({ feed: () => feed, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace(nodes), onRecords: value => { setView(value); if (pending.current.length) { const entries = pending.current.splice(0); setLog(current => [...entries.reverse(), ...current].slice(0, LOG_SIZE)); } } });
@@ -89,15 +89,12 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   // The sources of the commanded actor and the chosen source, read when the game's records change.
   const sources = useMemo(() => commanding ? actorSources(commanding.actor, view.snapshot, (subject, actor) => game.current.options(subject, actor), view.actors.flatMap(actor => actor.queue)) : [], [commanding, view, game]);
   const source = commanding?.source ? sources.find(item => item.node === commanding.source) : undefined;
-  // The scene lights the sources of the commanded actor, then the targets of the chosen source.
+  // Pills light the sources of the commanded actor, then the targets of the chosen source; the problem markers step aside.
   const marks = useMemo(() => !commanding ? [] : source ? targetMarks(source, view.snapshot) : sourceMarks(sources), [commanding, source, sources, view]);
-  const marksKey = marks.map(mark => `${mark.kind}:${mark.key}:${mark.label}`).join('|');
   useEffect(() => {
-    lit.current = marks; litRevision.current++;
-    store.replace(playNodes(game.current, floats.current, lit.current));
-    // marksKey stands for marks: the scene is published again only when the lights change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marksKey, store, game]);
+    quiet.current = !!commanding; quietRevision.current++;
+    store.replace(playNodes(game.current, floats.current, quiet.current));
+  }, [commanding, store, game]);
   // A source that is gone (a pallet taken by someone else, a truck that left) falls back to choosing a source.
   useEffect(() => { if (commanding?.source && !source) setCommanding({ actor: commanding.actor, source: null }); }, [commanding, source]);
 
@@ -112,6 +109,11 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const commandActor = (id: string) => { setCommanding({ actor: id, source: null }); setMessage(null); store.select(id, 'keyboard'); };
   /** Take a source: its targets light up. */
   const takeSource = (node: string) => { if (!commanding) return; setCommanding({ actor: commanding.actor, source: node }); setMessage(null); };
+  /** Bring the chosen source to a lit target. */
+  const bringTo = (key: string) => {
+    const found = source && pickTarget(source, [key], game.current.snapshot());
+    if (found && 'option' in found) bring(found.option.move);
+  };
   /** Queue the move to a target; the actor stays commanded for the next one. */
   const bring = (move: Move) => {
     if (!commanding) return;
@@ -153,7 +155,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const restart = (level: EcommerceScenario, value: number) => {
     game.current.dispose();
     game.current = createShiftGame({ scenario: level, seed: value });
-    floats.current = []; lit.current = [];
+    floats.current = []; quiet.current = false;
     setCommanding(null);
     store.select(null); store.replace(playNodes(game.current, [])); store.configure({ paused: true, lighting: lightingAt(game.current.level, game.current.clock) });
     pending.current = []; setLog([]); setMessage(null); setStarted(false); setScenario(level); setSeed(value); setGeneration(current => current + 1); refresh();
@@ -183,9 +185,18 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   return <section className="co-viewport hud-viewport" aria-label="Cut-off shift game" data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel="none" data-side-panel="events" data-commanding={commanding ? 'true' : undefined}>
     <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} onPointer={onPointer} /></div>
 
-    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml nodeId={commanding.actor} className="co-menu-anchor">
-      <ActorMenu key={`${commanding.actor}:${commanding.source ?? ''}`} actor={actorOf(commanding.actor)!} game={game.current} view={view} sources={sources} source={source}
-        listed={menuSources(sources, view.snapshot)} onTake={takeSource} onBring={bring} onBack={() => back.current()} onCommand={(run, text) => command(run, text)} onClose={close} />
+    {commanding && !view.over && marks.map(mark => <NodeHtml key={`${mark.kind}:${mark.key}`} nodeId={markAnchor(mark.key)} className="co-ring-anchor co-pill-anchor">
+      <ActionRing tone={mark.kind === 'source' ? 'info' : 'success'} arc={0} label={mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`} actions={[{
+        // Sources are many, so they are round icons named by their tooltip; the few targets carry their names.
+        id: mark.key, ...(mark.kind === 'source' ? {} : { label: mark.label }), icon: mark.kind === 'source' ? <Hand /> : <MapPin />,
+        ariaLabel: mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`,
+        onSelect: () => { if (mark.kind === 'source') takeSource(mark.key); else bringTo(mark.key); },
+      }]} />
+    </NodeHtml>)}
+    {/* Attached HTML stacks in attach order: the ring attaches again after the pills change, so it stays on top of them. */}
+    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
+      <ActionRing title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
+        actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), close)} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
       <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
@@ -273,55 +284,21 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   </section>;
 }
 
-/** A menu over a scene node: a title, then items that the arrow keys move through; the first item takes the focus. */
-function Menu({ title, eyebrow, label, children, onBack }: { title: string; eyebrow: string; label: string; children: ReactNode; onBack?(): void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { ref.current?.querySelector<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"])')?.focus({ preventScroll: true }); }, []);
-  const keys = (event: ReactKeyboardEvent) => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const items = [...ref.current!.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"])')], index = items.indexOf(document.activeElement as HTMLElement);
-    items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
-    event.preventDefault();
-  };
-  return <div ref={ref} className="co-menu" role="menu" aria-label={label} onKeyDown={keys}>
-    <header>{onBack && <button type="button" className="co-back" aria-label="Back" onClick={onBack}><ChevronLeft size={14} /></button>}<span><em>{eyebrow}</em><strong>{title}</strong></span></header>
-    {children}
-  </div>;
-}
-function MenuItem({ children, hint, onClick, disabled, checked, more }: { children: ReactNode; hint?: string; onClick?(): void; disabled?: boolean; checked?: boolean; more?: boolean }) {
-  return <button type="button" role={checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-checked={checked} aria-disabled={disabled || undefined} aria-haspopup={more ? 'menu' : undefined} className="co-item" onClick={disabled ? undefined : onClick} tabIndex={-1}>
-    <span>{children}{more ? '…' : ''}</span>{hint && <small>{hint}</small>}
-  </button>;
-}
-
-/** Sources the actor's menu lists at most (one reserve pallet per SKU); the scene lights them all. */
-const SOURCES_SHOWN = 8;
+/** The machines among the crew; the ring shows them in the warning tone and the people in the success tone. */
+const MACHINES = new Set(['forklift', 'reach-truck']);
 /**
- * The menu over the commanded actor: what it does now, its commands with Stop and Cancel, its assist, and the step of the
- * command being given: the sources it can take, or the targets of the chosen source with the refused ones.
+ * The commands of the action ring over the commanded actor: stop or cancel its commands, switch its assist, send the truck
+ * (the dispatcher), and finish. What it does and holds is in the detail panel; what it can take lights up in the scene.
  */
-function ActorMenu({ actor, game, view, sources, listed, source, onTake, onBring, onBack, onCommand, onClose }: {
-  actor: ActorView; game: ShiftGame; view: GameView; sources: readonly Source[]; listed: readonly Source[]; source: Source | undefined;
-  onTake(node: string): void; onBring(move: Move): void; onBack(): void; onCommand(run: () => void, text: string): void; onClose(): void;
-}) {
-  if (source) return <Menu title={source.label} eyebrow={`${actor.label.toUpperCase()} · BRING IT TO`} label={`Targets for ${source.label}`} onBack={onBack}>
-    {source.options.map(option => <MenuItem key={JSON.stringify(option.move)} hint={option.waits ? `Waits: ${option.waits}` : moveLabel(option.move)} onClick={() => onBring(option.move)}>{option.target}</MenuItem>)}
-    {source.refused.length > 0 && <ul className="co-refused" aria-label="Refused targets">{source.refused.slice(0, 3).map(item => <li key={item.target}><strong>{item.target}</strong> {item.reason}</li>)}{source.refused.length > 3 && <li>{source.refused.length - 3} more refused</li>}</ul>}
-    <p className="co-menu-note">Or click a lit target in the scene.</p>
-  </Menu>;
-  const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined;
-  return <Menu title={actor.label} eyebrow={`CREW · ${actor.queue.length} OF ${QUEUE_LIMIT} COMMANDS`} label={`Commands of ${actor.label}`}>
-    <p className="co-menu-note">{actorNow(actor)}</p>
-    {actor.queue.map((move, index) => index === 0
-      ? <MenuItem key={`0:${moveLabel(move)}`} hint={`Now: ${moveLabel(move)}`} onClick={() => onCommand(() => game.stop(actor.id), `${actor.label} stops after the current task.`)}>Stop after this one</MenuItem>
-      : <MenuItem key={`${index}:${moveLabel(move)}`} hint={moveLabel(move)} onClick={() => onCommand(() => game.cancelMove(actor.id, index), 'Command cancelled.')}>Cancel command {index}</MenuItem>)}
-    <MenuItem checked={actor.assist} hint={actor.assist ? 'Takes the automatic move without a command' : 'Waits for your commands'} onClick={() => onCommand(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`)}>Work by yourself</MenuItem>
-    {loading && <MenuItem disabled={view.decisions.departing} hint={view.decisions.departing ? 'Leaves once no cage is on its way' : `Otherwise it leaves at ${loading.cutoff}`} onClick={() => onCommand(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`)}>Send the {loading.name} truck now</MenuItem>}
-    <p className="co-menu-note">{sources.length ? `Take one of ${sources.length} lit ${sources.length === 1 ? 'object' : 'objects'}:` : 'Nothing to take now.'}</p>
-    {listed.slice(0, SOURCES_SHOWN).map(item => <MenuItem key={item.node} more hint={item.options[0] ? `Best: ${item.options[0].target}` : undefined} onClick={() => onTake(item.node)}>{item.label}</MenuItem>)}
-    {sources.length > Math.min(SOURCES_SHOWN, listed.length) && <p className="co-menu-note">{sources.length - Math.min(SOURCES_SHOWN, listed.length)} more lit in the scene</p>}
-    <MenuItem onClick={onClose}>Done</MenuItem>
-  </Menu>;
+function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, done: () => void): RingAction<ReactNode>[] {
+  const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined, [current, next] = actor.queue;
+  return [
+    ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square />, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
+    ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
+    { id: 'auto', label: 'Auto', icon: <Bot />, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
+    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
+    { id: 'done', label: 'Done', icon: <Check />, onSelect: done },
+  ];
 }
 
 /** An open event over the object it concerns, with its countdown and choices. */

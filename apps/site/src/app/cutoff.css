@@ -75,23 +75,12 @@
 .co-legend li { display: flex; align-items: center; gap: 5px; }
 .co-legend strong { margin-left: auto; font-variant-numeric: tabular-nums; }
 
-/* Context menus and event cards over scene objects. */
-.co-menu-anchor { z-index: 3; }
-.co-menu { width: 260px; max-width: calc(100vw - 32px); padding: 6px; border: 1px solid #d6dde5; border-radius: 12px; background: rgb(255 255 255 / .97); box-shadow: 0 10px 28px rgb(32 48 64 / .22); color: #2a3646; font-size: 12px; transform: translateY(-8px); max-height: min(360px, 42vh); overflow-y: auto; overscroll-behavior: contain; }
-.co-menu header { display: flex; align-items: center; gap: 6px; padding: 4px 6px 6px; border-bottom: 1px solid #e6ebf0; margin-bottom: 4px; }
-.co-menu header span { display: grid; min-width: 0; }
-.co-menu header em { font-style: normal; font-size: 9px; letter-spacing: .5px; color: #6a7686; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.co-menu header strong { font-size: 13px; }
-.co-back { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #d6dde5; border-radius: 7px; background: #fff; color: #a43f29; }
-.co-item { display: grid; gap: 1px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: none; text-align: left; color: #2a3646; font-size: 12px; font-weight: 600; cursor: pointer; }
-.co-item small { font-size: 10px; font-weight: 500; color: #6a7686; }
-.co-item:hover, .co-item:focus-visible { background: #fbe9e4; outline: none; }
-.co-item:focus-visible { box-shadow: inset 0 0 0 2px #c8553d; }
-.co-item[aria-disabled="true"] { color: #8a96a3; cursor: default; background: none; }
-.co-item[role="menuitemcheckbox"] span::before { content: "\2610  "; }
-.co-item[role="menuitemcheckbox"][aria-checked="true"] span::before { content: "\2611  "; }
-.co-menu-note { margin: 2px 8px 4px; font-size: 11px; color: #6a7686; }
-.co-refused { margin: 4px 0 2px; padding: 6px 8px 2px 22px; border-top: 1px solid #e6ebf0; color: #6a7686; font-size: 10px; line-height: 1.45; }
+/* The action ring over the commanded actor, the Take and Bring here pills, and event cards over scene objects. */
+.co-ring-anchor { z-index: 3; --ring-info: #2f7fc4; --ring-success: #1f9d63; --ring-warning: #e3a12f; }
+.co-pill-anchor { z-index: 2; }
+.co-pill-anchor .dp-ring { --ring-font-size: 11px; padding-bottom: 2px; }
+.co-pill-anchor .dp-ring .dp-ring-icon { width: 18px; height: 18px; }
+.co-pill-anchor .dp-ring .dp-ring-icon svg { width: 11px; height: 11px; }
 .co-event-anchor { z-index: 2; }
 .co-event-anchor .co-event { width: 250px; max-width: calc(100vw - 32px); margin-top: 8px; box-shadow: 0 8px 22px rgb(32 48 64 / .2); }
 
