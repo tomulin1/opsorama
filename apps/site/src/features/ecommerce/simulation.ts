@@ -2,7 +2,7 @@ import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type Ag
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, GOODS_COLORS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
+  CARRIERS, DEPARTMENTS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
   type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type GoodsType, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
@@ -1158,7 +1158,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     // A pallet changes parent exactly where it stands, so it needs no hand-over animation.
     // A tote shows the goods of its order's first line.
     const goods = unit.kind === 'tote' && unit.orderId ? orderOf(unit.orderId)?.lines[0]?.sku : undefined;
-    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(goods ? { options: { goods: skuGoods(goods) } } : {}), ...(unit.kind === 'pallet' && unit.sku ? { color: GOODS_COLORS[skuGoods(unit.sku)] } : {}), ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
+    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(goods ? { options: { goods: skuGoods(goods) } } : {}), ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
     const node = itemNode(id, at, base);
     return unit.ride ? { ...node, position: unit.ride.points[unit.ride.points.length - 1], rotation: [0, Math.PI / 2, 0], route: { points: unit.ride.points, speed: BELT_SPEED, elapsed: time - unit.ride.start } } : node;
   }
