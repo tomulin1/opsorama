@@ -5,7 +5,7 @@ import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, Pac
 import { ActivityFeed, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
 import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import {
-  AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, FACINGS_PER_GONDOLA, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
+  AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, departmentCapacity, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
   alertStatus, alertsAt, area, areaStatus, cageCounts, carrier, cutoffRisk, departmentFacings, departmentLow, ecommerceMetrics, location, locationState, minutesOf, orderArea, ordersIn, shoppers, stage, stagedFor,
   type AreaId, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceSnapshot, type LocationId, type Order, type OrderStage, type PackStationId, type PutWallId, type UnitRecord,
 } from './model';
@@ -158,7 +158,7 @@ function StockMini({ snapshot, kinds }: { snapshot: EcommerceSnapshot; kinds: re
   return <ul className="ec-mini">{LOCATIONS.filter(item => kinds.includes(item.kind)).map(item => <li key={item.id}><strong>{item.id}</strong><span>{item.family}</span><span>{snapshot.occupancy[item.id]} / {item.capacity}</span></li>)}</ul>;
 }
 function DepartmentList({ snapshot }: { snapshot: EcommerceSnapshot }) {
-  return <ul className="ec-mini">{DEPARTMENTS.map(item => <li key={item.id} data-low={departmentLow(snapshot, item.id) || undefined}><strong>{item.label}</strong><span>{departmentLow(snapshot, item.id) ? 'Shelf gaps' : 'Stocked'}</span><span>{departmentFacings(snapshot, item.id)} / {FACINGS_PER_GONDOLA * 2}</span></li>)}</ul>;
+  return <ul className="ec-mini">{DEPARTMENTS.map(item => <li key={item.id} data-low={departmentLow(snapshot, item.id) || undefined}><strong>{item.label}</strong><span>{departmentLow(snapshot, item.id) ? 'Shelf gaps' : 'Stocked'}</span><span>{departmentFacings(snapshot, item.id)} / {departmentCapacity(item.id)}</span></li>)}</ul>;
 }
 
 export function LocationInspector({ id, snapshot }: { id: LocationId; snapshot: EcommerceSnapshot }) {
@@ -250,13 +250,13 @@ export function AgentInspector({ id, snapshot }: { id: string; snapshot: Ecommer
   </Inspector>;
 }
 
-const DEPARTMENT_SKUS: Readonly<Record<DepartmentId, string>> = { garden: 'OUT', bath: 'HOM', party: 'GFT', audio: 'TEC', kitchen: 'KIT', home: 'HOM', outdoor: 'OUT', toys: 'TOY', tech: 'TEC', gifts: 'GFT' };
+const DEPARTMENT_SKUS: Readonly<Record<DepartmentId, string>> = { kitchen: 'KIT', home: 'HOM', outdoor: 'OUT', toys: 'TOY', tech: 'TEC', sport: 'SPO' };
 export function DepartmentInspector({ id, snapshot, onInspect }: { id: DepartmentId; snapshot: EcommerceSnapshot; onInspect: Inspect }) {
   const value = DEPARTMENTS.find(item => item.id === id)!, facings = departmentFacings(snapshot, id), low = departmentLow(snapshot, id);
   const prefix = DEPARTMENT_SKUS[id], transfers = snapshot.orders.filter(order => order.channel === 'store' && order.lines.some(item => item.sku.startsWith(prefix)));
   const alerts = snapshot.alerts.filter(alert => alert.sku.startsWith(prefix));
   return <Inspector label="Department inspector" eyebrow="SHOP FLOOR / DEPARTMENT" title={value.label} icon={<Store size={19} aria-hidden="true" />} badge={<StatusBadge label={low ? 'Shelf gaps' : 'Stocked'} tone={low ? 'warning' : 'success'} />} note="Facings are stocked product fronts on the two gondolas, from the shop's shelf scan.">
-    <ValueMeter label="Stocked facings" value={facings} max={FACINGS_PER_GONDOLA * 2} tone={low ? 'warning' : 'info'} />
+    <ValueMeter label="Stocked facings" value={facings} max={departmentCapacity(id)} tone={low ? 'warning' : 'info'} />
     {alerts.length > 0 && <p className="ec-alert-text">The warehouse is also short: {alerts.map(alert => `${alert.sku} (${alert.onHand} on hand)`).join(', ')}.</p>}
     <h3>Transfers from the warehouse</h3><OrderButtons orders={transfers} onInspect={onInspect} empty="No shop transfer in progress." />
   </Inspector>;

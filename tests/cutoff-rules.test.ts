@@ -130,7 +130,7 @@ describe('Cut-off shift game', () => {
     const game = createShiftGame({ scenario: 'peak' }), [pallet] = staging(game);
     expect(game.options(pallet).map(item => item.actor.id)).toEqual(['reach-truck']);
     expect(game.options('dock:D1')).toEqual([{ actor: { id: 'forklift', role: 'forklift', label: 'Forklift' }, options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] }]);
-    expect(game.options('flow:F3').map(item => [item.actor.id, item.options.map(option => option.target)])).toEqual([['reach-truck', []], ['replenisher', []], ['shelf-filler', ['Outdoor · from F3', 'Garden · from F3']]]);
+    expect(game.options('flow:F3').map(item => [item.actor.id, item.options.map(option => option.target)])).toEqual([['reach-truck', []], ['replenisher', []], ['shelf-filler', ['Outdoor · from F3']]]);
     expect(game.options('cage:swift-1').map(item => item.options.map(option => option.move))).toEqual([[{ kind: 'ship', cage: 'swift-1' }]]);
     expect(game.options('checkout:C1')).toEqual([]);
     expect(game.options(pallet, 'forklift')).toEqual([]);
@@ -300,4 +300,4 @@ describe('Cut-off shift game', () => {
 });
 
 /** Score, orders shipped, pallets put away, cartons replenished and cartons restocked of each scripted shift; record new ones only when the rules are meant to change. */
-const RECORDED_TOTALS = { steady: [112, 14, 0, 2, 3], peak: [247, 33, 7, 16, 5], night: [44, 0, 11, 1, 0] };
+const RECORDED_TOTALS = { steady: [112, 14, 0, 2, 3], peak: [247, 33, 7, 13, 5], night: [44, 0, 11, 1, 0] };

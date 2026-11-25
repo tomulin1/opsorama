@@ -40,11 +40,10 @@ test('Cut-off plays receiving, put-away, replenishing, restocking and shipping t
   await page.getByRole('menu', { name: 'Menu of F3' }).getByRole('menuitem', { name: /Replenisher: Fill the lanes/ }).click();
   await expect(message).toHaveText('Replenisher: Fill F3 from its pallet.');
 
-  // Restocking: the shelf filler takes cartons from the same face to a department it supplies.
+  // Restocking: the shelf filler takes cartons from the same face to Outdoor, the one department it supplies.
   await stock.getByRole('button', { name: 'F3', exact: true }).click();
   await page.getByRole('menu', { name: 'Menu of F3' }).getByRole('menuitem', { name: /Shelf filler: Restock the shop/ }).click();
-  await page.getByRole('menu', { name: /^Targets: Shelf filler/ }).getByRole('menuitem').first().click();
-  await expect(message).toContainText('Shelf filler: Restock');
+  await expect(message).toHaveText('Shelf filler: Restock Outdoor.');
 
   // Shipping: the dispatcher works by itself from its own menu, and the outbound dock's menu sends the SwiftPost truck.
   await summary.getByRole('button', { name: /^Dispatch:/ }).click();

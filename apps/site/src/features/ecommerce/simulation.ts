@@ -2,7 +2,7 @@ import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type Ag
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_LABELS, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
+  CARRIERS, DEPARTMENTS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
   type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type GoodsType, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
@@ -18,7 +18,8 @@ const SECONDS_PER_MINUTE = 15;
 const PALLET_CARTONS = 9, UNITS_PER_CARTON = 3, PALLETS_PER_TRUCK = 6;
 const DEFAULT_ON_HAND = 24, DEFAULT_MIN = 10;
 /** A department gets a restock below this many facings, and one carton adds this many. */
-const RESTOCK_BELOW = 30, FACINGS_PER_CARTON = 8, MAX_FACINGS = FACINGS_PER_GONDOLA * 2;
+/** The automatic shelf filler restocks a department below this share of its capacity. */
+const RESTOCK_BELOW = .625, FACINGS_PER_CARTON = 8;
 const SHOPPER_POOL = 18, MAX_OPEN_WORK = 14;
 /** Where the customers already on their way to click & collect stand when the shift starts. */
 const STARTING_COLLECT = ['collect-front', 'door-in'] as const;
@@ -40,8 +41,8 @@ const MAX_EMPTY_PALLETS = 12, PALLETS_RETURNED = 2;
 const BELT_SPEED = .9, BELT_SPACING = .75;
 const SCALES: Readonly<Record<UnitKind, Vec3>> = { pallet: [1, 1, 1], tote: [.475, .475, .475], carton: [.4, .4, .4], parcel: [.4, .4, .4], bag: [.4, .4, .4] };
 const ASSETS: Readonly<Record<UnitKind, string>> = { pallet: 'pallet', tote: 'tote', carton: 'parcel', parcel: 'parcel', bag: 'bag' };
-/** Where each department's stock is picked. The newer departments come first, so `FACE_DEPARTMENT` names the original one. */
-const DEPARTMENT_FACES: Readonly<Record<DepartmentId, LocationId>> = { garden: 'F3', bath: 'F2', party: 'S2', audio: 'S1', kitchen: 'F1', home: 'F2', outdoor: 'F3', toys: 'F4', tech: 'S1', gifts: 'S2' };
+/** Where each department's stock is picked: one pick face per type of goods. */
+const DEPARTMENT_FACES: Readonly<Record<DepartmentId, LocationId>> = { kitchen: 'F1', home: 'F2', outdoor: 'F3', toys: 'F4', tech: 'S1', sport: 'S2' };
 /** The moves from one fork pose through the next ones, timed by distance. */
 function forkMoves(from: ForkPose, ...poses: readonly ForkPose[]): ForkMove[] {
   let previous = from;
@@ -90,7 +91,7 @@ interface Task {
 }
 interface Unit { kind: UnitKind; label: string; sku?: string; orderId?: string; /** Cartons left on a pallet. */ load?: number; /** Waiting unseen for its hand-over. */ hidden?: boolean; /** Riding the conveyor. */ ride?: { points: readonly Vec3[]; start: number }; }
 interface Truck { docked: boolean; color: string; }
-interface Shopper { inside: boolean; items: number; basket: boolean; }
+interface Shopper { inside: boolean; items: number; basket: boolean; /** The department of the last item taken, which the basket shows. */ goods?: DepartmentId; }
 interface Replenishment { pallet: string; sku: string; ready: boolean; /** Cartons people are on their way to take. */ promised: number; }
 
 /**
@@ -765,7 +766,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const steps: BehaviorStep[] = [...gondolas.map((item): BehaviorStep => ({ kind: 'interact', node: item.id, group: 'browse', seconds: [2.5, 4.5], label: 'Browsing' })), ...pay.steps];
     const ended = Object.fromEntries(gondolas.map((item, index) => [index, () => {
       // The shopper reaches into the shelf: the facing leaves it and lands in the basket in the same moment.
-      if (records.shop.facings[item.department] > 0) { patchShop({ facings: { ...records.shop.facings, [item.department]: records.shop.facings[item.department] - 1 } }); shopper.items++; }
+      if (records.shop.facings[item.department] > 0) { patchShop({ facings: { ...records.shop.facings, [item.department]: records.shop.facings[item.department] - 1 } }); shopper.items++; shopper.goods = item.department; sceneRevision++; }
       if (index === gondolas.length - 1) {
         patchShop({ browsing: Math.max(0, records.shop.browsing - 1) });
         const queue = records.shop.checkouts.find(value => value.id === lane.id)!.queue;
@@ -809,9 +810,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function fromStreet(visit: () => void) { if (runner.time - lastEntry < ENTRY_GAP) return; lastEntry = runner.time; visit(); }
   /** Whether a pick face can spare a carton for the shop: one of its SKUs stays at or above its minimum. */
   const spares = (face: LocationId) => Object.keys(SKUS).some(sku => SKUS[sku].pick === face && onHand[sku] >= minimum[sku] + UNITS_PER_CARTON);
-  const departmentFull = (department: DepartmentId) => records.shop.facings[department] + (incomingFacings[department] ?? 0) >= MAX_FACINGS;
+  const departmentFull = (department: DepartmentId) => records.shop.facings[department] + (incomingFacings[department] ?? 0) >= departmentCapacity(department);
   function autoRestock(): Move | undefined {
-    const transfer = transfers[0], low = DEPARTMENTS.map(item => item.id).filter(id => records.shop.facings[id] < RESTOCK_BELOW).sort((a, b) => records.shop.facings[a] - records.shop.facings[b]);
+    const transfer = transfers[0], low = DEPARTMENTS.map(item => item.id).filter(id => records.shop.facings[id] < departmentCapacity(id) * RESTOCK_BELOW).sort((a, b) => records.shop.facings[a] - records.shop.facings[b]);
     if (transfer) return { kind: 'restock', department: transfer, source: 'transfer' };
     const department = low.find(id => spares(DEPARTMENT_FACES[id]));
     return department && { kind: 'restock', department, source: 'face' };
@@ -821,14 +822,15 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     if (transfer) transfers.splice(transfers.indexOf(department), 1);
     incomingFacings[department] = (incomingFacings[department] ?? 0) + FACINGS_PER_CARTON;
     const face = DEPARTMENT_FACES[department], sku = Object.keys(SKUS).filter(item => SKUS[item].pick === face).sort((a, b) => onHand[b] - onHand[a])[0];
-    const gondola = GONDOLAS.filter(item => item.department === department)[records.shop.facings[department] % 2], x = replenishSpot(face)[0] + .75, carton = spawn('carton', [x, FLOOR_Y + 1, -4.35], `Carton · ${sku}`, { sku, hidden: true });
+    // Cartons go to the department's gondolas in turn.
+    const shelves = GONDOLAS.filter(item => item.department === department), gondola = shelves[Math.floor(records.shop.facings[department] / FACINGS_PER_CARTON) % shelves.length], x = replenishSpot(face)[0] + .75, carton = spawn('carton', [x, FLOOR_Y + 1, -4.35], `Carton · ${sku}`, { sku, hidden: true });
     return {
       what: `Restocking ${department} from ${face}`,
       steps: [{ kind: 'interact', node: `replen:${face}`, slot: 'shop', seconds: 1.8, pose: 'picking', pickUp: [carton], label: 'Taking a carton for the shop' }, { kind: 'interact', node: gondola.id, slot: 'fill', seconds: 3, putDown: 'all', putOn: handed(`${gondola.id}:fill`, [gondola.position[0] + .7, FLOOR_Y + 1, gondola.position[2] + .15]), label: 'Filling the gondola' }],
       started: { 0: () => show(carton) },
       items: {
         0: () => { if (!transfer) { onHand[sku] -= UNITS_PER_CARTON; faceUnits[face] = Math.max(0, faceUnits[face] - UNITS_PER_CARTON); occupy(face, Math.ceil(faceUnits[face] / UNITS_PER_CARTON)); refreshAlerts(); } },
-        1: () => absorb(carton, () => { incomingFacings[department]! -= FACINGS_PER_CARTON; patchShop({ facings: { ...records.shop.facings, [department]: Math.min(MAX_FACINGS, records.shop.facings[department] + FACINGS_PER_CARTON) } }); log(`${departmentLabel(department)} gondola restocked with ${sku}.`, 'success'); emit({ type: 'restocked', department, sku, transfer }); }),
+        1: () => absorb(carton, () => { incomingFacings[department]! -= FACINGS_PER_CARTON; patchShop({ facings: { ...records.shop.facings, [department]: Math.min(departmentCapacity(department), records.shop.facings[department] + FACINGS_PER_CARTON) } }); log(`${departmentLabel(department)} gondola restocked with ${sku}.`, 'success'); emit({ type: 'restocked', department, sku, transfer }); }),
       },
     };
   }
@@ -1154,7 +1156,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
 
   function unitNode(id: string, at: ItemPlacement, unit: Unit, time: number): AssetNode {
     // A pallet changes parent exactly where it stands, so it needs no hand-over animation.
-    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
+    // A tote shows the goods of its order's first line.
+    const goods = unit.kind === 'tote' && unit.orderId ? orderOf(unit.orderId)?.lines[0]?.sku : undefined;
+    const base = { asset: ASSETS[unit.kind], scale: SCALES[unit.kind], ...(goods ? { options: { goods: skuGoods(goods) } } : {}), ...(unit.kind === 'pallet' ? {} : { transfer: { seconds: HAND_OVER, arc: 0 } }), selectable: true, entityId: id, label: unit.label, labelMode: 'active' as const, ...(unit.kind === 'pallet' ? { count: unit.load ?? 0 } : unit.kind === 'tote' ? { count: 2 } : {}) };
     const node = itemNode(id, at, base);
     return unit.ride ? { ...node, position: unit.ride.points[unit.ride.points.length - 1], rotation: [0, Math.PI / 2, 0], route: { points: unit.ride.points, speed: BELT_SPEED, elapsed: time - unit.ride.start } } : node;
   }
@@ -1164,7 +1168,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const motion = forks.get(state.id), stopped = MACHINES.has(state.id) && !director.running(state.id);
     const node = behaviorNode(state, { ...definition.node, ...(motion ? { options: { ...definition.node.options, forks: motion } } : {}), ...(stopped ? { state: 'critical' as const } : {}) }, { time }), attached: AssetNode[] = [];
     if (state.id.startsWith('picker:')) attached.push({ id: `${state.id}:cart`, kind: 'asset', asset: 'picking-cart', position: [0, 0, 0], count: carts[state.id], selectable: false, attachment: { nodeId: state.id, anchor: 'cart' } });
-    if (shopper?.basket) attached.push({ id: `${state.id}:basket`, kind: 'asset', asset: 'hand-basket', position: [0, 0, 0], count: Math.min(4, shopper.items), selectable: false, attachment: { nodeId: state.id, anchor: 'hand' } });
+    if (shopper?.basket) attached.push({ id: `${state.id}:basket`, kind: 'asset', asset: 'hand-basket', position: [0, 0, 0], count: Math.min(4, shopper.items), ...(shopper.goods ? { options: { goods: shopper.goods } } : {}), selectable: false, attachment: { nodeId: state.id, anchor: 'hand' } });
     return [node, ...attached];
   }
   function movers(): SceneNode[] {

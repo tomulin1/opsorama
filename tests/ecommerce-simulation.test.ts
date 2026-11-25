@@ -159,15 +159,19 @@ describe('e-commerce mock feed', () => {
     simulation.dispose();
   }, 60000);
 
-  it('uses the deep aisle and all ten departments', () => {
+  it('uses the deep aisle and the six departments on twenty gondolas', () => {
     const simulation = createEcommerceSimulation('peak'), nodes = assets(simulation.nodes());
     expect(nodes.filter(node => node.asset === 'pallet-rack')).toHaveLength(14);
-    expect(nodes.filter(node => node.asset === 'store-shelving')).toHaveLength(20);
+    const shelving = nodes.filter(node => node.asset === 'store-shelving');
+    expect(shelving).toHaveLength(20);
+    // Every gondola holds the goods of its department only: four gondolas for Kitchen, Home, Outdoor and Toys, two for Tech and Sport.
+    expect(shelving.every(node => node.options?.goods === node.entityId)).toBe(true);
+    expect(Object.fromEntries(['kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'].map(goods => [goods, shelving.filter(node => node.options?.goods === goods).length]))).toEqual({ kitchen: 4, home: 4, outdoor: 4, toys: 4, tech: 2, sport: 2 });
     expect(inRack(simulation, 'R08')).toBeGreaterThan(0);
     let deep = false;
     run(simulation, 900, () => { deep ||= assets(simulation.nodes()).some(node => node.id === 'reach-truck' && (node.position?.[2] ?? 0) < -15); });
     expect(deep).toBe(true);
-    expect(simulation.snapshot().shop.facings.garden).toBeLessThan(SCENARIOS.peak.shop.facings.garden + 16);
+    expect(simulation.snapshot().shop.facings.outdoor).toBeLessThan(SCENARIOS.peak.shop.facings.outdoor + 16);
     simulation.dispose();
   });
 
