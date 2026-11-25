@@ -84,21 +84,6 @@ export function actorSources(actor: string, snapshot: EcommerceSnapshot, options
 }
 
 /**
- * The sources an actor's menu lists: like `actorSources`, but one reserve pallet per SKU to replenish (the first, which the
- * ranking puts the SKUs below their minimum ahead of), so a handful of buttons covers the choices. The scene lights them all.
- */
-export function menuSources(sources: readonly Source[], snapshot: EcommerceSnapshot): Source[] {
-  const seen = new Set<string>();
-  return sources.filter(source => {
-    const move = source.options[0].move;
-    if (move.kind !== 'replenish') return true;
-    const sku = snapshot.units.find(unit => unit.id === move.pallet)?.sku ?? source.node;
-    if (seen.has(sku)) return false;
-    seen.add(sku); return true;
-  });
-}
-
-/**
  * The scene nodes a move takes its material to, lit once its source is chosen: a rack, the staging lane, the pick face behind
  * which a pallet goes, the pick face whose lanes fill, the empty-pallet stack, a department's gondolas or the outbound dock.
  */
@@ -140,6 +125,8 @@ export function pickTarget(source: Pick<Source, 'options' | 'refused'>, nodes: r
 }
 /** A lit point: a source the actor can take or a target for the chosen source, over its node (or the staging lane). */
 export interface LitMark { key: string; kind: 'source' | 'target'; label: string; }
+/** The scene node a lit point stands over: its own node, or for the staging lane the receiving check beside it. */
+export const markAnchor = (key: string) => key === STAGING_TARGET ? 'qa:station' : key;
 /** Light marks for the sources of an actor. */
 export const sourceMarks = (sources: readonly Source[]): LitMark[] => sources.map(source => ({ key: source.node, kind: 'source', label: source.label }));
 /** Light marks for the targets of a chosen source: one per node that takes a valid target, with the target's name. */

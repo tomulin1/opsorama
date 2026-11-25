@@ -13,7 +13,7 @@ export const gameArticle: DocArticle = {
       ['Rules', 'Commands, events, score, clock and report; no renderer', 'features/cutoff/rules.ts'],
       ['Scene glue', 'Command labels, goods colors, markers, target lights, floating points, lighting by the clock', 'features/cutoff/scene.ts'],
       ['Commands', 'Sources of an actor, targets of a source, clicks, the detail of a selected object', 'features/cutoff/menu.ts'],
-      ['Page', 'The command steps, the actor menu, the summary and detail panels, the HUD and the loop', 'features/cutoff/CutoffGame.tsx'],
+      ['Page', 'The command steps, the action ring and pills, the summary and detail panels, the HUD and the loop', 'features/cutoff/CutoffGame.tsx'],
     ] },
     { id: 'director', title: 'A director in the simulation', paragraphs: [
       'A dashboard simulation decides everything itself. A game needs those decisions to come from the player. The e-commerce simulation therefore asks a director: which zone each person works in, which orders go first, which checkout lanes are open, when a docked truck may unload, whether a machine runs and how many customers come in. The dashboard passes none and gets automaticDirector, which reproduces the previous scheduler exactly; the game passes a director that reads the player\'s commands. A director answers again every time it is asked, so it changes its mind by answering differently.',
@@ -44,10 +44,10 @@ for (const event of game.events()) game.answer(event.id, event.fallback);
 game.score();                              // { total, lines }`, language: 'typescript' },
     { id: 'commands', title: 'Commands in three clicks: actor, source, target', paragraphs: [
       'The player commands one of the crew at a time. A click on the forklift, the reach truck, the replenisher, the shelf filler or the dispatcher (in the scene or on its portrait) lights everything it can technically take: actorSources asks game.options for every dock, pallet, pick face and roll cage and keeps those with a possible move, including moves that would wait, without material that already has a queued command of the same kind. A click on a lit source lights its targets (targetMarks): racks for a staged pallet, the pick face for a reserve pallet, the staging lane for a truck, the gondolas of a department, the outbound dock. A click on a lit target queues the move, and the actor stays commanded for the next one. Escape goes back one step.',
-      'The lights are marker nodes, blue "TAKE" over sources and green "TARGET" over targets, which replace the problem markers while a command is given. The page reads clicks through onPointer and calls preventSelection() while commanding, so a click on a pallet standing in a rack counts for the rack and a click on the floor goes back. A menu over the actor in a NodeHtml offers the same steps as buttons (sources, then targets with the refused ones and their reasons) beside its queue, Stop, Cancel and assist, so a shift can be played by keyboard too.',
+      'The page shows each step with the panel package\'s ActionRing inside NodeHtml. Over the commanded actor a ring offers its commands (Stop, Cancel next, Auto, Send truck for the dispatcher, Done), green for people and amber for machines; what the actor does and holds is in the detail panel on the right. Every source gets a small round Take pill and every target a Bring here pill with its name, and the problem markers step aside while a command is given. The pills are buttons, so a shift can be played by keyboard too, and clicks on the scene nodes work alike through onPointer with preventSelection(): a click on a pallet standing in a rack counts for the rack, and a click on the floor goes back.',
     ], code: `// Step 1: the actor's sources; step 2: the chosen source's targets; step 3: queue the move.
 const sources = actorSources(actor, snapshot, (subject, who) => game.options(subject, who), queued);
-const lit = source ? targetMarks(source, snapshot) : sourceMarks(sources);   // published as marker nodes
+const pills = source ? targetMarks(source, snapshot) : sourceMarks(sources);   // a Take or Bring here pill over each
 onPointer: event => {
   const nodes = clickedNodes(event.nodeId, event.ancestors, snapshot);
   if (!source) setSource(sources.find(item => nodes.includes(item.node)));
