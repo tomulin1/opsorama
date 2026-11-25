@@ -170,6 +170,18 @@ describe('handover and exception objects', () => {
     expect(new Set(meshes(point).filter(mesh => hex(mesh) === '123456').map(mesh => mesh.name))).toEqual(new Set(['pickup-border', 'pickup-hatch', 'pickup-sign'])); disposeObject(point);
     expect(expectOwnedGroundedStaticModel('carrier-pickup-point').max.y).toBeCloseTo(2.125, 2);
   });
+  it('both cages hold the carton of a pallet, the roll cage as many as fit inside its frame', () => {
+    const size = (object: THREE.Object3D) => new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3()).toArray().map(value => Number(value.toFixed(3)));
+    const pallet = build('pallet', { count: 1 }), carton = size(pallet.getObjectByName('count-part-0')!);
+    const roll = build('roll-cage', { count: 16 }), hold = build('hold-cage', { count: 8 });
+    try {
+      // Unturned cartons in the hold cage measure exactly like the pallet's; the roll cage turns its cartons slightly.
+      for (const part of parts(hold)) expect(size(part)).toEqual(carton);
+      expect(parts(roll).every(part => part.getObjectByName('cage-carton'))).toBe(true);
+      const inside = new THREE.Box3(new THREE.Vector3(-.3775, .169, -.335), new THREE.Vector3(.3775, 1.65, .3275));
+      for (const part of parts(roll)) { const box = new THREE.Box3().setFromObject(part); expect(inside.containsBox(box), `${part.name} ${JSON.stringify([box.min, box.max])}`).toBe(true); }
+    } finally { [pallet, roll, hold].forEach(disposeObject); }
+  });
   it('hold cage keeps held items inside its walls behind a front door', () => {
     const boxes = fixedSlots('hold-cage'), cage = build('hold-cage', { color: '#123456' }), inside = new THREE.Box3(new THREE.Vector3(-.98, 0, -.78), new THREE.Vector3(.98, 1.98, .78));
     boxes.forEach(box => expect(inside.containsBox(box)).toBe(true));
