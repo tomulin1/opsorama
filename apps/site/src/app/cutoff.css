@@ -95,8 +95,8 @@
 .co-event-anchor { z-index: 2; }
 .co-event-anchor .co-event { width: 250px; max-width: calc(100vw - 32px); margin-top: 8px; box-shadow: 0 8px 22px rgb(32 48 64 / .2); }
 
-/* Choosing a target in the scene. */
-.co-picking { position: absolute; z-index: 30; top: 152px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 8px 10px 8px 12px; border: 1px solid #1f8a5b; border-radius: 10px; background: #e9f6f1; color: #17573c; font-size: 12px; box-shadow: 0 6px 18px rgb(32 48 64 / .16); }
+/* The step of the command being given, above the toolbar. */
+.co-picking { position: absolute; z-index: 30; bottom: 92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 8px 10px 8px 12px; border: 1px solid #1f8a5b; border-radius: 10px; background: #e9f6f1; color: #17573c; font-size: 12px; box-shadow: 0 6px 18px rgb(32 48 64 / .16); }
 .co-picking button { padding: 4px 9px; border: 1px solid #1f8a5b; border-radius: 7px; background: #fff; color: #17573c; font-size: 11px; font-weight: 650; }
 
 @media (max-width: 1150px) {
@@ -109,5 +109,5 @@
   .co-side { display: none; }
   .co-list li { grid-template-columns: 76px minmax(0, 1fr) auto; }
   .co-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .co-picking { top: 12px; }
+  .co-picking { bottom: auto; top: 12px; }
 }

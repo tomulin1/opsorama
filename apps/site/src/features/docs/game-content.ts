@@ -3,7 +3,7 @@ import type { DocArticle } from './content';
 /** How the Cut-off shift game is built from the dashboard's simulation, scene and panels. */
 export const gameArticle: DocArticle = {
   slug: 'game', title: 'Building a game', category: 'RECIPES',
-  description: 'Turn a simulated operation into a management game: a director inside the simulation, rules in plain TypeScript, context menus over scene objects, a HUD from the panel package and feedback from existing scene features, all deterministic and unit-tested.',
+  description: 'Turn a simulated operation into a management game: a director inside the simulation, rules in plain TypeScript, commands in three clicks (actor, source, target), a HUD from the panel package and feedback from existing scene features, all deterministic and unit-tested.',
   sections: [
     { id: 'example', title: 'The example', paragraphs: [
       '/examples/cutoff is Cut-off, a shift game on the online shop and warehouse of the e-commerce recipe. The player runs the material flow for eight hours that pass in eight minutes: unload trucks, put pallets away into racks of their type, replenish the pick faces, restock the shop and ship roll cages before each carrier\'s cut-off. The forklift, the reach truck, the replenisher, the shelf filler and the dispatcher move material only on the player\'s commands, or by themselves while their assist is on; picking, packing and the shop run automatically. Three levels reuse the recipe\'s scenarios: a quiet day with every assist on, the peak and the night shift.',
@@ -12,8 +12,8 @@ export const gameArticle: DocArticle = {
       ['Simulation', 'Units, agents, records and a director that takes the shift\'s decisions', 'features/ecommerce/simulation.ts'],
       ['Rules', 'Commands, events, score, clock and report; no renderer', 'features/cutoff/rules.ts'],
       ['Scene glue', 'Command labels, goods colors, markers, target lights, floating points, lighting by the clock', 'features/cutoff/scene.ts'],
-      ['Menus', 'Menu entries, targets chosen in the scene, the detail of a selected object', 'features/cutoff/menu.ts'],
-      ['Page', 'Context menus, the summary and detail panels, the HUD and the loop', 'features/cutoff/CutoffGame.tsx'],
+      ['Commands', 'Sources of an actor, targets of a source, clicks, the detail of a selected object', 'features/cutoff/menu.ts'],
+      ['Page', 'The command steps, the actor menu, the summary and detail panels, the HUD and the loop', 'features/cutoff/CutoffGame.tsx'],
     ] },
     { id: 'director', title: 'A director in the simulation', paragraphs: [
       'A dashboard simulation decides everything itself. A game needs those decisions to come from the player. The e-commerce simulation therefore asks a director: which zone each person works in, which orders go first, which checkout lanes are open, when a docked truck may unload, whether a machine runs and how many customers come in. The dashboard passes none and gets automaticDirector, which reproduces the previous scheduler exactly; the game passes a director that reads the player\'s commands. A director answers again every time it is asked, so it changes its mind by answering differently.',
@@ -42,17 +42,17 @@ game.depart();                                           // send the outbound tr
 game.advance(30);                                        // any slices; fixed steps inside
 for (const event of game.events()) game.answer(event.id, event.fallback);
 game.score();                              // { total, lines }`, language: 'typescript' },
-    { id: 'commands', title: 'Context menus over the scene', paragraphs: [
-      'Every command goes through a menu over the clicked object. The page uses the scene\'s own selection (selectionStyle: \'glow\', with frameOnSelect off so the camera stays put) and renders the menu of the selected node in a NodeHtml, which follows the node and the camera. A dock, pallet, rack, pick face, gondola or roll cage lists game.options(nodeId) as one entry per actor and kind of move. An entry with one target queues it at once; one with several opens a submenu with the best target first, the refused targets with their reason ("R11 holds Outdoor goods and does not take Toys") and "Choose in the scene…". A rack also offers the moves of the pallets in it, and a pick face those of the reserve pallets of its SKUs. One of the crew lists its commands with "Stop after this one", Cancel and "Work by yourself"; picking it makes it the active actor, whose moves then come alone.',
-      '"Choose in the scene…" publishes a marker over every valid target and handles the next click through onPointer: preventSelection() keeps the selection, a click on a lit target (or on a pallet standing in it) opens "Put here / Cancel" over it, and a refused target shows its reason. Escape goes back one level at a time. The menus are buttons with menu roles that the arrow keys move through, and the left panel offers the docks, staged pallets, low pick faces and the outbound dock as buttons, so a shift can be played without aiming at the 3D scene.',
-    ], code: `const selection = useScene().selection?.nodeId;
-const entries = selection ? menuEntries(game.options(selection), active) : [];
-return selection && <NodeHtml nodeId={selection}>
-  <div role="menu">{entries.map(entry => needsTargets(entry)
-    ? <button role="menuitem" key={entry.key} onClick={() => openTargets(entry)}>{entry.actor.label}: {entry.label}…</button>
-    : <button role="menuitem" key={entry.key} onClick={() => game.move(entry.actor.id, entry.options[0].move)}>{entry.actor.label}: {entry.label}</button>)}
-  </div>
-</NodeHtml>;`, language: 'tsx' },
+    { id: 'commands', title: 'Commands in three clicks: actor, source, target', paragraphs: [
+      'The player commands one of the crew at a time. A click on the forklift, the reach truck, the replenisher, the shelf filler or the dispatcher (in the scene or on its portrait) lights everything it can technically take: actorSources asks game.options for every dock, pallet, pick face and roll cage and keeps those with a possible move, including moves that would wait, without material that already has a queued command of the same kind. A click on a lit source lights its targets (targetMarks): racks for a staged pallet, the pick face for a reserve pallet, the staging lane for a truck, the gondolas of a department, the outbound dock. A click on a lit target queues the move, and the actor stays commanded for the next one. Escape goes back one step.',
+      'The lights are marker nodes, blue "TAKE" over sources and green "TARGET" over targets, which replace the problem markers while a command is given. The page reads clicks through onPointer and calls preventSelection() while commanding, so a click on a pallet standing in a rack counts for the rack and a click on the floor goes back. A menu over the actor in a NodeHtml offers the same steps as buttons (sources, then targets with the refused ones and their reasons) beside its queue, Stop, Cancel and assist, so a shift can be played by keyboard too.',
+    ], code: `// Step 1: the actor's sources; step 2: the chosen source's targets; step 3: queue the move.
+const sources = actorSources(actor, snapshot, (subject, who) => game.options(subject, who), queued);
+const lit = source ? targetMarks(source, snapshot) : sourceMarks(sources);   // published as marker nodes
+onPointer: event => {
+  const nodes = clickedNodes(event.nodeId, event.ancestors, snapshot);
+  if (!source) setSource(sources.find(item => nodes.includes(item.node)));
+  else { const found = pickTarget(source, nodes, snapshot); if (found && 'option' in found) game.move(actor, found.option.move); }
+}`, language: 'tsx' },
     { id: 'hud', title: 'A HUD from the panel package', paragraphs: [
       'The HUD is the same set of panels as the dashboards: DataPanel for the shift summary on the left (the crew, receiving with the free rack positions per type of goods, stock, shipping and events), the detail of the selected object on the right and the dialogs, MetricCard for score, cut-off countdown, pallets put away and open events, ActivityFeed for the shift log and StatusBadge for point changes. The game only passes data and handlers in. Pause and speed are the scene settings paused and speed: the loop that advances the game reads them every frame, as the dashboard\'s feed loop does, so the scene and the rules stop and speed up together.',
     ] },
