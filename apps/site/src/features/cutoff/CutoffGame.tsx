@@ -4,7 +4,7 @@ import { Bell, Bot, Boxes, Check, Clock3, Crosshair, Eye, EyeOff, FastForward, F
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { ActionRing, ActivityFeed, DataPanel, StatusBadge, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
-import type { ScenePointerEvent, SceneRenderer } from '@opsorama/three';
+import type { NodeHighlight, PickTarget, ScenePointerEvent, SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import '@opsorama/ui/styles.css';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
@@ -15,7 +15,7 @@ import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, actorSources, clickedNodes, faceNode, detailOf, eventNode, markAnchor, pickTarget, rackRoom, sourceMarks, targetMarks } from './menu';
+import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, detailOf, eventNode, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -44,13 +44,13 @@ function createStore(game: ShiftGame): SceneStore {
 
 /**
  * The scene with the game's HUD. The rules run in `rules.ts`; this component only reads them and sends commands. A command
- * takes three clicks: one of the crew (its sources light up), what it should take (its targets light up) and where to bring
- * it. A menu over the actor lists the same sources and targets, its commands and its assist. The left panel sums up the
+ * takes three clicks: one of the crew (its sources are tinted), what it should take (a ghost stands at each of its targets)
+ * and the ghost to bring it to. An action ring over the actor holds its commands and its assist. The left panel sums up the
  * shift, the right one details the selected object.
  */
 function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
-  const store = useSceneStore(), scene = useScene(), renderer = useRef<SceneRenderer | null>(null);
-  const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; }, []);
+  const store = useSceneStore(), scene = useScene(), renderer = useRef<SceneRenderer | null>(null), [ready, setReady] = useState<SceneRenderer | null>(null);
+  const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; setReady(value); }, []);
   const [view, setView] = useState(() => viewOf(game.current)), [generation, setGeneration] = useState(0);
   const [scenario, setScenario] = useState<EcommerceScenario>(game.current.level.scenario), [seed, setSeed] = useState(game.current.seed);
   const [started, setStarted] = useState(false), [panelsVisible, setPanelsVisible] = useState(true);
@@ -95,6 +95,19 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     quiet.current = !!commanding; quietRevision.current++;
     store.replace(playNodes(game.current, floats.current, quiet.current));
   }, [commanding, store, game]);
+  // The scene shows the command: what the actor can take is tinted; once a source is taken it stays tinted, and a ghost of the
+  // material stands at each place it can go (a target that has to wait, such as a full pick face, is tinted instead). A click on
+  // a ghost queues the move. Both are set again only when they change, not on every update of the records.
+  const tints = useMemo<NodeHighlight[]>(() => !commanding ? [] : source ? targetTints(source, view.snapshot) : sourceTints(sources), [commanding, source, sources, view]);
+  const ghosts = useMemo(() => source ? source.options.flatMap(option => (option.previews ?? []).map(target => ({ target: { ...target, color: TARGET_TINT } as PickTarget, move: option.move }))) : [], [source]);
+  const tintKey = JSON.stringify(tints), ghostKey = JSON.stringify(ghosts.map(item => item.target)), ghostMoves = useRef(ghosts);
+  ghostMoves.current = ghosts;
+  useEffect(() => { if (ready && !ready.getDiagnostics().disposed) ready.setHighlights(JSON.parse(tintKey) as NodeHighlight[]); }, [ready, tintKey]);
+  useEffect(() => {
+    if (!ready || ready.getDiagnostics().disposed) return;
+    const targets = JSON.parse(ghostKey) as PickTarget[];
+    ready.setPickTargets(targets.length ? targets : null, (_, index) => { const found = ghostMoves.current[index]; if (found) bringMove.current(found.move); });
+  }, [ready, ghostKey]);
   // A source that is gone (a pallet taken by someone else, a truck that left) falls back to choosing a source.
   useEffect(() => { if (commanding?.source && !source) setCommanding({ actor: commanding.actor, source: null }); }, [commanding, source]);
 
@@ -120,6 +133,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     const actor = actorOf(commanding.actor)!;
     if (command(() => game.current.move(actor.id, move), `${actor.label}: ${moveLabel(move)}.`)) setCommanding({ actor: actor.id, source: null });
   };
+  const bringMove = useRef(bring); bringMove.current = bring;
   // Escape goes back one step: from the targets to the sources, then out of the command.
   const back = useRef(() => {}); back.current = () => {
     if (commanding?.source) setCommanding({ actor: commanding.actor, source: null });
@@ -142,11 +156,11 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     const label = actorOf(commanding.actor)?.label ?? 'The actor';
     if (!source) {
       const taken = sources.find(item => nodes.includes(item.node));
-      if (taken) takeSource(taken.node); else setMessage({ text: `${label} cannot take that. Click a lit object, or press Escape.`, tone: 'neutral' });
+      if (taken) takeSource(taken.node); else setMessage({ text: `${label} cannot take that. Click a tinted object, or press Escape.`, tone: 'neutral' });
       return;
     }
     const found = pickTarget(source, nodes, game.current.snapshot());
-    if (!found) setMessage({ text: `Not a target for ${source.label}. Click a lit target, or press Escape.`, tone: 'neutral' });
+    if (!found) setMessage({ text: `Not a target for ${source.label}. Click a ghost or a tinted target, or press Escape.`, tone: 'neutral' });
     else if ('refused' in found) setMessage({ text: `${found.refused.target}: ${found.refused.reason}`, tone: 'critical' });
     else bring(found.option.move);
   };
@@ -185,6 +199,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   return <section className="co-viewport hud-viewport" aria-label="Cut-off shift game" data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel="none" data-side-panel="events" data-commanding={commanding ? 'true' : undefined}>
     <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} onPointer={onPointer} /></div>
 
+    {/* The pills are the keyboard's way to take and bring: hidden until focused, so the scene shows only the tints and ghosts. */}
     {commanding && !view.over && marks.map(mark => <NodeHtml key={`${mark.kind}:${mark.key}`} nodeId={markAnchor(mark.key)} className="co-ring-anchor co-pill-anchor">
       <ActionRing tone={mark.kind === 'source' ? 'info' : 'success'} arc={0} label={mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`} actions={[{
         // Sources are many, so they are round icons named by their tooltip; the few targets carry their names.
@@ -202,7 +217,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
     </NodeHtml>)}
     {commanding && <div className="co-picking" role="status" aria-label="Giving a command">
-      <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `bring ${source.label} to a lit target` : sources.length ? 'click a lit object to take' : 'nothing to take now'} · Escape goes back</span>
+      <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `taking ${source.label} · click a ghost to bring it there` : sources.length ? 'click a tinted object to take' : 'nothing to take now'} · Escape goes back</span>
       <button type="button" onClick={() => back.current()}>{source ? 'Back' : 'Done'}</button>
     </div>}
 
@@ -263,7 +278,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <p>{SHIFT_LEVELS[scenario].description}</p>
       <ul className="co-rules">
         <li>Receive, put away, replenish, restock and ship: the forklift, reach truck, replenisher, shelf filler and dispatcher move material only on your commands, unless they work by themselves.</li>
-        <li>Give a command in three clicks: one of the crew (what it can take lights up), the pallet, truck, pick face or roll cage to take (where it can go lights up), and the target. The menu over the crew member lists the same choices. Escape goes back.</li>
+        <li>Give a command in three clicks: one of the crew (what it can take is tinted), the pallet, truck, pick face or roll cage to take (a ghost of it shows each place it can go), and the ghost. The ring over the crew member holds its commands. Tab reaches the same choices from the keyboard; Escape goes back.</li>
         <li>Each of the crew holds three commands; unloading, filling a pick face and restocking repeat until done. Pallets go only into racks of their type.</li>
         <li>Ship before each carrier&apos;s cut-off; trucks waiting on a dock and empty shop departments cost points. Events open over their object; without an answer the default applies after 45 minutes.</li>
       </ul>

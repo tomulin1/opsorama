@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { AssetNode } from '@opsorama/core';
 import { rackGoods, skuGoods } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation, type ActorRole, type EcommerceEvent, type EcommerceSimulation, type EcommerceSimulationOptions, type Move } from '../apps/site/src/features/ecommerce/simulation';
+/** Move options without their ghost places, which the tests of previews check on their own. */
+const bare = <T extends { previews?: unknown }>(items: readonly T[]) => items.map(item => { const { previews, ...rest } = item; void previews; return rest; });
 
 type EventOf<T extends EcommerceEvent['type']> = Extract<EcommerceEvent, { type: T }>;
 const same = (a: Move, b: Move) => JSON.stringify(a) === JSON.stringify(b);
@@ -59,7 +61,8 @@ describe('e-commerce commanded moves', () => {
 
   it('unloads a truck pallet by pallet, waits for room in staging and goes on by itself', () => {
     const game = scripted(), { simulation } = game;
-    expect(simulation.moves('forklift', 'dock:D1')).toEqual({ options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] });
+    expect(bare(simulation.moves('forklift', 'dock:D1').options)).toEqual([{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }]);
+    expect(simulation.moves('forklift', 'dock:D1').refused).toEqual([]);
     expect(simulation.moves('forklift', 'dock:D2').refused).toEqual([{ kind: 'unload', target: 'Staging lane', reason: 'No truck is docked at D2.' }]);
     game.command('forklift', { kind: 'unload', dock: 'D1' });
     game.until(() => game.of('move-waiting').length > 0);
@@ -102,7 +105,7 @@ describe('e-commerce commanded moves', () => {
     const game = scripted({ goodsRules: true }), { simulation } = game, pallet = 'pallet:1038';
     const choices = simulation.moves('reach-truck', pallet);
     // TOY-120 is Toys: R12 and R05 hold Toys, the emptiest first; every other rack refuses it.
-    expect(choices.options).toEqual([{ move: { kind: 'put-away', pallet, rack: 'R12' }, target: 'R12 · level 1 · Toys' }, { move: { kind: 'put-away', pallet, rack: 'R05' }, target: 'R05 · level 1 · Toys' }]);
+    expect(bare(choices.options)).toEqual([{ move: { kind: 'put-away', pallet, rack: 'R12' }, target: 'R12 · level 1 · Toys' }, { move: { kind: 'put-away', pallet, rack: 'R05' }, target: 'R05 · level 1 · Toys' }]);
     expect(choices.refused).toHaveLength(12);
     expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R04 · Outdoor', reason: 'R04 holds Outdoor goods and does not take Toys (TOY-120).' });
     expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R07 · Sport', reason: 'R07 holds Sport goods and does not take Toys (TOY-120).' });
@@ -117,7 +120,7 @@ describe('e-commerce commanded moves', () => {
     expect(inStaging(simulation)).not.toContain(pallet);
     // It is in a rack now, so it can only be replenished from there.
     expect(simulation.check('reach-truck', { kind: 'put-away', pallet, rack: 'R12' })).toEqual({ ok: false, wait: false, reason: 'Pallet 1038 is not in staging.' });
-    expect(simulation.moves('reach-truck', pallet).options).toEqual([{ move: { kind: 'replenish', pallet }, target: 'Behind F4' }]);
+    expect(bare(simulation.moves('reach-truck', pallet).options)).toEqual([{ move: { kind: 'replenish', pallet }, target: 'Behind F4' }]);
     simulation.dispose();
   });
 
@@ -167,7 +170,9 @@ describe('e-commerce commanded moves', () => {
   it('replenishes a pick face: a pallet behind it, the replenisher empties it, the reach truck clears it', () => {
     const game = scripted(), { simulation } = game, pallet = 'pallet:1015';
     expect(simulation.moves('replenisher', 'replen:F3').refused).toEqual([{ kind: 'decant', target: 'F3 lanes', reason: 'No pallet stands behind F3.' }]);
-    expect(simulation.moves('reach-truck', pallet).options).toEqual([{ move: { kind: 'replenish', pallet }, target: 'Behind F3' }]);
+    expect(bare(simulation.moves('reach-truck', pallet).options)).toEqual([{ move: { kind: 'replenish', pallet }, target: 'Behind F3' }]);
+    // The pallet's ghost stands on the spot behind F3, turned as pallets stand there.
+    expect(simulation.moves('reach-truck', pallet).options[0].previews).toEqual([expect.objectContaining({ ghost: pallet, yaw: Math.PI / 2, position: [expect.any(Number), expect.any(Number), -5.75] })]);
     game.command('reach-truck', { kind: 'replenish', pallet });
     game.simulation.advance(1);
     // The replenisher may be told before the pallet arrives: it waits for it.
@@ -183,7 +188,9 @@ describe('e-commerce commanded moves', () => {
     expect(game.of('replenished')).toHaveLength(9);
     expect(game.of('replenished').every(event => event.face === 'F3' && event.sku === 'OUT-142')).toBe(true);
     const stack = simulation.snapshot().emptyPallets;
-    expect(simulation.moves('reach-truck', 'replen:F3').options).toEqual([{ move: { kind: 'clear', face: 'F3' }, target: 'Empty-pallet stack' }]);
+    expect(bare(simulation.moves('reach-truck', 'replen:F3').options)).toEqual([{ move: { kind: 'clear', face: 'F3' }, target: 'Empty-pallet stack' }]);
+    // The empty pallet's ghost on top of the stack.
+    expect(simulation.moves('reach-truck', 'replen:F3').options[0].previews).toEqual([expect.objectContaining({ ghost: pallet, yaw: Math.PI / 2 })]);
     game.command('reach-truck', { kind: 'clear', face: 'F3' });
     game.until(() => game.queue('reach-truck').length === 0);
     game.simulation.advance(1);
@@ -213,11 +220,15 @@ describe('e-commerce commanded moves', () => {
 
   it('restocks a department from its pick face until it is full', () => {
     const game = scripted(), { simulation } = game;
-    expect(simulation.moves('shelf-filler', 'flow:F4').options).toEqual([{ move: { kind: 'restock', department: 'toys', source: 'face' }, target: 'Toys · from F4' }]);
-    expect(simulation.moves('shelf-filler', 'gondola:outdoor:1').options).toEqual([{ move: { kind: 'restock', department: 'outdoor', source: 'face' }, target: 'Outdoor · from F3' }]);
+    expect(bare(simulation.moves('shelf-filler', 'flow:F4').options)).toEqual([{ move: { kind: 'restock', department: 'toys', source: 'face' }, target: 'Toys · from F4' }]);
+    expect(bare(simulation.moves('shelf-filler', 'gondola:outdoor:1').options)).toEqual([{ move: { kind: 'restock', department: 'outdoor', source: 'face' }, target: 'Outdoor · from F3' }]);
+    // A carton's ghost at each of the department's four gondolas, built from the carton model.
+    const previews = simulation.moves('shelf-filler', 'flow:F4').options[0].previews!;
+    expect(previews).toHaveLength(4);
+    expect(previews[0]).toMatchObject({ ghost: { asset: 'parcel', scale: [.4, .4, .4] }, size: [.7, .7, .7] });
     expect(simulation.check('shelf-filler', { kind: 'restock', department: 'kitchen', source: 'transfer' })).toEqual({ ok: false, wait: false, reason: 'No shop transfer waits for Kitchen.' });
     // Sport (two gondolas, 37 of 48 facings) fills before S2 reaches its minimum.
-    expect(simulation.moves('shelf-filler', 'flow:S2').options).toEqual([{ move: { kind: 'restock', department: 'sport', source: 'face' }, target: 'Sport · from S2' }]);
+    expect(bare(simulation.moves('shelf-filler', 'flow:S2').options)).toEqual([{ move: { kind: 'restock', department: 'sport', source: 'face' }, target: 'Sport · from S2' }]);
     game.command('shelf-filler', { kind: 'restock', department: 'sport', source: 'face' });
     game.until(() => game.queue('shelf-filler').length === 0, 300);
     const [end] = game.of('move-ended');

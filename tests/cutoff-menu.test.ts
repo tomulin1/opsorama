@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
-import { GOODS_COLORS, STAGING_TARGET, actorSources, clickedNodes, markAnchor, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
+import { GOODS_COLORS, SOURCE_TINT, STAGING_TARGET, TARGET_TINT, actorSources, sourceTints, targetTints, clickedNodes, markAnchor, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
 import { playable, playNodes } from '../apps/site/src/features/cutoff/scene';
 import { GOODS_TONES } from '@opsorama/objects';
+/** Move options without their ghost places, which the tests of previews check on their own. */
+const bare = <T extends { previews?: unknown }>(items: readonly T[]) => items.map(item => { const { previews, ...rest } = item; void previews; return rest; });
 
 const game = () => createShiftGame({ scenario: 'peak', seed: 1 });
 const contextOf = (shift: ReturnType<typeof game>, node: string): DetailContext => {
@@ -15,10 +17,14 @@ const contextOf = (shift: ReturnType<typeof game>, node: string): DetailContext 
 describe('Cut-off commands: actor, source, target', () => {
   it('lights what each of the crew can take, with every possible move once', () => {
     const shift = game(), snapshot = shift.snapshot(), sources = (actor: string) => actorSources(actor, snapshot, (subject, who) => shift.options(subject, who));
-    expect(sources('forklift')).toEqual([{ node: 'dock:D1', label: 'Dock D1 · 6 pallets left', options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] }]);
+    expect(sources('forklift').map(source => ({ ...source, options: bare(source.options) }))).toEqual([{ node: 'dock:D1', label: 'Dock D1 · 6 pallets left', options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] }]);
+    // The next pallet off the truck would stand in the free staging spot, after the five staged ones.
+    expect(sources('forklift')[0].options[0].previews).toEqual([{ position: [16.2, expect.any(Number), -7.1], size: [1.3, 1.4, 1.3], ghost: { asset: 'pallet', count: 9 } }]);
     const reach = sources('reach-truck'), staged = reach.find(source => source.node === 'pallet:1038')!;
     expect(staged.label).toBe('Pallet 1038 · TOY-208 · staging');
     expect(staged.options.map(option => option.target)).toEqual(['R12 · level 1 · Toys', 'R05 · level 1 · Toys']);
+    // A ghost of the pallet itself at its free rack position, turned a quarter as pallets stand in racks.
+    expect(staged.options[0].previews).toEqual([expect.objectContaining({ node: 'rack:R12', anchor: expect.any(String), ghost: 'pallet:1038', yaw: Math.PI / 2 })]);
     expect(staged.refused[0]).toMatchObject({ target: 'R11 · Outdoor', reason: 'R11 holds Outdoor goods and does not take Toys (TOY-208).' });
     // Everything it can technically take: the staged pallets to put away and every reserve pallet whose face has room behind it.
     expect(reach.find(source => source.node === 'pallet:1016')).toMatchObject({ label: 'Pallet 1016 · OUT-215 · rack R04', options: [{ move: { kind: 'replenish', pallet: 'pallet:1016' }, target: 'Behind F3' }] });
@@ -116,6 +122,20 @@ describe('Cut-off commands: actor, source, target', () => {
     const toys = rackRoom(snapshot).find(item => item.goods === 'toys')!;
     expect(toys).toEqual({ goods: 'toys', label: 'Toys', color: GOODS_COLORS.toys, free: 12 - snapshot.occupancy.R05 - snapshot.occupancy.R12, total: 12 });
     expect(rackRoom(snapshot).reduce((sum, item) => sum + item.total, 0)).toBe(14 * 6);
+    shift.dispose();
+  });
+});
+
+describe('Cut-off tints and ghosts', () => {
+  it('tints the sources, with the truck at a dock, then the taken source and the targets that would wait', () => {
+    const shift = game(), snapshot = shift.snapshot(), sources = (actor: string) => actorSources(actor, snapshot, (subject, who) => shift.options(subject, who));
+    expect(sourceTints(sources('forklift'))).toEqual([{ node: 'dock:D1', color: SOURCE_TINT }, { node: 'truck:D1', color: SOURCE_TINT }]);
+    const staged = sources('reach-truck').find(source => source.node === 'pallet:1038')!;
+    // Both racks show a ghost, so only the pallet itself is tinted.
+    expect(targetTints(staged, snapshot)).toEqual([{ node: 'pallet:1038', color: SOURCE_TINT }]);
+    // A move that would wait has no ghost: its target node is tinted instead, and the staging lane has no node to tint.
+    const waiting = { node: 'dock:D1', options: [{ move: { kind: 'unload' as const, dock: 'D1' as const }, target: 'Staging lane', waits: 'Waits for room.' }, { move: { kind: 'put-away' as const, pallet: 'pallet:1038', rack: 'R12' as const }, target: 'R12', waits: 'Waits.' }] };
+    expect(targetTints(waiting, snapshot)).toEqual([{ node: 'dock:D1', color: SOURCE_TINT }, { node: 'truck:D1', color: SOURCE_TINT }, { node: 'rack:R12', color: TARGET_TINT }]);
     shift.dispose();
   });
 });

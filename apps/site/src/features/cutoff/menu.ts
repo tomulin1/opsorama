@@ -1,5 +1,6 @@
 import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_COLORS, GOODS_LABELS, LOCATIONS, SKUS, location, rackGoods, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
 import type { Move, MoveOption, MoveRefusal } from '../ecommerce/simulation';
+import type { NodeHighlight } from '@opsorama/three';
 import { QUEUE_LIMIT, type ActorChoices, type ActorView, type CarrierStatus, type ShiftEvent } from './rules';
 
 /** The color of each type of goods, shared with the e-commerce scene and the shop's goods. */
@@ -134,6 +135,21 @@ export function targetMarks(source: Pick<Source, 'options'>, snapshot?: Ecommerc
   const marks = new Map<string, string>();
   for (const option of source.options) for (const node of targetNodes(option.move, snapshot)) if (!marks.has(node)) marks.set(node, option.target);
   return [...marks].map(([key, label]) => ({ key, kind: 'target', label }));
+}
+
+/** Tint of what the commanded actor can take, a pale light that brightens any goods color, and color of the ghosts and tinted targets where it can bring it. */
+export const SOURCE_TINT = '#e6f8ff', TARGET_TINT = '#1f9d63';
+/** The scene nodes a source tints: its node, and for a dock the truck standing at it. */
+const tintedNodes = (node: string) => node.startsWith('dock:') ? [node, `truck:${node.slice(5)}`] : [node];
+/** Tints while a source is chosen: every source the actor can take. */
+export const sourceTints = (sources: readonly Pick<Source, 'node'>[]): NodeHighlight[] => sources.flatMap(source => tintedNodes(source.node)).map(node => ({ node, color: SOURCE_TINT }));
+/**
+ * Tints once a source is taken: the source itself, and the target nodes of moves that show no ghost because they would wait
+ * (a full pick face, a busy spot). The other targets show ghosts of the material instead.
+ */
+export function targetTints(source: Pick<Source, 'node' | 'options'>, snapshot?: EcommerceSnapshot): NodeHighlight[] {
+  const waiting = new Set(source.options.filter(option => !option.previews?.length).flatMap(option => targetNodes(option.move, snapshot)).filter(node => node !== STAGING_TARGET));
+  return [...tintedNodes(source.node).map(node => ({ node, color: SOURCE_TINT })), ...[...waiting].map(node => ({ node, color: TARGET_TINT }))];
 }
 
 /** The scene node an event concerns, for its menu and its marker. */
