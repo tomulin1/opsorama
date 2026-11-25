@@ -40,7 +40,7 @@ describe('recipe reuse (C4)', () => {
   it('a recipe that is not a dashboard, the Cut-off game, reuses the catalog, simulation and panels', () => {
     const game = createShiftGame({ scenario: 'peak', seed: 1 });
     game.advance(120);
-    const nodes = playNodes(game, 'packer:K3', []), dashboards = new Set(scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset)));
+    const nodes = playNodes(game, []), dashboards = new Set(scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset)));
     game.dispose();
     // Every model of the game is a catalog model the dashboards use too: the game brings no models of its own.
     for (const node of assetsOf(nodes)) {

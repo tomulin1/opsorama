@@ -5,22 +5,25 @@ test('Cut-off plays a short scripted shift from the briefing to the report', asy
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('canvas')).toHaveCount(1);
-  const commands = page.getByRole('region', { name: 'Shift commands', exact: true }), toolbar = page.getByRole('region', { name: 'Viewport controls', exact: true });
+  const crew = page.getByRole('region', { name: 'Crew commands', exact: true }), toolbar = page.getByRole('region', { name: 'Viewport controls', exact: true });
   // The shift waits on its briefing; starting it runs the clock.
   await expect(page.getByRole('region', { name: 'Shift briefing' })).toContainText('Peak');
   await expect(page.getByRole('timer', { name: 'Shift clock' })).toHaveText('10:00');
   await page.getByRole('button', { name: 'Start shift', exact: true }).click();
   await toolbar.getByRole('button', { name: 'Speed 3×', exact: true }).click();
 
-  // Assign a person: select a packer, then a zone.
-  await commands.getByRole('button', { name: 'Select Packer K3', exact: true }).click();
-  await commands.getByRole('button', { name: 'Send Packer K3 to Shop restocking', exact: true }).click();
-  await expect(commands).toContainText('Packer K3 goes to shop restocking after the current task.');
-  // Prioritize a carrier and open a checkout.
-  await commands.getByRole('button', { name: 'Put SwiftPost first', exact: true }).click();
-  await expect(commands.getByRole('button', { name: 'Put SwiftPost first', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await commands.getByRole('button', { name: 'Open checkout 3', exact: true }).click();
-  await expect(commands.getByRole('button', { name: 'Close checkout 3', exact: true })).toBeVisible();
+  // Selecting an actor offers no move for it; switching on its assist makes it work by itself.
+  await crew.getByRole('button', { name: 'Select Forklift', exact: true }).click();
+  await expect(crew.getByRole('region', { name: 'Selection', exact: true })).toContainText('No move of material for forklift');
+  for (const actor of ['Forklift', 'Reach truck', 'Dispatch']) {
+    const assist = crew.getByRole('button', { name: `Let ${actor} work by itself`, exact: true });
+    await assist.click();
+    await expect(assist).toHaveAttribute('aria-pressed', 'true');
+  }
+  await expect(crew.getByRole('region', { name: 'Actors', exact: true })).toContainText('Unloading PO-7779', { timeout: ciScaled(20000) });
+  // Send the SwiftPost truck before its cut-off.
+  await crew.getByRole('button', { name: 'Send the SwiftPost truck', exact: true }).click();
+  await expect(crew).toContainText('The SwiftPost truck leaves once no cage is on its way.');
 
   // Answer the first event: the short pick of the peak opens 20 minutes into the shift.
   const event = page.getByRole('article', { name: 'Short pick', exact: true });
