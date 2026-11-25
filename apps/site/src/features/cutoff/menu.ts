@@ -84,6 +84,21 @@ export function actorSources(actor: string, snapshot: EcommerceSnapshot, options
 }
 
 /**
+ * The sources an actor's menu lists: like `actorSources`, but one reserve pallet per SKU to replenish (the first, which the
+ * ranking puts the SKUs below their minimum ahead of), so a handful of buttons covers the choices. The scene lights them all.
+ */
+export function menuSources(sources: readonly Source[], snapshot: EcommerceSnapshot): Source[] {
+  const seen = new Set<string>();
+  return sources.filter(source => {
+    const move = source.options[0].move;
+    if (move.kind !== 'replenish') return true;
+    const sku = snapshot.units.find(unit => unit.id === move.pallet)?.sku ?? source.node;
+    if (seen.has(sku)) return false;
+    seen.add(sku); return true;
+  });
+}
+
+/**
  * The scene nodes a move takes its material to, lit once its source is chosen: a rack, the staging lane, the pick face behind
  * which a pallet goes, the pick face whose lanes fill, the empty-pallet stack, a department's gondolas or the outbound dock.
  */

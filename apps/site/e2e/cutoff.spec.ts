@@ -8,9 +8,10 @@ test('Cut-off commands the crew in three steps (actor, source, target) for every
   const summary = page.getByRole('region', { name: 'Shift summary', exact: true }), toolbar = page.getByRole('region', { name: 'Viewport controls', exact: true });
   const message = summary.getByRole('status'), step = page.getByRole('status', { name: 'Giving a command' });
   // One command: the actor's portrait, a source from its menu (or a panel button), then a target from the next menu.
+  // The menu over an actor is placed by the renderer's first frames, which software rendering may take a while to draw.
   const commandActor = async (actor: string) => {
     await summary.getByRole('button', { name: new RegExp(`^${actor}:`) }).click();
-    await expect(page.getByRole('menu', { name: `Commands of ${actor}` })).toBeVisible();
+    await expect(page.getByRole('menu', { name: `Commands of ${actor}` })).toBeVisible({ timeout: ciScaled(20000) });
   };
   const take = async (actor: string, source: RegExp) => page.getByRole('menu', { name: `Commands of ${actor}` }).getByRole('menuitem', { name: source }).first().click();
   const bring = async (target: RegExp) => page.getByRole('menu', { name: /^Targets for / }).getByRole('menuitem', { name: target }).first().click();

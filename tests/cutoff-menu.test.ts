@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
-import { GOODS_COLORS, STAGING_TARGET, actorSources, clickedNodes, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
+import { GOODS_COLORS, STAGING_TARGET, actorSources, menuSources, clickedNodes, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
 import { playable, playNodes } from '../apps/site/src/features/cutoff/scene';
 import { GOODS_TONES } from '@opsorama/objects';
 
@@ -26,6 +26,8 @@ describe('Cut-off commands: actor, source, target', () => {
     // The menu lists the staged pallets first, then reserve pallets of SKUs below their minimum (OUT-215, KIT-104, TOY-120).
     expect(reach.slice(0, 5).every(source => source.options[0].move.kind === 'put-away')).toBe(true);
     expect(reach[5].label).toMatch(/KIT-104|OUT-215|TOY-120/);
+    // The menu keeps one reserve pallet per SKU, so the short SKUs with a reserve pallet (TOY-120 has none) follow the staged pallets.
+    expect(menuSources(reach, snapshot).slice(5, 7).map(source => source.label.split(' · ')[1]).sort()).toEqual(['KIT-104', 'OUT-215']);
     expect(reach.length).toBeGreaterThan(30);
     expect(sources('replenisher')).toEqual([]);
     expect(sources('shelf-filler').map(source => source.node)).toEqual(expect.arrayContaining(['flow:F3', 'flow:S2']));
