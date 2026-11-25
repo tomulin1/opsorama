@@ -20,7 +20,7 @@ export const assetCountDefinitions: Readonly<Record<string, AssetCountDefinition
   whiteboard: Object.freeze({ kind: 'range', label: 'Sticky notes', unit: 'notes', min: 0, max: 12, step: 1, default: 7 }),
   'picking-cart': Object.freeze({ kind: 'range', label: 'Totes', unit: 'totes', min: 0, max: 6, step: 1, default: 4 }),
   'put-wall': Object.freeze({ kind: 'range', label: 'Filled cubbies', unit: 'cubbies', min: 0, max: 20, step: 1, default: 12 }),
-  'roll-cage': Object.freeze({ kind: 'range', label: 'Parcels', unit: 'parcels', min: 0, max: 12, step: 1, default: 8 }),
+  'roll-cage': Object.freeze({ kind: 'range', label: 'Parcels', unit: 'parcels', min: 0, max: 16, step: 1, default: 8 }),
   'packaging-supply': Object.freeze({ kind: 'range', label: 'Carton bundles', unit: 'bundles', min: 0, max: 10, step: 1, default: 6 }),
   'poly-mailer': Object.freeze({ kind: 'range', label: 'Mailers', unit: 'mailers', min: 1, max: 6, step: 1, default: 3 }),
   'mail-sack': Object.freeze({ kind: 'range', label: 'Sacks', unit: 'sacks', min: 1, max: 6, step: 1, default: 3 }),
