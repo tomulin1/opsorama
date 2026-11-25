@@ -4,7 +4,7 @@ import { SHIFT_LEVELS, createShiftGame, type ShiftEvent } from '../apps/site/src
 import { FLOAT_SECONDS, floatingNodes, lightingAt, moveLabel, playNodes } from '../apps/site/src/features/cutoff/scene';
 
 describe('Cut-off scene', () => {
-  it('names every kind of command for the crew panel and the log', () => {
+  it('names every kind of command for the menus and the log', () => {
     expect([
       moveLabel({ kind: 'unload', dock: 'D1' }), moveLabel({ kind: 'put-away', pallet: 'pallet:1038', rack: 'R12' }), moveLabel({ kind: 'put-away', pallet: 'pallet:1038', rack: 'R05', level: 1 }),
       moveLabel({ kind: 'replenish', pallet: 'pallet:1015' }), moveLabel({ kind: 'clear', face: 'F3' }), moveLabel({ kind: 'decant', face: 'F3' }),
