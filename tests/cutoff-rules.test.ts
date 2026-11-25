@@ -3,6 +3,8 @@ import type { AssetNode } from '@opsorama/core';
 import type { EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
 import type { Move } from '../apps/site/src/features/ecommerce/simulation';
 import { QUEUE_LIMIT, SHIFT_SECONDS, createShiftGame, type ShiftEvent, type ShiftEventKind, type ShiftGame, type ShiftNotice } from '../apps/site/src/features/cutoff/rules';
+/** Move options without their ghost places, which the tests of previews check on their own. */
+const bare = <T extends { previews?: unknown }>(items: readonly T[]) => items.map(item => { const { previews, ...rest } = item; void previews; return rest; });
 
 type Command = readonly [number, (game: ShiftGame) => void];
 /**
@@ -129,7 +131,7 @@ describe('Cut-off shift game', () => {
   it('lists the moves of every actor for a scene node', () => {
     const game = createShiftGame({ scenario: 'peak' }), [pallet] = staging(game);
     expect(game.options(pallet).map(item => item.actor.id)).toEqual(['reach-truck']);
-    expect(game.options('dock:D1')).toEqual([{ actor: { id: 'forklift', role: 'forklift', label: 'Forklift' }, options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] }]);
+    expect(game.options('dock:D1').map(item => ({ ...item, options: bare(item.options) }))).toEqual([{ actor: { id: 'forklift', role: 'forklift', label: 'Forklift' }, options: [{ move: { kind: 'unload', dock: 'D1' }, target: 'Staging lane' }], refused: [] }]);
     expect(game.options('flow:F3').map(item => [item.actor.id, item.options.map(option => option.target)])).toEqual([['reach-truck', []], ['replenisher', []], ['shelf-filler', ['Outdoor · from F3']]]);
     expect(game.options('cage:swift-1').map(item => item.options.map(option => option.move))).toEqual([[{ kind: 'ship', cage: 'swift-1' }]]);
     expect(game.options('checkout:C1')).toEqual([]);

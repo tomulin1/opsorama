@@ -77,7 +77,9 @@
 
 /* The action ring over the commanded actor, the Take and Bring here pills, and event cards over scene objects. */
 .co-ring-anchor { z-index: 3; --ring-info: #2f7fc4; --ring-success: #1f9d63; --ring-warning: #e3a12f; }
+/* Take and Bring here pills are for the keyboard: the scene shows tints and ghosts, and a pill appears only while it has focus. */
 .co-pill-anchor { z-index: 2; }
+.co-pill-anchor:not(:focus-within) { opacity: 0; pointer-events: none; }
 .co-pill-anchor .dp-ring { --ring-font-size: 11px; padding-bottom: 2px; }
 .co-pill-anchor .dp-ring .dp-ring-icon { width: 18px; height: 18px; }
 .co-pill-anchor .dp-ring .dp-ring-icon svg { width: 11px; height: 11px; }

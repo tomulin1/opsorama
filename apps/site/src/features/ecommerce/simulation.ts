@@ -1,4 +1,5 @@
 import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type AgentState, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
+import type { PickTarget } from '@opsorama/three';
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
 import {
@@ -16,6 +17,8 @@ const STEP = .1;
 const SECONDS_PER_MINUTE = 15;
 /** Cartons on a full pallet; each decanted carton fills one lane and adds `UNITS_PER_CARTON` sellable units. */
 const PALLET_CARTONS = 9, UNITS_PER_CARTON = 3, PALLETS_PER_TRUCK = 6;
+/** Where a roll cage stands at the outbound dock while it is loaded, for its ghost. */
+const DOCK_LOAD_X = 21.9;
 const DEFAULT_ON_HAND = 24, DEFAULT_MIN = 10;
 /** A department gets a restock below this many facings, and one carton adds this many. */
 /** The automatic shelf filler restocks a department below this share of its capacity. */
@@ -172,7 +175,16 @@ export type MoveKind = Move['kind'];
 /** Whether a move can start now: `wait` means it can once there is room, and the actor waits for it. */
 export type MoveCheckResult = { ok: true } | { ok: false; wait: boolean; reason: string };
 /** A possible move for a subject, ranked best first. `target` names the target, e.g. "R04 · level 2 · Outdoor". */
-export interface MoveOption { move: Move; target: string; /** Why the actor would wait before starting it, when it would. */ waits?: string; }
+export interface MoveOption {
+  move: Move; target: string;
+  /** Why the actor would wait before starting it, when it would. */ waits?: string;
+  /**
+   * Where the material would stand, as renderer pick targets with a ghost of it: a pallet, carton or roll cage at its place
+   * in the rack, staging lane, stack, lanes, gondola or dock. One per target node (a restock has one per gondola), in the
+   * order of the move's target nodes; none while the move would wait.
+   */
+  previews?: readonly PickTarget[];
+}
 /** A target the subject may not go to, with the reason, e.g. for a menu that explains what is missing. */
 export interface MoveRefusal { kind: MoveKind; target: string; reason: string; }
 export interface MoveChoices { options: readonly MoveOption[]; refused: readonly MoveRefusal[]; }
@@ -1048,11 +1060,27 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     if (prefix === 'pallet') return faceOfPallet(subject);
     return (prefix === 'flow' || prefix === 'shelf' || prefix === 'replen') && FACES.includes(name as LocationId) ? name as LocationId : undefined;
   }
+  /** Ghost places of a move that can start now: where its pallet, carton or roll cage would stand. */
+  function previewsOf(move: Move): PickTarget[] {
+    const PALLET_BOX: Vec3 = [1.3, 1.4, 1.3], CARTON_BOX: Vec3 = [.7, .7, .7], carton = { asset: ASSETS.carton, scale: SCALES.carton };
+    switch (move.kind) {
+      case 'unload': { const spot = freeSpot(); return spot < 0 ? [] : [{ position: STAGING_SPOTS[spot], size: PALLET_BOX, ghost: { asset: ASSETS.pallet, count: PALLET_CARTONS } }]; }
+      case 'put-away': {
+        const found = rackTarget(move.pallet, move.rack, move.level);
+        return found ? [{ node: `rack:${move.rack}`, ...(found.placement.anchor ? { anchor: found.placement.anchor } : {}), offset: found.placement.offset, yaw: RACK_TURN * Math.PI / 180, size: PALLET_BOX, ghost: move.pallet }] : [];
+      }
+      case 'replenish': { const sku = units.get(move.pallet)?.sku; return sku ? [{ position: replenishSpot(SKUS[sku].pick), yaw: ALONG_Z, size: PALLET_BOX, ghost: move.pallet }] : []; }
+      case 'clear': { const job = replenishing.get(move.face); return job ? [{ position: above(PALLET_STACK, records.emptyPallets * STACKED_PALLET), yaw: ALONG_Z, size: PALLET_BOX, ghost: job.pallet }] : []; }
+      case 'decant': return [{ position: [replenishSpot(move.face)[0] + .35, FLOOR_Y + 1.4, -4.35], size: CARTON_BOX, ghost: carton }];
+      case 'restock': return GONDOLAS.filter(item => item.department === move.department).map(item => ({ position: [item.position[0] + .7, FLOOR_Y + 1, item.position[2] + .15] as Vec3, size: CARTON_BOX, ghost: carton }));
+      case 'ship': return [{ position: [DOCK_LOAD_X, FLOOR_Y, DOCK_Z.D3], yaw: Math.PI / 2, size: [1, 2, 1], ghost: `cage:${move.cage}` }];
+    }
+  }
   function choices(id: string, subject: string): MoveChoices {
     const role = actorRole(id), options: MoveOption[] = [], refused: MoveRefusal[] = [];
     const offer = (move: Move, target: string) => {
-      const result = checkMove(role, move);
-      if (result.ok) options.push({ move, target });
+      const result = checkMove(role, move), previews = result.ok ? previewsOf(move) : [];
+      if (result.ok) options.push({ move, target, ...(previews.length ? { previews } : {}) });
       else if (result.wait) options.push({ move, target, waits: result.reason });
       else refused.push({ kind: move.kind, target, reason: result.reason });
     };
