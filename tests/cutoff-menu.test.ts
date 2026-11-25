@@ -100,7 +100,7 @@ describe('Cut-off context menus', () => {
   });
 
   it('colors pallets, racks, pick faces and gondolas by type of goods, counts free rack positions and keeps the floors out of clicks', () => {
-    const shift = game(), snapshot = shift.snapshot(), nodes = playable(shift.nodes()), byId = new Map(nodes.map(node => [node.id, node]));
+    const shift = game(), snapshot = shift.snapshot(), nodes = playable(shift.nodes(), snapshot), byId = new Map(nodes.map(node => [node.id, node]));
     // One color per type: the body tone of the type's iconic item in the shop.
     expect(GOODS_COLORS).toEqual(GOODS_TONES);
     expect([(byId.get('flow:F4') as AssetNode).materials?.surface, (byId.get('flow:S2') as AssetNode).materials?.surface, (byId.get('gondola:sport:1') as AssetNode).color]).toEqual([GOODS_COLORS.toys, GOODS_COLORS.sport, GOODS_COLORS.sport]);

@@ -108,8 +108,9 @@ export const SKUS: Readonly<Record<string, { name: string; pick: LocationId; res
 export type GoodsType = DepartmentId;
 export const GOODS_LABELS: Readonly<Record<GoodsType, string>> = { kitchen: 'Kitchen', home: 'Home', outdoor: 'Outdoor', toys: 'Toys', tech: 'Tech', sport: 'Sport' };
 /**
- * The color of each type of goods, the body tone of its iconic item in the shop (`GOODS_TONES` of the `goods` object): pallet
- * cartons, rack uprights, pick-face cartons, the shop's gondolas and the legends all use it.
+ * The color of each type of goods, the body tone of its iconic item in the shop (`GOODS_TONES` of the `goods` object). The
+ * dashboard keeps neutral colors; the Cut-off game colors pallet cartons, rack uprights, pick-face cartons and the shop's
+ * gondolas with it.
  */
 export const GOODS_COLORS: Readonly<Record<GoodsType, string>> = GOODS_TONES;
 const RESERVE_GOODS: readonly GoodsType[] = ['kitchen', 'kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'];

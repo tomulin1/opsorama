@@ -1,8 +1,8 @@
 import { createNavGraph, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
 import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
-  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, GOODS_COLORS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
-  areaStatus, faceGoods, rackGoods, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
+  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
+  areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
   type AreaId, type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
 } from './model';
 import { closeWallJoints } from '../example-walls';
@@ -317,7 +317,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
   for (const gondola of GONDOLAS) {
     const label = DEPARTMENTS.find(item => item.id === gondola.department)!.label;
-    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, color: GOODS_COLORS[gondola.department], options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: GOODS_COLORS[gondola.department] } } }));
+    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
   }
 
   // Checkouts face the shop floor; the queue forms toward it.
@@ -343,13 +343,11 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Reserve storage and forward picking.
   for (const value of LOCATIONS) {
     const state = locationState(snapshot, value.id), count = snapshot.occupancy[value.id];
-    // Rack uprights take the color of the type of goods the rack holds.
-    if (value.kind === 'rack') nodes.push(selectable(`rack:${value.id}`, value.id, 'pallet-rack', RACK_PLACES[value.id].position, `${value.id} · ${count}/${value.capacity} pallets`, { count: 0, state: state === 'normal' ? undefined : state, materials: { accent: GOODS_COLORS[rackGoods(value.id)] } }));
+    if (value.kind === 'rack') nodes.push(selectable(`rack:${value.id}`, value.id, 'pallet-rack', RACK_PLACES[value.id].position, `${value.id} · ${count}/${value.capacity} pallets`, { count: 0, state: state === 'normal' ? undefined : state }));
   }
   for (const node of pickFaceNodes) {
     const id = node.entityId as LocationId, value = LOCATIONS.find(item => item.id === id)!, count = snapshot.occupancy[id], state = locationState(snapshot, id);
-    // The face's cartons take the color of its type of goods.
-    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, materials: { surface: GOODS_COLORS[faceGoods(id)] }, ...(value.kind === 'flow' ? { options: { ...node.options, surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } } : {}) });
+    nodes.push({ ...node, label: `${id} · ${count}/${value.capacity} ${value.kind === 'flow' ? 'lanes' : 'bins'}`, count, state: state === 'normal' ? undefined : state, ...(value.kind === 'flow' ? { options: { ...node.options, surfaceLabel: { kind: 'text' as const, text: `${id} · ${value.family.toUpperCase()}`, color: '#ffffff', background: '#41566b' } } } : {}) });
   }
   nodes.push(fixture('pallet-stack', 'pallet-stack', PALLET_STACK, { count: snapshot.emptyPallets, rotation: yaw(HALF) }));
   if (!snapshot.crew.storage) nodes.push(fixture('reach-truck', 'reach-truck', p(-5.2, AISLE_RETURN_Z), { rotation: yaw(HALF), state: 'inactive' }));

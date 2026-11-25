@@ -166,6 +166,10 @@ describe('e-commerce mock feed', () => {
     expect(shelving).toHaveLength(20);
     // Every gondola holds the goods of its department only: four gondolas for Kitchen, Home, Outdoor and Toys, two for Tech and Sport.
     expect(shelving.every(node => node.options?.goods === node.entityId)).toBe(true);
+    // The dashboard keeps neutral colors; only the Cut-off game colors the scene by type of goods.
+    expect(nodes.filter(node => node.asset === 'pallet').some(node => node.color)).toBe(false);
+    expect(nodes.some(node => ['pallet-rack', 'carton-flow-rack', 'store-shelving'].includes(node.asset) && (node.color || node.materials))).toBe(false);
+    expect(nodes.filter(node => node.asset === 'carton-flow-rack')).toHaveLength(6);
     expect(Object.fromEntries(['kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'].map(goods => [goods, shelving.filter(node => node.options?.goods === goods).length]))).toEqual({ kitchen: 4, home: 4, outdoor: 4, toys: 4, tech: 2, sport: 2 });
     expect(inRack(simulation, 'R08')).toBeGreaterThan(0);
     let deep = false;
