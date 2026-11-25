@@ -1,11 +1,12 @@
 import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode } from '@opsorama/core';
-import { DEPARTMENTS, SKUS, location, minutesOf, type EcommerceSnapshot } from '../ecommerce/model';
+import { DEPARTMENTS, minutesOf, rackGoods, skuGoods, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, type Move } from '../ecommerce/simulation';
+import { GOODS_COLORS, eventNode } from './menu';
 import type { ActorView, CarrierStatus, ShiftDecisions, ShiftEvent, ShiftGame, ShiftLevel } from './rules';
 
 const palletNumber = (pallet: string) => pallet.split(':')[1];
 const departmentLabel = (id: string) => DEPARTMENTS.find(item => item.id === id)?.label ?? id;
-/** A command in words, for the crew panel and the shift log. */
+/** A command in words, for the menus and the shift log. */
 export function moveLabel(move: Move): string {
   switch (move.kind) {
     case 'unload': return `Unload the truck at ${move.dock}`;
@@ -47,15 +48,8 @@ export function problemMarkers(state: ProblemState, present: ReadonlySet<string>
   };
   const { snapshot } = state;
   for (const event of state.events) {
-    const left = `${Math.max(0, Math.ceil(event.deadline - state.time))} min to decide`;
-    if (event.kind === 'robot-breakdown') add(event.subject, 'critical', 'EVENT', event.title, left);
-    if (event.kind === 'late-truck') add(`dock:${event.subject}`, 'warning', 'EVENT', event.title, left);
-    if (event.kind === 'store-rush') add('pin:shop', 'warning', 'EVENT', event.title, left);
-    if (event.kind === 'vip-order') add('dock:D3', 'info', 'EVENT', event.title, left);
-    if (event.kind === 'short-pick') {
-      const order = snapshot.orders.find(item => item.id === event.subject), short = order?.lines.find(line => snapshot.alerts.some(alert => alert.sku === line.sku)) ?? order?.lines[0];
-      if (short) { const face = SKUS[short.sku].pick; add(`${location(face).kind}:${face}`, 'warning', 'EVENT', event.title, left); }
-    }
+    const node = eventNode(snapshot, event);
+    if (node) add(node, event.kind === 'robot-breakdown' ? 'critical' : event.kind === 'vip-order' ? 'info' : 'warning', 'EVENT', event.title, `${Math.max(0, Math.ceil(event.deadline - state.time))} min to decide`);
   }
   for (const [machine, until] of Object.entries(state.decisions.stopped)) add(machine, 'critical', 'STOPPED', 'Machine stopped', Number.isFinite(until) ? `Back in ${Math.ceil(until - state.time)} min` : 'Waiting for your decision');
   const cutoff = state.carriers.filter(item => item.remaining !== null && item.remaining <= CUTOFF_WARNING && item.open).sort((a, b) => a.remaining! - b.remaining!)[0];
@@ -81,11 +75,38 @@ export function floatingNodes(floats: readonly Floating[], present: ReadonlySet<
   }));
 }
 
+/**
+ * The scene as the game shows it: a pallet's cartons take the color of its SKU's type of goods (the pallet model colors its
+ * load from `color`), a rack's uprights the color of the type it holds (`materials.accent`), and the area floors and pins no
+ * longer take clicks, so a click either hits material or clears the menu.
+ */
+export function goodsColored(nodes: readonly SceneNode[], snapshot: EcommerceSnapshot): SceneNode[] {
+  const pallets = new Map(snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku).map(unit => [unit.id, GOODS_COLORS[skuGoods(unit.sku!)]]));
+  return nodes.map(node => {
+    if (node.id.startsWith('area:') || node.id.startsWith('pin:')) return { ...node, selectable: false };
+    if (node.kind !== 'asset') return node;
+    const pallet = pallets.get(node.id);
+    if (pallet) return { ...node, color: pallet };
+    if (node.asset === 'pallet-rack' && node.entityId) return { ...node, materials: { ...node.materials, accent: GOODS_COLORS[rackGoods(node.entityId as LocationId)] } };
+    return node;
+  });
+}
+
+/** A target lit by "Choose in the scene…": the node and the target's name. */
+export interface TargetMark { nodeId: string; label: string; }
+/** Markers over the targets the player may choose, which a click picks like their node. */
+export function targetMarkers(targets: readonly TargetMark[], present: ReadonlySet<string>): MarkerNode[] {
+  return targets.filter(item => present.has(item.nodeId)).map(item => ({ id: `target:${item.nodeId}`, kind: 'marker', attachment: { nodeId: item.nodeId }, position: [0, MARKER_HEIGHT, 0], tone: 'success', eyebrow: 'TARGET', label: item.label, detail: 'Click to put it here' }));
+}
+
 /** Most point changes floating at once; older ones give way. */
 const MAX_FLOATS = 12;
-/** The scene of a game: its nodes with problem markers and floating point changes. */
-export function playNodes(game: ShiftGame, floats: readonly Floating[]): SceneNode[] {
-  const nodes = game.nodes(), present = new Set(nodes.map(node => node.id));
-  const markers = problemMarkers({ snapshot: game.snapshot(), events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
+/**
+ * The scene of a game: its nodes colored by type of goods, with problem markers, floating point changes and, while the player
+ * chooses a target in the scene, a marker over every valid target instead of the problem markers.
+ */
+export function playNodes(game: ShiftGame, floats: readonly Floating[], targets: readonly TargetMark[] = []): SceneNode[] {
+  const snapshot = game.snapshot(), nodes = goodsColored(game.nodes(), snapshot), present = new Set(nodes.map(node => node.id));
+  const markers = targets.length ? targetMarkers(targets, present) : problemMarkers({ snapshot, events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
   return [...nodes, ...markers, ...floatingNodes(floats.slice(-MAX_FLOATS), present, game.time)];
 }
