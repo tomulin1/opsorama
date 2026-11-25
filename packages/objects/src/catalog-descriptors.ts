@@ -1,6 +1,8 @@
 import type { AnchorDescriptor, Bounds, MaterialRole, NodeSample, ObjectDescriptor, OptionDescriptor, PaletteRoleUse, VisualState } from '@opsorama/core';
 import type { BuildingType } from './building';
 import { assetCountDefinitions } from './asset-counts';
+import { GOODS_KINDS } from './goods';
+import { CATALOG_OPTION_ASSETS } from './options';
 import { assetCountLayoutDefaults } from './count-layout';
 import { assetDisplayDefinitions } from './displays';
 import { assetMeasurementDefinitions } from './gauges';
@@ -57,6 +59,7 @@ function options(entry: CatalogEntry): OptionDescriptor[] {
     { field: 'view', type: "'closed' | 'peek' | 'open'", default: 'closed', update: 'rebuild', description: 'Generic container view: peek and open show the children (parentId) and cut the shell away (roof removed, walls lowered). Set it with setNodeView.', samples: [{ view: 'open' }, { view: 'peek' }] },
     { field: 'peekOnHover', type: 'boolean', default: 'false', update: 'rebuild', description: 'Opt-in mouse peek inside the stable shell bounds (userData.containerBounds). Hosts still provide an explicit open/close control.', samples: [{ peekOnHover: true }] },
   );
+  if (CATALOG_OPTION_ASSETS.goods.includes(asset)) result.push({ field: 'options.goods', type: GOODS_KINDS.map(kind => `'${kind}'`).join(' | '), default: 'none (neutral boxes)', update: 'rebuild', description: 'Type of goods of the counted items: each shows the iconic item of that type (see the goods asset), scaled to its slot, so the container holds one type of goods.', samples: GOODS_KINDS.map(goods => ({ options: { goods } })) });
   if (asset === 'shopping-cart') result.push({ field: 'options.contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Source-backed content lines; bounded proxies do not invent unit identities.', samples: [{ options: { contents: { lines: [{ id: 'item', title: 'Item', quantity: 2 }] } } }] });
   if (['heated-pass', 'espresso-machine', 'pizza-oven'].includes(asset)) result.push({ field: 'options.heatEnabled', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible heat glow, steam or fire independently of host State. Scene motion gates still control animation.', samples: [{ options: { heatEnabled: false } }, { options: { heatEnabled: true } }] });
   if (assetVisualStates[asset]) result.push({ field: 'state', type: 'VisualState', default: 'normal', update: 'rebuild', description: 'Native host status with the visual mapping declared below; unsupported values use the normal appearance.', samples: STATES.map(state => ({ state })) });
@@ -915,6 +918,26 @@ const entries: readonly CatalogEntry[] = [
     animation: "none",
     example: "/examples/ecommerce",
     notes: "A lighter alternative to the shopping cart for small orders. Count places 0–4 items in a fixed 2 × 2 layout; items share the basket node identity. Color changes the basket; handles are fixed. Static model, base-center pivot, 0.45 × 0.38 × 0.3 m.",
+  },
+  {
+    asset: "goods",
+    name: "Goods",
+    category: "Work items",
+    purpose: "One item of a type of goods a shop sells: a mug, a table lamp, a camping lantern, a teddy bear, headphones or a basketball.",
+    bounds: {"min":[-0.0443,0,-0.045],"max":[0.077,0.101,0.045]},
+    pivot: "base-center",
+    placement: "Local origin is the ground centre of the item's body; the mug's handle extends toward +x. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
+    largest: {"node":{"variant":"home"},"bounds":{"min":[-0.0788,0,-0.08],"max":[0.0788,0.26,0.08]}},
+    colorRole: "surface",
+    roles: [{"role":"surface","parts":"The main body: the mug, the lamp shade, the lantern body, the bear's fur, the headphones, the ball. Each type has its own default tone; containers filled through options.goods always keep those tones."}],
+    fixed: "Default body tones per type: a terracotta mug, a cream lamp shade, a green lantern, a brown teddy bear, dark headphones and an orange basketball. The lamp foot, the lantern glass and handle, the bear's muzzle and belly, the headphone cushions and the ball's seams are fixed.",
+    variants: ["kitchen","home","outdoor","toys","tech","sport"],
+    anchors: [
+    ],
+    slots: [],
+    animation: "none",
+    example: "/examples/ecommerce",
+    notes: "The variant is the type of goods: kitchen (mug, 0.12 × 0.1 m), home (table lamp, 0.26 m high), outdoor (camping lantern, 0.2 m), toys (seated teddy bear, 0.2 m), tech (over-ear headphones, 0.15 m) and sport (basketball, 0.13 m). The same items fill store-shelving facings, shopping-cart, hand-basket, put-wall and tote slots through options.goods, scaled to each slot, so a shelf or container shows one type of goods. Static, real-size items; quantities and SKUs stay in host data.",
   },
   {
     asset: "picking-cart",

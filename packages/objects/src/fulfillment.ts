@@ -5,6 +5,7 @@ import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
 import { assetCountDefinitions } from './asset-counts';
 import { anchor, block, cylinder, gridWires, ITEM_TONES, part, wires } from './parts';
 import { CASE, casePart } from './parcels';
+import { goodsPart } from './goods';
 
 const FRAME = '#7f8fa6', DARK = '#273545', PAPER = '#fbfcfe';
 
@@ -60,7 +61,8 @@ export function createPickingCart(node: AssetNode, context?: MaterialContext): T
 const WALL = { columns: 4, rows: 5, width: .45, height: .36, depth: .45, base: .3 } as const;
 /**
  * Put wall for order consolidation: a 4 × 5 grid of open cubbies, put from the back (−z) and picked from the front (+z).
- * `count` fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall's identity. Color changes the frame.
+ * `count` fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall's identity, two of the iconic
+ * item of `options.goods` per cubby when set. Color changes the frame.
  */
 export function createPutWall(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const wall = new THREE.Group(); wall.name = 'put-wall';
@@ -79,6 +81,7 @@ export function createPutWall(node: AssetNode, context?: MaterialContext): THREE
   for (let i = 0; i < count; i++) {
     const x = -totalWidth / 2 + (i % columns + .5) * width, y = base + Math.floor(i / columns) * height + .0125;
     const bundle = new THREE.Group(); bundle.name = `count-part-${i}`; bundle.position.set(x, y, 0); wall.add(bundle);
+    if (node.options?.goods) { for (const dx of [-.085, .085]) { const item = goodsPart(node.options.goods, [.15, .17, .22], 'putwall-item'); item.position.x = dx; bundle.add(item); } continue; }
     block(bundle, [.26, .16, .24], [-.04, .08, 0], ITEM_TONES[i % 3], 'putwall-item', { bevel: .012 });
     if (i % 2 === 0) block(bundle, [.12, .1, .18], [.11, .05, .02], ITEM_TONES[(i + 1) % 3], 'putwall-item', { bevel: .01 });
   }

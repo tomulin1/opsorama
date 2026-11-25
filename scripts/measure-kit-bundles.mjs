@@ -55,9 +55,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * pointer guard in the renderer) grew every renderer entry by 3.3 KiB (gzip 1.3): the engine from 112.4 to 115.7, the
  * catalog from 370.4 to 373.8 and the largest kit (vehicles) from 178.5 to 181.8, so the engine budget was raised from 115
  * to 118, the catalog budget from 373 to 376 and the kit budget from 179 to 184, each about 2 above the new measurement.
+ * On November 25, 2026 the `goods` object (goods.ts: six real-size goods items, `goodsPart` and the `options.goods`
+ * validation, used by the store shelving, shopping cart, hand basket, put wall and tote) and the shared warehouse carton
+ * (`casePart` in shelves, flow racks and cages) grew the catalog to 378.0 KiB (gzip 130.3) and the largest kit entry, work
+ * items with furniture, to 183.9; the catalog budget was raised from 376 to 380 and the kit budget from 184 to 187, each
+ * about 2 above the new measurement.
  * Raise a budget only with a note that explains the growth.
  */
-const BUDGETS_KIB = { engine: 118, catalog: 376, kit: 184, handling: 30 };
+const BUDGETS_KIB = { engine: 118, catalog: 380, kit: 187, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));
