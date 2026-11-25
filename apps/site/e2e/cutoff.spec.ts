@@ -1,56 +1,65 @@
 import { ciScaled, expect, test } from './fixtures';
 
-test('Cut-off plays receiving, put-away, replenishing, restocking and shipping through menus, then reaches the report', async ({ page }) => {
+test('Cut-off commands the crew in three steps (actor, source, target) for every process, then reaches the report', async ({ page }) => {
   test.setTimeout(ciScaled(150000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('canvas')).toHaveCount(1);
   const summary = page.getByRole('region', { name: 'Shift summary', exact: true }), toolbar = page.getByRole('region', { name: 'Viewport controls', exact: true });
-  const message = summary.getByRole('status');
-  // The shift waits on its briefing; starting it runs the clock.
+  const message = summary.getByRole('status'), step = page.getByRole('status', { name: 'Giving a command' });
+  // One command: the actor's portrait, a source from its menu (or a panel button), then a target from the next menu.
+  const commandActor = async (actor: string) => {
+    await summary.getByRole('button', { name: new RegExp(`^${actor}:`) }).click();
+    await expect(page.getByRole('menu', { name: `Commands of ${actor}` })).toBeVisible();
+  };
+  const take = async (actor: string, source: RegExp) => page.getByRole('menu', { name: `Commands of ${actor}` }).getByRole('menuitem', { name: source }).first().click();
+  const bring = async (target: RegExp) => page.getByRole('menu', { name: /^Targets for / }).getByRole('menuitem', { name: target }).first().click();
+
+  // The shift waits on its briefing; commands work while the shift is paused, which keeps the software-rendered run ahead of
+  // SwiftPost's 11:30 cut-off.
   await expect(page.getByRole('region', { name: 'Shift briefing' })).toContainText('Peak');
-  await expect(page.getByRole('timer', { name: 'Shift clock' })).toHaveText('10:00');
   await page.getByRole('button', { name: 'Start shift', exact: true }).click();
-  // Commands work while the shift is paused; pausing keeps the software-rendered run ahead of SwiftPost's 11:30 cut-off.
   await toolbar.getByRole('button', { name: 'Pause shift', exact: true }).click();
 
-  // Receiving: the dock's menu commands the forklift, which unloads until the truck is empty.
-  await summary.getByRole('region', { name: 'Receiving', exact: true }).getByRole('button', { name: 'Dock D1', exact: true }).click();
-  await page.getByRole('menu', { name: 'Menu of Dock D1' }).getByRole('menuitem', { name: /Forklift: Unload the truck/ }).click();
+  // Receiving: the forklift takes the truck at D1 to the staging lane.
+  await commandActor('Forklift');
+  await expect(step).toContainText('click a lit object to take');
+  await take('Forklift', /^Dock D1/);
+  await bring(/Staging lane/);
   await expect(message).toHaveText('Forklift: Unload the truck at D1.');
-  await expect(page.getByRole('menu')).toHaveCount(0);
 
-  // Put-away: a staged pallet's menu opens its targets; "Choose in the scene…" lights them, Escape goes back to the list.
+  // Put-away: the reach truck takes a staged pallet from the panel; Escape goes back to its sources, then a target is picked.
+  await commandActor('Reach truck');
   await summary.getByRole('group', { name: 'Pallets in staging' }).getByRole('button').first().click();
-  await page.getByRole('menuitem', { name: /Reach truck: Put away/ }).click();
-  const targets = page.getByRole('menu', { name: /^Targets: Reach truck: Put away/ });
-  await targets.getByRole('menuitem', { name: /Choose in the scene/ }).click();
-  await expect(page.getByRole('status', { name: 'Choosing a target' })).toBeVisible();
+  await expect(page.getByRole('menu', { name: /^Targets for Pallet/ })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('status', { name: 'Choosing a target' })).toHaveCount(0);
-  await targets.getByRole('menuitem').first().click();
+  await expect(page.getByRole('menu', { name: 'Commands of Reach truck' })).toBeVisible();
+  await take('Reach truck', /staging/);
+  await bring(/level/);
   await expect(message).toContainText('Reach truck: Put pallet');
 
-  // Replenishing: the low pick face offers a reserve pallet for the reach truck and the decant, which waits for it.
-  const stock = summary.getByRole('region', { name: 'Stock', exact: true });
-  await stock.getByRole('button', { name: 'F3', exact: true }).click();
-  await page.getByRole('menu', { name: 'Menu of F3' }).getByRole('menuitem', { name: /Reach truck: Bring behind its pick face/ }).first().click();
+  // Replenishing: the reach truck brings a reserve pallet of the short SKU behind F3, and the replenisher fills F3 from it.
+  await take('Reach truck', /OUT-215 · rack/);
+  await bring(/Behind F3/);
   await expect(message).toContainText('Reach truck: Bring pallet');
-  await stock.getByRole('button', { name: 'F3', exact: true }).click();
-  await page.getByRole('menu', { name: 'Menu of F3' }).getByRole('menuitem', { name: /Replenisher: Fill the lanes/ }).click();
+  await commandActor('Replenisher');
+  await take('Replenisher', /F3 lanes/);
+  await bring(/F3 lanes/);
   await expect(message).toHaveText('Replenisher: Fill F3 from its pallet.');
 
-  // Restocking: the shelf filler takes cartons from the same face to Outdoor, the one department it supplies.
-  await stock.getByRole('button', { name: 'F3', exact: true }).click();
-  await page.getByRole('menu', { name: 'Menu of F3' }).getByRole('menuitem', { name: /Shelf filler: Restock the shop/ }).click();
+  // Restocking: the shelf filler takes cartons from F3 to Outdoor.
+  await commandActor('Shelf filler');
+  await take('Shelf filler', /F3 lanes/);
+  await bring(/Outdoor/);
   await expect(message).toHaveText('Shelf filler: Restock Outdoor.');
 
-  // Shipping: the dispatcher works by itself from its own menu, and the outbound dock's menu sends the SwiftPost truck.
-  await summary.getByRole('button', { name: /^Dispatch:/ }).click();
+  // Shipping: the dispatcher works by itself from its menu, and the panel sends the SwiftPost truck.
+  await commandActor('Dispatch');
   await page.getByRole('menu', { name: 'Commands of Dispatch' }).getByRole('menuitemcheckbox', { name: /Work by yourself/ }).click();
   await expect(message).toHaveText('Dispatch works by itself without a command.');
-  await summary.getByRole('region', { name: 'Shipping', exact: true }).getByRole('button', { name: 'At D3', exact: true }).click();
-  await page.getByRole('menu', { name: 'Menu of Dock D3' }).getByRole('menuitem', { name: /Send the SwiftPost truck now/ }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await summary.getByRole('region', { name: 'Shipping', exact: true }).getByRole('button', { name: 'Send the SwiftPost truck now', exact: true }).click();
   await expect(message).toHaveText('The SwiftPost truck leaves once no cage is on its way.');
 
   // The short pick of the peak opens over its pick face about 20 minutes into the shift.

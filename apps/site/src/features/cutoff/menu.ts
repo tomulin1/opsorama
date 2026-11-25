@@ -1,5 +1,5 @@
 import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_COLORS, GOODS_LABELS, LOCATIONS, SKUS, location, rackGoods, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
-import type { ActorRef, Move, MoveKind, MoveOption, MoveRefusal } from '../ecommerce/simulation';
+import type { Move, MoveOption, MoveRefusal } from '../ecommerce/simulation';
 import { QUEUE_LIMIT, type ActorChoices, type ActorView, type CarrierStatus, type ShiftEvent } from './rules';
 
 /** The color of each type of goods, shared with the e-commerce scene and the shop's goods. */
@@ -15,64 +15,89 @@ export function rackRoom(snapshot: EcommerceSnapshot): { goods: GoodsType; label
   });
 }
 
-/** What a menu entry does, by move kind. */
-const VERBS: Readonly<Record<MoveKind, string>> = {
-  unload: 'Unload the truck', 'put-away': 'Put away', replenish: 'Bring behind its pick face', clear: 'Take the empty pallet to the stack',
-  decant: 'Fill the lanes from the pallet', restock: 'Restock the shop', ship: 'Load onto the truck',
-};
-/** One line of a context menu: what one actor can do with the subject, with its targets best first and the refused ones. */
-export interface MenuEntry { key: string; actor: ActorRef; kind: MoveKind; label: string; options: readonly MoveOption[]; refused: readonly MoveRefusal[]; }
-
-/**
- * The entries of a material's context menu: one per actor and kind of move. With an active actor that can do something with
- * the subject, only its entries; otherwise every actor's, each named by its actor.
- */
-export function menuEntries(choices: readonly ActorChoices[], active?: string | null): MenuEntry[] {
-  const entries: MenuEntry[] = [];
-  for (const choice of choices) {
-    const kinds = [...new Set([...choice.options.map(option => option.move.kind), ...choice.refused.map(item => item.kind)])];
-    for (const kind of kinds) entries.push({
-      key: `${choice.actor.id}:${kind}`, actor: choice.actor, kind, label: VERBS[kind],
-      options: choice.options.filter(option => option.move.kind === kind), refused: choice.refused.filter(item => item.kind === kind),
-    });
-  }
-  const own = active ? entries.filter(entry => entry.actor.id === active) : [];
-  return own.length ? own : entries;
-}
-/** Reserve pallets a pick face's menu offers to bring, at most. */
-const FACE_PALLETS = 3;
-/** The subjects whose moves a node's menu lists: the node, the pallets in a rack, or a pick face and reserve pallets of its SKUs. */
-export function menuSubjects(node: string, snapshot: EcommerceSnapshot): string[] {
-  const [prefix, name] = node.split(':');
-  if (prefix === 'rack') return snapshot.units.filter(unit => unit.at === `Rack ${name}` && unit.sku).map(unit => unit.id);
-  if (prefix === 'flow' || prefix === 'shelf') return [node, ...snapshot.units.filter(unit => unit.at.startsWith('Rack ') && unit.sku && SKUS[unit.sku].pick === name).slice(0, FACE_PALLETS).map(unit => unit.id)];
-  return [node];
-}
-/**
- * The entries of a node's menu with the subject each belongs to. The node lists all its entries; the reserve pallets a rack
- * or pick face adds list only bringing them to their pick face, because a pallet already on its way to a face would repeat
- * the face's own decant, clear and restock.
- */
-export function nodeEntries(node: string, snapshot: EcommerceSnapshot, options: (subject: string) => readonly ActorChoices[], active?: string | null): { subject: string; entry: MenuEntry }[] {
-  return menuSubjects(node, snapshot).flatMap(subject => menuEntries(options(subject), active).filter(entry => subject === node || entry.kind === 'replenish').map(entry => ({ subject, entry })));
-}
-/** Whether an entry needs a target submenu: more than one target, or targets that may not be used and should be explained. */
-export const needsTargets = (entry: MenuEntry) => entry.options.length !== 1 || entry.refused.length > 0;
-
 /** The scene node of a pick face. */
 export const faceNode = (face: LocationId) => `${location(face).kind === 'shelf' ? 'shelf' : 'flow'}:${face}`;
-/** The scene nodes a move takes its material to, which "Choose in the scene…" lights up; empty when the target is implied. */
-export function targetNodes(move: Move): string[] {
+/** The lit point for the staging lane, which has no scene node of its own: the target of unloading. */
+export const STAGING_TARGET = 'staging';
+
+/**
+ * Something one of the crew can take, lit after a click on that actor: a dock with a truck to unload, a pallet, a pick face or a
+ * roll cage, with the moves the actor can make with it (targets best first) and the targets it may not use.
+ */
+export interface Source { node: string; label: string; options: readonly MoveOption[]; refused: readonly MoveRefusal[]; }
+
+const palletNumber = (id: string) => id.split(':')[1];
+/** A short name for a source in the actor's menu, e.g. "Pallet 1038 · TOY-208 · staging". */
+function sourceLabel(node: string, snapshot: EcommerceSnapshot, options: readonly MoveOption[]): string {
+  const [prefix, name] = node.split(':');
+  if (prefix === 'dock') { const dock = snapshot.docks.find(item => item.id === name); return `Dock ${name}${dock?.pallets ? ` · ${dock.pallets.total - dock.pallets.done} pallets left` : ''}`; }
+  if (prefix === 'cage') return `Roll cage ${name}`;
+  if (prefix === 'pallet') {
+    const unit = snapshot.units.find(item => item.id === node), kind = options[0]?.move.kind;
+    const where = kind === 'put-away' ? 'staging' : kind === 'replenish' ? unit?.at.replace('Rack ', 'rack ') : kind === 'clear' ? 'empty, behind its face' : 'behind its face';
+    return `Pallet ${palletNumber(node)}${unit?.sku ? ` · ${unit.sku}` : ''} · ${where}`;
+  }
+  return `${name} lanes`;
+}
+
+/**
+ * What one of the crew can take now: every subject (inbound docks, pallets, pick faces, roll
+ * cages) with at least one possible move for the actor, including moves that would wait. A move that two subjects offer (a
+ * decant from the pallet behind a face and from the face) appears once, under the first, and material with a queued command
+ * of the same kind (`queued`) is left out. The shelf filler takes from pick faces, so for it faces come before pallets.
+ */
+/** What a move takes, whatever its target: the same kind from the same truck, pallet, face, department or cage. */
+const takes = (move: Move) => {
   switch (move.kind) {
+    case 'unload': return `unload:${move.dock}`;
+    case 'put-away': case 'replenish': return `${move.kind}:${move.pallet}`;
+    case 'clear': case 'decant': return `${move.kind}:${move.face}`;
+    case 'restock': return `restock:${move.department}:${move.source}`;
+    case 'ship': return `ship:${move.cage}`;
+  }
+};
+export function actorSources(actor: string, snapshot: EcommerceSnapshot, options: (subject: string, actor: string) => readonly ActorChoices[], queued: readonly Move[] = []): Source[] {
+  const docks = snapshot.docks.filter(dock => dock.direction === 'inbound').map(dock => `dock:${dock.id}`);
+  const pallets = snapshot.units.filter(unit => unit.kind === 'pallet').map(unit => unit.id);
+  const faces = LOCATIONS.filter(item => item.kind !== 'rack').map(item => faceNode(item.id));
+  const cages = CARRIERS.flatMap(item => item.cages).map(cage => `cage:${cage}`);
+  const subjects = actor === 'shelf-filler' ? [...faces, ...pallets] : [...docks, ...pallets, ...faces, ...cages];
+  // Material that already has a command of the same kind (in any queue) is not offered again.
+  const busy = new Set(queued.map(takes)), seen = new Set<string>(), sources: Source[] = [];
+  for (const node of subjects) {
+    const [choice] = options(node, actor);
+    const fresh = choice?.options.filter(option => !seen.has(JSON.stringify(option.move)) && !busy.has(takes(option.move))) ?? [];
+    if (!fresh.length) continue;
+    for (const option of fresh) seen.add(JSON.stringify(option.move));
+    sources.push({ node, label: sourceLabel(node, snapshot, fresh), options: fresh, refused: choice!.refused });
+  }
+  // The menu lists the most useful first (the scene lights them all): pallets to put away, then reserve pallets of SKUs below
+  // their minimum on the pick face, then the rest in scene order.
+  const low = new Set(snapshot.alerts.map(alert => alert.sku));
+  const rank = (source: Source) => {
+    const move = source.options[0].move;
+    if (move.kind === 'put-away') return 0;
+    if (move.kind === 'replenish') return low.has(snapshot.units.find(unit => unit.id === move.pallet)?.sku ?? '') ? 1 : 2;
+    return 2;
+  };
+  return sources.map((source, index) => ({ source, index })).sort((a, b) => rank(a.source) - rank(b.source) || a.index - b.index).map(item => item.source);
+}
+
+/**
+ * The scene nodes a move takes its material to, lit once its source is chosen: a rack, the staging lane, the pick face behind
+ * which a pallet goes, the pick face whose lanes fill, the empty-pallet stack, a department's gondolas or the outbound dock.
+ */
+export function targetNodes(move: Move, snapshot?: EcommerceSnapshot): string[] {
+  switch (move.kind) {
+    case 'unload': return [STAGING_TARGET];
     case 'put-away': return [`rack:${move.rack}`];
+    case 'replenish': { const sku = snapshot?.units.find(unit => unit.id === move.pallet)?.sku; return sku ? [faceNode(SKUS[sku].pick)] : []; }
+    case 'clear': return ['pallet-stack'];
+    case 'decant': return [faceNode(move.face)];
     case 'restock': return Array.from({ length: DEPARTMENTS.find(item => item.id === move.department)!.gondolas }, (_, i) => `gondola:${move.department}:${i}`);
-    case 'clear': case 'decant': return [faceNode(move.face)];
     case 'ship': return ['dock:D3'];
-    default: return [];
   }
 }
-/** Whether "Choose in the scene…" helps: at least two targets that stand in the scene. */
-export const choosesInScene = (entry: MenuEntry) => new Set(entry.options.flatMap(option => targetNodes(option.move))).size > 1;
 
 /** The name a refusal's target starts with for a scene node: the rack ID or the department. */
 function targetName(nodeId: string): string | undefined {
@@ -83,26 +108,30 @@ function targetName(nodeId: string): string | undefined {
 }
 /** The nodes a click stands for: the node, its containers and, for a pallet in a rack, the rack. A light marker stands for its node. */
 export function clickedNodes(nodeId: string, ancestors: readonly string[], snapshot: EcommerceSnapshot): string[] {
-  const id = nodeId.startsWith('target:') ? nodeId.slice('target:'.length) : nodeId, rack = snapshot.units.find(unit => unit.id === id)?.at.match(/^Rack (R\d+)$/)?.[1];
+  const id = nodeId.replace(/^(target|source):/, ''), rack = snapshot.units.find(unit => unit.id === id)?.at.match(/^Rack (R\d+)$/)?.[1];
   return [id, ...ancestors, ...(rack ? [`rack:${rack}`] : [])];
 }
-/** What a click on scene nodes means while choosing a target in the scene: a move to confirm, a refused target, or nothing. */
-export function pickTarget(entry: MenuEntry, nodes: readonly string[]): { option: MoveOption; node: string } | { refused: MoveRefusal } | undefined {
+/** What a click on scene nodes means once a source is chosen: a move to queue, a refused target with its reason, or nothing. */
+export function pickTarget(source: Pick<Source, 'options' | 'refused'>, nodes: readonly string[], snapshot?: EcommerceSnapshot): { option: MoveOption; node: string } | { refused: MoveRefusal } | undefined {
   for (const node of nodes) {
-    const option = entry.options.find(item => targetNodes(item.move).includes(node));
+    const option = source.options.find(item => targetNodes(item.move, snapshot).includes(node));
     if (option) return { option, node };
   }
   for (const node of nodes) {
-    const name = targetName(node), refused = name ? entry.refused.find(item => item.target.split(' · ')[0] === name) : undefined;
+    const name = targetName(node), refused = name ? source.refused.find(item => item.target.split(' · ')[0] === name) : undefined;
     if (refused) return { refused };
   }
   return undefined;
 }
-/** Light markers for "Choose in the scene…": one per node that takes a valid target, with the target's name. */
-export function targetMarks(entry: MenuEntry): { nodeId: string; label: string }[] {
+/** A lit point: a source the actor can take or a target for the chosen source, over its node (or the staging lane). */
+export interface LitMark { key: string; kind: 'source' | 'target'; label: string; }
+/** Light marks for the sources of an actor. */
+export const sourceMarks = (sources: readonly Source[]): LitMark[] => sources.map(source => ({ key: source.node, kind: 'source', label: source.label }));
+/** Light marks for the targets of a chosen source: one per node that takes a valid target, with the target's name. */
+export function targetMarks(source: Pick<Source, 'options'>, snapshot?: EcommerceSnapshot): LitMark[] {
   const marks = new Map<string, string>();
-  for (const option of entry.options) for (const node of targetNodes(option.move)) if (!marks.has(node)) marks.set(node, option.target);
-  return [...marks].map(([nodeId, label]) => ({ nodeId, label }));
+  for (const option of source.options) for (const node of targetNodes(option.move, snapshot)) if (!marks.has(node)) marks.set(node, option.target);
+  return [...marks].map(([key, label]) => ({ key, kind: 'target', label }));
 }
 
 /** The scene node an event concerns, for its menu and its marker. */
