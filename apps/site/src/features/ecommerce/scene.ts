@@ -33,8 +33,8 @@ export const FEMININE = { options: { person: { figure: 'feminine' } } } as const
 export const RACK_PLACES: Readonly<Record<string, { position: Vec3; aisle: number }>> = Object.fromEntries(LOCATIONS.filter(item => item.kind === 'rack').map((item, i) => [item.id, i < 7 ? { position: p(-6.3 + i * 2.95, -12.25), aisle: -9.6 } : { position: p(-6.3 + (i - 7) * 2.95, -19.65), aisle: -17 }]));
 const AISLE_Z = -9.6, DEEP_AISLE_Z = -17, BACK_WALL_Z = -21;
 const PICK_Z = -3.7, AISLE_RETURN_Z = -8.2, PICK_LINE_Z = -2.25, PICK_RETURN_Z = -1.3, INDUCT_X = 8.9, INDUCT_Z = -2.85;
-/** Six carton flow racks, one pick face per type of goods. */
-const PICK_FACES: Readonly<Record<string, { x: number }>> = { F1: { x: -6.4 }, F2: { x: -4.2 }, F3: { x: -2 }, F4: { x: .2 }, S1: { x: 3 }, S2: { x: 6.2 } };
+/** Six carton flow racks in one row 2.2 m apart, one pick face per type of goods; the free floor is east of S2. */
+const PICK_FACES: Readonly<Record<string, { x: number }>> = { F1: { x: -6.4 }, F2: { x: -4.2 }, F3: { x: -2 }, F4: { x: .2 }, S1: { x: 2.4 }, S2: { x: 4.6 } };
 export const DOCK_Z: Readonly<Record<DockId, number>> = { D1: -11.2, D2: -7.4, D3: 2.6 };
 const DOCK_X = 22.6;
 /** The building's edge at the docks, where the dock base ends and the apron drops away. */
