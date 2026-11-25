@@ -17,13 +17,14 @@ import { validationArticle } from './validation-content';
 import { cameraArticle } from './camera-content';
 import { engineHooksArticle } from './engine-hooks-content';
 import { nodeHtmlArticle } from './node-html-content';
+import { actionRingArticle } from './action-ring-content';
 import { primitivesArticle } from './primitives-content';
 import { cliArticle } from './cli-content';
 import { modelsArticle } from './models-content';
 import { lightingArticle } from './lighting-content';
 import { gameArticle } from './game-content';
 /** Live sample rendered at the end of a section. */
-export type DocDemo = 'metric-configurator' | 'metric-matrix' | 'metric-tones' | 'panel-states' | 'hud-composition' | 'panel-adapters';
+export type DocDemo = 'metric-configurator' | 'metric-matrix' | 'metric-tones' | 'panel-states' | 'hud-composition' | 'panel-adapters' | 'action-ring';
 export interface DocSection { id: string; title: string; paragraphs?: string[]; code?: string; language?: string; rows?: string[][]; headers?: string[]; list?: string[]; demo?: DocDemo; }
 export interface DocArticle { slug: string; title: string; description: string; category: string; sections: DocSection[]; playground?: boolean; }
 const section = (id: string, title: string, paragraphs: string[], extra: Partial<DocSection> = {}): DocSection => ({ id, title, paragraphs, ...extra });
@@ -47,6 +48,7 @@ export const componentReferences = [
 const quickstart = `import { createSceneStore } from '@opsorama/core';\nimport { DashboardProvider, SceneCanvas, Ground, Zone, Asset }\n  from '@opsorama/react';\nimport { catalogAssets } from '@opsorama/objects';\n\nconst store = createSceneStore();\n\nexport function MyDashboard() {\n  return (\n    <DashboardProvider store={store}>\n      <SceneCanvas assets={catalogAssets} style={{ height: 420 }}>\n        <Ground id="floor" size={[20, 12]} />\n        <Zone id="packing" size={[7, 7]} color="#e4ecff" />\n        <Asset id="order-1" entityId="1" asset="parcel"\n          label="#1" position={[0, 0.08, 1]} />\n      </SceneCanvas>\n    </DashboardProvider>\n  );\n}`;
 export const docs: DocArticle[] = [
   panelArticle,
+  actionRingArticle,
   zoomControlArticle,
   markerArticle,
   validationArticle,

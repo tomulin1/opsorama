@@ -128,3 +128,34 @@ button.dp-item:disabled { cursor: default; opacity: .6; }
 :where(.zc-control[data-orientation="vertical"]) .zc-slider { width: auto; height: var(--zoom-slider-size, 120px); margin: 4px 0; writing-mode: vertical-lr; direction: rtl; }
 @media (max-width: 540px) { .dp-process[data-orientation="horizontal"] { flex-direction: column; } .dp-process[data-orientation="horizontal"] .dp-item { flex-direction: row; align-items: center; } .dp-field { flex-wrap: wrap; } }
 @media (pointer: coarse) { button.dp-item { min-height: 44px; } :where(.zc-control) .zc-button { min-width: 44px; min-height: 44px; } }
+/* Action ring: command pills in an arc over a name pill, for the selected object in a scene. Selectors carry two classes so
+   that a host's own button styles do not override the pills. */
+.dp-ring {
+  --dp-ring-surface: var(--ring-surface, #1f2d45); --dp-ring-text: var(--ring-text, #fff);
+  display: inline-flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 6px;
+  font-family: var(--panel-font, inherit); font-size: var(--ring-font-size, 13px); line-height: 1.2; pointer-events: none;
+}
+.dp-ring *, .dp-ring *::before, .dp-ring *::after { box-sizing: border-box; }
+.dp-ring .dp-ring-actions { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+.dp-ring .dp-ring-action, .dp-ring .dp-ring-title {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0; white-space: nowrap; pointer-events: auto;
+  color: var(--dp-ring-text); background: var(--dp-ring-surface); border: 2px solid var(--dp-tone, var(--panel-accent, #3768ef));
+  border-radius: 999px; box-shadow: 0 4px 14px #0f1b2d33; font: inherit; font-weight: 650; text-transform: none; letter-spacing: normal;
+}
+.dp-ring .dp-ring-action { padding: 4px 13px 4px 4px; transform: translateY(calc(-1 * var(--dp-ring-lift, 0px))); cursor: pointer; transition: background .12s; }
+.dp-ring .dp-ring-action:not(:has(.dp-ring-icon)) { padding-inline-start: 13px; }
+.dp-ring .dp-ring-action[data-icon-only] { padding: 3px; }
+.dp-ring .dp-ring-action:hover:not(:disabled), .dp-ring .dp-ring-action[aria-pressed="true"] { background: color-mix(in srgb, var(--dp-tone, #3768ef) 38%, var(--dp-ring-surface)); }
+.dp-ring .dp-ring-action:focus-visible { outline: 2px solid var(--dp-ring-text); outline-offset: 2px; }
+.dp-ring .dp-ring-action:disabled { opacity: .55; cursor: default; }
+.dp-ring .dp-ring-title { padding: 6px 15px; font-size: 1.08em; cursor: default; }
+.dp-ring .dp-ring-label { color: inherit; }
+.dp-ring .dp-ring-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; background: var(--dp-tone, var(--panel-accent, #3768ef)); flex: none; }
+.dp-ring .dp-ring-icon svg { width: 15px; height: 15px; }
+.dp-ring .dp-ring-title .dp-ring-icon { width: 20px; height: 20px; margin-inline-start: -7px; }
+:is(.dp-ring, .dp-ring-action)[data-tone="neutral"] { --dp-tone: var(--ring-neutral, var(--panel-muted, #8090a6)); }
+:is(.dp-ring, .dp-ring-action)[data-tone="info"] { --dp-tone: var(--ring-info, var(--panel-accent, #3768ef)); }
+:is(.dp-ring, .dp-ring-action)[data-tone="success"] { --dp-tone: var(--ring-success, var(--panel-success, #1f9d63)); }
+:is(.dp-ring, .dp-ring-action)[data-tone="warning"] { --dp-tone: var(--ring-warning, var(--panel-warning, #e3a12f)); }
+:is(.dp-ring, .dp-ring-action)[data-tone="critical"] { --dp-tone: var(--ring-critical, var(--panel-critical, #d04459)); }
+@media (pointer: coarse) { .dp-ring .dp-ring-action { min-height: 44px; min-width: 44px; } }
