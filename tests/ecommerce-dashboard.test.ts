@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { AssetNode, GroundNode, SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { TRUCK, catalogAssets } from '@opsorama/objects';
-import { AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, LOCATIONS, SCENARIOS, SKUS, cageCounts, cutoffRisk, ecommerceMetrics, orderArea, ordersIn, shoppers, stagedFor, type EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
+import { AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, LOCATIONS, departmentCapacity, SCENARIOS, SKUS, cageCounts, cutoffRisk, ecommerceMetrics, orderArea, ordersIn, shoppers, stagedFor, type EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
 import { APRON_Y, DOCK_Z, FLOOR_Y, ROAD_Z, SITE_EAST_X, SITE_WEST_X, TRUCK_X, YARD_X, ecommerceBase, ecommerceNodes, orderNodeId, warehouseNavigation } from '../apps/site/src/features/ecommerce/scene';
 import { createEcommerceSimulation, createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
 
@@ -92,7 +92,8 @@ describe('e-commerce dashboard model', () => {
       expect(new Set(snapshot.orders.map(order => order.id)).size, scenario).toBe(snapshot.orders.length);
       for (const order of snapshot.orders) for (const line of order.lines) { expect(SKUS[line.sku], `${order.id} ${line.sku}`).toBeDefined(); expect(line.picked).toBeLessThanOrEqual(line.quantity); }
       for (const value of LOCATIONS) { expect(snapshot.occupancy[value.id]).toBeGreaterThanOrEqual(0); expect(snapshot.occupancy[value.id]).toBeLessThanOrEqual(value.capacity); }
-      for (const value of DEPARTMENTS) expect(snapshot.shop.facings[value.id]).toBeLessThanOrEqual(48);
+      expect(Object.keys(snapshot.shop.facings).sort(), scenario).toEqual(DEPARTMENTS.map(item => item.id).sort());
+      for (const value of DEPARTMENTS) expect(snapshot.shop.facings[value.id]).toBeLessThanOrEqual(departmentCapacity(value.id));
     }
   });
 

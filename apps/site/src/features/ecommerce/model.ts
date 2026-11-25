@@ -17,7 +17,8 @@ export type LocationId = 'R01' | 'R02' | 'R03' | 'R04' | 'R05' | 'R06' | 'R07' |
 export type PackStationId = 'K1' | 'K2' | 'K3';
 export type PutWallId = 'P1' | 'P2';
 export type CheckoutId = 'C1' | 'C2' | 'C3';
-export type DepartmentId = 'garden' | 'bath' | 'party' | 'audio' | 'kitchen' | 'home' | 'outdoor' | 'toys' | 'tech' | 'gifts';
+/** The shop's departments are the six types of goods; see `GoodsType`. */
+export type DepartmentId = 'kitchen' | 'home' | 'outdoor' | 'toys' | 'tech' | 'sport';
 
 /** Floor rectangle in metres: [west x, east x, back z, front z]. */
 export type Rect = readonly [number, number, number, number];
@@ -60,7 +61,7 @@ export const CAGE_CAPACITY = 12, PUT_WALL_CAPACITY = 20, COLLECT_CAPACITY = 8, L
 /** Orders whose carrier cut-off is closer than this, and which are not yet staged, are at risk. */
 export const CUTOFF_RISK_MINUTES = 60;
 
-const RESERVE_FAMILIES = ['Kitchen reserve', 'Kitchen reserve', 'Home reserve', 'Outdoor reserve', 'Toys reserve', 'Tech reserve', 'Bulky & overflow'] as const;
+const RESERVE_FAMILIES = ['Kitchen reserve', 'Kitchen reserve', 'Home reserve', 'Outdoor reserve', 'Toys reserve', 'Tech reserve', 'Sport reserve'] as const;
 export interface LocationLayout { id: LocationId; kind: 'rack' | 'flow' | 'shelf'; family: string; capacity: number; }
 export const LOCATIONS: readonly LocationLayout[] = [
   { id: 'R01', kind: 'rack', family: 'Kitchen reserve', capacity: 6 },
@@ -69,7 +70,7 @@ export const LOCATIONS: readonly LocationLayout[] = [
   { id: 'R04', kind: 'rack', family: 'Outdoor reserve', capacity: 6 },
   { id: 'R05', kind: 'rack', family: 'Toys reserve', capacity: 6 },
   { id: 'R06', kind: 'rack', family: 'Tech reserve', capacity: 6 },
-  { id: 'R07', kind: 'rack', family: 'Bulky & overflow', capacity: 6 },
+  { id: 'R07', kind: 'rack', family: 'Sport reserve', capacity: 6 },
   // The back row repeats the seven reserve families of the front row, bay by bay.
   ...(['R08', 'R09', 'R10', 'R11', 'R12', 'R13', 'R14'] as const).map((id, i): LocationLayout => ({ id, kind: 'rack', family: `${RESERVE_FAMILIES[i]} · back row`, capacity: 6 })),
   { id: 'F1', kind: 'flow', family: 'Kitchen', capacity: 12 },
@@ -77,7 +78,7 @@ export const LOCATIONS: readonly LocationLayout[] = [
   { id: 'F3', kind: 'flow', family: 'Outdoor', capacity: 12 },
   { id: 'F4', kind: 'flow', family: 'Toys', capacity: 12 },
   { id: 'S1', kind: 'shelf', family: 'Tech accessories', capacity: 12 },
-  { id: 'S2', kind: 'shelf', family: 'Gifts & bulky', capacity: 12 },
+  { id: 'S2', kind: 'shelf', family: 'Sport', capacity: 12 },
 ];
 export const LOCATION_UNITS: Readonly<Record<LocationLayout['kind'], string>> = { rack: 'pallet positions', flow: 'lanes', shelf: 'bins' };
 export const location = (id: LocationId) => LOCATIONS.find(item => item.id === id)!;
@@ -95,27 +96,34 @@ export const SKUS: Readonly<Record<string, { name: string; pick: LocationId; res
   'TOY-208': { name: 'Puzzle, 1000 pieces', pick: 'F4', reserve: 'R05' },
   'TEC-301': { name: 'Wireless speaker', pick: 'S1', reserve: 'R06' },
   'TEC-415': { name: 'USB-C charger', pick: 'S1', reserve: 'R06' },
-  'GFT-510': { name: 'Gift box', pick: 'S2', reserve: 'R07' },
-  'GFT-602': { name: 'Floor cushion', pick: 'S2', reserve: 'R07' },
+  'SPO-510': { name: 'Basketball', pick: 'S2', reserve: 'R07' },
+  'SPO-602': { name: 'Yoga mat', pick: 'S2', reserve: 'R07' },
 };
 
-/** Types of goods. Each front-row rack and the back-row rack behind it hold one type; Bulky racks also take overflow. */
-export type GoodsType = 'kitchen' | 'home' | 'outdoor' | 'toys' | 'tech' | 'bulky';
-export const GOODS_LABELS: Readonly<Record<GoodsType, string>> = { kitchen: 'Kitchen', home: 'Home', outdoor: 'Outdoor', toys: 'Toys', tech: 'Tech', bulky: 'Bulky' };
-const RESERVE_GOODS: readonly GoodsType[] = ['kitchen', 'kitchen', 'home', 'outdoor', 'toys', 'tech', 'bulky'];
+/**
+ * The six types of goods the business sells. Each front-row rack and the back-row rack behind it hold one type, and each is a
+ * shop department; they match the `goods` catalog object (`GOODS_KINDS`), whose iconic item fills the department's gondolas.
+ */
+export type GoodsType = DepartmentId;
+export const GOODS_LABELS: Readonly<Record<GoodsType, string>> = { kitchen: 'Kitchen', home: 'Home', outdoor: 'Outdoor', toys: 'Toys', tech: 'Tech', sport: 'Sport' };
+const RESERVE_GOODS: readonly GoodsType[] = ['kitchen', 'kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'];
 /** The type of goods a reserve rack holds: R01, R02, R08 and R09 hold Kitchen. */
 export const rackGoods = (id: LocationId): GoodsType => RESERVE_GOODS[(Number(id.slice(1)) - 1) % 7];
 /** The type of goods of a SKU, from its reserve rack. */
 export const skuGoods = (sku: string): GoodsType => rackGoods(SKUS[sku].reserve);
 
-/** Gondola rows run from the back of the shop to the front, two departments per row. */
-export const DEPARTMENTS: readonly { id: DepartmentId; label: string }[] = [
-  { id: 'garden', label: 'Garden' }, { id: 'bath', label: 'Bath' }, { id: 'party', label: 'Party' }, { id: 'audio', label: 'Audio' },
-  { id: 'kitchen', label: 'Kitchen' }, { id: 'home', label: 'Home' }, { id: 'outdoor', label: 'Outdoor' },
-  { id: 'toys', label: 'Toys' }, { id: 'tech', label: 'Tech' }, { id: 'gifts', label: 'Gifts' },
+/**
+ * The shop's departments, one per type of goods, and their gondolas. They fill the shop's twenty gondolas from the back row
+ * to the front: Kitchen, Home, Outdoor and Toys take a row of four each, Tech and Sport share the front row.
+ */
+export const DEPARTMENTS: readonly { id: DepartmentId; label: string; gondolas: number }[] = [
+  { id: 'kitchen', label: 'Kitchen', gondolas: 4 }, { id: 'home', label: 'Home', gondolas: 4 }, { id: 'outdoor', label: 'Outdoor', gondolas: 4 },
+  { id: 'toys', label: 'Toys', gondolas: 4 }, { id: 'tech', label: 'Tech', gondolas: 2 }, { id: 'sport', label: 'Sport', gondolas: 2 },
 ];
-/** Each department has two gondolas; a gondola shows at most this many stocked facings. */
+/** A gondola shows at most this many stocked facings. */
 export const FACINGS_PER_GONDOLA = 24;
+/** The facings a department's gondolas hold together. */
+export const departmentCapacity = (id: DepartmentId) => DEPARTMENTS.find(item => item.id === id)!.gondolas * FACINGS_PER_GONDOLA;
 
 export interface OrderLine { sku: string; quantity: number; picked: number; }
 export interface Order {
@@ -189,13 +197,13 @@ export const SCENARIOS: Readonly<Record<EcommerceScenario, EcommerceSnapshot>> =
       order('#50426', 'B. Mensah', 'marketplace', 'picking', '10:14', 148, [line('TEC-301', 1, 1), line('TEC-415', 1, 0)], { carrier: 'parcelo' }),
       order('#50412', 'C. Dubois', 'web', 'sorting', '09:41', 72, [line('HOM-118', 1), line('KIT-104', 1)], { at: 'P1' }),
       order('#50414', 'Y. Kim', 'web', 'sorting', '09:47', 45, [line('TOY-208', 1)], { at: 'P1', carrier: 'parcelo' }),
-      order('#50416', 'F. Ortega', 'marketplace', 'sorting', '09:50', 133, [line('OUT-142', 2), line('GFT-510', 1)], { at: 'P2', carrier: 'parcelo' }),
+      order('#50416', 'F. Ortega', 'marketplace', 'sorting', '09:50', 133, [line('OUT-142', 2), line('SPO-510', 1)], { at: 'P2', carrier: 'parcelo' }),
       order('#50405', 'W. Becker', 'web', 'packing', '09:22', 98, [line('TEC-301', 1)], { at: 'K1' }),
-      order('#50407', 'O. Nilsen', 'web', 'packing', '09:26', 54, [line('KIT-221', 1), line('GFT-510', 1)], { at: 'K2', carrier: 'parcelo' }),
+      order('#50407', 'O. Nilsen', 'web', 'packing', '09:26', 54, [line('KIT-221', 1), line('SPO-510', 1)], { at: 'K2', carrier: 'parcelo' }),
       order('#50409', 'U. Ivanova', 'click-collect', 'packing', '09:31', 77, [line('HOM-330', 1)], { at: 'K3' }),
       ...staged(50360, 9, 'swift', CUSTOMERS, 'KIT-104'),
       ...staged(50380, 6, 'parcelo', CUSTOMERS.slice(4), 'HOM-118'),
-      order('#50301', 'Atelier Nord (B2B)', 'web', 'staged', '08:05', 1840, [line('GFT-602', 40)], { carrier: 'freight', at: 'wrapper' }),
+      order('#50301', 'Atelier Nord (B2B)', 'web', 'staged', '08:05', 1840, [line('SPO-602', 40)], { carrier: 'freight', at: 'wrapper' }),
       order('#50388', 'L. Moreau', 'click-collect', 'collect', '08:12', 45, [line('TOY-120', 1)]),
       order('#50391', 'J. Petrov', 'click-collect', 'collect', '08:20', 129, [line('TEC-301', 1), line('TEC-415', 1)]),
       order('#50395', 'A. Okafor', 'click-collect', 'collect', '08:34', 62, [line('HOM-118', 1)]),
@@ -216,7 +224,7 @@ export const SCENARIOS: Readonly<Record<EcommerceScenario, EcommerceSnapshot>> =
     crew: { receiving: 2, storage: 1, replenishing: 1, picking: 3, sorting: 2, packing: 3, dispatch: 1, shelving: 1, returns: 1 },
     robots: 2, emptyPallets: 8, units: [], tasks: [],
     returns: { awaiting: 6, held: 2, inspected: 14 },
-    shop: { browsing: 9, checkouts: [{ id: 'C1', open: true, queue: 2, cashier: 'Mira' }, { id: 'C2', open: true, queue: 3, cashier: 'Jonas' }, { id: 'C3', open: false, queue: 0 }], collectWaiting: 1, lockers: 11, sales: 8940, facings: { garden: 36, bath: 38, party: 33, audio: 41, kitchen: 40, home: 44, outdoor: 19, toys: 31, tech: 42, gifts: 37 } },
+    shop: { browsing: 9, checkouts: [{ id: 'C1', open: true, queue: 2, cashier: 'Mira' }, { id: 'C2', open: true, queue: 3, cashier: 'Jonas' }, { id: 'C3', open: false, queue: 0 }], collectWaiting: 1, lockers: 11, sales: 8940, facings: { kitchen: 76, home: 82, outdoor: 38, toys: 62, tech: 42, sport: 37 } },
     events: [
       { id: 'e6', time: '10:38', text: 'SwiftPost trailer docked at D3; loading started.', tone: 'info' },
       { id: 'e5', time: '10:35', text: 'F3 lane empty for OUT-215 Insulated bottle; replenishment from R04 started.', tone: 'critical' },
@@ -230,7 +238,7 @@ export const SCENARIOS: Readonly<Record<EcommerceScenario, EcommerceSnapshot>> =
     scenario: 'steady', day: 'Wednesday', time: '14:40', shopOpen: true, ordersToday: 161, shippedToday: 139,
     orders: [
       order('#51208', 'E. Novak', 'web', 'released', '14:32', 44, [line('KIT-221', 1, 0)], { carrier: 'parcelo' }),
-      order('#51203', 'S. Haddad', 'marketplace', 'picking', '14:21', 92, [line('HOM-118', 1, 1), line('GFT-510', 1, 0)], { carrier: 'parcelo' }),
+      order('#51203', 'S. Haddad', 'marketplace', 'picking', '14:21', 92, [line('HOM-118', 1, 1), line('SPO-510', 1, 0)], { carrier: 'parcelo' }),
       order('#51199', 'K. Tanaka', 'click-collect', 'sorting', '14:48', 57, [line('TOY-208', 1)], { at: 'P1' }),
       order('#51195', 'T. Brennan', 'web', 'packing', '14:36', 120, [line('TEC-301', 1)], { at: 'K2', carrier: 'parcelo' }),
       ...staged(51150, 11, 'parcelo', CUSTOMERS, 'HOM-330'),
@@ -248,7 +256,7 @@ export const SCENARIOS: Readonly<Record<EcommerceScenario, EcommerceSnapshot>> =
     crew: { receiving: 0, storage: 1, replenishing: 1, picking: 1, sorting: 1, packing: 1, dispatch: 1, shelving: 1, returns: 1 },
     robots: 1, emptyPallets: 6, units: [], tasks: [],
     returns: { awaiting: 3, held: 1, inspected: 22 },
-    shop: { browsing: 5, checkouts: [{ id: 'C1', open: true, queue: 1, cashier: 'Mira' }, { id: 'C2', open: false, queue: 0 }, { id: 'C3', open: true, queue: 0, cashier: 'Ada' }], collectWaiting: 0, lockers: 7, sales: 14320, facings: { garden: 40, bath: 37, party: 39, audio: 36, kitchen: 38, home: 41, outdoor: 40, toys: 36, tech: 39, gifts: 35 } },
+    shop: { browsing: 5, checkouts: [{ id: 'C1', open: true, queue: 1, cashier: 'Mira' }, { id: 'C2', open: false, queue: 0 }, { id: 'C3', open: true, queue: 0, cashier: 'Ada' }], collectWaiting: 0, lockers: 7, sales: 14320, facings: { kitchen: 76, home: 80, outdoor: 78, toys: 72, tech: 39, sport: 35 } },
     events: [
       { id: 'e4', time: '14:25', text: 'Parcelo van arrived in the yard for the 16:00 collection.', tone: 'info' },
       { id: 'e3', time: '13:10', text: 'PO-7782 received at D2; TOY-120 restocked.', tone: 'success' },
@@ -274,7 +282,7 @@ export const SCENARIOS: Readonly<Record<EcommerceScenario, EcommerceSnapshot>> =
     crew: { receiving: 1, storage: 1, replenishing: 1, picking: 0, sorting: 0, packing: 0, dispatch: 0, shelving: 0, returns: 0 },
     robots: 0, emptyPallets: 9, units: [], tasks: [],
     returns: { awaiting: 4, held: 1, inspected: 0 },
-    shop: { browsing: 0, checkouts: [{ id: 'C1', open: false, queue: 0 }, { id: 'C2', open: false, queue: 0 }, { id: 'C3', open: false, queue: 0 }], collectWaiting: 0, lockers: 9, sales: 0, facings: { garden: 44, bath: 46, party: 43, audio: 45, kitchen: 46, home: 47, outdoor: 41, toys: 45, tech: 44, gifts: 42 } },
+    shop: { browsing: 0, checkouts: [{ id: 'C1', open: false, queue: 0 }, { id: 'C2', open: false, queue: 0 }, { id: 'C3', open: false, queue: 0 }], collectWaiting: 0, lockers: 9, sales: 0, facings: { kitchen: 92, home: 94, outdoor: 82, toys: 90, tech: 44, sport: 42 } },
     events: [
       { id: 'e3', time: '22:02', text: 'Night replenishment started: F3 from R04.', tone: 'info' },
       { id: 'e2', time: '21:58', text: 'PO-7790 unloaded at D2: 6 pallets in receiving.', tone: 'success' },
@@ -311,8 +319,8 @@ export function locationState(snapshot: EcommerceSnapshot, id: LocationId): Visu
 }
 export const shoppers = (snapshot: EcommerceSnapshot) => snapshot.shop.browsing + snapshot.shop.collectWaiting + snapshot.shop.checkouts.reduce((sum, lane) => sum + (lane.open ? lane.queue : 0), 0);
 export const departmentFacings = (snapshot: EcommerceSnapshot, id: DepartmentId) => snapshot.shop.facings[id];
-/** A department is short on the shelf below half of its two gondolas' facings. */
-export const departmentLow = (snapshot: EcommerceSnapshot, id: DepartmentId) => departmentFacings(snapshot, id) < FACINGS_PER_GONDOLA;
+/** A department is short on the shelf below half of its gondolas' facings. */
+export const departmentLow = (snapshot: EcommerceSnapshot, id: DepartmentId) => departmentFacings(snapshot, id) < departmentCapacity(id) / 2;
 
 export function ecommerceMetrics(snapshot: EcommerceSnapshot) {
   const risk = snapshot.orders.filter(value => cutoffRisk(snapshot, value) !== null);

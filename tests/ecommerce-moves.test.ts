@@ -105,7 +105,7 @@ describe('e-commerce commanded moves', () => {
     expect(choices.options).toEqual([{ move: { kind: 'put-away', pallet, rack: 'R12' }, target: 'R12 · level 1 · Toys' }, { move: { kind: 'put-away', pallet, rack: 'R05' }, target: 'R05 · level 1 · Toys' }]);
     expect(choices.refused).toHaveLength(12);
     expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R04 · Outdoor', reason: 'R04 holds Outdoor goods and does not take Toys (TOY-120).' });
-    expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R07 · Bulky', reason: 'R07 holds Bulky goods and does not take Toys (TOY-120).' });
+    expect(choices.refused).toContainEqual({ kind: 'put-away', target: 'R07 · Sport', reason: 'R07 holds Sport goods and does not take Toys (TOY-120).' });
     expect(simulation.check('reach-truck', { kind: 'put-away', pallet, rack: 'R05', level: 3 })).toEqual({ ok: false, wait: false, reason: 'R05 has levels 1 to 3.' });
     // A refused command ends without a task; the next one runs.
     game.command('reach-truck', { kind: 'put-away', pallet, rack: 'R04' }, { kind: 'put-away', pallet, rack: 'R05', level: 1 });
@@ -216,12 +216,15 @@ describe('e-commerce commanded moves', () => {
     expect(simulation.moves('shelf-filler', 'flow:F4').options).toEqual([{ move: { kind: 'restock', department: 'toys', source: 'face' }, target: 'Toys · from F4' }]);
     expect(simulation.moves('shelf-filler', 'gondola:outdoor:1').options).toEqual([{ move: { kind: 'restock', department: 'outdoor', source: 'face' }, target: 'Outdoor · from F3' }]);
     expect(simulation.check('shelf-filler', { kind: 'restock', department: 'kitchen', source: 'transfer' })).toEqual({ ok: false, wait: false, reason: 'No shop transfer waits for Kitchen.' });
-    game.command('shelf-filler', { kind: 'restock', department: 'toys', source: 'face' });
+    // Sport (two gondolas, 37 of 48 facings) fills before S2 reaches its minimum.
+    expect(simulation.moves('shelf-filler', 'shelf:S2').options).toEqual([{ move: { kind: 'restock', department: 'sport', source: 'face' }, target: 'Sport · from S2' }]);
+    game.command('shelf-filler', { kind: 'restock', department: 'sport', source: 'face' });
     game.until(() => game.queue('shelf-filler').length === 0, 300);
     const [end] = game.of('move-ended');
-    expect(end).toMatchObject({ actor: 'shelf-filler', outcome: 'filled', reason: 'Toys is full.' });
-    expect(game.of('restocked').length).toBeGreaterThanOrEqual(3);
-    expect(game.of('restocked').every(event => event.department === 'toys' && !event.transfer)).toBe(true);
+    expect(end).toMatchObject({ actor: 'shelf-filler', outcome: 'filled', reason: 'Sport is full.' });
+    expect(game.of('restocked').length).toBeGreaterThanOrEqual(2);
+    expect(game.of('restocked').every(event => event.department === 'sport' && !event.transfer)).toBe(true);
+    expect(simulation.snapshot().shop.facings.sport).toBe(48);
     simulation.dispose();
   });
 

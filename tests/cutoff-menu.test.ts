@@ -33,7 +33,7 @@ describe('Cut-off context menus', () => {
     const shift = game(), snapshot = shift.snapshot(), [putAway] = menuEntries(shift.options('pallet:1038'), 'reach-truck');
     expect(targetMarks(putAway)).toEqual([{ nodeId: 'rack:R12', label: 'R12 · level 1 · Toys' }, { nodeId: 'rack:R05', label: 'R05 · level 1 · Toys' }]);
     expect([targetNodes({ kind: 'restock', department: 'toys', source: 'face' }), targetNodes({ kind: 'decant', face: 'S1' }), targetNodes({ kind: 'unload', dock: 'D1' })])
-      .toEqual([['gondola:toys:0', 'gondola:toys:1'], ['shelf:S1'], []]);
+      .toEqual([['gondola:toys:0', 'gondola:toys:1', 'gondola:toys:2', 'gondola:toys:3'], ['shelf:S1'], []]);
 
     // The light marker stands for its rack, and so does a pallet standing in the rack.
     expect(pickTarget(putAway, clickedNodes('target:rack:R05', [], snapshot))).toMatchObject({ node: 'rack:R05', option: { move: { kind: 'put-away', pallet: 'pallet:1038', rack: 'R05' } } });
@@ -55,7 +55,7 @@ describe('Cut-off context menus', () => {
     expect(menuSubjects('rack:R05', shift.snapshot())).toEqual(['pallet:1018']);
     expect(menuSubjects('dock:D1', shift.snapshot())).toEqual(['dock:D1']);
     const entries = subjects.flatMap(subject => menuEntries(shift.options(subject)).map(entry => `${subject} ${entry.key} ${entry.options.length}`));
-    expect(entries).toEqual(expect.arrayContaining([`${subjects[1]} reach-truck:replenish 1`, 'flow:F3 replenisher:decant 0', 'flow:F3 shelf-filler:restock 2']));
+    expect(entries).toEqual(expect.arrayContaining([`${subjects[1]} reach-truck:replenish 1`, 'flow:F3 replenisher:decant 0', 'flow:F3 shelf-filler:restock 1']));
 
     // Bringing a reserve pallet makes the decant possible: it waits for the pallet.
     const [replenish] = menuEntries(shift.options(subjects[1]));
@@ -101,7 +101,7 @@ describe('Cut-off context menus', () => {
   it('colors pallets and racks by type of goods, counts free rack positions and keeps the floors out of clicks', () => {
     const shift = game(), snapshot = shift.snapshot(), nodes = goodsColored(shift.nodes(), snapshot), byId = new Map(nodes.map(node => [node.id, node]));
     expect((byId.get('pallet:1038') as AssetNode).color).toBe(GOODS_COLORS.toys);
-    expect((byId.get('pallet:1024') as AssetNode).color).toBe(GOODS_COLORS.bulky);
+    expect((byId.get('pallet:1024') as AssetNode).color).toBe(GOODS_COLORS.sport);
     expect((byId.get('rack:R12') as AssetNode).materials?.accent).toBe(GOODS_COLORS.toys);
     expect(nodes.filter(node => node.id.startsWith('area:') || node.id.startsWith('pin:')).every(node => node.selectable === false)).toBe(true);
     const toys = rackRoom(snapshot).find(item => item.goods === 'toys')!;

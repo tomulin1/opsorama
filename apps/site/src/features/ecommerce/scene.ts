@@ -54,10 +54,11 @@ export const CAGE_X: Readonly<Record<string, number>> = { 'swift-1': 15, 'swift-
 export const CAGE_Z = .9;
 export const CHECKOUT_X: Readonly<Record<CheckoutId, number>> = { C1: -23.4, C2: -20.4, C3: -17.4 };
 const CHECKOUT_Z = .6, COLLECT: Vec3 = p(-12, 1);
-/** Gondola rows along the shop floor, back to front; each department owns two neighbouring gondolas. */
+/** Gondola rows along the shop floor, back to front; the departments take them in order (see `DEPARTMENTS`). */
 const GONDOLA_X = [-23.6, -21.4, -19.2, -17] as const, GONDOLA_Z = [-19.9, -16.2, -12.5, -8.8, -5.1] as const, FRONT_GONDOLA_ROW = GONDOLA_Z.length - 1;
-export const GONDOLAS: readonly { id: string; department: DepartmentId; index: 0 | 1; position: Vec3 }[] = GONDOLA_Z.flatMap((z, row) => GONDOLA_X.map((x, column) => {
-  const department = DEPARTMENTS[row * 2 + (column >> 1)].id, index = (column % 2) as 0 | 1;
+const GONDOLA_DEPARTMENTS = DEPARTMENTS.flatMap(item => Array.from({ length: item.gondolas }, (_, index) => ({ department: item.id, index })));
+export const GONDOLAS: readonly { id: string; department: DepartmentId; index: number; position: Vec3 }[] = GONDOLA_Z.flatMap((z, row) => GONDOLA_X.map((x, column) => {
+  const { department, index } = GONDOLA_DEPARTMENTS[row * GONDOLA_X.length + column];
   return { id: `gondola:${department}:${index}`, department, index, position: p(x, z) };
 }));
 /** Free floor spots where each area's status pin stands. */
@@ -300,7 +301,8 @@ export interface LiveLayer {
   /** Attachment and transform of each roll cage, by cage ID: a dispatcher can push one away. */
   cages: Readonly<Record<string, Pick<AssetNode, 'position' | 'rotation' | 'attachment'>>>;
 }
-const split = (total: number) => [Math.ceil(total / 2), Math.floor(total / 2)] as const;
+/** A total spread evenly over `parts`, the first ones taking the remainder. */
+const split = (total: number, parts: number) => Array.from({ length: parts }, (_, i) => Math.floor(total / parts) + (i < total % parts ? 1 : 0));
 
 /** One scene from a snapshot and the live layer. Racks stay at count 0: their pallets are real units among `movers`. */
 export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): SceneNode[] {
@@ -317,7 +319,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
   for (const gondola of GONDOLAS) {
     const label = DEPARTMENTS.find(item => item.id === gondola.department)!.label;
-    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department))[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
+    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
   }
 
   // Checkouts face the shop floor; the queue forms toward it.

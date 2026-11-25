@@ -3,7 +3,7 @@ import type { ActorRef, Move, MoveKind, MoveOption, MoveRefusal } from '../ecomm
 import { QUEUE_LIMIT, type ActorChoices, type ActorView, type CarrierStatus, type ShiftEvent } from './rules';
 
 /** The color of each type of goods: pallet loads, rack uprights and the legend use it. */
-export const GOODS_COLORS: Readonly<Record<GoodsType, string>> = { kitchen: '#e08a2e', home: '#8a64c4', outdoor: '#3f9a57', toys: '#d6453d', tech: '#2f7fc4', bulky: '#7d8794' };
+export const GOODS_COLORS: Readonly<Record<GoodsType, string>> = { kitchen: '#e08a2e', home: '#8a64c4', outdoor: '#3f9a57', toys: '#d6453d', tech: '#2f7fc4', sport: '#159a9c' };
 export const GOODS_TYPES = Object.keys(GOODS_LABELS) as GoodsType[];
 const RACKS = LOCATIONS.filter(item => item.kind === 'rack');
 
@@ -65,7 +65,7 @@ export const faceNode = (face: LocationId) => `${location(face).kind === 'shelf'
 export function targetNodes(move: Move): string[] {
   switch (move.kind) {
     case 'put-away': return [`rack:${move.rack}`];
-    case 'restock': return [`gondola:${move.department}:0`, `gondola:${move.department}:1`];
+    case 'restock': return Array.from({ length: DEPARTMENTS.find(item => item.id === move.department)!.gondolas }, (_, i) => `gondola:${move.department}:${i}`);
     case 'clear': case 'decant': return [faceNode(move.face)];
     case 'ship': return ['dock:D3'];
     default: return [];
@@ -198,7 +198,7 @@ export function detailOf(nodeId: string, context: DetailContext): Detail | null 
     const source = context.choices.flatMap(choice => choice.options).map(option => option.target);
     return {
       title: department.label, eyebrow: 'SHOP DEPARTMENT', lines: [
-        { label: 'Facings', value: `${snapshot.shop.facings[department.id]} of ${FACINGS_PER_GONDOLA * 2}` },
+        { label: 'Facings', value: `${snapshot.shop.facings[department.id]} of ${department.gondolas * FACINGS_PER_GONDOLA}` },
         { label: 'Restock', value: source.length ? source.join(' · ') : mayGo(context.choices) },
       ],
     };
