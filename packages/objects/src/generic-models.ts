@@ -8,6 +8,7 @@ import { objectPalette } from './object-palette';
 import { addInspectionKit, addPackingKit } from './fulfillment';
 import { resolveCountRepresentation } from '@opsorama/core';
 import { assetCountDefinitions } from './asset-counts';
+import { CASE, casePart } from './parcels';
 function box(group: THREE.Group, size: readonly number[], position: readonly number[], color: string, bevel = 0) {
   const mesh = new THREE.Mesh(bevel ? new RoundedBoxGeometry(size[0], size[1], size[2], 1, bevel) : new THREE.BoxGeometry(size[0], size[1], size[2]), new THREE.MeshStandardMaterial({ color, roughness: .72 }));
   mesh.position.set(position[0], position[1], position[2]); mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh); return mesh;
@@ -20,12 +21,17 @@ const PAVILION_TONES = { structure: '#5481dc', surface: '#cfd8e3', text: '#e3eff
 const PAVILION_STOCK = [-1.1, 0, 1.1] as const;
 /** Workstation defaults that keep its blue frame, white top and dark terminal in the default scene. */
 const STATION_TONES = { structure: '#6489d6', surface: '#f6f7fb', screen: '#2e465f', glass: '#bddfdf', trim: '#a9baca' } as const;
-/** Shelf defaults that keep its blue frame, tan cartons and pale blue totes in the default scene. */
-const SHELF_TONES = { structure: '#356dd8', surface: '#d8b487', accent: '#95b7df', trim: '#eee2c8' } as const;
+/** Shelf defaults that keep its blue frame and the tan cartons of a pallet in the default scene. */
+const SHELF_TONES = { structure: '#356dd8', surface: CASE.color } as const;
 /** Step-beam heights; deck tops are 0.04 m above. */
 const SHELF_LEVELS = [.18, 1.05, 1.92] as const;
 /** Storage slot floor points, four per level from left to right, bottom level first. */
 export const SHELF_SLOTS: readonly (readonly [number, number])[] = SHELF_LEVELS.flatMap(y => [0, 1, 2, 3].map(i => [-1.06 + i * .7, y + .04] as const));
+/**
+ * The cartons of one filled slot: the warehouse carton (`CASE`, the same as on a pallet) two across, three deep and two high,
+ * as many as fit the slot's 0.7 m pitch, the 0.95 m between the step beams and the 0.78 m clear height of the lower levels.
+ */
+const SLOT_CASES = { across: 2, deep: 3, high: 2, gap: .01 } as const;
 /** Shopping bag with rope handles and an optional surface label. */
 export function createBag(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   // Body, handles and sticker use palette roles; status tints the body like the parcel, and the rim fold and creases are shades.
@@ -43,9 +49,9 @@ export function createBag(node: AssetNode, context?: MaterialContext): THREE.Obj
   return group;
 }
 
-/** Storage shelf with step beams and 0–12 counted cartons and totes. */
+/** Storage shelf with step beams and 0–12 filled slots of warehouse cartons, twelve cartons per slot. */
 export function createShelf(node: AssetNode, context?: MaterialContext): THREE.Object3D {
-  // Frame, stored cartons, totes and label strips use palette roles; decks and step beams are lighter shades of the frame.
+  // Frame and stored cartons use palette roles; decks and step beams are lighter shades of the frame.
   const p = objectPalette(node, context, 'structure', SHELF_TONES), frame = new THREE.Color(p.structure);
   const beam = `#${frame.clone().lerp(new THREE.Color('#ffffff'), .22).getHexString()}`, deck = `#${frame.clone().lerp(new THREE.Color('#dfe5ec'), .85).getHexString()}`;
   const group = new THREE.Group();
@@ -59,12 +65,16 @@ export function createShelf(node: AssetNode, context?: MaterialContext): THREE.O
   }
   // Front and back step beams carry a lighter deck at each level.
   for (const y of SHELF_LEVELS) { for (const z of [-.5, .5]) box(group, [3.05, .1, .05], [0, y, z], beam); box(group, [2.9, .03, 1], [0, y + .025, 0], deck); }
-  // Twelve named storage slots, four per level. Count boxes are decorative and fill the slots in order; real inventory attaches to the slot anchors.
+  // Twelve named storage slots, four per level. Count parts are decorative and fill the slots in order; real inventory attaches to the slot anchors.
   SHELF_SLOTS.forEach(([x, y], i) => anchor(group, `slot-${i}`, [x, y, 0]));
+  const { across, deep, high, gap } = SLOT_CASES;
   for (let i = 0; i < count; i++) {
-    const [x, y] = SHELF_SLOTS[i], carton = i % 2 === 1;
+    const [x, y] = SHELF_SLOTS[i];
     const part = new THREE.Group(); part.name = `count-part-${i}`; part.userData.decorative = true; part.position.set(x, y, 0); group.add(part);
-    box(part, [.57, .57, .75], [0, .285, 0], carton ? p.surface : p.accent, .02); box(part, [.075, .58, .76], [0, .29, 0], p.trim);
+    for (let layer = 0; layer < high; layer++) for (let row = 0; row < deep; row++) for (let column = 0; column < across; column++) {
+      const carton = casePart(p.surface, 'shelf-carton');
+      carton.position.set((column - (across - 1) / 2) * (CASE.width + gap), layer * (CASE.height + gap / 2), (row - (deep - 1) / 2) * (CASE.depth + gap)); part.add(carton);
+    }
   }
   anchor(group, 'top', [0, 2.8, 0]); anchor(group, 'front', [0, SHELF_SLOTS[0][1], .53]);
   return group;

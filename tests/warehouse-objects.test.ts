@@ -81,6 +81,29 @@ describe('warehouse objects', () => {
     expect(lit).toHaveLength(5); disposeObject(rack);
   });
 
+  it('stores the carton of a pallet on the shelf and in the flow lanes, as many as fit', () => {
+    const size = (object: THREE.Object3D) => new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3()).toArray().map(value => Number(value.toFixed(3)));
+    const named = (object: THREE.Object3D, name: string) => { const list: THREE.Object3D[] = []; object.traverse(child => { if (child.name === name) list.push(child); }); return list; };
+    const pallet = build('pallet', { count: 1 }), carton = size(pallet.getObjectByName('count-part-0')!);
+    expect(carton).toEqual([.343, .332, .302]);
+    const shelf = build('shelf', { count: 2 }), rack = build('carton-flow-rack', { count: 3 });
+    try {
+      // Each filled shelf slot holds two across, three deep and two high, between the uprights and the step beams.
+      expect(named(shelf, 'shelf-carton')).toHaveLength(2 * 12);
+      for (const item of [...named(shelf, 'shelf-carton'), ...named(rack, 'flow-carton')]) expect(size(item)).toEqual(carton);
+      const slot = new THREE.Box3().setFromObject(shelf.getObjectByName('count-part-0')!);
+      expect([slot.min.x, slot.min.z, slot.max.z, slot.max.y]).toEqual([expect.closeTo(-1.408, 3), expect.closeTo(-.459, 3), expect.closeTo(.467, 3), expect.closeTo(.887, 3)]);
+      expect(slot.min.x).toBeGreaterThan(-1.4125); expect(slot.max.y).toBeLessThan(1.0);
+      // A filled flow lane holds four cartons end to end, inside its beams.
+      expect(named(rack, 'flow-carton')).toHaveLength(3 * 4);
+      // In the tilted bed's own frame: the front of the first carton (sticker and barcode) and the back of the last stay inside the beams.
+      const lane = rack.getObjectByName('count-part-0')!;
+      const cartons = named(lane, 'flow-carton').map(item => item.position.z + lane.position.z);
+      expect(Math.max(...cartons) + .155).toBeLessThanOrEqual(1.25 / 2 - .02 + 1e-9);
+      expect(Math.min(...cartons) - .147).toBeGreaterThanOrEqual(-1.25 / 2 + .02 - 1e-9);
+    } finally { [pallet, shelf, rack].forEach(disposeObject); }
+  });
+
   it('exposes anchors that follow the geometry', () => {
     const rack = build('pallet-rack'); expect(worldAnchor(rack, 'slot-4').y).toBeGreaterThan(3); expect(worldAnchor(rack, 'slot-0').z).toBeGreaterThan(.5); disposeObject(rack);
     const rail = build('safety-barrier'); expect(worldAnchor(rail, 'start').x).toBe(-1); expect(worldAnchor(rail, 'end').x).toBe(1); disposeObject(rail);

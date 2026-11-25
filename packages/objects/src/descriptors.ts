@@ -266,26 +266,24 @@ const SHELF_SLOT_LEVELS = ['Bottom', 'Middle', 'Top'] as const;
 /** Wave 2, first entry: the storage shelf. */
 export const shelfDescriptor: ObjectDescriptor = Object.freeze({
   asset: 'shelf', name: 'Storage shelf', category: 'Furniture', version: 1,
-  purpose: 'A three-level storage rack with twelve named storage slots. Its count boxes are decoration; real inventory attaches to the slot anchors as separate nodes.',
+  purpose: 'A three-level storage rack with twelve named storage slots. Its count fills slots with the cartons of a pallet as decoration; real inventory attaches to the slot anchors as separate nodes.',
   geometry: {
     units: 'metres', pivot: 'base-center', forward: '+z', up: '+y',
     bounds: { min: [-1.525, 0, -.555], max: [1.525, 2.8, .555] },
-    note: 'Fixed 3.05 × 2.8 × 1.11 m frame with decks at 0.22, 1.09 and 1.96 m; four slots 0.7 m apart per level. Dimensions and the level count are not configurable yet.',
+    note: 'Fixed 3.05 × 2.8 × 1.11 m frame with decks at 0.22, 1.09 and 1.96 m; four slots 0.7 m apart per level. A filled slot holds twelve warehouse cartons of 0.343 × 0.33 × 0.30 m, the carton of a pallet: two across, three deep and two high, as many as fit its pitch, the 0.95 m between the step beams and the 0.78 m clear height of the lower levels. Dimensions and the level count are not configurable yet.',
   },
   palette: {
     colorRole: 'structure',
     roles: [
       { role: 'structure', parts: 'Uprights and braces; the step beams and decks are lighter shades of it' },
-      { role: 'surface', parts: 'Decorative cartons (every second box)', when: { count: 2 } },
-      { role: 'accent', parts: 'Decorative totes (the other boxes)', when: { count: 1 } },
-      { role: 'trim', parts: 'Label strips on the decorative boxes', when: { count: 1 } },
+      { role: 'surface', parts: 'Decorative cartons in the filled slots', when: { count: 1 } },
     ],
-    fixed: 'Foot plates are dark steel.',
+    fixed: 'Foot plates are dark steel. Carton tape, stickers and barcodes keep the fixed tones of the pallet cartons.',
   },
   customization: [
     { field: 'color', type: 'CSS #RRGGBB', default: 'structure role', update: 'rebuild', description: 'Compatibility shortcut for the frame (structure role); decks and beams follow it; materials.structure wins over it.', samples: [{ color: '#aa5533' }] },
     { field: 'materials', type: 'MaterialOverrides', default: 'inherit', update: 'rebuild', description: 'Partial instance roles over the scene palette; unspecified roles keep the shelf defaults.', samples: [{ materials: { surface: '#123456' } }] },
-    { field: 'count', type: 'integer 0–12', default: '12', update: 'rebuild', description: 'Decorative boxes filling the slots in order, bottom level first. They share the shelf identity and are not inventory; use 0 when real items attach to the slots.', samples: [{ count: 0 }, { count: 5 }, { count: 12 }] },
+    { field: 'count', type: 'integer 0–12', default: '12', update: 'rebuild', description: 'Slots filled with decorative cartons in order, bottom level first, twelve cartons per slot. They share the shelf identity and are not inventory; use 0 when real items attach to the slots.', samples: [{ count: 0 }, { count: 5 }, { count: 12 }] },
     { field: 'position / rotation / scale', type: 'Vec3', default: 'origin', update: 'transform', description: 'Root transform; a new position is interpolated (see motion).' },
   ],
   states: {
