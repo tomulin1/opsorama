@@ -12,6 +12,7 @@ export const panelArticle: DocArticle = {
       ['Detail of the selected record', 'EntityInspector', 'Data'],
       ['Ordered stages', 'ProcessTracker', 'Data'],
       ['Events over time', 'ActivityFeed', 'Data'],
+      ['Commands for the object picked in the scene', 'ActionRing (see Action ring)', 'Over a node'],
       ['Anything else', 'DataPanel with your own content', 'Data'],
     ] },
     { id: 'short-panels', title: 'Short panels', paragraphs: ['Size is a purpose, not a scale. Pick the question the panel answers. Every MetricCard needs a size.', 'Heights are exact without footer or freshness, so a host can position other panels from the size. Context a size does not show stays readable by assistive technology. Try the options below; the snippet is generated from the same input as the preview.'], headers: ['Size', 'Question', 'Height', 'Visible content'], rows: [
@@ -42,6 +43,7 @@ export const panelArticle: DocArticle = {
       ['ActivityFeed', 'Common panel inputs + items [{id,content,timeLabel,dateTime,meta}]'],
       ['StatusBadge', 'label, tone, icon, className'], ['FieldList', 'fields [{id,label,value}], unknownLabel'], ['ValueMeter', 'label, value, min (default 0), max, unit, formatValue, tone, unknownLabel'],
       ['ZoomControl', 'Compact controlled zoom bar; see the Zoom control page for options and a live configurator'],
+      ['ActionRing', 'title, icon, actions [{id,label,icon,tone,ariaLabel,pressed,disabled,onSelect}], tone, label, arc, className, style; see the Action ring page'],
     ] },
   ],
 };

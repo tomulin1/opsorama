@@ -20,7 +20,7 @@ const view = mountPanel(container, metricCard({ title: 'Open orders', value: 128
 // Later: view.dispose();
 ```
 
-Builders: `metricCard`, `dataPanel`, `entityInspector`, `processTracker`, `resourceList`, `capacityCard`, `activityFeed`, `statusBadge`, `fieldList`, `valueMeter`, `zoomControl`. Each takes typed props described in its declarations. React and Vue components with the same contracts are in `@opsorama/react/ui` and `@opsorama/vue/ui`. The stylesheet is the only side effect of this package.
+Builders: `actionRing` (command pills over the object picked in a scene), `metricCard`, `dataPanel`, `entityInspector`, `processTracker`, `resourceList`, `capacityCard`, `activityFeed`, `statusBadge`, `fieldList`, `valueMeter`, `zoomControl`. Each takes typed props described in its declarations. React and Vue components with the same contracts are in `@opsorama/react/ui` and `@opsorama/vue/ui`. The stylesheet is the only side effect of this package.
 
 ## Links
 

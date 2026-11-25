@@ -25,6 +25,7 @@ const DOC_DEMOS: Record<DocDemo, ComponentType> = {
   'panel-states': dynamic(() => import('./PanelDemos').then(module => module.PanelStates)),
   'hud-composition': dynamic(() => import('./PanelDemos').then(module => module.HudComposition)),
   'panel-adapters': PanelExamples,
+  'action-ring': dynamic(() => import('./ActionRingDemo').then(module => module.ActionRingDemo)),
 };
 const href = (slug: string) => `/docs${slug ? `/${slug}` : ''}`;
 export function DocsPage({ article }: { article: DocArticle }) {
