@@ -6,14 +6,14 @@ import { automaticDirector, createEcommerceSimulation, type EcommerceDirector, t
 const CHECKPOINTS = [0, 120, 600, 1200, 3000];
 /**
  * Digests of the records and scene nodes at each checkpoint of a seed-7 shift. They were recorded from the scheduler before
- * it became the automatic director, again when the shop changed to six departments of goods, and again when every pick
- * face became a carton flow rack. They change only when the simulation is meant to
+ * it became the automatic director, again when the shop changed to six departments of goods, again when every pick
+ * face became a carton flow rack, and again when the area signs left the scene. They change only when the simulation is meant to
  * behave differently; record new ones then.
  */
 const RECORDED: Readonly<Record<EcommerceScenario, readonly string[]>> = {
-  peak: ['dabfb045953b990f', '56f54600541ae925', '80b0e638b2d1fe6a', '66fe7709b80c7b8e', '869016b54729b74c'],
-  steady: ['3949577356f90509', '9cd86d62f7183bcd', '5e036ccc21f273a2', 'ea8ddc14258ca20a', '07880505a86e3b5c'],
-  night: ['465087eb2ff146cb', '39ca3e4d1c66f6a1', '1aa94937f176fe85', '4a74e01be544719b', '068fc260be414c1d'],
+  peak: ['82bdf6e7cd72cbf7', '30ec7214327ab426', '6a52e12a9dd049bf', 'a72e1bdb6fe80390', 'c873fee932ad755b'],
+  steady: ['58c09e7d61a1d3e5', '1a392613d4fcf823', '8a06ca5cd5e505de', '84c6234c3eb1244d', 'a80958734954e17d'],
+  night: ['df6f67812bd1a818', '710c387adc118ba3', '08dee4a29dac6d3d', 'ddf6224a739f0d20', 'e4744b6e25e4e71a'],
 };
 function digests(simulation: EcommerceSimulation): string[] {
   return CHECKPOINTS.map(at => {
