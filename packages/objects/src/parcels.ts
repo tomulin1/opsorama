@@ -21,6 +21,23 @@ export function parcelPart(color: string, index: number, palette?: MaterialPalet
   return part;
 }
 
+/** Scale of `parcelPart` for the cartons on a pallet, a storage shelf and carton flow lanes. */
+const CASE_SCALE = [.333, .4, .35] as const;
+/**
+ * The carton of the warehouse loads: `parcelPart` at `CASE_SCALE`, 0.343 m wide, 0.33 m high and 0.30 m deep including tape,
+ * sticker and barcode; `front` is the distance from its centre to the front of the sticker and barcode. A pallet, a storage
+ * shelf and a carton flow lane hold the same carton.
+ */
+export const CASE = Object.freeze({ width: .343, height: .33, depth: .302, front: .155, color: '#dab383' });
+/** The lowest point of `parcelPart`, the bottom of its tape, is 7.5 cm above its origin; `casePart` lowers it onto its floor. */
+const CASE_LIFT = .075 * CASE_SCALE[1];
+/** One carton of the warehouse loads standing with its bottom on its origin, named `name` so it does not count as a count part. */
+export function casePart(color: string, name: string): THREE.Group {
+  const holder = new THREE.Group(); holder.name = name;
+  const box = parcelPart(color, 0); box.name = `${name}-body`; box.scale.set(...CASE_SCALE); box.position.y = -CASE_LIFT; holder.add(box);
+  return holder;
+}
+
 /** The open carton's floor sat 4.5 cm above its pivot; it is lowered by this much. */
 const OPEN_LIFT = .045, OPEN_TOP = .78 - OPEN_LIFT, OPEN_FRONT = .42 - OPEN_LIFT;
 /** `parcelPart` starts 8 cm above its origin, the height of the parcel base; a lone carton is lowered onto the ground. */
@@ -91,14 +108,14 @@ export function palletBoards(): Readonly<Record<'runners' | 'blocks' | 'stringer
 export function createPallet(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const pallet = new THREE.Group(); pallet.name = 'pallet';
   const { count } = resolveCountRepresentation(node, assetCountDefinitions.pallet);
-  const color = resolveObjectColor(node, context, 'surface', '#dab383'), { depth } = PALLET, { runners, blocks, stringers, deck } = palletBoards();
+  const color = resolveObjectColor(node, context, 'surface', CASE.color), { depth } = PALLET, { runners, blocks, stringers, deck } = palletBoards();
   // Reuse the warehouse prototype's wood tones and slat/block construction, with a ground-centered pivot; deck boards alternate tones.
   for (const [size, position] of runners) block(pallet, size, position, '#ab8257', 'pallet-runner', { bevel: .006, roughness: .9 });
   for (const [size, position] of blocks) block(pallet, size, position, position[0] === 0 ? '#b48b5c' : '#c29966', 'pallet-block', { bevel: .008, roughness: .9 });
   for (const [size, position] of stringers) block(pallet, size, position, '#b38a5d', 'pallet-stringer', { roughness: .9 });
   for (const [i, [size, position]] of deck.entries()) block(pallet, size, position, i % 2 ? '#c9a271' : '#c29966', 'pallet-deck', { bevel: .008, roughness: .9 });
   for (let i = 0; i < count; i++) {
-    const box = parcelPart(color, i); box.scale.set(.333, .4, .35);
+    const box = parcelPart(color, i); box.scale.set(...CASE_SCALE);
     box.position.set((i % 3 - 1) * .38, .2 + Math.floor(i / 9) * .36, (Math.floor(i / 3) % 3 - 1) * .32); pallet.add(box);
   }
   anchor(pallet, 'load', [0, PALLET.deckTop, 0]); anchor(pallet, 'front', [0, 0, depth / 2]);

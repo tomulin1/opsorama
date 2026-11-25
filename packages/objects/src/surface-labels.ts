@@ -74,7 +74,7 @@ export const assetLabelSurfaces: Readonly<Record<string, LabelSurface>> = {
   'machine-tool': { description: 'Control pendant screen, for a job or program name.', size: [.36, .26], position: [.72, 1.42, .868] },
   'event-stage': { description: 'Rear LED screen, for a programme title or speaker.', size: [5.8, 2.8], position: [0, 3, -2.295], resolution: 2048, multiline: true },
   'exhibition-booth': { description: 'Header band above the back wall, for an exhibitor name.', size: [2.9, .36], position: [0, 2.4, -1.375] },
-  'carton-flow-rack': { description: 'Header above the pick face, for a zone or SKU family.', size: [1.9, .18], position: [0, 2.1, .623] },
+  'carton-flow-rack': { description: 'Header above the pick face, for a zone or SKU family.', size: [1.9, .18], position: [0, 2.1, .648] },
   'menu-board': { description: 'Front chalkboard, for a menu or daily specials (up to six lines).', size: [.48, .86], ...menuFace, resolution: 2048, multiline: true, replaceParts: ['menu-chalk'] },
   'pickup-shelf': { description: 'Header sign above the shelves, for a pickup or courier point name.', size: [1.4, .15], position: [0, 1.88, PICKUP_SHELF.depth / 2 + .012] },
   'starting-block': { description: 'Front number plate, for a lane number.', size: [.32, .22], position: [...STARTING_BLOCK.plate], replaceParts: ['block-number'] },

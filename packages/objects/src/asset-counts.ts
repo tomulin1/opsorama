@@ -8,7 +8,7 @@ export const assetCountDefinitions: Readonly<Record<string, AssetCountDefinition
   'ups-unit': Object.freeze({ kind: 'range', label: 'Battery modules', unit: 'modules', min: 0, max: 6, step: 1, default: 4 }),
   'parcel-base': Object.freeze({ kind: 'range', label: 'Parcels on base', unit: 'parcels', min: 0, max: 27, step: 1, default: 1 }),
   pallet: Object.freeze({ kind: 'range', label: 'Boxes on pallet', unit: 'boxes', min: 0, max: 27, step: 1, default: 9 }),
-  shelf: Object.freeze({ kind: 'range', label: 'Stored boxes', unit: 'boxes', min: 0, max: 12, step: 1, default: 12 }),
+  shelf: Object.freeze({ kind: 'range', label: 'Filled slots', unit: 'slots', min: 0, max: 12, step: 1, default: 12 }),
   pavilion: Object.freeze({ kind: 'range', label: 'Staged parcels', unit: 'parcels', min: 0, max: 3, step: 1, default: 3 }),
   tote: Object.freeze({ kind: 'range', label: 'Visible items', unit: 'items', min: 0, max: 9, step: 1, default: 4 }),
   'capacity-gauge': Object.freeze({ kind: 'range', label: 'Lit segments', unit: 'segments', min: 0, max: 10, step: 1, default: 6 }),
