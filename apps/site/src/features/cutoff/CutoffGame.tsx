@@ -15,7 +15,7 @@ import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, actorSources, clickedNodes, faceNode, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, type LitMark, type Source } from './menu';
+import { GOODS_COLORS, actorSources, menuSources, clickedNodes, faceNode, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, type LitMark, type Source } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -185,7 +185,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
 
     {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml nodeId={commanding.actor} className="co-menu-anchor">
       <ActorMenu key={`${commanding.actor}:${commanding.source ?? ''}`} actor={actorOf(commanding.actor)!} game={game.current} view={view} sources={sources} source={source}
-        onTake={takeSource} onBring={bring} onBack={() => back.current()} onCommand={(run, text) => command(run, text)} onClose={close} />
+        listed={menuSources(sources, view.snapshot)} onTake={takeSource} onBring={bring} onBack={() => back.current()} onCommand={(run, text) => command(run, text)} onClose={close} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
       <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
@@ -294,14 +294,14 @@ function MenuItem({ children, hint, onClick, disabled, checked, more }: { childr
   </button>;
 }
 
-/** Sources the actor's menu lists; the scene lights them all. */
+/** Sources the actor's menu lists at most (one reserve pallet per SKU); the scene lights them all. */
 const SOURCES_SHOWN = 8;
 /**
  * The menu over the commanded actor: what it does now, its commands with Stop and Cancel, its assist, and the step of the
  * command being given: the sources it can take, or the targets of the chosen source with the refused ones.
  */
-function ActorMenu({ actor, game, view, sources, source, onTake, onBring, onBack, onCommand, onClose }: {
-  actor: ActorView; game: ShiftGame; view: GameView; sources: readonly Source[]; source: Source | undefined;
+function ActorMenu({ actor, game, view, sources, listed, source, onTake, onBring, onBack, onCommand, onClose }: {
+  actor: ActorView; game: ShiftGame; view: GameView; sources: readonly Source[]; listed: readonly Source[]; source: Source | undefined;
   onTake(node: string): void; onBring(move: Move): void; onBack(): void; onCommand(run: () => void, text: string): void; onClose(): void;
 }) {
   if (source) return <Menu title={source.label} eyebrow={`${actor.label.toUpperCase()} · BRING IT TO`} label={`Targets for ${source.label}`} onBack={onBack}>
@@ -318,8 +318,8 @@ function ActorMenu({ actor, game, view, sources, source, onTake, onBring, onBack
     <MenuItem checked={actor.assist} hint={actor.assist ? 'Takes the automatic move without a command' : 'Waits for your commands'} onClick={() => onCommand(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`)}>Work by yourself</MenuItem>
     {loading && <MenuItem disabled={view.decisions.departing} hint={view.decisions.departing ? 'Leaves once no cage is on its way' : `Otherwise it leaves at ${loading.cutoff}`} onClick={() => onCommand(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`)}>Send the {loading.name} truck now</MenuItem>}
     <p className="co-menu-note">{sources.length ? `Take one of ${sources.length} lit ${sources.length === 1 ? 'object' : 'objects'}:` : 'Nothing to take now.'}</p>
-    {sources.slice(0, SOURCES_SHOWN).map(item => <MenuItem key={item.node} more hint={item.options[0] ? `Best: ${item.options[0].target}` : undefined} onClick={() => onTake(item.node)}>{item.label}</MenuItem>)}
-    {sources.length > SOURCES_SHOWN && <p className="co-menu-note">{sources.length - SOURCES_SHOWN} more lit in the scene</p>}
+    {listed.slice(0, SOURCES_SHOWN).map(item => <MenuItem key={item.node} more hint={item.options[0] ? `Best: ${item.options[0].target}` : undefined} onClick={() => onTake(item.node)}>{item.label}</MenuItem>)}
+    {sources.length > Math.min(SOURCES_SHOWN, listed.length) && <p className="co-menu-note">{sources.length - Math.min(SOURCES_SHOWN, listed.length)} more lit in the scene</p>}
     <MenuItem onClick={onClose}>Done</MenuItem>
   </Menu>;
 }
