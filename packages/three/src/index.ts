@@ -20,7 +20,8 @@ import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 import { applyLights, fogRange, lightingLook, QUALITY_PROFILES, setShadowMapSize, skyTexture } from './lighting';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
-import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
+import { createPickTargetObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
+import { createNodeHighlights, type NodeHighlight } from './highlights';
 import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, isProgramLinking, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildNodeObject, contentBounds, createNodeTextures } from './nodes';
@@ -50,8 +51,10 @@ export { createInstanceBatcher, INSTANCING_MIN_COUNT, INSTANCED_BATCH_NAME } fro
 export type { InstanceBatcher, InstancingStats } from './instancing';
 export { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker } from './selection-marker';
 export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection-marker';
-export { createPickTargetObject, highlightPickTarget } from './pick-targets';
-export type { PickTarget, PickTargetMarker } from './pick-targets';
+export { createPickTargetObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget } from './pick-targets';
+export type { GhostModel, PickGhostSource, PickTarget, PickTargetMarker } from './pick-targets';
+export { createNodeHighlights } from './highlights';
+export type { NodeHighlight, NodeHighlights } from './highlights';
 export { createOverlayObject } from './overlay';
 export { addObjectRelease, assetLoadsSettled, assetValidator, createAssetRegistry, disposeObject, requestAssetRebuild, shareAssetResource, trackAssetLoad } from './assets';
 export type { AssetFactory, AssetRegistry, MaterialContext } from './assets';
@@ -209,7 +212,7 @@ export interface SceneRenderer {
    * ID, element or options.
    */
   attachHtml(nodeId: string, element: HTMLElement, options?: NodeHtmlOptions): NodeHtmlHandle;
-  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. three.js also keeps a shared lookup texture for lit (standard and physical) materials, so a scene without texture nodes can report one; compare counts against a baseline. */ textures: number; /** Completed scene render calls since mount: every frame while the document is visible; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
+  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Tint nodes, e.g. everything a viewer can pick up now, with a steady shell over each model that pulses gently while motion runs; clicks on them reach the nodes as usual. Replaces the earlier list; an empty list or null clears it. */ setHighlights(highlights: readonly NodeHighlight[] | null): void; /** Show pickable targets drawn over the scene, positioned once from the current anchor poses or at world positions (a target whose node or anchor is missing is skipped): boxes, or with `ghost` translucent copies of a scene node or a model. A click on one calls `onPick` with the target and its index instead of selecting, and the target under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. three.js also keeps a shared lookup texture for lit (standard and physical) materials, so a scene without texture nodes can report one; compare counts against a baseline. */ textures: number; /** Completed scene render calls since mount: every frame while the document is visible; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -306,7 +309,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     /** Label transform and visibility as last written (null: not written yet). */
     placedX: number; placedY: number; shown: boolean | null };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
-  let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
+  const isDrawnMesh = (mesh: THREE.Mesh) => mesh.visible || Boolean(instancing?.isProxy(mesh));
+  const highlights = createNodeHighlights(scene, id => entries.get(id)?.object, isDrawnMesh);
+  let pickTargets: { object: THREE.Group; owned: THREE.Object3D[]; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
   const work: Omit<RendererWork, 'nodeSignatures'> = { syncs: 0, nodeSyncs: 0, nodeUpdates: 0, nodeBuilds: 0, sceneRaycasts: 0, labelMeasures: 0, labelLayouts: 0 };
   /**
@@ -590,7 +595,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
    */
   function teardown() {
     clearTimeout(sliceTimer); unsubscribe(); indicator?.dispose(); indicator = null;
-    entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); instancing?.dispose();
+    entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); highlights.dispose(); instancing?.dispose();
     disposeObject(grid); sun.shadow.dispose(); sky?.dispose();
     renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove();
   }
@@ -759,7 +764,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   /** Index of the pick target under the aimed ray, nearest first, or null. */
   function aimedPickTarget(): number | null {
     if (!pickTargets) return null;
-    const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
+    const hit = raycaster.intersectObjects(pickTargetBoxes(pickTargets.object), false)[0];
     return hit ? hit.object.userData.pickTarget as number : null;
   }
   /** Index of the pick target under the pointer, nearest first, or null. */
@@ -1081,7 +1086,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       scene.updateMatrixWorld(); if (areas.length) updatePlacements();
       if (scene.fog instanceof THREE.Fog) { const range = fogRange(camera.position.distanceTo(currentTarget), shadowExtent); scene.fog.near = range.near; scene.fog.far = range.far; }
       layoutLabels(); if (nodeHtml.size) nodeHtml.layout(projectHtml);
-      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
+      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); if (highlights.size) highlights.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
       if (loadState.phase !== 'loaded') {
         renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
         reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
@@ -1090,7 +1095,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   raf = requestAnimationFrame(animate);
   let overlayObject: THREE.Object3D | null = null;
-  const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposeObject(pickTargets.object); pickTargets = null; } };
+  const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposePickTargets(pickTargets.object); pickTargets.owned.forEach(disposeObject); pickTargets = null; } };
   const clearOverlay = () => { if (overlayObject) { scene.remove(overlayObject); disposeObject(overlayObject); overlayObject = null; } };
   // `disposing` keeps a plugin cleanup that disposes the renderer again from running the disposal twice.
   let plugins: PluginHost | null = null, disposing = false;
@@ -1144,15 +1149,33 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (disposed) return;
       clearPickTargets();
       if (!targets) return;
+      targets.forEach(validatePickTarget);
       scene.updateMatrixWorld(true);
+      const owned: THREE.Object3D[] = [];
+      // A ghost copies a built node's model with the nodes inside it, or a model built for it alone and released with the targets.
+      const ghostOf = (target: PickTarget, index: number): PickTargetMarker['ghost'] => {
+        if (target.ghost === undefined) return undefined;
+        if (typeof target.ghost === 'string') { const source = entries.get(target.ghost)?.object; return source ? { object: source, scale: source.getWorldScale(new THREE.Vector3()), isDrawn: isDrawnMesh } : undefined; }
+        const { scale, ...model } = target.ghost, object = build({ ...model, kind: 'asset', id: `pick-target-ghost:${index}`, position: [0, 0, 0] });
+        object.updateMatrixWorld(true); owned.push(object);
+        return { object, scale: new THREE.Vector3(...scale ?? [1, 1, 1]) };
+      };
       const markers = targets.flatMap((target, index): PickTargetMarker[] => {
+        const look = { ...(target.yaw !== undefined ? { yaw: target.yaw } : {}), ...(target.color !== undefined ? { color: target.color } : {}) };
+        if (target.node === undefined) {
+          const ghost = ghostOf(target, index);
+          return [{ index, position: new THREE.Vector3(...target.position!), quaternion: new THREE.Quaternion(), size: target.size, ...(ghost ? { ghost } : {}), ...look }];
+        }
         const entry = entries.get(target.node), anchor = target.anchor ? entry?.object.getObjectByName(`anchor-${target.anchor}`) : entry?.object;
-        return anchor ? [{ index, position: anchor.localToWorld(new THREE.Vector3(...target.offset ?? [0, 0, 0])), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size }] : [];
+        if (!anchor) return [];
+        const ghost = ghostOf(target, index);
+        return [{ index, position: anchor.localToWorld(new THREE.Vector3(...target.offset ?? [0, 0, 0])), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size, ...(ghost ? { ghost } : {}), ...look }];
       });
       const object = createPickTargetObject(markers);
-      pickTargets = { object, targets, ...(onPick ? { onPick } : {}) };
+      pickTargets = { object, owned, targets, ...(onPick ? { onPick } : {}) };
       scene.add(object);
     },
+    setHighlights: list => { if (!disposed) highlights.set(list ?? [], selectionColor(undefined, store.getSnapshot().settings.palette)); },
     setOverlay: overlay => { if (disposed) return; const next = overlay ? createOverlayObject(overlay) : null; clearOverlay(); if (next) { overlayObject = next; scene.add(next); } },
     loaded,
     getLoadState: () => loadState,

@@ -97,7 +97,7 @@ if (nearest.length) handling.move([{ unit: 'carton-1', to: nearest[0].target }])
     { id: 'move-mode', title: 'Move mode', paragraphs: [
       'Move mode is an optional way to let a viewer move units in the scene. Most dashboards will not need it, and the domain examples leave it out; /examples/move-mode shows it on its own through native React, Vue and plain JavaScript.',
       'createMoveMode({ handling, onRequest, containers, rank, limit }) holds the unit in progress: begin(unit), cancel() and request(target), with a getSnapshot and subscribe store of the unit, its targets and the refusals. It follows the handling state while a unit is in progress. It moves nothing: onRequest receives the unit, the target, where the unit came from and a current check, also when that check failed. Run your own command, then call handling.move.',
-      'bindMoveMode(renderer, mode) draws a translucent box for each target and turns a click on one into mode.request; it returns a function that stops and clears them. It uses the generic renderer method setPickTargets(targets, onPick), which draws pickable boxes at node anchors and which React and Vue hosts reach through onReady or @ready. Markers sit where the anchors are at that moment, and they are static, so they need no motion setting.',
+      'bindMoveMode(renderer, mode) shows a ghost of the unit at each target, a translucent copy turned as the unit would stand there, and turns a click on one into mode.request; it returns a function that stops and clears them. Pass { ghost: false } for plain boxes. It uses the generic renderer method setPickTargets(targets, onPick), which React and Vue hosts reach through onReady or @ready. Targets sit where the anchors are at that moment, and they are static, so they need no motion setting. Tint the units a viewer can pick up with setHighlights while no unit is chosen, as the runnable sample does; see Picking up and moving below.',
       'Offer the same targets in HTML, so the choice works with a keyboard and a screen reader, and use refusals(unit) to explain why other places are not offered. See the runnable sample for a complete list, a cancel button and Escape.',
     ], code: `import { bindMoveMode, createMoveMode } from '@opsorama/objects/handling';
 
@@ -119,6 +119,25 @@ mode.begin('carton-1');
 
 // On teardown:
 stop(); mode.dispose();`, language: 'typescript' },
+    { id: 'pick-and-move', title: 'Picking up and moving', paragraphs: [
+      'Whenever a viewer moves something in a scene (a pallet into a rack, a cart to a bay, a person to a desk), use the same two steps, with or without handling state. First tint what can be picked up: renderer.setHighlights(list) lays a steady shell over each listed node, in its color or the palette accent, which pulses gently while motion runs; the nodes stay clickable as usual. Once one is chosen, keep it tinted and show where it can go as ghosts: setPickTargets(targets, onPick) with a ghost on each target draws a translucent copy of the chosen node (or of a model, for something that has no node yet) where it would stand. A click on a ghost calls onPick with that target; the renderer never moves anything itself.',
+      'A target stands on a node anchor (node, anchor, offset) or at a world position on the floor (position); yaw turns the ghost, size is the area that takes the pointer, and color colors the ghost. A ghost copies the node as it is drawn at that moment, with the nodes inside it, such as the cartons on a pallet. A place that cannot be shown as a ghost, such as a full shelf the unit would wait for, can be tinted in the target color instead. Commands for the chosen object belong in an action ring over it; details belong in a panel.',
+      'Offer the same choices as buttons for the keyboard, for example hidden pills over the nodes that appear when they get focus, or a list in a panel.',
+    ], code: `// Step 1: tint what the viewer can pick up.
+renderer.setHighlights(movable.map(id => ({ node: id })));
+
+// Step 2: the viewer clicked pallet-7. Keep it tinted and show a ghost of it at each free place.
+renderer.setHighlights([{ node: 'pallet-7' }]);
+renderer.setPickTargets([
+  { node: 'rack-2', anchor: 'level-1', offset: [0, 0, 0], yaw: Math.PI / 2, size: [1.3, 1.4, 1.3], ghost: 'pallet-7' },
+  { position: [6, 0, -2], size: [1.3, 1.4, 1.3], ghost: 'pallet-7' },
+  // Something that has no node yet: a ghost built from a model.
+  { position: [8, 0, -2], size: [.7, .7, .7], ghost: { asset: 'parcel', scale: [.4, .4, .4] } },
+], (target, index) => {
+  runMove('pallet-7', target);
+  renderer.setPickTargets(null);
+  renderer.setHighlights(null);
+});`, language: 'typescript' },
     { id: 'limits', title: 'Known limits', list: [
       'The pallet is an industrial pallet (1.2 × 1.0 m), the size of the pallet-rack loads; it fits a rack position either way round, and the matrix shows how high its load may be on each level. EUR pallets (1.2 × 0.8 m) are not modelled.',
       'The single parcel is about 1.03 m wide at scale 1; its class size applies at scale 0.4, the tote (600 × 400 mm) at 0.475. The placement scale is a transform, never a quantity.',

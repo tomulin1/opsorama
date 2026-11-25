@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { createPickTargetObject, disposeObject, highlightPickTarget, type PickTargetMarker } from '@opsorama/three';
+import { createPickTargetObject, disposeObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget, type PickTargetMarker } from '@opsorama/three';
 import { assetHandling, handlingProfiles } from '@opsorama/objects';
 import { createMoveModeSession, moveModeDefinition, moveModeUnits, targetLabel } from '../apps/site/examples/move-mode-data';
 import { bindMoveMode, createHandlingState, createMoveMode, moveTargetPick, type MoveRequest } from '@opsorama/objects/handling';
@@ -115,15 +115,46 @@ describe('move mode (H3)', () => {
     disposeObject(group);
   });
 
+  it('draws a ghost that borrows the model geometry, turned and scaled, over a pick box that is not drawn', () => {
+    const geometry = new THREE.BoxGeometry(1, 1, 1), model = new THREE.Group(), part = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
+    part.position.set(0, .5, 0); model.add(part, new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ transparent: true })));
+    const group = createPickTargetObject([{ ...marker(2, 3), ghost: { object: model, scale: new THREE.Vector3(2, 2, 2) }, yaw: Math.PI / 2, color: '#c0392b' }]);
+    const [box] = pickTargetBoxes(group), copy = group.children.find(child => child.name === 'pick-target-ghost')!;
+    expect(box.visible).toBe(false);
+    // The glass part is left out; the opaque part is drawn twice, in view and through what covers it.
+    expect(copy.children).toHaveLength(2);
+    expect((copy.children[0] as THREE.Mesh).geometry).toBe(geometry);
+    expect(copy.position.toArray()).toEqual([3, 1, 0]); expect(copy.scale.toArray()).toEqual([2, 2, 2]);
+    expect(copy.quaternion.angleTo(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2))).toBeLessThan(1e-6);
+    expect(((copy.children[1] as THREE.Mesh).material as THREE.MeshStandardMaterial).color.getHexString()).toBe('c0392b');
+    group.updateMatrixWorld(true);
+    expect(new THREE.Raycaster(new THREE.Vector3(3, 10, 0), new THREE.Vector3(0, -1, 0)).intersectObjects(pickTargetBoxes(group), false)[0].object.userData.pickTarget).toBe(2);
+    const front = (copy.children[1] as THREE.Mesh).material as THREE.Material, rest = front.opacity;
+    highlightPickTarget(group, 2); expect(front.opacity).toBeGreaterThan(rest);
+    const borrowed = vi.spyOn(geometry, 'dispose'), material = vi.spyOn(front, 'dispose');
+    disposePickTargets(group);
+    expect(borrowed).not.toHaveBeenCalled(); expect(material).toHaveBeenCalled();
+  });
+
+  it('checks pick targets with errors that name the fix', () => {
+    expect(() => validatePickTarget({ size: [1, 1, 1] }, 0)).toThrow('needs a node (with an optional anchor and offset) or a world position');
+    expect(() => validatePickTarget({ position: [0, 0, 0], size: [1, 0, 1] }, 1)).toThrow('size must be three numbers greater than 0');
+    expect(() => validatePickTarget({ node: 'rack', size: [1, 1, 1], yaw: Number.NaN }, 2)).toThrow('yaw must be a finite number of radians');
+    expect(() => validatePickTarget({ node: 'rack', size: [1, 1, 1], ghost: { asset: ' ' } }, 3)).toThrow('ghost must be a scene node ID or a model with an asset name');
+    expect(() => validatePickTarget({ position: [1, 0, 2], size: [1, 1, 1], ghost: { asset: 'pallet', count: 4 }, yaw: 1 }, 4)).not.toThrow();
+  });
+
   it('binds markers to the snapshot and clears them', () => {
     const requests: MoveRequest[] = [], handling = state(), mode = createMoveMode({ handling, onRequest: request => requests.push(request) }), renderer = { setPickTargets: vi.fn() };
     const stop = bindMoveMode(renderer, mode);
     expect(renderer.setPickTargets).toHaveBeenLastCalledWith(null, expect.any(Function));
     mode.begin('c1');
     const { targets } = mode.getSnapshot(), [picks, onPick] = renderer.setPickTargets.mock.lastCall!;
-    expect(picks).toEqual(targets.map(moveTargetPick));
+    expect(picks).toEqual(targets.map(target => moveTargetPick(target, 'c1')));
     const shelf = targets.findIndex(target => target.target.container === 'shelf');
-    expect(picks[shelf]).toEqual({ node: 'shelf', anchor: targets[shelf].placement.anchor, offset: targets[shelf].placement.offset, size: [targets[shelf].size.footprint[0], targets[shelf].size.height, targets[shelf].size.footprint[1]] });
+    expect(picks[shelf]).toEqual({ node: 'shelf', anchor: targets[shelf].placement.anchor, offset: targets[shelf].placement.offset, size: [targets[shelf].size.footprint[0], targets[shelf].size.height, targets[shelf].size.footprint[1]], ghost: 'c1', yaw: targets[shelf].placement.turn * Math.PI / 180 });
+    // An index, as Array.map passes it, is not a unit: the target stays a box.
+    expect(moveTargetPick(targets[shelf], 3 as unknown as string)).not.toHaveProperty('ghost');
     onPick(picks[shelf], shelf);
     expect(requests.map(request => request.target)).toEqual([targets[shelf]]);
     stop();
@@ -131,6 +162,14 @@ describe('move mode (H3)', () => {
     mode.cancel();
     expect(renderer.setPickTargets).toHaveBeenCalledTimes(3);
     mode.dispose();
+  });
+
+  it('binds boxes instead of ghosts on request', () => {
+    const handling = state(), mode = createMoveMode({ handling, onRequest: () => {} }), renderer = { setPickTargets: vi.fn() };
+    const stop = bindMoveMode(renderer, mode, { ghost: false });
+    mode.begin('c1');
+    expect(renderer.setPickTargets.mock.lastCall![0]).toEqual(mode.getSnapshot().targets.map(target => moveTargetPick(target)));
+    stop(); mode.dispose();
   });
 
   it('the example moves a loaded pallet into the rack through a request', () => {
