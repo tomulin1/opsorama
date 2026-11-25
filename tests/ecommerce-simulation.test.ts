@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createSceneStore, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { assetHandling, catalogAssets } from '@opsorama/objects';
-import { LOCATIONS, SCENARIOS, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
+import { LOCATIONS, SCENARIOS, departmentCapacity, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation, type EcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
 const scenarios = Object.keys(SCENARIOS) as EcommerceScenario[];
@@ -175,7 +175,10 @@ describe('e-commerce mock feed', () => {
     let deep = false;
     run(simulation, 900, () => { deep ||= assets(simulation.nodes()).some(node => node.id === 'reach-truck' && (node.position?.[2] ?? 0) < -15); });
     expect(deep).toBe(true);
-    expect(simulation.snapshot().shop.facings.outdoor).toBeLessThan(SCENARIOS.peak.shop.facings.outdoor + 16);
+    // Shoppers take goods from every department and the shelf filler restocks within each department's capacity.
+    const facings = simulation.snapshot().shop.facings;
+    expect(Object.entries(facings).filter(([department, value]) => value !== SCENARIOS.peak.shop.facings[department as keyof typeof facings]).map(([department]) => department).sort()).toEqual(['home', 'kitchen', 'outdoor', 'sport', 'tech', 'toys']);
+    expect(Object.entries(facings).every(([department, value]) => value <= departmentCapacity(department as keyof typeof facings))).toBe(true);
     simulation.dispose();
   });
 
