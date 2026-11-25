@@ -24,6 +24,7 @@ export type { LabelSurface, SurfaceLabel } from './surface-labels';
 export { CATALOG_OPTION_ASSETS, validateCatalogOptions } from './options';
 export type { CatalogOption } from './options';
 export { validateContents, projectContents, contentsLabel } from './contents';
+export { GOODS_KINDS, GOODS_ITEMS, type GoodsKind } from './goods';
 export type { ContentLine, ContainerContents } from './contents';
 export { OPERATING_OPTION_ASSETS, validateOperatingProperties } from './operating';
 export type { OperatingOption } from './operating';

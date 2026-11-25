@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
 import { assetCountDefinitions } from './asset-counts';
 import { setAssetAnimator } from '@opsorama/three';
+import { goodsPart } from './goods';
 import { anchor, block, cylinder, ITEM_TONES, part } from './parts';
 import { resolveObjectColor, resolveObjectStateColor } from './object-palette';
 import type { MaterialContext } from '@opsorama/three';
 
-/** Open stacking tote. `count` fills 0–9 decorative item slots, three per row from back to front. */
+/** Open stacking tote. `count` fills 0–9 decorative item slots, three per row from back to front, with the iconic item of `options.goods` when set. */
 export function createTote(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const tote = new THREE.Group(); tote.name = 'tote';
   const body = resolveObjectColor(node, context, 'accent', '#4f86d9');
@@ -25,6 +26,7 @@ export function createTote(node: AssetNode, context?: MaterialContext): THREE.Ob
   for (const z of [-.39, .39]) block(tote, [1.26, .04, .05], [0, .57, z], '#eaf0f8', 'tote-rim');
   for (const x of [-.6, .6]) block(tote, [.05, .04, .83], [x, .57, 0], '#eaf0f8', 'tote-rim');
   for (let i = 0; i < count; i++) {
+    if (node.options?.goods) { const goods = goodsPart(node.options.goods, [.3, .46, .19], `count-part-${i}`); goods.position.set((i % 3 - 1) * .34, .06, (Math.floor(i / 3) - 1) * .21); goods.rotation.y = (i % 2 ? 1 : -1) * .06; tote.add(goods); continue; }
     const item = block(tote, [.3, .48, .17], [(i % 3 - 1) * .34, .3, (Math.floor(i / 3) - 1) * .21], ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .015 });
     item.rotation.y = (i % 2 ? 1 : -1) * .06;
   }
