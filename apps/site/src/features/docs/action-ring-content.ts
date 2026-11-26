@@ -58,6 +58,7 @@ const handle = renderer.attachHtml('cooler', element);
       ['arc', 'number', '18', 'Pixels by which the middle actions rise above the outer ones.'],
       ['density', "'regular' | 'compact'", 'regular', 'Smaller pills and text with compact.'],
       ['layout', "'arc' | 'card'", 'arc', 'Pills in an arc over a name pill, or one translucent card with a leader line to the object.'],
+      ['unfold', 'boolean', 'true', 'Card only: unfold out of a label-sized pill when the card appears; pass false when you mount the same card again. Reduced motion turns it off.'],
       ['className / style', 'string / CSS properties', 'none', 'Host styling of the ring.'],
     ] },
   ],

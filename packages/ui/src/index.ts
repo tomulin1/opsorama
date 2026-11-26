@@ -317,6 +317,12 @@ export interface ActionRingProps<T> {
    * row of plain actions, the primary one filled, and a leader line down to the object. The card ignores `arc`.
    */
   layout?: 'arc' | 'card';
+  /**
+   * Card only: the card unfolds when it appears, growing up from the leader line out of a label-sized pill while its actions
+   * fade in. Default true; pass false when the host mounts the same card again (for example to restack it), so it does not
+   * unfold twice. Reduced motion turns it off.
+   */
+  unfold?: boolean;
 }
 /**
  * A compact ring of command pills for one object, such as the selected person or machine in a scene: the actions in a gentle
@@ -346,7 +352,7 @@ export function actionRing<T>(props: ActionRingProps<T>): PanelElement<T> {
       action.switch ? el<T>('span', { class: 'dp-ring-switch', 'aria-hidden': true }, [el<T>('span', { class: 'dp-ring-knob' })]) : null,
     ].filter(isNode), { key: action.id, style: { '--dp-ring-lift': `${lift}px` }, onClick: () => { if (!action.disabled) action.onSelect?.(); } });
   });
-  const attrs = { class: `dp-action-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info', 'data-density': props.density === 'compact' ? 'compact' : undefined, 'data-layout': card ? 'card' : undefined };
+  const attrs = { class: `dp-action-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info', 'data-density': props.density === 'compact' ? 'compact' : undefined, 'data-layout': card ? 'card' : undefined, 'data-unfold': card && props.unfold !== false ? true : undefined };
   const row = count ? el<T>('div', { class: 'dp-ring-actions' }, actions, { key: 'actions' }) : null;
   if (card) {
     // The title leads with a status dot in the ring's tone; a leader line runs from the card down to the object.
