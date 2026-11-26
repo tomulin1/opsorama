@@ -62,11 +62,19 @@ export function nodeAncestors(id: string, getNode: (id: string) => SceneNode | u
  * container keeps its own selection), so a click on a node that is not selectable outside groups selects nothing
  * (undefined). Stops at unknown nodes and cycles.
  */
+/**
+ * Whether a click or a label selects the node itself: it has an `entityId` or `selectable: true`, and not `selectable: false`,
+ * which keeps a node with an `entityId` (such as a floor area with records) out of pointer selection. The host can still select
+ * any node with `store.select`.
+ */
+export function isSelectableNode(node: Pick<SceneNode, 'entityId' | 'selectable'>): boolean {
+  return node.selectable !== false && Boolean(node.entityId || node.selectable);
+}
 export function selectionTarget(id: string, getNode: (id: string) => SceneNode | undefined): string | undefined {
   const seen = new Set<string>();
   let current = getNode(id);
   while (current && !seen.has(current.id)) {
-    if (current.entityId || current.selectable) return current.id;
+    if (isSelectableNode(current)) return current.id;
     seen.add(current.id);
     const parent = current.parentId !== undefined ? getNode(current.parentId) : undefined;
     current = parent?.kind === 'group' ? parent : undefined;
