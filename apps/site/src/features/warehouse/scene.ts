@@ -269,7 +269,7 @@ export function warehouseNodes(snapshot: WarehouseSnapshot): SceneNode[] {
   // Areas: a zone per area inside the hall and a status pin named after it.
   for (const area of AREAS) {
     const state = areaState(snapshot, area.id);
-    if (area.rect) { const [x0, x1, z0, z1] = area.rect; nodes.push({ id: `area:${area.id}`, entityId: area.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, SLAB, (z0 + z1) / 2], color: area.color, selectable: true, interior: true }); }
+    if (area.rect) { const [x0, x1, z0, z1] = area.rect; nodes.push({ id: `area:${area.id}`, entityId: area.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, SLAB, (z0 + z1) / 2], color: area.color, selectable: false, interior: true }); }
     nodes.push({ id: `pin:${area.id}`, entityId: area.id, kind: 'asset', asset: 'map-pin', position: AREA_PINS[area.id], color: '#2f6f8f', ...(state === 'normal' ? {} : { state }), label: area.short, labelMode: 'always', selectable: true });
   }
 

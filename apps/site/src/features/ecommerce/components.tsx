@@ -263,7 +263,7 @@ export function DepartmentInspector({ id, snapshot, onInspect }: { id: Departmen
 }
 
 export function EmptyInspector() {
-  return <div className="ec-inspector"><div className="ec-eyebrow">INSPECTOR</div><h2>Select something</h2><p>Choose an area, rack, pallet, pick face, dock, put wall, packing bench, roll cage, vehicle, checkout or gondola in the scene, or open an order from the Orders panel.</p><StageLegend /></div>;
+  return <div className="ec-inspector"><div className="ec-eyebrow">INSPECTOR</div><h2>Select something</h2><p>Choose a rack, pallet, pick face, dock, put wall, packing bench, roll cage, vehicle, checkout or gondola in the scene, an area from the Areas panel, or open an order from the Orders panel.</p><StageLegend /></div>;
 }
 export function StageLegend() {
   return <div className="ec-legend" aria-label="Order stage legend">{ORDER_STAGES.map(item => <StageBadge key={item.id} value={item.id} />)}</div>;
