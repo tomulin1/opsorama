@@ -42,7 +42,7 @@
     "@opsorama/three": "workspace:*",
     "@opsorama/ui": "workspace:*",
     "@opsorama/vue": "workspace:*",
-    "@types/node": "^22.18.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@types/three": "^0.187.0",
