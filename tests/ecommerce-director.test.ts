@@ -12,9 +12,9 @@ const CHECKPOINTS = [0, 120, 600, 1200, 3000];
  * behave differently; record new ones then.
  */
 const RECORDED: Readonly<Record<EcommerceScenario, readonly string[]>> = {
-  peak: ['00f9f6d8e284b777', '72b7194a18d899e3', '2af54e63f68b1f9d', '2786047124f31531', 'e905b18ee8589fcc'],
-  steady: ['69a6d96d530887be', 'f38c1f38ce64d1ae', 'c11a9f70c698d749', '51fbec44486d4a7f', '426d570d493b2810'],
-  night: ['16d066db2e2902e5', '2b6725e80a9cbd51', 'c5b31917543afd12', '11b5dd869a17f06d', '39d2a4d77c0773d7'],
+  peak: ['06672bf4afa4d394', 'de3f805141572793', '4b6c812c31403fa4', 'ba98c2757aff920c', 'c712d1c8228e9721'],
+  steady: ['2934f1eee55fe97b', '7fbfd30b7b0f0b33', '89f68553bbd21658', '665a29fa9c05abfb', 'f7ad7ac99cd62dc2'],
+  night: ['e2dbb1653c15bff3', 'e2c9d24fa8d66a7b', '07660b79564b805b', '3b6b87fcc321f39d', 'c91838d59919eacb'],
 };
 function digests(simulation: EcommerceSimulation): string[] {
   return CHECKPOINTS.map(at => {

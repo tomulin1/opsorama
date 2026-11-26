@@ -147,10 +147,8 @@ export const ecommerceBase: readonly SceneNode[] = closeWallJoints([
   fixture('shop-sign', 'sign', [-14.4, WALK_Y, 5.4], { options: { surfaceLabel: { kind: 'text', text: 'HEARTH & FIELD', color: '#ffffff', background: '#2f6f8f' } } }),
   ...[[-10.3, -2.6], [-10.3, -9.6], [-25.2, 4.2], [-14.3, -20], [-10.3, -16.5]].map(([x, z], i) => fixture(`shop-plant-${i}`, 'potted-plant', p(x, z))),
   ...[0, 1].map(i => fixture(`shop-cart-${i}`, 'shopping-cart', p(-10.4, -5.8 + i * .55), { count: 0, rotation: yaw(-HALF) })),
-  // Warehouse decoration: bollards at the aisle ends, overflow pallets and a parked pallet jack.
+  // Warehouse decoration: bollards at the aisle ends and a parked pallet jack. Every pallet in the scene is a unit someone moves.
   ...[[-7.6, -9.6], [-7.6, -17], [13.1, -12.7], [13.7, -5.2]].map(([x, z], i) => fixture(`bollard-${i}`, 'safety-barrier', p(x, z), { variant: 'bollard' })),
-  fixture('overflow-0', 'pallet', p(-7.4, -6.6), { count: 9 }),
-  ...[[16.4, -19.4], [18, -19.4], [19.6, -19.4], [16.4, -17.9], [18, -17.9]].map(([x, z], i) => fixture(`overflow-${i + 1}`, 'pallet', p(x, z), { count: 9 + i * 3 })),
   fixture('pallet-jack', 'pallet-jack', p(-7, 3.6), { rotation: yaw(HALF) }),
   ...[0, 1, 2].map(i => fixture(`conveyor-${i}`, 'conveyor', p(10.4 + i * 4.05, BELT_Z), { rotation: yaw(HALF) })),
   // Street furniture.
