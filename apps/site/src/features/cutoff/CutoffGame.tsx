@@ -208,7 +208,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     </NodeHtml>)}
     {/* Attached HTML stacks in attach order: the ring attaches again after the pills change, so it stays on top of them. */}
     {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
-      <ActionRing density="compact" arc={12} title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
+      <ActionRing layout="card" density="compact" title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
         actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), close)} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
@@ -307,11 +307,11 @@ const MACHINES = new Set(['forklift', 'reach-truck']);
 function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, done: () => void): RingAction<ReactNode>[] {
   const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined, [current, next] = actor.queue;
   return [
-    ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square />, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
-    ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
+    ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square fill="currentColor" />, tone: 'critical' as const, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
+    ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, tone: 'warning' as const, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
     { id: 'auto', label: 'Auto', switch: true, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
-    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
-    { id: 'done', label: 'Done', icon: <Check />, onSelect: done },
+    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, tone: 'info' as const, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
+    { id: 'done', label: 'Done', icon: <Check />, tone: 'success', primary: true, onSelect: done },
   ];
 }
 
