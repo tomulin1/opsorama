@@ -190,21 +190,24 @@
   .hud-toolbar-group > button { padding: 6px 5px; }
 }
 
-/* The dark panel variant of the HUD (data-panel-theme="dark" on the viewport): navy translucent panels, light text and a cyan
-   accent, as in the action ring card. It sets the HUD's own variables over the example's light ones. */
-.hud-viewport[data-panel-theme="dark"] {
+/* The dark panel variant of the HUD, the default of every example: navy translucent panels, light text and a cyan accent, as in
+   the action ring card. data-panel-theme="light" on the viewport keeps the light version. It sets the HUD's own variables over
+   each example's light ones, and --hud-card, --hud-card-line, --hud-critical-fill and --hud-warning-fill for the examples' own
+   cards, rows and notes. */
+.hud-viewport:not([data-panel-theme="light"]) {
   color-scheme: dark;
   --panel-surface: color-mix(in srgb, #142038 88%, transparent); --panel-text: #f1f5fb; --panel-muted: #a8b6cc;
   --panel-border: #ffffff24; --panel-success: #52d69b; --panel-warning: #f1b54a; --panel-critical: #ff7088;
   --panel-shadow: 0 10px 30px #08101f59;
   --hud-accent: #3fd0ff; --hud-accent-strong: #7fe2ff; --hud-accent-soft: #3fd0ff24; --hud-focus: #7fe2ff;
   --hud-tint: #ffffff12; --hud-line: #ffffff1f;
+  --hud-card: #ffffff0d; --hud-card-line: #ffffff1f; --hud-critical-fill: #ff70881f; --hud-warning-fill: #f1b54a1a;
 }
-.hud-viewport[data-panel-theme="dark"] .dp-panel { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
-.hud-viewport[data-panel-theme="dark"] .hud-navigation .hud-symbol { color: #0d1a2e; background: var(--hud-accent); }
-.hud-viewport[data-panel-theme="dark"] .hud-toolbar-group > button { color: var(--panel-text); }
-.hud-viewport[data-panel-theme="dark"] .hud-toolbar-group > button[aria-pressed="true"] { color: var(--hud-accent); background: var(--hud-accent-soft); }
-.hud-viewport[data-panel-theme="dark"] .hud-navigation-control select { color: var(--panel-text); }
-.hud-viewport[data-panel-theme="dark"] .hud-node-preview { background: radial-gradient(circle at 50% 42%, #2a3a57, #142038); }
-.hud-viewport[data-panel-theme="dark"] .dp-badge:not(.dp-delta) { background: color-mix(in srgb, currentColor 16%, transparent); }
-.hud-viewport[data-panel-theme="dark"] .hud-object-thumbnail { border-color: #ffffff24; background: #ffffff14; }
+.hud-viewport:not([data-panel-theme="light"]) .dp-panel { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-navigation .hud-symbol { color: #0d1a2e; background: var(--hud-accent); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button { color: var(--panel-text); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button[aria-pressed="true"] { color: var(--hud-accent); background: var(--hud-accent-soft); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-navigation-control select { color: var(--panel-text); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-node-preview { background: radial-gradient(circle at 50% 42%, #2a3a57, #142038); }
+.hud-viewport:not([data-panel-theme="light"]) .dp-badge:not(.dp-delta) { background: color-mix(in srgb, currentColor 16%, transparent); }
+.hud-viewport:not([data-panel-theme="light"]) .hud-object-thumbnail { border-color: #ffffff24; background: #ffffff14; }

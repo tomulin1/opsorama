@@ -106,3 +106,16 @@
 .cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::after { background: color-mix(in srgb, #3fc8ff 60%, #fff); }
 /* While the command card is open over the chosen actor, its own label would repeat the card's title: only the card shows. */
 .co-viewport[data-commanding="true"] .kit-scene-labels .kit-node-label.kit-node-selected { display: none; }
+
+/* The dark panel variant, the default: the game's own light fills follow the dark panels. */
+.co-viewport:not([data-panel-theme="light"]) .co-message[data-tone="critical"] { background: var(--hud-critical-fill); }
+.co-viewport:not([data-panel-theme="light"]) .co-message[data-tone="success"] { background: #52d69b1f; }
+.co-viewport:not([data-panel-theme="light"]) :is(.co-portrait, .co-staged button, .co-choices button, .co-actions > button, .co-name) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait { color: var(--panel-muted); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait strong { color: var(--panel-text); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait[aria-pressed="true"] { background: var(--hud-accent-soft); border-color: #3fd0ff66; }
+.co-viewport:not([data-panel-theme="light"]) .co-event { background: var(--hud-warning-fill); border-color: #f1b54a66; }
+.co-viewport:not([data-panel-theme="light"]) :is(.co-event header span, .co-portrait[data-waiting] span) { color: var(--panel-warning); }
+.co-viewport:not([data-panel-theme="light"]) .co-primary { color: #0d1a2e; }
+.co-viewport:not([data-panel-theme="light"]) .co-picking { color: var(--panel-text); background: var(--panel-surface); border-color: #52d69b66; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.co-viewport:not([data-panel-theme="light"]) .co-picking button { color: var(--panel-success); background: var(--hud-card); border-color: #52d69b66; }

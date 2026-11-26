@@ -114,7 +114,7 @@ export function LandingPage() {
   }, []);
   return <main className="landing-page">
     <SiteHeader active={null} />
-    <section className="hud-viewport landing-hero" data-left-panel="none" aria-label="Opsorama city">
+    <section className="hud-viewport landing-hero" data-left-panel="none" data-panel-theme="light" aria-label="Opsorama city">
       {session && <DashboardProvider store={session.store}><CityViewport city={session.city} simulation={session.simulation} /></DashboardProvider>}
       <IntroCarousel />
     </section>
