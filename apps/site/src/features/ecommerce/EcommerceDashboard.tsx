@@ -1,7 +1,7 @@
 'use client';
 import { exampleSelectionNodeId } from '../example-selection';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, Boxes, ClipboardList, Crosshair, Eye, EyeOff, Info, LayoutGrid, Maximize2, Minimize2, Palette, Pause, Play, Truck, X, Store } from 'lucide-react';
+import { Activity, Boxes, ClipboardList, Crosshair, Eye, EyeOff, Info, LayoutGrid, Maximize2, Minimize2, Moon, Palette, Pause, Play, Truck, X, Store } from 'lucide-react';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
@@ -38,6 +38,8 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
   const [areaFilter, setAreaFilter] = useState<AreaId | null>(null), [orderId, setOrderId] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<LeftPanel | null>(null), [sidePanel, setSidePanel] = useState<SidePanel | null>(null);
   const [expanded, setExpanded] = useState(false), [panelsVisible, setPanelsVisible] = useState(true);
+  // The dark panel variant, the second color version of the HUD; Dark panels switches back to the light one.
+  const [panelTheme, setPanelTheme] = useState<'light' | 'dark'>('dark');
   const { metricSize, setMetricSize } = useHudMetricSize();
   const selection = scene.selection?.nodeId ?? null;
   const [kind, id = ''] = (selection ?? '').split(':') as [string, string | undefined];
@@ -91,7 +93,7 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
     : selection && /^(forklift|reach-truck|replenisher|dispatcher|shelf-filler|picker|sorter)/.test(selection) ? <AgentInspector id={selection} snapshot={snapshot} />
     : <EmptyInspector />;
 
-  return <section className="ec-viewport hud-viewport" aria-label="Online shop and fulfilment centre" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
+  return <section className="ec-viewport hud-viewport" aria-label="Online shop and fulfilment centre" data-panel-theme={panelTheme} data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
     <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
 
@@ -135,7 +137,7 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
       <DataPanel className="hud-viewport-toolbar" label="Viewport controls" density="compact">
         <div className="hud-toolbar-group"><button type="button" aria-pressed={leftPanel === 'orders' && panelsVisible} onClick={() => toggleLeft('orders')}><ClipboardList size={14} />Orders</button><button type="button" aria-pressed={leftPanel === 'stock' && panelsVisible} onClick={() => toggleLeft('stock')}><Boxes size={14} />Stock</button><button type="button" aria-pressed={leftPanel === 'docks' && panelsVisible} onClick={() => toggleLeft('docks')}><Truck size={14} />Docks</button><button type="button" aria-pressed={leftPanel === 'about' && panelsVisible} onClick={() => toggleLeft('about')}><Info size={14} />Info</button><button type="button" aria-pressed={sidePanel === 'areas' && panelsVisible} onClick={() => toggleSide('areas')}><LayoutGrid size={14} />Areas</button></div>
         <MetricSizeControl size={metricSize} onChange={setMetricSize} />
-        <div className="hud-toolbar-group hud-scene-controls"><button type="button" aria-pressed={scene.settings.paused} aria-label={scene.settings.paused ? 'Resume simulation' : 'Pause simulation'} onClick={() => store.configure({ paused: !scene.settings.paused })}>{scene.settings.paused ? <Play size={14} /> : <Pause size={14} />}{scene.settings.paused ? 'Resume' : 'Pause'}</button><button type="button" onClick={overview}><Crosshair size={14} />Overview</button><button type="button" onClick={() => store.configure({ theme: scene.settings.theme === 'light' ? 'midnight' : 'light' })}><Palette size={14} />Change theme</button></div>
+        <div className="hud-toolbar-group hud-scene-controls"><button type="button" aria-pressed={scene.settings.paused} aria-label={scene.settings.paused ? 'Resume simulation' : 'Pause simulation'} onClick={() => store.configure({ paused: !scene.settings.paused })}>{scene.settings.paused ? <Play size={14} /> : <Pause size={14} />}{scene.settings.paused ? 'Resume' : 'Pause'}</button><button type="button" onClick={overview}><Crosshair size={14} />Overview</button><button type="button" onClick={() => store.configure({ theme: scene.settings.theme === 'light' ? 'midnight' : 'light' })}><Palette size={14} />Change theme</button><button type="button" aria-pressed={panelTheme === 'dark'} onClick={() => setPanelTheme(value => value === 'dark' ? 'light' : 'dark')}><Moon size={14} />Dark panels</button></div>
         <label className="hud-motion"><Activity size={13} /><span>Motion</span><input aria-label="Shop and warehouse motion" type="checkbox" checked={scene.settings.motion} onChange={event => store.configure({ motion: event.target.checked })} /></label>
         <div className="hud-toolbar-group hud-display-controls"><button type="button" aria-label={panelsVisible ? 'Hide information panels' : 'Show information panels'} onClick={() => setPanelsVisible(value => !value)}>{panelsVisible ? <EyeOff size={15} /> : <Eye size={15} />}</button>{!panelsVisible && <button type="button" aria-label={expanded ? 'Exit expanded view' : 'Expand viewport'} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button>}<span>Drag to pan · select a rack, dock or bench</span></div>
       </DataPanel>

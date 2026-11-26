@@ -88,3 +88,17 @@
   .ec-viewport { --hud-phone-panel-bottom: 238px; }
   .ec-viewport :is(.hud-side-panel, .hud-floating-panel) { max-height: 240px; }
 }
+
+/* The dark panel variant of the dashboard: the example's own light fills and text colors follow the dark panels. */
+.ec-viewport[data-panel-theme="dark"] { --e-ink: #f1f5fb; --e-muted: #a8b6cc; --e-line: #ffffff1f; --e-accent: #3fd0ff; --e-accent-soft: #3fd0ff1f; }
+.ec-viewport[data-panel-theme="dark"] :is(.ec-inspector p, .ec-lines td, .ec-alerts span, .ec-dock p, .ec-host-note) { color: var(--panel-muted); }
+.ec-viewport[data-panel-theme="dark"] :is(.ec-host-note, .ec-lines th, .ec-dock, .ec-carriers button, .ec-library a, .ec-alerts li, .ec-order-links li) { background: #ffffff0d; border-color: #ffffff1f; }
+.ec-viewport[data-panel-theme="dark"] :is(.hud-side-panel .ec-activity, .ec-library, .ec-mini li, .ec-lines td) { border-color: #ffffff1f; }
+.ec-viewport[data-panel-theme="dark"] .ec-fill { background: #ffffff1f; }
+.ec-viewport[data-panel-theme="dark"] .ec-fill > i { background: var(--hud-accent); }
+.ec-viewport[data-panel-theme="dark"] .ec-table-wrap tr[data-alert=critical] { background: #ff70881f; }
+.ec-viewport[data-panel-theme="dark"] .ec-table-wrap tr[data-alert=warning] { background: #f1b54a1a; }
+.ec-viewport[data-panel-theme="dark"] .ec-alerts li[data-status=out] { background: #ff70881a; }
+.ec-viewport[data-panel-theme="dark"] .ec-dock[data-late] { border-color: #f1b54a66; background: #f1b54a14; }
+.ec-viewport[data-panel-theme="dark"] :is(.ec-mini li[data-low] span, .ec-table-wrap small.ec-risk) { color: var(--panel-warning); }
+.ec-viewport[data-panel-theme="dark"] :is(.ec-inspector p.ec-alert-text, .ec-lines tr[data-short] td, .ec-table-wrap small.ec-issue) { color: var(--panel-critical); }
