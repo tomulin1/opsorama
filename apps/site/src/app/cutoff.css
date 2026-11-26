@@ -81,9 +81,6 @@
 /* Take and Bring here pills are for the keyboard: the scene shows tints and ghosts, and a pill appears only while it has focus. */
 .co-pill-anchor { z-index: 2; }
 .co-pill-anchor:not(:focus-within) { opacity: 0; pointer-events: none; }
-.co-pill-anchor .dp-ring { --ring-font-size: 11px; padding-bottom: 2px; }
-.co-pill-anchor .dp-ring .dp-ring-icon { width: 18px; height: 18px; }
-.co-pill-anchor .dp-ring .dp-ring-icon svg { width: 11px; height: 11px; }
 .co-event-anchor { z-index: 2; }
 .co-event-anchor .co-event { width: 250px; max-width: calc(100vw - 32px); margin-top: 8px; box-shadow: 0 8px 22px rgb(32 48 64 / .2); }
 

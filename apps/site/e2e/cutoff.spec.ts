@@ -58,9 +58,9 @@ test('Cut-off commands the crew with an action ring, tinted sources and Take and
 
   // Shipping: the dispatcher works by itself from its action ring, and the panel sends the SwiftPost truck.
   await commandActor('Dispatch');
-  await ring('Dispatch').getByRole('button', { name: 'Work by yourself', exact: true }).dispatchEvent('click');
+  await ring('Dispatch').getByRole('switch', { name: 'Work by yourself', exact: true }).dispatchEvent('click');
   await expect(message).toHaveText('Dispatch works by itself without a command.');
-  await expect(ring('Dispatch').getByRole('button', { name: 'Work by yourself', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(ring('Dispatch').getByRole('switch', { name: 'Work by yourself', exact: true })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('toolbar', { name: /^Commands of/ })).toHaveCount(0);
   await summary.getByRole('region', { name: 'Shipping', exact: true }).getByRole('button', { name: 'Send the SwiftPost truck now', exact: true }).click();
