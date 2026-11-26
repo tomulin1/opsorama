@@ -1,4 +1,4 @@
-import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_COLORS, GOODS_LABELS, LOCATIONS, SKUS, location, rackGoods, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
+import { CARRIERS, DEPARTMENTS, FACINGS_PER_GONDOLA, GOODS_COLORS, GOODS_LABELS, LOCATIONS, SKUS, location, skuGoods, type EcommerceSnapshot, type GoodsType, type LocationId } from '../ecommerce/model';
 import type { Move, MoveOption, MoveRefusal } from '../ecommerce/simulation';
 import type { NodeHighlight } from '@opsorama/three';
 import { QUEUE_LIMIT, type ActorChoices, type ActorView, type CarrierStatus, type ShiftEvent } from './rules';
@@ -8,13 +8,13 @@ export { GOODS_COLORS };
 export const GOODS_TYPES = Object.keys(GOODS_LABELS) as GoodsType[];
 const RACKS = LOCATIONS.filter(item => item.kind === 'rack');
 
-/** Free and total rack positions of each type of goods, for the legend. */
-export function rackRoom(snapshot: EcommerceSnapshot): { goods: GoodsType; label: string; color: string; free: number; total: number }[] {
-  return GOODS_TYPES.map(goods => {
-    const racks = RACKS.filter(rack => rackGoods(rack.id) === goods), total = racks.reduce((sum, rack) => sum + rack.capacity, 0);
-    return { goods, label: GOODS_LABELS[goods], color: GOODS_COLORS[goods], free: total - racks.reduce((sum, rack) => sum + snapshot.occupancy[rack.id], 0), total };
-  });
+/** Free and total positions of the reserve racks; any pallet may take any of them. */
+export function rackRoom(snapshot: EcommerceSnapshot): { free: number; total: number } {
+  const total = RACKS.reduce((sum, rack) => sum + rack.capacity, 0);
+  return { free: total - RACKS.reduce((sum, rack) => sum + snapshot.occupancy[rack.id], 0), total };
 }
+/** The colors of the pallets' cartons, one per type of goods, for the legend. */
+export const goodsLegend = (): { goods: GoodsType; label: string; color: string }[] => GOODS_TYPES.map(goods => ({ goods, label: GOODS_LABELS[goods], color: GOODS_COLORS[goods] }));
 
 /** The scene node of a pick face. */
 export const faceNode = (face: LocationId) => `${location(face).kind === 'shelf' ? 'shelf' : 'flow'}:${face}`;
@@ -220,10 +220,10 @@ export function detailOf(nodeId: string, context: DetailContext): Detail | null 
     };
   }
   if (prefix === 'rack') {
-    const rack = location(name as LocationId), goods = rackGoods(rack.id), held = snapshot.units.filter(unit => unit.at === `Rack ${rack.id}` && unit.sku);
+    const rack = location(name as LocationId), held = snapshot.units.filter(unit => unit.at === `Rack ${rack.id}` && unit.sku);
     return {
-      title: rack.id, eyebrow: 'RESERVE RACK', color: GOODS_COLORS[goods], lines: [
-        { label: 'Goods', value: `${GOODS_LABELS[goods]} only` }, { label: 'Pallets', value: `${snapshot.occupancy[rack.id]} of ${rack.capacity} positions` },
+      title: rack.id, eyebrow: 'RESERVE RACK', lines: [
+        { label: 'Pallets', value: `${snapshot.occupancy[rack.id]} of ${rack.capacity} positions · any goods` },
         ...(held.length ? [{ label: 'Holds', value: [...new Set(held.map(unit => unit.sku!))].join(', ') }] : []),
       ],
     };

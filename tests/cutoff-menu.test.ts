@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateScene, type AssetNode, type MarkerNode } from '@opsorama/core';
 import { SKUS } from '../apps/site/src/features/ecommerce/model';
 import { createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
-import { GOODS_COLORS, SOURCE_TINT, STAGING_TARGET, TARGET_TINT, actorSources, sourceTints, targetTints, clickedNodes, markAnchor, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
+import { GOODS_COLORS, SOURCE_TINT, STAGING_TARGET, TARGET_TINT, actorSources, goodsLegend, sourceTints, targetTints, clickedNodes, markAnchor, detailOf, eventNode, pickTarget, rackRoom, sourceMarks, targetMarks, targetNodes, type DetailContext } from '../apps/site/src/features/cutoff/menu';
 import { playable, playNodes } from '../apps/site/src/features/cutoff/scene';
 import { GOODS_TONES } from '@opsorama/objects';
 /** Move options without their ghost places, which the tests of previews check on their own. */
@@ -22,10 +22,12 @@ describe('Cut-off commands: actor, source, target', () => {
     expect(sources('forklift')[0].options[0].previews).toEqual([{ position: [16.2, expect.any(Number), -7.1], size: [1.3, 1.4, 1.3], ghost: { asset: 'pallet', count: 9 } }]);
     const reach = sources('reach-truck'), staged = reach.find(source => source.node === 'pallet:1038')!;
     expect(staged.label).toBe('Pallet 1038 · TOY-208 · staging');
-    expect(staged.options.map(option => option.target)).toEqual(['R12 · level 1 · Toys', 'R05 · level 1 · Toys']);
-    // A ghost of the pallet itself at its free rack position, turned a quarter as pallets stand in racks.
-    expect(staged.options[0].previews).toEqual([expect.objectContaining({ node: 'rack:R12', anchor: expect.any(String), ghost: 'pallet:1038', yaw: Math.PI / 2 })]);
-    expect(staged.refused[0]).toMatchObject({ target: 'R11 · Outdoor', reason: 'R11 holds Outdoor goods and does not take Toys (TOY-208).' });
+    // Any free rack place, whatever the goods; each shows a ghost of the pallet itself there, turned a quarter as pallets stand in racks.
+    expect(staged.options).toHaveLength(rackRoom(snapshot).free);
+    expect(staged.options[0].target).toMatch(/^R\d\d · level 1 · place 1$/);
+    expect(staged.options.every(option => option.previews?.length === 1)).toBe(true);
+    expect(staged.options[0].previews).toEqual([expect.objectContaining({ node: `rack:${staged.options[0].target.slice(0, 3)}`, anchor: expect.any(String), ghost: 'pallet:1038', yaw: Math.PI / 2 })]);
+    expect(staged.refused.every(item => / is full\.$/.test(item.reason))).toBe(true);
     // Everything it can technically take: the staged pallets to put away and every reserve pallet whose face has room behind it.
     expect(reach.find(source => source.node === 'pallet:1016')).toMatchObject({ label: 'Pallet 1016 · OUT-215 · rack R04', options: [{ move: { kind: 'replenish', pallet: 'pallet:1016' }, target: 'Behind F3' }] });
     expect(reach.filter(source => source.options[0].move.kind === 'put-away')).toHaveLength(5);
@@ -57,7 +59,10 @@ describe('Cut-off commands: actor, source, target', () => {
   it('lights the targets of a taken source and turns a click into a move, a refusal or nothing', () => {
     const shift = game(), snapshot = shift.snapshot(), reach = actorSources('reach-truck', snapshot, (subject, who) => shift.options(subject, who));
     const staged = reach.find(source => source.node === 'pallet:1038')!, rack = reach.find(source => source.node === 'pallet:1016')!;
-    expect(targetMarks(staged, snapshot)).toEqual([{ key: 'rack:R12', kind: 'target', label: 'R12 · level 1 · Toys' }, { key: 'rack:R05', kind: 'target', label: 'R05 · level 1 · Toys' }]);
+    // One mark per rack with a free place, named after its lowest free place.
+    const marks = targetMarks(staged, snapshot), withRoom = new Set(staged.options.map(option => option.move.kind === 'put-away' && option.move.rack));
+    expect(marks).toHaveLength(withRoom.size);
+    expect(marks[0]).toEqual({ key: `rack:${staged.options[0].target.slice(0, 3)}`, kind: 'target', label: staged.options[0].target });
     expect(targetMarks(rack, snapshot)).toEqual([{ key: 'flow:F3', kind: 'target', label: 'Behind F3' }]);
     expect([targetNodes({ kind: 'restock', department: 'toys', source: 'face' }), targetNodes({ kind: 'decant', face: 'S1' }), targetNodes({ kind: 'unload', dock: 'D1' }), targetNodes({ kind: 'clear', face: 'F3' }), targetNodes({ kind: 'ship', cage: 'swift-1' })])
       .toEqual([['gondola:toys:0', 'gondola:toys:1', 'gondola:toys:2', 'gondola:toys:3'], ['flow:S1'], [STAGING_TARGET], ['pallet-stack'], ['dock:D3']]);
@@ -67,7 +72,10 @@ describe('Cut-off commands: actor, source, target', () => {
     expect(clickedNodes('source:pallet:1038', [], snapshot)).toEqual(['pallet:1038']);
     expect(clickedNodes('pallet:1018', [], snapshot)).toEqual(['pallet:1018', 'rack:R05']);
     expect(pickTarget(staged, clickedNodes('pallet:1018', [], snapshot), snapshot)).toMatchObject({ node: 'rack:R05' });
-    expect(pickTarget(staged, ['rack:R04'], snapshot)).toEqual({ refused: expect.objectContaining({ target: 'R04 · Outdoor', reason: expect.stringContaining('holds Outdoor goods') }) });
+    // A Toys pallet may go into an Outdoor rack too; only a full rack refuses it.
+    expect(pickTarget(staged, ['rack:R04'], snapshot)).toMatchObject({ node: 'rack:R04', option: { move: { kind: 'put-away', pallet: 'pallet:1038', rack: 'R04' } } });
+    const full = staged.refused[0];
+    if (full) expect(pickTarget(staged, [`rack:${full.target}`], snapshot)).toEqual({ refused: expect.objectContaining({ reason: `${full.target} is full.` }) });
     expect(pickTarget(staged, ['checkout:C1'], snapshot)).toBeUndefined();
     expect(pickTarget(rack, ['flow:F3'], snapshot)).toMatchObject({ option: { move: { kind: 'replenish', pallet: 'pallet:1016' } } });
 
@@ -95,10 +103,10 @@ describe('Cut-off commands: actor, source, target', () => {
     const shift = game(), detail = (node: string) => detailOf(node, contextOf(shift, node));
     expect(detail('pallet:1038')).toEqual({ title: 'Pallet 1038', eyebrow: 'PALLET', color: GOODS_COLORS.toys, lines: [
       { label: 'SKU', value: 'TOY-208 · Puzzle, 1000 pieces' }, { label: 'Goods', value: 'Toys' }, { label: 'Cartons', value: '9' },
-      { label: 'Stands', value: 'In staging' }, { label: 'May go', value: 'R12 · level 1 · Toys (+1 more)' },
+      { label: 'Stands', value: 'In staging' }, { label: 'May go', value: 'R12 · level 1 · place 1 (+45 more)' },
     ] });
     expect(detail('pallet:1018')?.lines).toContainEqual({ label: 'Stands', value: 'Rack R05' });
-    expect(detail('rack:R05')).toMatchObject({ title: 'R05', color: GOODS_COLORS.toys, lines: [{ label: 'Goods', value: 'Toys only' }, { label: 'Pallets', value: '1 of 6 positions' }, { label: 'Holds', value: 'TOY-208' }] });
+    expect(detail('rack:R05')).toEqual({ title: 'R05', eyebrow: 'RESERVE RACK', lines: [{ label: 'Pallets', value: '1 of 6 positions · any goods' }, { label: 'Holds', value: 'TOY-208' }] });
     expect(detail('flow:F3')?.lines).toContainEqual({ label: 'Below minimum', value: expect.stringContaining('OUT-215') });
     expect(detail('dock:D1')).toMatchObject({ title: 'Dock D1', eyebrow: 'INBOUND DOCK', lines: expect.arrayContaining([{ label: 'Reference', value: 'PO-7779' }]) });
     expect(detail('forklift')).toMatchObject({ title: 'Forklift', eyebrow: 'CREW', lines: expect.arrayContaining([{ label: 'Commands', value: '0 of 3' }]) });
@@ -108,7 +116,7 @@ describe('Cut-off commands: actor, source, target', () => {
     shift.dispose();
   });
 
-  it('colors pallets, racks, pick faces and gondolas by type of goods, counts free rack positions and keeps the floors out of clicks', () => {
+  it('colors pallets, pick faces and gondolas by type of goods, keeps racks neutral, counts free rack positions and keeps the floors out of clicks', () => {
     const shift = game(), snapshot = shift.snapshot(), nodes = playable(shift.nodes(), snapshot), byId = new Map(nodes.map(node => [node.id, node]));
     // One color per type: the body tone of the type's iconic item in the shop.
     expect(GOODS_COLORS).toEqual(GOODS_TONES);
@@ -116,12 +124,13 @@ describe('Cut-off commands: actor, source, target', () => {
     expect((byId.get('flow:S1') as AssetNode).asset).toBe('carton-flow-rack');
     expect((byId.get('pallet:1038') as AssetNode).color).toBe(GOODS_COLORS.toys);
     expect((byId.get('pallet:1024') as AssetNode).color).toBe(GOODS_COLORS.sport);
-    expect((byId.get('rack:R12') as AssetNode).materials?.accent).toBe(GOODS_COLORS.toys);
+    // Any pallet may stand in any rack, so the racks keep their own colors.
+    expect((byId.get('rack:R12') as AssetNode).materials?.accent).toBeUndefined();
     expect(nodes.filter(node => node.id.startsWith('area:')).every(node => node.selectable === false)).toBe(true);
     expect(nodes.some(node => node.id.startsWith('pin:'))).toBe(false);
-    const toys = rackRoom(snapshot).find(item => item.goods === 'toys')!;
-    expect(toys).toEqual({ goods: 'toys', label: 'Toys', color: GOODS_COLORS.toys, free: 12 - snapshot.occupancy.R05 - snapshot.occupancy.R12, total: 12 });
-    expect(rackRoom(snapshot).reduce((sum, item) => sum + item.total, 0)).toBe(14 * 6);
+    const racks = Object.entries(snapshot.occupancy).filter(([id]) => id.startsWith('R')).reduce((sum, [, count]) => sum + count, 0);
+    expect(rackRoom(snapshot)).toEqual({ free: 14 * 6 - racks, total: 14 * 6 });
+    expect(goodsLegend().map(item => [item.label, item.color])).toEqual([['Kitchen', GOODS_COLORS.kitchen], ['Home', GOODS_COLORS.home], ['Outdoor', GOODS_COLORS.outdoor], ['Toys', GOODS_COLORS.toys], ['Tech', GOODS_COLORS.tech], ['Sport', GOODS_COLORS.sport]]);
     shift.dispose();
   });
 });

@@ -227,7 +227,7 @@ export function createShiftGame({ scenario = 'steady', seed = 1 }: { scenario?: 
   };
   const inbox: EcommerceEvent[] = [];
   const simulation = createEcommerceSimulation(scenario, seed, {
-    director, walkOutAt: WALK_OUT_AT, goodsRules: true, directorDeparts: true,
+    director, walkOutAt: WALK_OUT_AT, capacityRules: true, directorDeparts: true,
     // A command leaves its queue the moment it ends, before its actor asks for the next one.
     onEvent: event => {
       if (event.type === 'move-ended') { const queue = queues.get(event.actor); if (queue?.length && sameMove(queue[0], event.move)) { queue.shift(); revision++; } }

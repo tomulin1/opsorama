@@ -1,5 +1,5 @@
 import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode } from '@opsorama/core';
-import { DEPARTMENTS, GOODS_COLORS, faceGoods, minutesOf, rackGoods, skuGoods, type DepartmentId, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
+import { DEPARTMENTS, GOODS_COLORS, faceGoods, minutesOf, skuGoods, type DepartmentId, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, type Move } from '../ecommerce/simulation';
 import { eventNode } from './menu';
 import type { ActorView, CarrierStatus, ShiftDecisions, ShiftEvent, ShiftGame, ShiftLevel } from './rules';
@@ -77,9 +77,9 @@ export function floatingNodes(floats: readonly Floating[], present: ReadonlySet<
 
 /**
  * The scene as the game shows it, colored by type of goods (`GOODS_COLORS`, the tone of each type's item in the shop) while the
- * dashboard keeps its neutral colors: a pallet's cartons take its SKU's color (`color`), a rack's uprights the color of the type
- * it holds (`materials.accent`), a pick face's cartons the color of its goods (`materials.surface`) and a gondola, with its sign,
- * the color of its department. The area floors take no clicks, so a click either hits material or clears the menu.
+ * dashboard keeps its neutral colors: a pallet's cartons take its SKU's color (`color`), a pick face's cartons the color of its
+ * goods (`materials.surface`) and a gondola, with its sign, the color of its department. Reserve racks stay neutral: any pallet
+ * may stand in any of them. The area floors take no clicks, so a click either hits material or clears the menu.
  */
 export function playable(nodes: readonly SceneNode[], snapshot: EcommerceSnapshot): SceneNode[] {
   const pallets = new Map(snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku).map(unit => [unit.id, GOODS_COLORS[skuGoods(unit.sku!)]]));
@@ -88,7 +88,6 @@ export function playable(nodes: readonly SceneNode[], snapshot: EcommerceSnapsho
     if (node.kind !== 'asset' || !node.entityId && !pallets.has(node.id)) return node;
     const pallet = pallets.get(node.id);
     if (pallet) return { ...node, color: pallet };
-    if (node.asset === 'pallet-rack') return { ...node, materials: { ...node.materials, accent: GOODS_COLORS[rackGoods(node.entityId as LocationId)] } };
     if (node.asset === 'carton-flow-rack') return { ...node, materials: { ...node.materials, surface: GOODS_COLORS[faceGoods(node.entityId as LocationId)] } };
     if (node.asset === 'store-shelving') {
       const color = GOODS_COLORS[node.entityId as DepartmentId], label = node.options?.surfaceLabel;

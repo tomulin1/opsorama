@@ -81,7 +81,7 @@ describe('Cut-off shift game', () => {
     expect(() => game.move('reach-truck', putAway(game, d))).toThrow(`Reach truck already has ${QUEUE_LIMIT} commands; cancel one first.`);
     game.cancelMove('reach-truck', 2);
     expect(() => game.move('reach-truck', moves[1])).toThrow('Reach truck already has this command.');
-    expect(() => game.move('reach-truck', { kind: 'put-away', pallet: d, rack: 'R04' })).toThrow(/^R04 holds Outdoor goods and does not take/);
+    expect(() => game.move('reach-truck', { kind: 'put-away', pallet: d, rack: 'R04', position: 1 })).toThrow('A position in R04 needs a level and is 1 or 2.');
     expect(() => game.move('forklift', moves[0])).toThrow('The forklift does not put away; that is a move of the reach truck.');
     expect(() => game.move('dispatcher', { kind: 'ship', cage: 'parcelo-1' })).toThrow('The truck at D3 is SwiftPost\'s; parcelo-1 goes with Parcelo.');
     expect(() => game.cancelMove('reach-truck', 0)).toThrow('Reach truck works on command 0; stop it instead.');
