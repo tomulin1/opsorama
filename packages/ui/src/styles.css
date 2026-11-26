@@ -199,6 +199,7 @@ button.dp-item:disabled { cursor: default; opacity: .6; }
 .dp-action-ring[data-layout="card"] .dp-ring-action[data-primary] { padding: .35em .9em; color: #0f2a1d; background: color-mix(in srgb, var(--dp-tone, #3768ef) 55%, #ffffff); }
 .dp-action-ring[data-layout="card"] .dp-ring-action[data-primary] .dp-ring-icon { color: inherit; }
 .dp-action-ring[data-layout="card"] .dp-ring-action[data-primary]:hover:not(:disabled) { background: color-mix(in srgb, var(--dp-tone, #3768ef) 70%, #ffffff); }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-primary][aria-pressed="true"] { color: #fff; background: var(--dp-tone, #3768ef); box-shadow: inset 0 0 0 2px color-mix(in srgb, #ffffff 55%, transparent); }
 .dp-action-ring[data-layout="card"] .dp-ring-action[data-switch][aria-checked="true"] { background: none; }
 .dp-action-ring[data-layout="card"] .dp-ring-leader { position: relative; display: block; width: 2px; height: var(--ring-leader, 26px); background: color-mix(in srgb, var(--dp-tone, #3768ef) 55%, #ffffff); }
 .dp-action-ring[data-layout="card"] .dp-ring-leader::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 9px; height: 9px; border-radius: 50%; transform: translateX(-50%); background: inherit; }
