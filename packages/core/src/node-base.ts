@@ -38,6 +38,10 @@ export interface NodeBase {
   scale?: Vec3;
   /** Host visual alert. Default `normal`. */
   state?: VisualState;
-  /** Makes the node selectable without an `entityId`. Default false. */
+  /**
+   * `true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or
+   * label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`.
+   * Default: selectable when it has an `entityId`.
+   */
   selectable?: boolean;
 }

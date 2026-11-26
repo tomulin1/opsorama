@@ -116,7 +116,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -254,7 +254,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -362,7 +362,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -831,7 +831,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -953,7 +953,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -1119,7 +1119,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -1308,7 +1308,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -1410,7 +1410,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -1477,7 +1477,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",
@@ -1579,7 +1579,7 @@
         },
         "selectable": {
           "type": "boolean",
-          "description": "Makes the node selectable without an `entityId`. Default false."
+          "description": "`true` makes the node selectable without an `entityId`; `false` keeps a node with an `entityId` out of selection by click or label, for example a floor area whose records are shown elsewhere. The host can still select it with `store.select`. Default: selectable when it has an `entityId`."
         },
         "kind": {
           "type": "string",

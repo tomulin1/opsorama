@@ -26,12 +26,12 @@ import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, isProgramLinking, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildNodeObject, contentBounds, createNodeTextures } from './nodes';
 import { createFrameClock, validateFrameListener, type FrameListenerOptions, type SceneFrame } from './frame-clock';
-import { createScenePointerEvent, hoverTransitions, labelClickOrigin, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
+import { createScenePointerEvent, hoverTransitions, isSelectableNode, labelClickOrigin, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
 import { setupRendererPlugins, validateRendererPlugins, type PluginHost, type RendererPlugin } from './plugins';
 import { createNodeHtmlLayer, NODE_HTML_ATTRIBUTE, validateNodeHtmlOptions, type NodeHtmlHandle, type NodeHtmlOptions } from './node-html';
 export { createFrameClock, validateFrameListener, DEFAULT_MAX_FRAME_STEPS, FRAME_STEP_RANGE, MAX_FRAME_STEPS } from './frame-clock';
 export type { FrameClock, FrameClockState, FrameListenerOptions, SceneFrame } from './frame-clock';
-export { createScenePointerEvent, hoverTransitions, nearestNodeHit, nodeAncestors, resolvePointerTarget, selectionTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
+export { createScenePointerEvent, hoverTransitions, isSelectableNode, nearestNodeHit, nodeAncestors, resolvePointerTarget, selectionTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
 export type { PointerInput, ScenePointerEvent, ScenePointerEventType, ScenePointerType } from './pointer';
 export { setupRendererPlugins, validateRendererPlugins } from './plugins';
 export type { PluginHost, RendererPlugin, RendererPluginContext } from './plugins';
@@ -385,7 +385,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
   }
   /** Whether a click or hover can mark the node: it is selectable, and it has geometry or is a group of other nodes. */
-  const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && (entry.node.entityId || entry.node.selectable)));
+  const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && isSelectableNode(entry.node)));
   /** Writes a label's `hidden` attribute and selected class when they change; a new class may change its width. */
   function setLabelState(entry: Entry, hidden: boolean, selected: boolean) {
     const label = entry.label; if (!label) return;
@@ -510,7 +510,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
         const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         // A group has no geometry of its own: its marker bounds are measured from its children when it is marked.
-        const measured = !error && node.kind !== 'marker' && node.kind !== 'group' && (node.entityId || node.selectable);
+        const measured = !error && node.kind !== 'marker' && node.kind !== 'group' && isSelectableNode(node);
         const bounds = measured ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
@@ -522,8 +522,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         object.traverse(child => { child.userData.nodeId = node.id; });
         let label: HTMLButtonElement | null = null;
         const text = typeof object.userData.labelText === 'string' ? object.userData.labelText : node.label;
-        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = Boolean(node.entityId || node.selectable); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
-        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
+        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = isSelectableNode(node); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
+        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!isSelectableNode(node)) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
         entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, failed: error !== null, anchorReported: null, context: null,
           labelHidden: false, labelSelected: false, labelWidth: null, projectedX: Number.NaN, projectedY: Number.NaN, behind: false, placedX: Number.NaN, placedY: Number.NaN, shown: null, ...(transfer ? { transfer } : {}) };
