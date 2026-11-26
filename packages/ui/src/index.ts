@@ -289,8 +289,10 @@ export interface RingAction<T> {
   tone?: Tone;
   /** Accessible name when the label is not text, or to name the target in full (for example "Take pallet 1038"). */
   ariaLabel?: string;
-  /** For a switch: whether it is on. */
+  /** Whether a toggle or switch is on. Without `switch` the pill reports `aria-pressed` and looks pressed while on. */
   pressed?: boolean;
+  /** Draw the action as a switch with a sliding knob, reported as `role="switch"` with `aria-checked` from `pressed`. */
+  switch?: boolean;
   disabled?: boolean;
   onSelect?: () => void;
 }
@@ -306,28 +308,35 @@ export interface ActionRingProps<T> {
   className?: string; style?: PanelStyle;
   /** Pixels by which the middle actions rise above the outer ones, so the pills follow an arc. Default 18; 0 is a straight row. */
   arc?: number;
+  /** `compact` draws smaller pills with smaller text, for crowded scenes. Default regular. */
+  density?: 'regular' | 'compact';
 }
 /**
  * A compact ring of command pills for one object, such as the selected person or machine in a scene: the actions in a gentle
  * arc over a name pill. It is meant for giving commands, not for showing information; put the object's details in a panel.
  * Place it over a node with `NodeHtml` (React, Vue) or `renderer.attachHtml`, and render it only while its object is chosen.
- * The ring is a toolbar of native buttons; switches report `aria-pressed`, and disabled actions do not call `onSelect`.
+ * The ring is a toolbar of native buttons; toggles report `aria-pressed`, switches `role="switch"` with `aria-checked`, and
+ * disabled actions do not call `onSelect`.
  */
 export function actionRing<T>(props: ActionRingProps<T>): PanelElement<T> {
   ids(props.actions);
   if (!props.actions.length && props.title === undefined) throw new Error('An action ring needs a title or at least one action.');
   const arc = props.arc ?? 18;
   if (!Number.isFinite(arc) || arc < 0) throw new Error('Action ring arc must be a finite number of pixels, 0 or more.');
+  if (props.density !== undefined && props.density !== 'regular' && props.density !== 'compact') throw new Error(`Action ring density must be regular or compact, not ${String(props.density)}.`);
+  for (const action of props.actions) if (action.switch && action.label === undefined) throw new Error(`Action ${action.id} is a switch; a switch needs a label.`);
   const count = props.actions.length, middle = (count - 1) / 2;
   for (const action of props.actions) if (action.label === undefined && (action.icon === undefined || !action.ariaLabel)) throw new Error(`Action ${action.id} has no label; an icon-only action needs icon and ariaLabel.`);
   const actions = props.actions.map((action, index) => {
     const offset = count > 1 ? (index - middle) / middle : 0, lift = Math.round(arc * (1 - offset * offset) * 10) / 10;
-    return el<T>('button', { type: 'button', class: 'dp-ring-action', 'data-tone': action.tone ?? props.tone ?? 'info', 'data-icon-only': action.label === undefined || undefined, 'aria-label': action.ariaLabel, title: action.label === undefined ? action.ariaLabel : undefined, 'aria-pressed': action.pressed, disabled: action.disabled || undefined }, [
+    const toggle = action.switch ? { role: 'switch', 'aria-checked': Boolean(action.pressed), 'data-switch': true } : { 'aria-pressed': action.pressed };
+    return el<T>('button', { type: 'button', class: 'dp-ring-action', 'data-tone': action.tone ?? props.tone ?? 'info', 'data-icon-only': action.label === undefined || undefined, 'aria-label': action.ariaLabel, title: action.label === undefined ? action.ariaLabel : undefined, ...toggle, disabled: action.disabled || undefined }, [
       action.icon !== undefined ? el<T>('span', { class: 'dp-ring-icon', 'aria-hidden': true }, [content<T>(action.icon)]) : null,
       action.label !== undefined ? el<T>('span', { class: 'dp-ring-label' }, [content<T>(action.label)]) : null,
+      action.switch ? el<T>('span', { class: 'dp-ring-switch', 'aria-hidden': true }, [el<T>('span', { class: 'dp-ring-knob' })]) : null,
     ].filter(isNode), { key: action.id, style: { '--dp-ring-lift': `${lift}px` }, onClick: () => { if (!action.disabled) action.onSelect?.(); } });
   });
-  return el<T>('div', { class: `dp-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info' }, [
+  return el<T>('div', { class: `dp-action-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info', 'data-density': props.density === 'compact' ? 'compact' : undefined }, [
     count ? el<T>('div', { class: 'dp-ring-actions' }, actions, { key: 'actions' }) : null,
     props.title !== undefined ? el<T>('div', { class: 'dp-ring-title' }, [props.icon !== undefined ? el<T>('span', { class: 'dp-ring-icon', 'aria-hidden': true }, [content<T>(props.icon)]) : null, el<T>('span', { class: 'dp-ring-label' }, [content<T>(props.title)])].filter(isNode), { key: 'title' }) : null,
   ].filter(isNode), { style: props.style });

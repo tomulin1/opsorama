@@ -43,7 +43,7 @@ export const panelArticle: DocArticle = {
       ['ActivityFeed', 'Common panel inputs + items [{id,content,timeLabel,dateTime,meta}]'],
       ['StatusBadge', 'label, tone, icon, className'], ['FieldList', 'fields [{id,label,value}], unknownLabel'], ['ValueMeter', 'label, value, min (default 0), max, unit, formatValue, tone, unknownLabel'],
       ['ZoomControl', 'Compact controlled zoom bar; see the Zoom control page for options and a live configurator'],
-      ['ActionRing', 'title, icon, actions [{id,label,icon,tone,ariaLabel,pressed,disabled,onSelect}], tone, label, arc, className, style; see the Action ring page'],
+      ['ActionRing', 'title, icon, actions [{id,label,icon,tone,ariaLabel,pressed,switch,disabled,onSelect}], tone, label, arc, density, className, style; see the Action ring page'],
     ] },
   ],
 };

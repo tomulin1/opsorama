@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Bot, Check, Hand, MapPin, Search, Thermometer, UserPlus, Wrench } from 'lucide-react';
+import { Check, Hand, MapPin, Search, Thermometer, UserPlus, Wrench } from 'lucide-react';
 import { ActionRing } from '@opsorama/react/ui';
 import '@opsorama/ui/styles.css';
 import './panels.css';
@@ -22,10 +22,10 @@ export function ActionRingDemo() {
       <figure><ActionRing title="Walk-in cooler" tone="warning" actions={[
         { id: 'readings', label: 'Readings', icon: <Thermometer />, onSelect: run('Show the readings') },
         { id: 'service', label: 'Service', icon: <Wrench />, onSelect: run('Call service') },
-        { id: 'auto', label: 'Auto', icon: <Bot />, pressed: auto, onSelect: () => { setAuto(value => !value); setLast(auto ? 'Auto off' : 'Auto on'); } },
+        { id: 'auto', label: 'Auto', switch: true, pressed: auto, onSelect: () => { setAuto(value => !value); setLast(auto ? 'Auto off' : 'Auto on'); } },
         { id: 'done', label: 'Done', icon: <Check />, onSelect: run('Done') },
       ]} /><figcaption>A machine with a switch</figcaption></figure>
-      <figure className="action-ring-pills">{['1038', '1039', '1040'].map(pallet => <ActionRing key={pallet} tone="info" arc={0} label={`Take pallet ${pallet}`} actions={[{ id: pallet, icon: <Hand />, ariaLabel: `Take pallet ${pallet}`, onSelect: run(`Take pallet ${pallet}`) }]} />)}
+      <figure className="action-ring-pills">{['1038', '1039', '1040'].map(pallet => <ActionRing key={pallet} density="compact" tone="info" arc={0} label={`Take pallet ${pallet}`} actions={[{ id: pallet, icon: <Hand />, ariaLabel: `Take pallet ${pallet}`, onSelect: run(`Take pallet ${pallet}`) }]} />)}
         <figcaption>Lone round pills over sources</figcaption></figure>
     </div>
     <p className="action-ring-last" role="status">Last command: <strong>{last}</strong></p>

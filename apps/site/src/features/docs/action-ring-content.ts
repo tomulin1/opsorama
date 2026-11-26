@@ -41,8 +41,9 @@ const ring = mountPanel(element, actionRing({ title: 'Walk-in cooler', tone: 'wa
 const handle = renderer.attachHtml('cooler', element);
 // Later: ring.update(actionRing({ ...next })); handle.remove(); ring.dispose();`, language: 'typescript' },
     { id: 'behavior', title: 'Behavior and accessibility', list: [
-      'The ring is a toolbar of native buttons named by their label or ariaLabel; tab moves through them and Enter or Space runs one. Add your own Escape handling to close it.',
-      'pressed makes an action a switch (aria-pressed), disabled shows it dimmed and does not call onSelect.',
+      'The ring is a toolbar of native buttons named by their label or ariaLabel; tab moves through them and Enter or Space runs one. Add your own Escape handling to close it, and close it when the user clicks elsewhere in the scene.',
+      'pressed makes an action a toggle (aria-pressed) that looks pressed while on; with switch: true it is drawn as a switch with a sliding knob and reported as role="switch" with aria-checked, which suits a mode such as Auto. A switch needs a label. disabled shows an action dimmed and does not call onSelect.',
+      'density: "compact" draws smaller pills with smaller text, for scenes where the ring stands among many objects; --ring-font-size sets the text size of either density.',
       'The actions rise in an arc toward the middle; arc sets the rise in pixels (default 18, 0 for a straight row).',
       'Tones color the name pill\'s outline and each action\'s icon and outline: neutral, info, success, warning and critical. An action may have its own tone. Colors read --ring-info and the other --ring-* variables, then the panel colors.',
       'IDs must be unique; an action without a label needs icon and ariaLabel. Invalid input throws an error that names the fix.',
@@ -50,10 +51,11 @@ const handle = renderer.attachHtml('cooler', element);
     { id: 'reference', title: 'Reference', headers: ['Input', 'Type', 'Default', 'Meaning'], rows: [
       ['title', 'node', 'none', 'The name pill under the actions; omit it for a lone action.'],
       ['icon', 'node', 'none', 'Icon in the name pill.'],
-      ['actions', '[{ id, label?, icon?, tone?, ariaLabel?, pressed?, disabled?, onSelect? }]', 'required', 'The commands, left to right.'],
+      ['actions', '[{ id, label?, icon?, tone?, ariaLabel?, pressed?, switch?, disabled?, onSelect? }]', 'required', 'The commands, left to right; switch draws a toggle as a switch.'],
       ['tone', 'Tone', 'info', 'Outline of the name pill and the default tone of the actions.'],
       ['label', 'string', 'the title when it is text', 'Accessible name of the toolbar.'],
       ['arc', 'number', '18', 'Pixels by which the middle actions rise above the outer ones.'],
+      ['density', "'regular' | 'compact'", 'regular', 'Smaller pills and text with compact.'],
       ['className / style', 'string / CSS properties', 'none', 'Host styling of the ring.'],
     ] },
   ],

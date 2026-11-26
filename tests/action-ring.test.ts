@@ -15,7 +15,7 @@ const actions = (count: number, onSelect = () => {}) => Array.from({ length: cou
 describe('action ring', () => {
   it('is a toolbar of command pills in an arc over a name pill', () => {
     const ring = actionRing({ title: 'Server', tone: 'success', actions: actions(3) });
-    expect(ring.attrs).toMatchObject({ class: 'dp-ring', role: 'toolbar', 'aria-label': 'Server', 'data-tone': 'success' });
+    expect(ring.attrs).toMatchObject({ class: 'dp-action-ring', role: 'toolbar', 'aria-label': 'Server', 'data-tone': 'success' });
     // The actions come first and the name pill last, so the name sits nearest the node the ring stands over.
     expect(ring.children.map(child => child.kind === 'element' ? child.attrs.class : '')).toEqual(['dp-ring-actions', 'dp-ring-title']);
     const pills = byClass(ring, 'dp-ring-action');
@@ -37,11 +37,26 @@ describe('action ring', () => {
     expect(select).toHaveBeenCalledTimes(2);
   });
 
+  it('draws a switch with a knob, reported as a switch, and a compact density', () => {
+    const ring = actionRing({ title: 'Forklift', density: 'compact', actions: [{ id: 'auto', label: 'Auto', switch: true, pressed: false, ariaLabel: 'Work by yourself' }, { id: 'done', label: 'Done' }] });
+    expect(ring.attrs['data-density']).toBe('compact');
+    const [auto, done] = byClass(ring, 'dp-ring-action');
+    expect([auto.attrs.role, auto.attrs['aria-checked'], auto.attrs['aria-pressed'], auto.attrs['data-switch']]).toEqual(['switch', false, undefined, true]);
+    expect(byClass(auto, 'dp-ring-switch')).toHaveLength(1); expect(byClass(auto, 'dp-ring-knob')).toHaveLength(1);
+    expect(done.attrs.role).toBeUndefined();
+    expect(byClass(actionRing({ title: 'Forklift', actions: [{ id: 'auto', label: 'Auto', switch: true, pressed: true }] }), 'dp-ring-action')[0].attrs['aria-checked']).toBe(true);
+    expect(actionRing({ title: 'Forklift', actions: actions(1) }).attrs['data-density']).toBeUndefined();
+    // The root class stays apart from the metric card's dp-ring gauge.
+    expect(byClass(ring, 'dp-ring')).toHaveLength(0);
+  });
+
   it('names the fix for invalid input', () => {
     expect(() => actionRing({ actions: [] })).toThrow('needs a title or at least one action');
     expect(() => actionRing({ actions: [{ id: 'x', label: 'A' }, { id: 'x', label: 'B' }] })).toThrow('nonempty and unique');
     expect(() => actionRing({ actions: [{ id: 'x', icon: '✋' }] })).toThrow('an icon-only action needs icon and ariaLabel');
     expect(() => actionRing({ actions: actions(2), arc: -1 })).toThrow('arc must be a finite number');
+    expect(() => actionRing({ actions: [{ id: 'auto', icon: '⚙', ariaLabel: 'Auto', switch: true }] })).toThrow('Action auto is a switch; a switch needs a label.');
+    expect(() => actionRing({ actions: actions(1), density: 'tiny' as 'compact' })).toThrow('density must be regular or compact, not tiny');
   });
 
   it('renders the same toolbar in React and Vue', async () => {
