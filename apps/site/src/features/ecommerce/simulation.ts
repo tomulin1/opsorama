@@ -1,10 +1,10 @@
 import { behaviorNode, createBehaviorRunner, createSceneStore, itemNode, type AgentState, type AssetNode, type BehaviorAgent, type BehaviorEvent, type BehaviorStep, type CarryRule, type ItemPlacement, type SceneNode, type SceneStore, type Vec3 } from '@opsorama/core';
 import type { PickTarget } from '@opsorama/three';
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
-import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement, type UnitPlacement } from '@opsorama/objects/handling';
+import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, GOODS_LABELS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, rackGoods, reserveOf, skuGoods, stagedFor,
-  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type GoodsType, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
+  CARRIERS, DEPARTMENTS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, skuGoods, stagedFor,
+  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
   APRON_Y, BELT_END_X, BELT_Y, BELT_Z, CAGE_X, CAGE_Z, CART_AT_INDUCT, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
@@ -159,8 +159,11 @@ export interface ActorRef { id: string; role: ActorRole; label: string; }
 export type Move =
   /** Forklift: the next pallet off the truck at an inbound dock into the first free staging spot, until the truck is empty. */
   | { kind: 'unload'; dock: DockId }
-  /** Reach truck: a pallet in staging into a rack, at its lowest free position, or on `level` (0 is the floor level). */
-  | { kind: 'put-away'; pallet: string; rack: LocationId; level?: number }
+  /**
+   * Reach truck: a pallet in staging into a rack, at its lowest free position, or on `level` (0 is the floor level), at `position`
+   * on it (0 or 1). A place taken by the time the task starts falls back to the rack's lowest free place.
+   */
+  | { kind: 'put-away'; pallet: string; rack: LocationId; level?: number; position?: number }
   /** Reach truck: a pallet in a rack to the replenishment spot behind the pick face of its SKU. */
   | { kind: 'replenish'; pallet: string }
   /** Reach truck: the empty pallet behind a pick face to the empty-pallet stack. */
@@ -197,10 +200,10 @@ export interface EcommerceSimulationOptions {
   /** Decisions that replace the automatic ones; the rest stay automatic. */
   director?: Partial<EcommerceDirector>;
   /**
-   * Storage follows the type of goods: a pallet goes only into a rack of its type (`rackGoods`), and deliveries bring only as
-   * many pallets of a type as its racks can take; pick-face lanes take no more cartons than they hold. Off for the dashboard.
+   * Storage has limits: deliveries bring no more pallets than the racks have free positions, and pick-face lanes take no more
+   * cartons than they hold. Any pallet may go into any free rack position. Off for the dashboard.
    */
-  goodsRules?: boolean;
+  capacityRules?: boolean;
   /** The outbound truck leaves only when the director's `depart` says so; the automatic dispatcher then never sends it. */
   directorDeparts?: boolean;
   /** A customer who finds this many people queuing at their lane leaves without paying. Without it, everyone queues. */
@@ -334,16 +337,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     handling: { ...assetHandling, 'cage-pusher': { receptacles: [{ name: 'cart', arrangement: 'stack', anchor: 'cart', capacity: 1, accepts: { families: ['wheeled'] }, envelope: { footprint: [1, 1], height: 2 } }] } } satisfies Record<string, AssetHandling>,
     profiles: handlingProfiles,
     instances: [...LOCATIONS.filter(value => value.kind === 'rack').map(value => ({ id: `rack:${value.id}`, asset: 'pallet-rack' })), ...Object.keys(PACK_X).map(id => ({ id: `pack:${id}`, asset: 'station' }))],
-    ...(options.goodsRules ? { rule: goodsRule } : {}),
   });
-  /** Storage by type of goods: a pallet goes only into a rack of its type. */
-  function goodsRule({ unit, to }: { unit: string; to: UnitPlacement }): string | undefined {
-    if (!('container' in to) || !to.container.startsWith('rack:')) return undefined;
-    const rack = to.container.slice(5) as LocationId, sku = units.get(unit)?.sku;
-    if (!sku) return undefined;
-    const goods = skuGoods(sku), holds = rackGoods(rack);
-    return goods === holds ? undefined : `${rack} holds ${GOODS_LABELS[holds]} goods and does not take ${GOODS_LABELS[goods]} (${sku}).`;
-  }
   /** Register a unit at a world position. A hidden unit shows from its hand-over on. */
   function spawn(kind: UnitKind, at: Vec3, label: string, extra: Partial<Unit> = {}, id = `${kind}:${serial++}`): string {
     units.set(id, { kind, label, ...extra });
@@ -377,21 +371,22 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       handling.move([{ unit: id, to: { ...target.target, turn: RACK_TURN } }]);
     }
   }
-  /**
-   * The SKU of the next inbound pallet: one of the three whose reserve rack is emptiest. With the goods rules, only SKUs whose type
-   * still has room count, so every pallet on its way, `drawn` included, has a rack of its type.
-   */
-  function skuForInbound(drawn: readonly string[] = []): string {
+  /** The SKU of the next inbound pallet: one of the three whose reserve rack is emptiest. */
+  function skuForInbound(): string {
     const skus = Object.keys(SKUS).sort((a, b) => records.occupancy[SKUS[a].reserve] - records.occupancy[SKUS[b].reserve] || a.localeCompare(b));
-    if (!options.goodsRules) return skus[Math.floor(random() * 3)];
-    const room = (goods: GoodsType) => RACKS.filter(id => rackGoods(id) === goods).reduce((sum, id) => sum + location(id).capacity, 0)
-      - [...units].filter(([id, unit]) => unit.kind === 'pallet' && unit.sku && skuGoods(unit.sku) === goods && ![...replenishing.values()].some(job => job.pallet === id)).length
-      - [...truckLoads.values(), drawn].flat().filter(sku => skuGoods(sku) === goods).length;
-    const open = skus.filter(sku => room(skuGoods(sku)) > 0), choice = Math.floor(random() * Math.min(3, open.length));
-    return open[choice] ?? skus[choice];
+    return skus[Math.floor(random() * 3)];
+  }
+  /**
+   * Free rack positions left for a truck's pallets: every position less the pallets in the building that still need one (those
+   * behind a pick face do not) and the pallets on trucks. With the capacity rules a truck brings no more pallets than that.
+   */
+  function rackRoomLeft(): number {
+    const total = RACKS.reduce((sum, id) => sum + location(id).capacity, 0);
+    const placed = [...units].filter(([id, unit]) => unit.kind === 'pallet' && unit.sku && ![...replenishing.values()].some(job => job.pallet === id)).length;
+    return total - placed - [...truckLoads.values()].flat().length;
   }
   /** The SKUs of a truck's pallets. */
-  const inboundLoad = (count: number) => { const drawn: string[] = []; for (let i = 0; i < count; i++) drawn.push(skuForInbound(drawn)); return drawn; };
+  const inboundLoad = (count: number) => Array.from({ length: options.capacityRules ? Math.max(0, Math.min(count, rackRoomLeft())) : count }, () => skuForInbound());
   for (let i = 0; i < Math.min(STAGING_SPOTS.length, start.staging); i++) {
     const sku = skuForInbound(), id = spawn('pallet', STAGING_SPOTS[i], '', { sku, load: PALLET_CARTONS });
     units.get(id)!.label = palletLabel(id, sku); staging[i] = id;
@@ -535,15 +530,17 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const rack = racks.find(id => rackTarget(pallet, id));
     return rack && { kind: 'put-away', pallet, rack };
   }
-  /** The free place of a rack a pallet would take: the lowest free position, or one on `level`. */
-  function rackTarget(pallet: string, rack: LocationId, level?: number) {
+  /** The free place of a rack a pallet would take: the lowest free position, or one on `level`, at `position` when given. */
+  function rackTarget(pallet: string, rack: LocationId, level?: number, position?: number) {
     const found = handling.targets(pallet, { containers: [`rack:${rack}`], ...(level === undefined ? { limit: 1 } : {}) });
-    return level === undefined ? found[0] : found.find(item => item.target.receptacle === `level-${level}`);
+    return level === undefined ? found[0] : found.find(item => item.target.receptacle === `level-${level}` && (position === undefined || (item.target.position ?? 0) === position));
   }
+  /** Every free place of a rack, as levels and positions, lowest first. */
+  const freePlaces = (pallet: string, rack: LocationId) => handling.targets(pallet, { containers: [`rack:${rack}`] }).map(item => ({ level: Number(item.target.receptacle.slice(6)), position: item.target.position ?? 0 }));
   /** Why a rack takes no pallet (on `level`): the type-of-goods rule when it refuses, else the rack or level is full. */
   function rackRefusal(pallet: string, rack: LocationId, level?: number): string {
     const refusals = handling.refusals(pallet, { containers: [`rack:${rack}`] }).filter(item => level === undefined || item.receptacle === `level-${level}`);
-    return refusals.flatMap(item => item.violations).find(item => item.code === 'host-rule')?.message ?? (level === undefined ? `${rack} is full.` : `${rack} level ${level + 1} is full.`);
+    return refusals.flatMap(item => item.violations).find(item => item.code === 'host-rule')?.message ?? (level === undefined ? `${rack} is full.` : `${rack} level ${level + 1} has no free place there.`);
   }
   const palletName = (pallet: string) => `Pallet ${pallet.slice(7)}`;
   /** The pick face whose replenishment spot a pallet stands on. */
@@ -579,8 +576,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const put = reachVisit(2, reachPut(0), { kind: 'interact', node: `replen:${face}`, slot: 'drop', seconds: 0, putDown: 'all', putOn: { position: replenishSpot(face), yaw: ALONG_Z }, label: 'Setting it down behind the pick face' });
     return reachTask(`Replenishing ${face} from ${rack}`, take, put, { 0: () => occupy(rack, handling.contents(`rack:${rack}`).length), 2: () => { job.ready = true; claimed.delete(pallet); } });
   }
-  function putAwayTask(pallet: string, rack: LocationId, at?: number): Task {
-    const spot = staging.indexOf(pallet), sku = units.get(pallet)!.sku!, target = { id: rack, found: rackTarget(pallet, rack, at)! };
+  function putAwayTask(pallet: string, rack: LocationId, at?: number, place?: number): Task {
+    const spot = staging.indexOf(pallet), sku = units.get(pallet)!.sku!, target = { id: rack, found: rackTarget(pallet, rack, at, place) ?? rackTarget(pallet, rack)! };
     const { receptacle, position } = target.found.target, level = RACK_LEVELS[Number(receptacle.slice(6))];
     const take = reachVisit(0, reachTake(0), { kind: 'interact', node: `staging:${spot}`, slot: 'reach', seconds: 0, pickUp: [pallet], label: 'Taking a pallet from staging' });
     const put = reachVisit(2, reachPut(level), { kind: 'interact', node: `rack:${target.id}`, slot: `load-${position ?? 0}`, seconds: 0, putDown: 'all', putOn: { receptacle, position, turn: RACK_TURN }, label: `Lifting the pallet into ${target.id}` });
@@ -956,7 +953,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function moveTask(move: Move): Task {
     switch (move.kind) {
       case 'unload': return unloadTask(move.dock);
-      case 'put-away': return putAwayTask(move.pallet, move.rack, move.level);
+      case 'put-away': return putAwayTask(move.pallet, move.rack, move.level, move.position);
       case 'replenish': return replenishTask(move.pallet);
       case 'clear': return clearTask(move.face);
       case 'decant': return decantTask(move.face);
@@ -1007,7 +1004,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         if (!staging.includes(move.pallet)) return refuse(`${palletName(move.pallet)} is not in staging.`);
         if (!RACKS.includes(move.rack)) return refuse(`${move.rack} is not a reserve rack.`);
         if (move.level !== undefined && !(Number.isInteger(move.level) && move.level >= 0 && move.level < RACK_LEVELS.length)) return refuse(`${move.rack} has levels 1 to ${RACK_LEVELS.length}.`);
-        return rackTarget(move.pallet, move.rack, move.level) ? OK : refuse(rackRefusal(move.pallet, move.rack, move.level));
+        if (move.position !== undefined && (move.level === undefined || !(move.position === 0 || move.position === 1))) return refuse(`A position in ${move.rack} needs a level and is 1 or 2.`);
+        // A place taken in the meantime, for example by an earlier command to the same place, falls back to the rack's lowest free place.
+        return rackTarget(move.pallet, move.rack, move.level, move.position) ?? rackTarget(move.pallet, move.rack) ? OK : refuse(rackRefusal(move.pallet, move.rack));
       }
       case 'replenish': {
         const unit = units.get(move.pallet);
@@ -1030,7 +1029,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         if (!job.ready) return waitFor(`Waits for the pallet behind ${move.face}.`);
         if (cartonsLeft(move.face) <= 0) return refuse(`The pallet behind ${move.face} is empty.`);
         const lanes = Math.ceil((faceUnits[move.face] + (incomingUnits[move.face] ?? 0) + UNITS_PER_CARTON) / UNITS_PER_CARTON);
-        return options.goodsRules && lanes > location(move.face).capacity ? waitFor(`Waits for room in the lanes of ${move.face}.`) : OK;
+        return options.capacityRules && lanes > location(move.face).capacity ? waitFor(`Waits for room in the lanes of ${move.face}.`) : OK;
       }
       case 'restock': {
         const label = departmentLabel(move.department), face = DEPARTMENT_FACES[move.department];
@@ -1066,7 +1065,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     switch (move.kind) {
       case 'unload': { const spot = freeSpot(); return spot < 0 ? [] : [{ position: STAGING_SPOTS[spot], size: PALLET_BOX, ghost: { asset: ASSETS.pallet, count: PALLET_CARTONS } }]; }
       case 'put-away': {
-        const found = rackTarget(move.pallet, move.rack, move.level);
+        const found = rackTarget(move.pallet, move.rack, move.level, move.position);
         return found ? [{ node: `rack:${move.rack}`, ...(found.placement.anchor ? { anchor: found.placement.anchor } : {}), offset: found.placement.offset, yaw: RACK_TURN * Math.PI / 180, size: PALLET_BOX, ghost: move.pallet }] : [];
       }
       case 'replenish': { const sku = units.get(move.pallet)?.sku; return sku ? [{ position: replenishSpot(SKUS[sku].pick), yaw: ALONG_Z, size: PALLET_BOX, ghost: move.pallet }] : []; }
@@ -1091,11 +1090,12 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         break;
       case 'reach-truck':
         if (prefix === 'pallet' && staging.includes(subject)) {
-          // Racks of the pallet's type first, emptiest first, then the rest.
-          const goods = skuGoods(units.get(subject)!.sku!), rank = (rack: LocationId) => rackGoods(rack) === goods ? 0 : 1;
-          for (const rack of [...RACKS].sort((a, b) => rank(a) - rank(b) || records.occupancy[a] - records.occupancy[b])) {
-            const found = rackTarget(subject, rack), level = found ? Number(found.target.receptacle!.slice(6)) : undefined;
-            offer({ kind: 'put-away', pallet: subject, rack }, `${rack}${level === undefined ? '' : ` · level ${level + 1}`} · ${GOODS_LABELS[rackGoods(rack)]}`);
+          // Any pallet may take any free place: every free place of every rack, emptiest rack first, lowest place first. A full
+          // rack is refused with its reason.
+          for (const rack of [...RACKS].sort((a, b) => records.occupancy[a] - records.occupancy[b] || a.localeCompare(b))) {
+            const places = freePlaces(subject, rack);
+            if (!places.length) offer({ kind: 'put-away', pallet: subject, rack }, rack);
+            for (const { level, position } of places) offer({ kind: 'put-away', pallet: subject, rack, level, position }, `${rack} · level ${level + 1} · place ${position + 1}`);
           }
         } else if (prefix === 'pallet' && inRack(subject)) {
           const sku = units.get(subject)!.sku!;

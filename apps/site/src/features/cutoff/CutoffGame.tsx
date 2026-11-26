@@ -15,7 +15,7 @@ import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, detailOf, eventNode, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
+import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, detailOf, eventNode, goodsLegend, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
@@ -254,7 +254,8 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
         })}
       </ul>
         {staged.length > 0 && <div className="co-staged" role="group" aria-label="Pallets in staging">{staged.map(unit => <button key={unit.id} type="button" aria-label={`Pallet ${unit.id.slice(7)} in staging, ${GOODS_LABELS[skuGoods(unit.sku!)]}`} onClick={() => select(unit.id)}><i style={{ background: GOODS_COLORS[skuGoods(unit.sku!)] }} aria-hidden="true" />{unit.id.slice(7)}</button>)}</div>}
-        <ul className="co-legend" aria-label="Free rack positions by type of goods">{rackRoom(snapshot).map(item => <li key={item.goods}><i style={{ background: item.color }} aria-hidden="true" /><span>{item.label}</span><strong>{item.free}/{item.total}</strong></li>)}</ul>
+        <p className="co-room">Free rack positions <strong>{rackRoom(snapshot).free}/{rackRoom(snapshot).total}</strong> · any pallet, any place</p>
+        <ul className="co-legend" aria-label="Pallet colors by type of goods">{goodsLegend().map(item => <li key={item.goods}><i style={{ background: item.color }} aria-hidden="true" /><span>{item.label}</span></li>)}</ul>
       </section>
       <section className="co-section" aria-label="Stock"><h3>Stock</h3><ul className="co-list">
         {snapshot.alerts.length ? snapshot.alerts.map(alert => <li key={alert.sku}><button type="button" className="co-name" onClick={() => select(faceNode(SKUS[alert.sku].pick))}>{SKUS[alert.sku].pick}</button><span>{alert.sku} below minimum · {alert.onHand}/{alert.min}</span></li>) : <li><span>Every pick face at its minimum</span></li>}
@@ -279,7 +280,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <ul className="co-rules">
         <li>Receive, put away, replenish, restock and ship: the forklift, reach truck, replenisher, shelf filler and dispatcher move material only on your commands, unless they work by themselves.</li>
         <li>Give a command in three clicks: one of the crew (what it can take is tinted), the pallet, truck, pick face or roll cage to take (a ghost of it shows each place it can go), and the ghost. The ring over the crew member holds its commands. Tab reaches the same choices from the keyboard; Escape goes back.</li>
-        <li>Each of the crew holds three commands; unloading, filling a pick face and restocking repeat until done. Pallets go only into racks of their type.</li>
+        <li>Each of the crew holds three commands; unloading, filling a pick face and restocking repeat until done. A pallet may go into any free rack position.</li>
         <li>Ship before each carrier&apos;s cut-off; trucks waiting on a dock and empty shop departments cost points. Events open over their object; without an answer the default applies after 45 minutes.</li>
       </ul>
       <button type="button" className="co-primary" onClick={start}><Play size={14} />Start shift</button>

@@ -73,7 +73,8 @@
 .co-staged i { width: 9px; height: 9px; border-radius: 2px; }
 .co-legend { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 11px; }
 .co-legend li { display: flex; align-items: center; gap: 5px; }
-.co-legend strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.co-room { margin: 8px 0 0; font-size: 11px; color: var(--panel-muted, inherit); }
+.co-room strong { font-variant-numeric: tabular-nums; color: var(--panel-text); }
 
 /* The action ring over the commanded actor, the Take and Bring here pills, and event cards over scene objects. */
 .co-ring-anchor { z-index: 3; --ring-info: #2f7fc4; --ring-success: #1f9d63; --ring-warning: #e3a12f; }
