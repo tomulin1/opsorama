@@ -101,17 +101,6 @@
   .co-picking { bottom: auto; top: 12px; }
 }
 
-/* Labels on hover and selection take the look of the command card: a translucent dark card with a status dot and a short
-   leader line down to the object. The renderer centres a label on its anchor, so it is lifted by half its height and the line. */
-.cutoff-page .kit-node-label {
-  top: -28px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px;
-  font: 700 11px/14px var(--panel-font, "Segoe UI", Arial, sans-serif); color: #fff;
-  background: color-mix(in srgb, #1f2d45 84%, transparent); border: 1px solid #ffffff38; border-radius: 9px;
-  box-shadow: 0 6px 16px #0f1b2d40; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-.cutoff-page .kit-node-label::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #3fc8ff; flex: none; }
-.cutoff-page .kit-node-label::after { content: ''; position: absolute; left: 50%; top: 100%; width: 2px; height: 16px; transform: translateX(-50%); background: color-mix(in srgb, #3fc8ff 60%, #fff); pointer-events: none; }
-.cutoff-page .kit-node-label.kit-node-warning::before { background: #e3a12f; }
-.cutoff-page .kit-node-label.kit-node-warning::after { background: color-mix(in srgb, #e3a12f 60%, #fff); }
-.cutoff-page .kit-node-label.kit-node-selected { border-color: #ffffffa6; background: color-mix(in srgb, #1f2d45 92%, transparent); }
-.cutoff-page .kit-node-label:hover { color: #fff; background: color-mix(in srgb, #1f2d45 94%, transparent); }
+/* Cut-off's labels keep the shared card look with the game's cyan status dot, the color of what can be taken. */
+.cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::before { background: #3fc8ff; }
+.cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::after { background: color-mix(in srgb, #3fc8ff 60%, #fff); }

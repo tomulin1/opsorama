@@ -62,7 +62,9 @@
 .dc-document-links { display: flex; flex-wrap: wrap; gap: 14px; }.dc-document-links a { display: flex; align-items: center; gap: 4px; color: #3f7088; }
 .dc-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .dc-table-scroll { max-height: 280px; }
-.datacenter-canvas .kit-node-label[data-node-id^="hall-"]:not([data-node-id*="cooling"]) { background: #f4f9fcee; border-color: #cedde8; color: #375d75; font-size: 10px; padding: 6px 10px; }
+.datacenter-canvas .kit-node-label[data-node-id^="hall-"]:not([data-node-id*="cooling"]) { background: #f4f9fcee; border-color: #cedde8; color: #375d75; font-size: 10px; padding: 6px 10px; top: 0; font-weight: 600; backdrop-filter: none; box-shadow: none; }
+/* Hall names are signs, not hover labels: no status dot or leader line. */
+.datacenter-canvas .kit-node-label[data-node-id^="hall-"]:not([data-node-id*="cooling"])::before, .datacenter-canvas .kit-node-label[data-node-id^="hall-"]:not([data-node-id*="cooling"])::after { display: none; }
 @media (max-width: 760px) {
   .dc-racks th, .dc-racks td { padding: 7px 6px; }.dc-cpu-bar { display: none; }.dc-racks td small { max-width: 125px; white-space: normal; }
   .dc-table-scroll { max-height: 185px; }
