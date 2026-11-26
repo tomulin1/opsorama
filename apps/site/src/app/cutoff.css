@@ -104,3 +104,5 @@
 /* Cut-off's labels keep the shared card look with the game's cyan status dot, the color of what can be taken. */
 .cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::before { background: #3fc8ff; }
 .cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::after { background: color-mix(in srgb, #3fc8ff 60%, #fff); }
+/* While the command card is open over the chosen actor, its own label would repeat the card's title: only the card shows. */
+.co-viewport[data-commanding="true"] .kit-scene-labels .kit-node-label.kit-node-selected { display: none; }
