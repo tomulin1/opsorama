@@ -599,7 +599,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function decantTask(face: LocationId): Task {
     const job = replenishing.get(face)!;
     job.promised++; incomingUnits[face] = (incomingUnits[face] ?? 0) + UNITS_PER_CARTON;
-    const sku = job.sku, x = replenishSpot(face)[0], carton = spawn('carton', [x - .35, FLOOR_Y + .75, -5.35], `Carton · ${sku}`, { sku, hidden: true });
+    const sku = job.sku, x = replenishSpot(face)[0], carton = spawn('carton', [x - .35, FLOOR_Y + .75, replenishSpot(face)[2] + .5], `Carton · ${sku}`, { sku, hidden: true });
     return {
       what: `Filling ${face} with ${sku}`,
       steps: [{ kind: 'interact', node: `replen:${face}`, slot: 'take', seconds: 1.8, pose: 'picking', pickUp: [carton], label: 'Taking a carton off the pallet' }, { kind: 'interact', node: `replen:${face}`, slot: 'fill', seconds: 1.8, pose: 'placing', putDown: 'all', putOn: handed(`replen:${face}:fill`, [x + .35, FLOOR_Y + 1.4, -4.35]), label: 'Filling the lane' }],
