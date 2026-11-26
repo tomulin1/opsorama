@@ -8,7 +8,7 @@ import {
 } from './model';
 import {
   APRON_Y, BELT_END_X, BELT_Y, BELT_Z, CAGE_X, CAGE_Z, CART_AT_INDUCT, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
-  ALONG_Z, RACK_TURN, dockMouth, ecommerceNodes, ecommerceSlots, queuePoints, replenishSpot, warehouseNavigation,
+  ALONG_Z, CART_CORRAL, RACK_TURN, dockMouth, ecommerceNodes, ecommerceSlots, queuePoints, replenishSpot, warehouseNavigation,
 } from './scene';
 
 /** Fixed simulation step in seconds, so the outcome does not depend on the frame rate. */
@@ -94,7 +94,12 @@ interface Task {
 }
 interface Unit { kind: UnitKind; label: string; sku?: string; orderId?: string; /** Cartons left on a pallet. */ load?: number; /** Waiting unseen for its hand-over. */ hidden?: boolean; /** Riding the conveyor. */ ride?: { points: readonly Vec3[]; start: number }; }
 interface Truck { docked: boolean; color: string; }
-interface Shopper { inside: boolean; items: number; basket: boolean; /** The department of the last item taken, which the basket shows. */ goods?: DepartmentId; }
+interface Shopper {
+  inside: boolean; items: number; basket: boolean;
+  /** The department of the last item taken, which the basket or cart shows. */ goods?: DepartmentId;
+  /** The corral place of the shopper's cart, kept from arrival until the cart is back. */ corral?: number;
+  /** Whether the shopper pushes the cart now: from taking it until returning it. */ pushing?: boolean;
+}
 interface Replenishment { pallet: string; sku: string; ready: boolean; /** Cartons people are on their way to take. */ promised: number; }
 
 /**
@@ -756,24 +761,38 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   const openLanes = () => records.shop.checkouts.filter(lane => lane.open && !closing.has(lane.id));
   const insideCount = () => [...shoppers.values()].filter(item => item.inside).length;
   const LEAVE: BehaviorStep = { kind: 'move', to: 'street', label: 'Leaving the shop' };
+  /** A corral place no shopper holds; a held cart stands in the corral until it is taken. */
+  let arrivals = 0;
+  const freeCart = () => CART_CORRAL.findIndex((_, i) => ![...shoppers.values()].some(item => item.corral === i));
+  const CART_STEP = (label: string): BehaviorStep => ({ kind: 'interact', node: 'carts', slot: 'corral', seconds: 1.2, label });
+  /** A shopper with a cart returns it to the corral before leaving; the place is free again once it stands there. */
+  const returnCart = (id: string) => () => { const shopper = shoppers.get(id); if (shopper) { shopper.pushing = false; shopper.corral = undefined; sceneRevision++; } };
   const patchLane = (id: CheckoutId, delta: number) => patchShop({ checkouts: records.shop.checkouts.map(lane => lane.id === id ? { ...lane, queue: Math.max(0, lane.queue + delta) } : lane) });
   const finishVisit = (id: string, unit?: string) => { if (unit) retire(unit); shoppers.set(id, { inside: false, items: 0, basket: false }); sceneRevision++; };
+  /** The steps after paying or walking out: the cart back to the corral when the shopper has one, then out. */
+  const leaving = (shopper: Shopper): BehaviorStep[] => shopper.corral !== undefined ? [CART_STEP('Returning the cart'), LEAVE] : [LEAVE];
   function checkoutSteps(id: string, lane: CheckoutId): Task & { bag: string } {
     const bag = spawn('bag', [CHECKOUT_X[lane], FLOOR_Y + 1, .25], 'Shopping bag', { hidden: true }), shopper = shoppers.get(id)!;
     heading.set(id, lane);
     return {
       bag,
       what: `Paying at checkout ${lane.slice(1)}`,
-      steps: [{ kind: 'interact', node: `checkout:${lane}`, group: 'customer', seconds: 3.5, queue: queuePoints(lane), pose: 'placing', pickUp: [bag], label: 'Paying' }, LEAVE],
+      steps: [{ kind: 'interact', node: `checkout:${lane}`, group: 'customer', seconds: 3.5, queue: queuePoints(lane), pose: 'placing', pickUp: [bag], label: 'Paying' }, ...leaving(shopper)],
       started: { 0: () => { patchLane(lane, -1); show(bag); } },
+      ...(shopper.corral !== undefined ? { ended: { 1: returnCart(id) } } : {}),
       items: { 0: () => { heading.delete(id); patchShop({ sales: records.shop.sales + shopper.items * (12 + Math.floor(random() * 40)) }); shopper.basket = false; sceneRevision++; emit({ type: 'served', lane }); } },
       done: () => finishVisit(id, bag),
     };
   }
   function browseJob(id: string, gondolas: readonly (typeof GONDOLAS)[number][]): Task {
-    const shopper = shoppers.get(id)!, lane = openLanes().sort((a, b) => a.queue - b.queue)[0], pay = checkoutSteps(id, lane.id), offset = gondolas.length;
-    const steps: BehaviorStep[] = [...gondolas.map((item): BehaviorStep => ({ kind: 'interact', node: item.id, group: 'browse', seconds: [2.5, 4.5], label: 'Browsing' })), ...pay.steps];
-    const ended = Object.fromEntries(gondolas.map((item, index) => [index, () => {
+    const shopper = shoppers.get(id)!, lane = openLanes().sort((a, b) => a.queue - b.queue)[0], pay = checkoutSteps(id, lane.id);
+    // A shopper with a cart takes it from the corral first and pushes it from then on.
+    const cart = shopper.corral !== undefined ? 1 : 0, offset = cart + gondolas.length;
+    const steps: BehaviorStep[] = [...(cart ? [CART_STEP(`Taking cart ${shopper.corral! + 1}`)] : []), ...gondolas.map((item): BehaviorStep => ({ kind: 'interact', node: item.id, group: 'browse', seconds: [2.5, 4.5], label: 'Browsing' })), ...pay.steps];
+    const shift = (hooks: Record<number, () => void> | undefined) => Object.fromEntries(Object.entries(hooks ?? {}).map(([index, hook]) => [Number(index) + offset, hook]));
+    const ended: Record<number, () => void> = shift(pay.ended);
+    if (cart) ended[0] = () => { shopper.pushing = true; sceneRevision++; };
+    gondolas.forEach((item, index) => { ended[cart + index] = () => {
       // The shopper reaches into the shelf: the facing leaves it and lands in the basket in the same moment.
       if (records.shop.facings[item.department] > 0) { patchShop({ facings: { ...records.shop.facings, [item.department]: records.shop.facings[item.department] - 1 } }); shopper.items++; shopper.goods = item.department; sceneRevision++; }
       if (index === gondolas.length - 1) {
@@ -781,14 +800,14 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         const queue = records.shop.checkouts.find(value => value.id === lane.id)!.queue;
         if (options.walkOutAt !== undefined && queue >= options.walkOutAt) walkOut(id, pay.bag, lane.id); else patchLane(lane.id, 1);
       }
-    }]));
+    }; });
     return { what: 'Shopping', steps, ended, started: { [offset]: pay.started![0] }, items: { [offset]: pay.items![0] }, done: pay.done };
   }
   /** A customer who will not queue leaves at once, without paying for the basket. */
   function walkOut(id: string, bag: string, lane: CheckoutId) {
     heading.delete(id); retire(bag);
-    shoppers.get(id)!.basket = false; sceneRevision++;
-    give(id, { what: 'Leaving without paying', steps: [LEAVE], done: () => finishVisit(id) });
+    const shopper = shoppers.get(id)!; shopper.basket = false; sceneRevision++;
+    give(id, { what: 'Leaving without paying', steps: leaving(shopper), ...(shopper.corral !== undefined ? { ended: { 0: returnCart(id) } } : {}), done: () => finishVisit(id) });
     log(`A customer left the queue at checkout ${lane.slice(1)}.`, 'warning');
     emit({ type: 'walked-out', lane });
   }
@@ -796,7 +815,10 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function arrive() {
     const id = shopperIds.find(item => !shoppers.get(item)!.inside && !tasks.has(item));
     if (!id || !openLanes().length) return;
-    shoppers.set(id, { inside: true, items: 0, basket: true });
+    // Every other shopper takes a cart while one stands free in the corral; the others take a basket. Counting, not the random
+    // stream, decides it, so the rest of the shift draws the same numbers.
+    const corral = arrivals++ % 2 === 0 ? freeCart() : -1;
+    shoppers.set(id, { inside: true, items: 0, basket: corral < 0, ...(corral >= 0 ? { corral } : {}) });
     patchShop({ browsing: records.shop.browsing + 1 });
     give(id, browseJob(id, shelvesFor(1 + Math.floor(random() * 2))));
   }
@@ -1194,7 +1216,11 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     const definition = definitions.find(item => item.id === state.id)!, shopper = shoppers.get(state.id);
     if (shopper && !shopper.inside) return [];
     const motion = forks.get(state.id), stopped = MACHINES.has(state.id) && !director.running(state.id);
+    const pushing = shopper?.pushing && ['walking', 'idle', 'holding'].includes(state.pose);
     const node = behaviorNode(state, { ...definition.node, ...(motion ? { options: { ...definition.node.options, forks: motion } } : {}), ...(stopped ? { state: 'critical' as const } : {}) }, { time }), attached: AssetNode[] = [];
+    // A shopper with a cart pushes it: the pose changes while walking or waiting, and the cart shows what was taken.
+    if (pushing) node.variant = 'pushing';
+    if (shopper?.pushing) attached.push({ id: `${state.id}:cart`, kind: 'asset', asset: 'shopping-cart', position: [0, 0, 0], count: Math.min(6, shopper.items), ...(shopper.goods ? { options: { goods: shopper.goods } } : {}), selectable: false, attachment: { nodeId: state.id, anchor: 'cart' } });
     if (state.id.startsWith('picker:')) attached.push({ id: `${state.id}:cart`, kind: 'asset', asset: 'picking-cart', position: [0, 0, 0], count: carts[state.id], selectable: false, attachment: { nodeId: state.id, anchor: 'cart' } });
     if (shopper?.basket) attached.push({ id: `${state.id}:basket`, kind: 'asset', asset: 'hand-basket', position: [0, 0, 0], count: Math.min(4, shopper.items), ...(shopper.goods ? { options: { goods: shopper.goods } } : {}), selectable: false, attachment: { nodeId: state.id, anchor: 'hand' } });
     return [node, ...attached];
@@ -1202,6 +1228,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function movers(): SceneNode[] {
     const time = runner.time, nodes: SceneNode[] = runner.getAgents().flatMap(state => agentNodes(state, time));
     for (const [id, at] of runner.getItems()) { const unit = units.get(id); if (unit && !unit.hidden) nodes.push(unitNode(id, at, unit, time)); }
+    // The carts in the corral: every place whose cart no shopper pushes.
+    const pushed = new Set([...shoppers.values()].flatMap(item => item.pushing && item.corral !== undefined ? [item.corral] : []));
+    CART_CORRAL.forEach((position, i) => { if (!pushed.has(i)) nodes.push({ id: `shop-cart-${i}`, kind: 'asset', asset: 'shopping-cart', position, count: 0, selectable: false }); });
     for (const [id, truck] of trucks) nodes.push({ id: `truck:${id}`, kind: 'asset', asset: 'truck', position: [truck.docked ? TRUCK_X : YARD_X, APRON_Y, DOCK_Z[id]], rotation: [0, Math.PI / 2, 0], color: truck.color, selectable: false, controller: { kind: 'dock-shunt', options: { speed: 3 } } });
     return nodes;
   }

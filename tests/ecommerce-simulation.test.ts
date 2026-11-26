@@ -107,6 +107,31 @@ describe('e-commerce mock feed', () => {
     simulation.dispose();
   });
 
+  it('lets shoppers take a cart from the corral, push it while shopping and return it', () => {
+    const simulation = createEcommerceSimulation('peak'), parked = () => simulation.nodes().filter(node => node.id.startsWith('shop-cart-'));
+    // Six carts wait in the corral inside the entrance.
+    expect(parked()).toHaveLength(6);
+    expect(parked().every(node => node.kind === 'asset' && node.asset === 'shopping-cart')).toBe(true);
+    let pushed = 0, fewest = 6, returned = false;
+    run(simulation, 600, () => {
+      const carts = simulation.nodes().filter(node => /^shopper:\d+:cart$/.test(node.id));
+      for (const cart of carts) {
+        expect(cart).toMatchObject({ asset: 'shopping-cart', attachment: { anchor: 'cart' } });
+        // The shopper behind the cart pushes it, unless reaching into a shelf or paying.
+        const shopper = simulation.nodes().find(node => node.id === (cart as { attachment: { nodeId: string } }).attachment.nodeId) as { variant?: string };
+        expect(['pushing', 'picking', 'placing']).toContain(shopper.variant);
+      }
+      pushed = Math.max(pushed, carts.length);
+      fewest = Math.min(fewest, parked().length);
+      returned ||= fewest < 6 && parked().length > fewest;
+      // A cart is either parked or pushed, never both or lost.
+      expect(parked().length + carts.length).toBe(6);
+    });
+    expect(pushed).toBeGreaterThan(0);
+    expect(returned).toBe(true);
+    simulation.dispose();
+  });
+
   it('sells goods from the shelves and restocks them', () => {
     const simulation = createEcommerceSimulation('peak'), start = simulation.snapshot().shop;
     let restocked = false;

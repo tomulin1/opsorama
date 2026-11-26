@@ -52,6 +52,11 @@ export const CAGE_X: Readonly<Record<string, number>> = { 'swift-1': 15, 'swift-
 export const CAGE_Z = .9;
 export const CHECKOUT_X: Readonly<Record<CheckoutId, number>> = { C1: -23.4, C2: -20.4, C3: -17.4 };
 const CHECKOUT_Z = .6, COLLECT: Vec3 = p(-12, 1);
+/**
+ * The cart corral inside the entrance, west of the door: six shopping carts side by side, handles toward the door row, where a
+ * shopper takes one on the way in and returns it on the way out. The simulation draws the carts that stand here.
+ */
+export const CART_CORRAL: readonly Vec3[] = [-16.8, -17.45, -18.1, -18.75, -19.4, -20.05].map(x => p(x, 4.3));
 /** Gondola rows along the shop floor, back to front; the departments take them in order (see `DEPARTMENTS`). */
 const GONDOLA_X = [-23.6, -21.4, -19.2, -17] as const, GONDOLA_Z = [-19.9, -16.2, -12.5, -8.8, -5.1] as const, FRONT_GONDOLA_ROW = GONDOLA_Z.length - 1;
 const GONDOLA_DEPARTMENTS = DEPARTMENTS.flatMap(item => Array.from({ length: item.gondolas }, (_, index) => ({ department: item.id, index })));
@@ -146,7 +151,6 @@ export const ecommerceBase: readonly SceneNode[] = closeWallJoints([
   fixture('shop-board', 'information-board', p(-12.4, -20), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'ORDER ONLINE\nCOLLECT IN 2 H\n\nCounter by\nthe entrance', color: '#eef4f8' } } }),
   fixture('shop-sign', 'sign', [-14.4, WALK_Y, 5.4], { options: { surfaceLabel: { kind: 'text', text: 'HEARTH & FIELD', color: '#ffffff', background: '#2f6f8f' } } }),
   ...[[-10.3, -2.6], [-10.3, -9.6], [-25.2, 4.2], [-14.3, -20], [-10.3, -16.5]].map(([x, z], i) => fixture(`shop-plant-${i}`, 'potted-plant', p(x, z))),
-  ...[0, 1].map(i => fixture(`shop-cart-${i}`, 'shopping-cart', p(-10.4, -5.8 + i * .55), { count: 0, rotation: yaw(-HALF) })),
   // Warehouse decoration: bollards at the aisle ends and a parked pallet jack. Every pallet in the scene is a unit someone moves.
   ...[[-7.6, -9.6], [-7.6, -17], [13.1, -12.7], [13.7, -5.2]].map(([x, z], i) => fixture(`bollard-${i}`, 'safety-barrier', p(x, z), { variant: 'bollard' })),
   fixture('pallet-jack', 'pallet-jack', p(-7, 3.6), { rotation: yaw(HALF) }),
@@ -202,11 +206,13 @@ const loadSlot = slot('dock:D3', 'load', p(20.8, DOCK_Z.D3), p(21.2, DOCK_Z.D3),
 const handoverSlot = slot('collect:counter', 'handover', p(GAP_WEST_X - .3, STAFF_ROW_Z), p(COLLECT[0] + 1.6, .45), -HALF, 'placing', ['staff']);
 const browseSlots = GONDOLAS.flatMap(item => catalogSlots({ id: item.id, asset: 'store-shelving', position: item.position }, ['shopper'], 'picking'));
 const fillSlots = GONDOLAS.map(item => slot(item.id, 'fill', p(item.position[0] + .7, item.position[2] + 1.25), p(item.position[0] + .7, item.position[2] + .75), BACK, 'placing', ['staff']));
+/** Shoppers take a cart from the corral and return it there, standing at its handles. */
+const corralSlot = slot('carts', 'corral', p(-18.4, 3.55), p(-18.4, 3.55), 0, 'placing', ['shopper']);
 const checkoutSlots = (Object.entries(CHECKOUT_X) as [CheckoutId, number][]).flatMap(([id, x]) => catalogSlots({ id: `checkout:${id}`, asset: 'checkout-counter', position: p(x, CHECKOUT_Z), rotation: yaw(BACK) }, ['shopper']).filter(value => value.group === 'customer'));
 const collectSlot = catalogSlots({ id: 'collect:counter', asset: 'click-collect-counter', position: COLLECT }, ['shopper']).filter(value => value.group === 'customer');
 
 /** Every interaction slot of the live site. */
-export const ecommerceSlots: readonly ResolvedSlot[] = [...rackSlots, ...stagingForkSlots, ...stagingReachSlots, ...dockSlots, ...replenishDrops, stackSlot, ...backSlots, ...pickStops, inductSlot, dischargeSlot, ...robotWallSlots, ...sorterSlots, ...packerWallSlots, ...benchSlots, ...cageSlots, loadSlot, handoverSlot, ...browseSlots, ...fillSlots, ...checkoutSlots, ...collectSlot];
+export const ecommerceSlots: readonly ResolvedSlot[] = [...rackSlots, ...stagingForkSlots, ...stagingReachSlots, ...dockSlots, ...replenishDrops, stackSlot, ...backSlots, ...pickStops, inductSlot, dischargeSlot, ...robotWallSlots, ...sorterSlots, ...packerWallSlots, ...benchSlots, ...cageSlots, loadSlot, handoverSlot, ...browseSlots, ...fillSlots, ...checkoutSlots, ...collectSlot, corralSlot];
 const stops = (slots: readonly ResolvedSlot[]): NavPoint[] => slots.map(value => ({ id: value.id, position: value.approach }));
 const byX = (ids: readonly (readonly [string, number])[]) => [...ids].sort((a, b) => a[1] - b[1]).map(([id]) => id);
 
@@ -259,7 +265,7 @@ export const warehouseNavigation = createNavGraph({
     ...link(['pack-row-east', 'cage-row-west', 'cage:swift-1:load', 'cage:swift-2:load', 'cage:parcelo-1:load', 'cage:parcelo-2:load', 'cage-row-east', 'dock:D3:load'], 'staff-walk'),
     ...link(['pack-row-west', 'staff-west', 'gap-east', 'collect:counter:handover', 'shop-south-east', 'cross-south'], 'staff-walk'), ...link(['gap-east', 'back-west', ...backRow], 'staff-walk'),
     ...link(['street', 'door-out', 'door-in', 'cross-south', ...GONDOLA_Z.map((_, row) => `cross:${FRONT_GONDOLA_ROW - row}`)], 'shop-floor'), ...GONDOLA_Z.flatMap((_, row) => link(shopRow(row), 'shop-floor')),
-    ...link(['door-in', 'collect-front', 'collect:counter:customer'], 'shop-floor'),
+    ...link(['door-in', 'collect-front', 'collect:counter:customer'], 'shop-floor'), ...link(['door-in', 'carts:corral'], 'shop-floor'),
     ...(Object.keys(CHECKOUT_X) as CheckoutId[]).flatMap(id => [...link([`row:${id}`, `queue:${id}:2`, `queue:${id}:1`, `queue:${id}:0`, `checkout:${id}:customer`], 'shop-floor'), ...chain([`checkout:${id}:customer`, `lane-exit:${id}`, `lane-front:${id}`], 'shop-floor')]),
     ...link(['lane-front:C1', 'lane-front:C2', 'lane-front:C3', 'door-in'], 'shop-floor'),
   ],
