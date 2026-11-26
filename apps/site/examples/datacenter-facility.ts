@@ -53,7 +53,7 @@ function perimeterFence(): AssetNode[] {
 function siteNodes(): SceneNode[] {
   const treeRow = steps(-38, 34, 12), lampRow = steps(-32, 28, 20);
   return [
-    { id: 'plant-yard', kind: 'asset', asset: 'floor', footprint: [64, 16], variant: 'concrete', position: [SITE_X, 0, PLANT_Z], label: 'OUTDOOR PLANT', color: '#bbc8ce', selectable: true },
+    { id: 'plant-yard', kind: 'asset', asset: 'floor', footprint: [64, 16], variant: 'concrete', position: [SITE_X, 0, PLANT_Z], label: 'OUTDOOR PLANT', color: '#bbc8ce' },
     ...ringRoad(),
     siteFixture('site-entrance', 'terrain', SITE_X, 39.5, { variant: 'asphalt', footprint: [ROAD_TILE, 3] }),
     siteFixture('service-apron', 'floor', -16.5, 28, { variant: 'concrete', footprint: [31, 8], color: '#c0cbd2' }),

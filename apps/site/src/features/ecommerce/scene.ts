@@ -313,10 +313,11 @@ const split = (total: number, parts: number) => Array.from({ length: parts }, (_
 export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): SceneNode[] {
   const nodes: SceneNode[] = [...ecommerceBase, ...live.movers];
 
-  // Each process area is a zone on the floor; the scene shows no area signs, and the HTML panels name the areas.
+  // Each process area is a zone on the floor; the scene shows no area signs, and the HTML panels name the areas. A click on the
+  // floor selects nothing: the Areas panel selects an area and shows its detail.
   for (const value of AREAS) {
     const [x0, x1, z0, z1] = value.rect;
-    nodes.push({ id: `area:${value.id}`, entityId: value.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, 0, (z0 + z1) / 2], color: value.color, selectable: true, interior: true });
+    nodes.push({ id: `area:${value.id}`, entityId: value.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, 0, (z0 + z1) / 2], color: value.color, selectable: false, interior: true });
   }
 
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
