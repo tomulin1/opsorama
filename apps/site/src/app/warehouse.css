@@ -81,3 +81,16 @@
   .wh-aisles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wh-picking { grid-template-columns: 1fr; }
 }
+
+/* The dark panel variant, the default: the dashboard's own light fills and text colors follow the dark panels. */
+.wh-viewport:not([data-panel-theme="light"]) { --w-ink: #f1f5fb; --w-muted: #a8b6cc; --w-line: #ffffff1f; --w-accent: #3fd0ff; --w-accent-soft: #3fd0ff1f; }
+.wh-viewport:not([data-panel-theme="light"]) :is(.wh-inspector p, .wh-host-note) { color: var(--panel-muted); }
+.wh-viewport:not([data-panel-theme="light"]) :is(.wh-host-note, .wh-list li, .wh-fleet li, .wh-alerts button, .wh-aisles button, .wh-picking div, .wh-library a) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.wh-viewport:not([data-panel-theme="light"]) .wh-library { border-color: var(--hud-card-line); }
+.wh-viewport:not([data-panel-theme="light"]) .wh-library a { color: var(--hud-accent); }
+.wh-viewport:not([data-panel-theme="light"]) :is(.wh-table-wrap tr[data-alert], .wh-alerts button[data-severity=critical]) { background: var(--hud-critical-fill); }
+.wh-viewport:not([data-panel-theme="light"]) :is(.wh-list li[data-alert], .wh-fleet li[data-alert]) { background: var(--hud-warning-fill); border-color: #f1b54a66; }
+.wh-viewport:not([data-panel-theme="light"]) .wh-aisles button[data-chilled] { background: #3fd0ff14; }
+.wh-viewport:not([data-panel-theme="light"]) .wh-table-wrap tr[data-side=outbound] td:first-child button { color: var(--panel-success); }
+.wh-viewport:not([data-panel-theme="light"]) .wh-bays i { border-color: #ffffff2e; background: linear-gradient(to top, #5fa3c9 calc(var(--fill) * 100%), #ffffff14 0); }
+.wh-viewport:not([data-panel-theme="light"]) .wh-bays i[data-issue=damaged] { background: var(--hud-critical-fill); }

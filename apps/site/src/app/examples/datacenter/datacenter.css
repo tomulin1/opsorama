@@ -69,3 +69,13 @@
   .dc-racks th, .dc-racks td { padding: 7px 6px; }.dc-cpu-bar { display: none; }.dc-racks td small { max-width: 125px; white-space: normal; }
   .dc-table-scroll { max-height: 185px; }
 }
+
+/* The dark panel variant, the default: the dashboard's own light fills and text colors follow the dark panels. */
+.dc-viewport:not([data-panel-theme="light"]) .dc-incident-label { color: var(--panel-text); }
+.dc-viewport:not([data-panel-theme="light"]) :is(.dc-scenario button, .dc-inspector .dp-field, .datacenter-records button) { background: var(--hud-card); border-color: var(--hud-card-line); color: var(--panel-text); }
+.dc-viewport:not([data-panel-theme="light"]) .dc-scenario button[aria-pressed="true"], .dc-viewport:not([data-panel-theme="light"]) .datacenter-records button[aria-pressed="true"] { background: var(--hud-accent-soft); border-color: #3fd0ff66; color: var(--hud-accent); }
+.dc-viewport:not([data-panel-theme="light"]) :is(.dc-recovered, .dc-healthy) { color: var(--panel-success); }
+.dc-viewport:not([data-panel-theme="light"]) :is(.dc-model-link, .dc-racks td button, .dc-document-links a) { color: var(--hud-accent); }
+.dc-viewport:not([data-panel-theme="light"]) .dc-racks tr[data-selected="true"] td { background: var(--hud-accent-soft); }
+.dc-viewport:not([data-panel-theme="light"]) .dc-pagination button { border-color: var(--hud-card-line); color: var(--panel-text); }
+.dc-viewport:not([data-panel-theme="light"]) .datacenter-controls input[type="range"] { accent-color: var(--hud-accent); }

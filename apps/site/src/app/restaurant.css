@@ -53,3 +53,14 @@
   /* The ticket table scrolls sideways inside its panel rather than squeezing its columns. */
   .restaurant-table-wrap table { min-width: 560px; }
 }
+
+/* The dark panel variant, the default: the dashboard's own light fills and text colors follow the dark panels. */
+.rs-viewport:not([data-panel-theme="light"]) { --r-ink: #f1f5fb; --r-muted: #a8b6cc; --r-line: #ffffff1f; --r-accent: #3fd0ff; --r-accent-soft: #3fd0ff1f; }
+.rs-viewport:not([data-panel-theme="light"]) .restaurant-inspector p { color: var(--panel-muted); }
+.rs-viewport:not([data-panel-theme="light"]) :is(.restaurant-host-note, .restaurant-stations button, .restaurant-tables button, .restaurant-library a) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.rs-viewport:not([data-panel-theme="light"]) .restaurant-library { border-color: var(--hud-card-line); }
+.rs-viewport:not([data-panel-theme="light"]) .restaurant-library a { color: var(--hud-accent); }
+.rs-viewport:not([data-panel-theme="light"]) :is(.restaurant-ticket[data-status=late], .restaurant-stations button[data-alert], .restaurant-table-wrap tr[data-status=late]) { background: var(--hud-critical-fill); }
+.rs-viewport:not([data-panel-theme="light"]) :is(.restaurant-stations button[data-alert] > span:last-child, .restaurant-table-wrap td.over) { color: var(--panel-critical); }
+.rs-viewport:not([data-panel-theme="light"]) :is(.restaurant-stations button[aria-pressed=true], .restaurant-tables button[aria-pressed=true]) { background: var(--hud-accent-soft); border-color: #3fd0ff66; color: var(--hud-accent); }
+.rs-viewport:not([data-panel-theme="light"]) .restaurant-channel { background: #52d69b1f; color: var(--panel-success); }
