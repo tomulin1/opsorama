@@ -53,10 +53,11 @@ export const CAGE_Z = .9;
 export const CHECKOUT_X: Readonly<Record<CheckoutId, number>> = { C1: -23.4, C2: -20.4, C3: -17.4 };
 const CHECKOUT_Z = .6, COLLECT: Vec3 = p(-12, 1);
 /**
- * The cart corral inside the entrance, west of the door: six shopping carts side by side, handles toward the door row, where a
- * shopper takes one on the way in and returns it on the way out. The simulation draws the carts that stand here.
+ * The cart corral inside the entrance, west of the door: six shopping carts side by side, 0.82 m apart so a small gap stays
+ * between the 0.66 m wide carts, handles toward the door row, where a shopper takes one on the way in and returns it on the way
+ * out. The simulation draws the carts that stand here.
  */
-export const CART_CORRAL: readonly Vec3[] = [-16.8, -17.45, -18.1, -18.75, -19.4, -20.05].map(x => p(x, 4.3));
+export const CART_CORRAL: readonly Vec3[] = Array.from({ length: 6 }, (_, i) => p(-16.8 - i * .82, 4.3));
 /** Gondola rows along the shop floor, back to front; the departments take them in order (see `DEPARTMENTS`). */
 const GONDOLA_X = [-23.6, -21.4, -19.2, -17] as const, GONDOLA_Z = [-19.9, -16.2, -12.5, -8.8, -5.1] as const, FRONT_GONDOLA_ROW = GONDOLA_Z.length - 1;
 const GONDOLA_DEPARTMENTS = DEPARTMENTS.flatMap(item => Array.from({ length: item.gondolas }, (_, index) => ({ department: item.id, index })));
@@ -207,7 +208,7 @@ const handoverSlot = slot('collect:counter', 'handover', p(GAP_WEST_X - .3, STAF
 const browseSlots = GONDOLAS.flatMap(item => catalogSlots({ id: item.id, asset: 'store-shelving', position: item.position }, ['shopper'], 'picking'));
 const fillSlots = GONDOLAS.map(item => slot(item.id, 'fill', p(item.position[0] + .7, item.position[2] + 1.25), p(item.position[0] + .7, item.position[2] + .75), BACK, 'placing', ['staff']));
 /** Shoppers take a cart from the corral and return it there, standing at its handles. */
-const corralSlot = slot('carts', 'corral', p(-18.4, 3.55), p(-18.4, 3.55), 0, 'placing', ['shopper']);
+const corralSlot = slot('carts', 'corral', p(-18.85, 3.55), p(-18.85, 3.55), 0, 'placing', ['shopper']);
 const checkoutSlots = (Object.entries(CHECKOUT_X) as [CheckoutId, number][]).flatMap(([id, x]) => catalogSlots({ id: `checkout:${id}`, asset: 'checkout-counter', position: p(x, CHECKOUT_Z), rotation: yaw(BACK) }, ['shopper']).filter(value => value.group === 'customer'));
 const collectSlot = catalogSlots({ id: 'collect:counter', asset: 'click-collect-counter', position: COLLECT }, ['shopper']).filter(value => value.group === 'customer');
 
