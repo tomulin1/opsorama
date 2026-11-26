@@ -1,6 +1,6 @@
 import { ciScaled, expect, test } from './fixtures';
 
-test('Cut-off commands the crew with an action ring and Take and Bring here pills for every process, then reaches the report', async ({ page }) => {
+test('Cut-off commands the crew with an action ring, tinted sources and Take and Bring here pills for the keyboard for every process, then reaches the report', async ({ page }) => {
   test.setTimeout(ciScaled(150000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
@@ -26,7 +26,7 @@ test('Cut-off commands the crew with an action ring and Take and Bring here pill
 
   // Receiving: the forklift takes the truck at D1 to the staging lane.
   await commandActor('Forklift');
-  await expect(step).toContainText('click a lit object to take');
+  await expect(step).toContainText('click a tinted object to take');
   await take(/^Take Dock D1/);
   await bring(/^Bring here: Staging lane/);
   await expect(message).toHaveText('Forklift: Unload the truck at D1.');
