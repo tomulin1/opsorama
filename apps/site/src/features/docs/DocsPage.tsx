@@ -24,6 +24,7 @@ const DOC_DEMOS: Record<DocDemo, ComponentType> = {
   'metric-tones': dynamic(() => import('./PanelDemos').then(module => module.MetricTones)),
   'panel-states': dynamic(() => import('./PanelDemos').then(module => module.PanelStates)),
   'hud-composition': dynamic(() => import('./PanelDemos').then(module => module.HudComposition)),
+  'panel-dark': dynamic(() => import('./PanelDemos').then(module => module.HudCompositionDark)),
   'panel-adapters': PanelExamples,
   'action-ring': dynamic(() => import('./ActionRingDemo').then(module => module.ActionRingDemo)),
 };

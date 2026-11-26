@@ -24,7 +24,7 @@ import { modelsArticle } from './models-content';
 import { lightingArticle } from './lighting-content';
 import { gameArticle } from './game-content';
 /** Live sample rendered at the end of a section. */
-export type DocDemo = 'metric-configurator' | 'metric-matrix' | 'metric-tones' | 'panel-states' | 'hud-composition' | 'panel-adapters' | 'action-ring';
+export type DocDemo = 'metric-configurator' | 'metric-matrix' | 'metric-tones' | 'panel-states' | 'hud-composition' | 'panel-adapters' | 'action-ring' | 'panel-dark';
 export interface DocSection { id: string; title: string; paragraphs?: string[]; code?: string; language?: string; rows?: string[][]; headers?: string[]; list?: string[]; demo?: DocDemo; }
 export interface DocArticle { slug: string; title: string; description: string; category: string; sections: DocSection[]; playground?: boolean; }
 const section = (id: string, title: string, paragraphs: string[], extra: Partial<DocSection> = {}): DocSection => ({ id, title, paragraphs, ...extra });

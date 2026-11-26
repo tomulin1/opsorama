@@ -79,6 +79,8 @@
 .dp-list > li + li { border-top: 1px solid var(--dp-border); }
 .dp-item { display: flex; align-items: center; flex-wrap: wrap; gap: var(--panel-gap, 12px); padding: var(--dp-row-gap, 12px) 0; width: 100%; color: inherit; text-align: start; }
 button.dp-item { font: inherit; border: 0; background: transparent; border-radius: 6px; cursor: pointer; }
+/* Items and list rows take the panel's text color even where the host styles every button or list item, as prose does. */
+.dp-panel .dp-item, .dp-panel .dp-list > li { color: inherit; }
 button.dp-item:hover, button.dp-item[aria-pressed="true"] { background: var(--panel-selection, color-mix(in srgb, var(--panel-accent, #3768ef) 9%, transparent)); }
 button.dp-item:disabled { cursor: default; opacity: .6; }
 .dp-item-value { font-variant-numeric: tabular-nums; }
@@ -215,3 +217,14 @@ button.dp-item:disabled { cursor: default; opacity: .6; }
 .dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-action[data-primary] { padding: .3em .75em; }
 .dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-icon { width: auto; height: auto; }
 @media (pointer: coarse) { .dp-action-ring .dp-ring-action { min-height: 44px; min-width: 44px; } }
+
+/* Dark panel preset, the second color version: set data-panel-theme="dark" on a panel or on any element around panels. The
+   panels turn into translucent navy cards with light text and brighter tones, like the action ring card. Host variables set
+   closer to the panels still win. */
+[data-panel-theme="dark"] {
+  color-scheme: dark;
+  --panel-surface: color-mix(in srgb, #142038 88%, transparent); --panel-text: #f1f5fb; --panel-muted: #a8b6cc;
+  --panel-border: #ffffff24; --panel-accent: #3fd0ff; --panel-success: #52d69b; --panel-warning: #f1b54a; --panel-critical: #ff7088;
+  --panel-shadow: 0 10px 30px #08101f59; --ring-surface: #142038;
+}
+[data-panel-theme="dark"] .dp-panel, .dp-panel[data-panel-theme="dark"] { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
