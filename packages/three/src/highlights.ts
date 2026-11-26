@@ -4,20 +4,33 @@ import * as THREE from 'three';
 export interface NodeHighlight {
   /** Scene node to tint; nodes inside it keep their look unless listed too. A node that is not built yet is tinted once it is. */
   node: string;
-  /** Tint, a CSS color. Default the palette's accent. */
+  /** Glow color, a CSS color. Default the palette's accent. */
   color?: string;
 }
 
-/** Tint opacity at rest, and the peak added by the pulse while motion runs. */
-const TINT_OPACITY = .45, TINT_PULSE = .2, TINT_PULSE_RATE = 3.2;
-/** Share of white mixed into the color, so a tint still shows on a model of the same hue. */
-const TINT_LIGHTEN = .12;
-const WHITE = new THREE.Color('#ffffff');
+/**
+ * The tint glows: an additive fill that brightens the model in its color, and a halo, a back-facing hull pushed outward
+ * along the normals, that lights its outline. Opacities at rest and the peak added by the pulse while motion runs.
+ */
+const FILL_OPACITY = .32, FILL_PULSE = .22, HALO_OPACITY = .7, HALO_PULSE = .3, PULSE_RATE = 3.2;
+/** Width of the halo in view-space metres, whatever the model's scale. */
+export const HALO_WIDTH = .045;
 
-interface TintShell { mesh: THREE.Mesh; source: THREE.Mesh; }
+interface TintShell { meshes: THREE.Mesh[]; source: THREE.Mesh; }
 interface Tint { id: string; color: string; object: THREE.Object3D | null; shells: TintShell[]; }
+interface TintLook { fill: THREE.MeshBasicMaterial; halo: THREE.ShaderMaterial; }
 
-/** Tints any number of nodes, each with a shell over its opaque meshes, as the selection glow does for one node. */
+const HALO_VERTEX = `uniform float width;
+void main() {
+  vec4 view = modelViewMatrix * vec4(position, 1.0);
+  view.xyz += normalize(normalMatrix * normal) * width;
+  gl_Position = projectionMatrix * view;
+}`;
+const HALO_FRAGMENT = `uniform vec3 color;
+uniform float opacity;
+void main() { gl_FragColor = vec4(color, opacity); }`;
+
+/** Tints any number of nodes with a glow: an additive fill over each opaque mesh and a halo around its outline. */
 export interface NodeHighlights {
   /** Replace the tinted nodes; an empty list clears them. */
   set(highlights: readonly NodeHighlight[], accent: string): void;
@@ -46,17 +59,24 @@ function tintSources(object: THREE.Object3D): THREE.Mesh[] {
  */
 export function createNodeHighlights(container: THREE.Object3D, resolve: (id: string) => THREE.Object3D | undefined, isDrawn: (mesh: THREE.Mesh) => boolean): NodeHighlights {
   const root = new THREE.Group(); root.name = 'node-highlights'; root.matrixAutoUpdate = false; container.add(root);
-  const materials = new Map<string, THREE.MeshBasicMaterial>();
+  const looks = new Map<string, TintLook>();
   let tints: Tint[] = [];
-  const materialFor = (color: string) => {
-    let material = materials.get(color);
-    if (!material) {
-      material = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false });
-      material.color.set(color).lerp(WHITE, TINT_LIGHTEN); materials.set(color, material);
+  const lookFor = (color: string) => {
+    let look = looks.get(color);
+    if (!look) {
+      const fill = new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false });
+      const halo = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color(color) }, opacity: { value: HALO_OPACITY }, width: { value: HALO_WIDTH } }, vertexShader: HALO_VERTEX, fragmentShader: HALO_FRAGMENT, side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      look = { fill, halo }; looks.set(color, look);
     }
-    return material;
+    return look;
   };
-  const clearShells = (tint: Tint) => { root.remove(...tint.shells.map(shell => shell.mesh)); tint.shells = []; };
+  const shellOf = (source: THREE.Mesh, look: TintLook): TintShell => {
+    // The halo needs normals to push the hull out; a mesh without them gets only the fill.
+    const meshes = [new THREE.Mesh(source.geometry, look.fill), ...(source.geometry.attributes.normal ? [new THREE.Mesh(source.geometry, look.halo)] : [])];
+    meshes.forEach((mesh, i) => { mesh.matrixAutoUpdate = false; mesh.renderOrder = 5 + i; mesh.frustumCulled = false; mesh.raycast = () => {}; root.add(mesh); });
+    return { meshes, source };
+  };
+  const clearShells = (tint: Tint) => { root.remove(...tint.shells.flatMap(shell => shell.meshes)); tint.shells = []; };
   const shown = (mesh: THREE.Mesh, object: THREE.Object3D) => {
     if (!mesh.visible && !isDrawn(mesh)) return false;
     for (let current: THREE.Object3D | null = mesh.parent; current; current = current === object ? null : current.parent) if (!current.visible) return false;
@@ -66,25 +86,22 @@ export function createNodeHighlights(container: THREE.Object3D, resolve: (id: st
     set(highlights, accent) {
       tints.forEach(clearShells);
       tints = highlights.map(item => ({ id: item.node, color: item.color ?? accent, object: null, shells: [] }));
-      for (const [color, material] of materials) if (!tints.some(tint => tint.color === color)) { material.dispose(); materials.delete(color); }
+      for (const [color, look] of looks) if (!tints.some(tint => tint.color === color)) { look.fill.dispose(); look.halo.dispose(); looks.delete(color); }
     },
     update(time, pulsing) {
-      const opacity = TINT_OPACITY + (pulsing ? (Math.sin(time * TINT_PULSE_RATE) + 1) / 2 * TINT_PULSE : 0);
-      for (const material of materials.values()) material.opacity = opacity;
       for (const tint of tints) {
         const object = resolve(tint.id) ?? null;
         if (object !== tint.object) {
           clearShells(tint); tint.object = object;
-          if (object) tint.shells = tintSources(object).map(source => {
-            const mesh = new THREE.Mesh(source.geometry, materialFor(tint.color));
-            mesh.matrixAutoUpdate = false; mesh.renderOrder = 5; mesh.frustumCulled = false; mesh.raycast = () => {};
-            root.add(mesh); return { mesh, source };
-          });
+          if (object) tint.shells = tintSources(object).map(source => shellOf(source, lookFor(tint.color)));
         }
-        if (object) for (const { mesh, source } of tint.shells) { mesh.visible = shown(source, object); mesh.matrixWorld.copy(source.matrixWorld); }
+        if (object) for (const { meshes, source } of tint.shells) { const visible = shown(source, object); for (const mesh of meshes) { mesh.visible = visible; mesh.matrixWorld.copy(source.matrixWorld); } }
       }
+      // After the shells, so a look created in this frame is already drawn at the right strength.
+      const pulse = pulsing ? (Math.sin(time * PULSE_RATE) + 1) / 2 : 0;
+      for (const { fill, halo } of looks.values()) { fill.opacity = FILL_OPACITY + pulse * FILL_PULSE; halo.uniforms.opacity.value = HALO_OPACITY + pulse * HALO_PULSE; }
     },
     get size() { return tints.length; },
-    dispose() { root.removeFromParent(); materials.forEach(material => material.dispose()); materials.clear(); tints = []; },
+    dispose() { root.removeFromParent(); looks.forEach(look => { look.fill.dispose(); look.halo.dispose(); }); looks.clear(); tints = []; },
   };
 }

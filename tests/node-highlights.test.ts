@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { createNodeHighlights } from '@opsorama/three';
+import { createNodeHighlights, HALO_WIDTH } from '@opsorama/three';
 
 const node = (id: string, child?: THREE.Object3D) => {
   const object = new THREE.Group(); object.userData.nodeId = id;
@@ -20,19 +20,27 @@ describe('node highlights', () => {
     highlights.set([{ node: 'pallet' }, { node: 'rack', color: '#1f9d63' }, { node: 'not-built-yet' }], '#2f7fc4');
     expect(highlights.size).toBe(3);
     scene.updateMatrixWorld(true); highlights.update(0, false);
-    // The pallet's own mesh and the rack's; the carton inside the pallet and the glass part are not tinted.
-    expect(root.children).toHaveLength(2);
-    const [palletShell, rackShell] = root.children as THREE.Mesh[];
-    expect((palletShell.material as THREE.MeshBasicMaterial).color.equals((rackShell.material as THREE.MeshBasicMaterial).color)).toBe(false);
-    expect(palletShell.raycast).not.toBe(THREE.Mesh.prototype.raycast);
+    // The pallet's own mesh and the rack's, each with an additive fill and a halo pushed out along the normals; the carton
+    // inside the pallet and the glass part are not tinted.
+    expect(root.children).toHaveLength(4);
+    const [palletFill, palletHalo, rackFill] = root.children as THREE.Mesh[];
+    expect((palletFill.material as THREE.MeshBasicMaterial).blending).toBe(THREE.AdditiveBlending);
+    expect((palletHalo.material as THREE.ShaderMaterial).side).toBe(THREE.BackSide);
+    expect((palletHalo.material as THREE.ShaderMaterial).uniforms.width.value).toBe(HALO_WIDTH);
+    expect((palletFill.material as THREE.MeshBasicMaterial).color.equals((rackFill.material as THREE.MeshBasicMaterial).color)).toBe(false);
+    expect(palletFill.raycast).not.toBe(THREE.Mesh.prototype.raycast);
+    // The pulse raises the glow while motion runs.
+    const rest = (palletFill.material as THREE.MeshBasicMaterial).opacity;
+    highlights.update(Math.PI / 6.4, true);
+    expect((palletFill.material as THREE.MeshBasicMaterial).opacity).toBeGreaterThan(rest);
     // A rebuilt node is a new object and gets new shells.
     const rebuilt = node('rack'); objects.set('rack', rebuilt); scene.add(rebuilt); scene.updateMatrixWorld(true);
     highlights.update(.5, true);
-    expect(root.children).toHaveLength(2);
-    expect((root.children[1] as THREE.Mesh).geometry).toBe((rebuilt.children[0] as THREE.Mesh).geometry);
+    expect(root.children).toHaveLength(4);
+    expect((root.children[2] as THREE.Mesh).geometry).toBe((rebuilt.children[0] as THREE.Mesh).geometry);
     // A node built later is tinted once it exists.
     objects.set('not-built-yet', node('not-built-yet')); highlights.update(1, false);
-    expect(root.children).toHaveLength(3);
+    expect(root.children).toHaveLength(6);
     highlights.set([], '#2f7fc4'); highlights.update(2, false);
     expect(root.children).toHaveLength(0); expect(highlights.size).toBe(0);
     highlights.dispose();
