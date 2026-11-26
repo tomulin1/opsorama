@@ -53,7 +53,7 @@ export { advanceCornerMarker, createCornerMarker, createGlowHighlight, selection
 export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection-marker';
 export { createPickTargetObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget } from './pick-targets';
 export type { GhostModel, PickGhostSource, PickTarget, PickTargetMarker } from './pick-targets';
-export { createNodeHighlights } from './highlights';
+export { createNodeHighlights, HALO_WIDTH } from './highlights';
 export type { NodeHighlight, NodeHighlights } from './highlights';
 export { createOverlayObject } from './overlay';
 export { addObjectRelease, assetLoadsSettled, assetValidator, createAssetRegistry, disposeObject, requestAssetRebuild, shareAssetResource, trackAssetLoad } from './assets';

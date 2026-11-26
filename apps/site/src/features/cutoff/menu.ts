@@ -137,8 +137,8 @@ export function targetMarks(source: Pick<Source, 'options'>, snapshot?: Ecommerc
   return [...marks].map(([key, label]) => ({ key, kind: 'target', label }));
 }
 
-/** Tint of what the commanded actor can take, a pale light that brightens any goods color, and color of the ghosts and tinted targets where it can bring it. */
-export const SOURCE_TINT = '#e6f8ff', TARGET_TINT = '#1f9d63';
+/** Glow of what the commanded actor can take, a cyan light that stands apart from every goods color, and color of the ghosts and tinted targets where it can bring it. */
+export const SOURCE_TINT = '#3fc8ff', TARGET_TINT = '#1f9d63';
 /** The scene nodes a source tints: its node, and for a dock the truck standing at it. */
 const tintedNodes = (node: string) => node.startsWith('dock:') ? [node, `truck:${node.slice(5)}`] : [node];
 /** Tints while a source is chosen: every source the actor can take. */
