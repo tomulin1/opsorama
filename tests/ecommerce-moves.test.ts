@@ -175,7 +175,7 @@ describe('e-commerce commanded moves', () => {
     expect(simulation.moves('replenisher', 'replen:F3').refused).toEqual([{ kind: 'decant', target: 'F3 lanes', reason: 'No pallet stands behind F3.' }]);
     expect(bare(simulation.moves('reach-truck', pallet).options)).toEqual([{ move: { kind: 'replenish', pallet }, target: 'Behind F3' }]);
     // The pallet's ghost stands on the spot behind F3, turned as pallets stand there.
-    expect(simulation.moves('reach-truck', pallet).options[0].previews).toEqual([expect.objectContaining({ ghost: pallet, yaw: Math.PI / 2, position: [expect.any(Number), expect.any(Number), -5.75] })]);
+    expect(simulation.moves('reach-truck', pallet).options[0].previews).toEqual([expect.objectContaining({ ghost: pallet, yaw: Math.PI / 2, position: [expect.any(Number), expect.any(Number), -7.45] })]);
     game.command('reach-truck', { kind: 'replenish', pallet });
     game.simulation.advance(1);
     // The replenisher may be told before the pallet arrives: it waits for it.
