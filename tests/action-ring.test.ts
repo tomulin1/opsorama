@@ -50,6 +50,19 @@ describe('action ring', () => {
     expect(byClass(ring, 'dp-ring')).toHaveLength(0);
   });
 
+  it('lays out a card with a status dot, a row of actions, one primary action and a leader line', () => {
+    const ring = actionRing({ title: 'Replenisher', tone: 'success', layout: 'card', arc: 30, actions: [{ id: 'stop', label: 'Stop', icon: '■', tone: 'critical' }, { id: 'auto', label: 'Auto', switch: true }, { id: 'done', label: 'Done', icon: '✓', primary: true }] });
+    expect(ring.attrs['data-layout']).toBe('card');
+    expect(ring.children.map(child => child.kind === 'element' ? child.attrs.class : '')).toEqual(['dp-ring-card', 'dp-ring-leader']);
+    const [card] = byClass(ring, 'dp-ring-card');
+    expect(card.children.map(child => child.kind === 'element' ? child.attrs.class : '')).toEqual(['dp-ring-title', 'dp-ring-actions']);
+    expect(byClass(card, 'dp-ring-dot')).toHaveLength(1);
+    const pills = byClass(ring, 'dp-ring-action');
+    // The card ignores the arc, and only the primary action is marked.
+    expect(pills.map(pill => [pill.attrs['data-primary'], pill.style?.['--dp-ring-lift']])).toEqual([[undefined, '0px'], [undefined, '0px'], [true, '0px']]);
+    expect(actionRing({ actions: actions(1) }).attrs['data-layout']).toBeUndefined();
+  });
+
   it('names the fix for invalid input', () => {
     expect(() => actionRing({ actions: [] })).toThrow('needs a title or at least one action');
     expect(() => actionRing({ actions: [{ id: 'x', label: 'A' }, { id: 'x', label: 'B' }] })).toThrow('nonempty and unique');
@@ -57,6 +70,8 @@ describe('action ring', () => {
     expect(() => actionRing({ actions: actions(2), arc: -1 })).toThrow('arc must be a finite number');
     expect(() => actionRing({ actions: [{ id: 'auto', icon: '⚙', ariaLabel: 'Auto', switch: true }] })).toThrow('Action auto is a switch; a switch needs a label.');
     expect(() => actionRing({ actions: actions(1), density: 'tiny' as 'compact' })).toThrow('density must be regular or compact, not tiny');
+    expect(() => actionRing({ actions: actions(1), layout: 'grid' as 'card' })).toThrow('layout must be arc or card, not grid');
+    expect(() => actionRing({ actions: [{ id: 'a', label: 'A', primary: true }, { id: 'b', label: 'B', primary: true }] })).toThrow('Action ring has 2 primary actions; mark at most one.');
   });
 
   it('renders the same toolbar in React and Vue', async () => {
