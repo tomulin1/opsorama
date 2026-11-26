@@ -43,6 +43,7 @@ const handle = renderer.attachHtml('cooler', element);
     { id: 'behavior', title: 'Behavior and accessibility', list: [
       'The ring is a toolbar of native buttons named by their label or ariaLabel; tab moves through them and Enter or Space runs one. Add your own Escape handling to close it, and close it when the user clicks elsewhere in the scene.',
       'pressed makes an action a toggle (aria-pressed) that looks pressed while on; with switch: true it is drawn as a switch with a sliding knob and reported as role="switch" with aria-checked, which suits a mode such as Auto. A switch needs a label. disabled shows an action dimmed and does not call onSelect.',
+      'layout: "card" draws the same toolbar as one translucent card instead of an arc: a status dot in the tone of the ring and the title over a divider, a row of plain actions (icons in their tones) and a leader line down to the object. Mark the main command primary to fill it, for example Done; a ring has at most one. --ring-opacity sets how much of the scene shows through (default 84%), --ring-leader the length of the line.',
       'density: "compact" draws smaller pills with smaller text, for scenes where the ring stands among many objects; --ring-font-size sets the text size of either density.',
       'The actions rise in an arc toward the middle; arc sets the rise in pixels (default 18, 0 for a straight row).',
       'Tones color the name pill\'s outline and each action\'s icon and outline: neutral, info, success, warning and critical. An action may have its own tone. Colors read --ring-info and the other --ring-* variables, then the panel colors.',
@@ -51,11 +52,12 @@ const handle = renderer.attachHtml('cooler', element);
     { id: 'reference', title: 'Reference', headers: ['Input', 'Type', 'Default', 'Meaning'], rows: [
       ['title', 'node', 'none', 'The name pill under the actions; omit it for a lone action.'],
       ['icon', 'node', 'none', 'Icon in the name pill.'],
-      ['actions', '[{ id, label?, icon?, tone?, ariaLabel?, pressed?, switch?, disabled?, onSelect? }]', 'required', 'The commands, left to right; switch draws a toggle as a switch.'],
+      ['actions', '[{ id, label?, icon?, tone?, ariaLabel?, pressed?, switch?, primary?, disabled?, onSelect? }]', 'required', 'The commands, left to right; switch draws a toggle as a switch, primary fills the main command.'],
       ['tone', 'Tone', 'info', 'Outline of the name pill and the default tone of the actions.'],
       ['label', 'string', 'the title when it is text', 'Accessible name of the toolbar.'],
       ['arc', 'number', '18', 'Pixels by which the middle actions rise above the outer ones.'],
       ['density', "'regular' | 'compact'", 'regular', 'Smaller pills and text with compact.'],
+      ['layout', "'arc' | 'card'", 'arc', 'Pills in an arc over a name pill, or one translucent card with a leader line to the object.'],
       ['className / style', 'string / CSS properties', 'none', 'Host styling of the ring.'],
     ] },
   ],

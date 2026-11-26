@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Check, Hand, MapPin, Search, Thermometer, UserPlus, Wrench } from 'lucide-react';
+import { Check, Square, Hand, MapPin, Search, Thermometer, UserPlus, Wrench } from 'lucide-react';
 import { ActionRing } from '@opsorama/react/ui';
 import '@opsorama/ui/styles.css';
 import './panels.css';
@@ -25,6 +25,11 @@ export function ActionRingDemo() {
         { id: 'auto', label: 'Auto', switch: true, pressed: auto, onSelect: () => { setAuto(value => !value); setLast(auto ? 'Auto off' : 'Auto on'); } },
         { id: 'done', label: 'Done', icon: <Check />, onSelect: run('Done') },
       ]} /><figcaption>A machine with a switch</figcaption></figure>
+      <figure><ActionRing layout="card" title="Replenisher" tone="success" label="Commands of Replenisher" actions={[
+        { id: 'stop', label: 'Stop', icon: <Square fill="currentColor" />, tone: 'critical', onSelect: run('Stop the replenisher') },
+        { id: 'auto', label: 'Auto', switch: true, pressed: auto, onSelect: () => { setAuto(value => !value); setLast(auto ? 'Auto off' : 'Auto on'); } },
+        { id: 'done', label: 'Done', icon: <Check />, tone: 'success', primary: true, onSelect: run('Done') },
+      ]} /><figcaption>A card over the object</figcaption></figure>
       <figure className="action-ring-pills">{['1038', '1039', '1040'].map(pallet => <ActionRing key={pallet} density="compact" tone="info" arc={0} label={`Take pallet ${pallet}`} actions={[{ id: pallet, icon: <Hand />, ariaLabel: `Take pallet ${pallet}`, onSelect: run(`Take pallet ${pallet}`) }]} />)}
         <figcaption>Lone round pills over sources</figcaption></figure>
     </div>

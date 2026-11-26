@@ -293,6 +293,8 @@ export interface RingAction<T> {
   pressed?: boolean;
   /** Draw the action as a switch with a sliding knob, reported as `role="switch"` with `aria-checked` from `pressed`. */
   switch?: boolean;
+  /** The main command, filled in its tone (for example Done); at most one per ring. */
+  primary?: boolean;
   disabled?: boolean;
   onSelect?: () => void;
 }
@@ -310,6 +312,11 @@ export interface ActionRingProps<T> {
   arc?: number;
   /** `compact` draws smaller pills with smaller text, for crowded scenes. Default regular. */
   density?: 'regular' | 'compact';
+  /**
+   * `arc`: pills in an arc over a name pill (the default). `card`: one translucent card with a status dot and the title over a
+   * row of plain actions, the primary one filled, and a leader line down to the object. The card ignores `arc`.
+   */
+  layout?: 'arc' | 'card';
 }
 /**
  * A compact ring of command pills for one object, such as the selected person or machine in a scene: the actions in a gentle
@@ -325,19 +332,29 @@ export function actionRing<T>(props: ActionRingProps<T>): PanelElement<T> {
   if (!Number.isFinite(arc) || arc < 0) throw new Error('Action ring arc must be a finite number of pixels, 0 or more.');
   if (props.density !== undefined && props.density !== 'regular' && props.density !== 'compact') throw new Error(`Action ring density must be regular or compact, not ${String(props.density)}.`);
   for (const action of props.actions) if (action.switch && action.label === undefined) throw new Error(`Action ${action.id} is a switch; a switch needs a label.`);
+  if (props.layout !== undefined && props.layout !== 'arc' && props.layout !== 'card') throw new Error(`Action ring layout must be arc or card, not ${String(props.layout)}.`);
+  if (props.actions.filter(action => action.primary).length > 1) throw new Error(`Action ring has ${props.actions.filter(action => action.primary).length} primary actions; mark at most one.`);
+  const card = props.layout === 'card';
   const count = props.actions.length, middle = (count - 1) / 2;
   for (const action of props.actions) if (action.label === undefined && (action.icon === undefined || !action.ariaLabel)) throw new Error(`Action ${action.id} has no label; an icon-only action needs icon and ariaLabel.`);
   const actions = props.actions.map((action, index) => {
-    const offset = count > 1 ? (index - middle) / middle : 0, lift = Math.round(arc * (1 - offset * offset) * 10) / 10;
+    const offset = count > 1 ? (index - middle) / middle : 0, lift = card ? 0 : Math.round(arc * (1 - offset * offset) * 10) / 10;
     const toggle = action.switch ? { role: 'switch', 'aria-checked': Boolean(action.pressed), 'data-switch': true } : { 'aria-pressed': action.pressed };
-    return el<T>('button', { type: 'button', class: 'dp-ring-action', 'data-tone': action.tone ?? props.tone ?? 'info', 'data-icon-only': action.label === undefined || undefined, 'aria-label': action.ariaLabel, title: action.label === undefined ? action.ariaLabel : undefined, ...toggle, disabled: action.disabled || undefined }, [
+    return el<T>('button', { type: 'button', class: 'dp-ring-action', 'data-tone': action.tone ?? props.tone ?? 'info', 'data-primary': action.primary || undefined, 'data-icon-only': action.label === undefined || undefined, 'aria-label': action.ariaLabel, title: action.label === undefined ? action.ariaLabel : undefined, ...toggle, disabled: action.disabled || undefined }, [
       action.icon !== undefined ? el<T>('span', { class: 'dp-ring-icon', 'aria-hidden': true }, [content<T>(action.icon)]) : null,
       action.label !== undefined ? el<T>('span', { class: 'dp-ring-label' }, [content<T>(action.label)]) : null,
       action.switch ? el<T>('span', { class: 'dp-ring-switch', 'aria-hidden': true }, [el<T>('span', { class: 'dp-ring-knob' })]) : null,
     ].filter(isNode), { key: action.id, style: { '--dp-ring-lift': `${lift}px` }, onClick: () => { if (!action.disabled) action.onSelect?.(); } });
   });
-  return el<T>('div', { class: `dp-action-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info', 'data-density': props.density === 'compact' ? 'compact' : undefined }, [
-    count ? el<T>('div', { class: 'dp-ring-actions' }, actions, { key: 'actions' }) : null,
+  const attrs = { class: `dp-action-ring ${props.className ?? ''}`.trim(), role: 'toolbar', 'aria-label': props.label ?? (typeof props.title === 'string' ? props.title : undefined), 'data-tone': props.tone ?? 'info', 'data-density': props.density === 'compact' ? 'compact' : undefined, 'data-layout': card ? 'card' : undefined };
+  const row = count ? el<T>('div', { class: 'dp-ring-actions' }, actions, { key: 'actions' }) : null;
+  if (card) {
+    // The title leads with a status dot in the ring's tone; a leader line runs from the card down to the object.
+    const head = props.title !== undefined ? el<T>('div', { class: 'dp-ring-title' }, [props.icon !== undefined ? el<T>('span', { class: 'dp-ring-icon', 'aria-hidden': true }, [content<T>(props.icon)]) : el<T>('span', { class: 'dp-ring-dot', 'aria-hidden': true }), el<T>('span', { class: 'dp-ring-label' }, [content<T>(props.title)])], { key: 'title' }) : null;
+    return el<T>('div', attrs, [el<T>('div', { class: 'dp-ring-card' }, [head, row].filter(isNode), { key: 'card' }), el<T>('span', { class: 'dp-ring-leader', 'aria-hidden': true }, [], { key: 'leader' })], { style: props.style });
+  }
+  return el<T>('div', attrs, [
+    row,
     props.title !== undefined ? el<T>('div', { class: 'dp-ring-title' }, [props.icon !== undefined ? el<T>('span', { class: 'dp-ring-icon', 'aria-hidden': true }, [content<T>(props.icon)]) : null, el<T>('span', { class: 'dp-ring-label' }, [content<T>(props.title)])].filter(isNode), { key: 'title' }) : null,
   ].filter(isNode), { style: props.style });
 }
