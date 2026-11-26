@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, Boxes, Check, Clock3, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
+import { Bell, Boxes, Clock3, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { ActionRing, ActivityFeed, DataPanel, StatusBadge, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
@@ -36,7 +36,7 @@ const minutesLeft = (deadline: number, time: number) => Math.max(0, Math.ceil(de
 const actorNow = (actor: ActorView) => actor.waiting ?? actor.task ?? (actor.assist ? 'Works by itself' : 'Idle');
 type LogEntry = { id: number; time: string; text: string; points?: number };
 /** A command being given: the actor, and the source once one is taken; the scene lights its sources, then its targets. */
-type Commanding = { actor: string; source: string | null };
+type Commanding = { actor: string; picking: boolean; source: string | null };
 
 function createStore(game: ShiftGame): SceneStore {
   return createSceneStore({ schemaVersion: 1, nodes: playNodes(game, []) }, { zoom: DEFAULT_ZOOM, selectionStyle: 'glow', camera: { ...DEFAULT_CAMERA_SETTINGS, frameOnSelect: false }, paused: true, lighting: lightingAt(game.level, game.clock) });
@@ -90,15 +90,15 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const sources = useMemo(() => commanding ? actorSources(commanding.actor, view.snapshot, (subject, actor) => game.current.options(subject, actor), view.actors.flatMap(actor => actor.queue)) : [], [commanding, view, game]);
   const source = commanding?.source ? sources.find(item => item.node === commanding.source) : undefined;
   // Pills light the sources of the commanded actor, then the targets of the chosen source; the problem markers step aside.
-  const marks = useMemo(() => !commanding ? [] : source ? targetMarks(source, view.snapshot) : sourceMarks(sources), [commanding, source, sources, view]);
+  const marks = useMemo(() => !commanding?.picking ? [] : source ? targetMarks(source, view.snapshot) : sourceMarks(sources), [commanding, source, sources, view]);
   useEffect(() => {
-    quiet.current = !!commanding; quietRevision.current++;
+    quiet.current = !!commanding?.picking; quietRevision.current++;
     store.replace(playNodes(game.current, floats.current, quiet.current));
   }, [commanding, store, game]);
   // The scene shows the command: what the actor can take is tinted; once a source is taken it stays tinted, and a ghost of the
   // material stands at each place it can go (a target that has to wait, such as a full pick face, is tinted instead). A click on
   // a ghost queues the move. Both are set again only when they change, not on every update of the records.
-  const tints = useMemo<NodeHighlight[]>(() => !commanding ? [] : source ? targetTints(source, view.snapshot) : sourceTints(sources), [commanding, source, sources, view]);
+  const tints = useMemo<NodeHighlight[]>(() => !commanding?.picking ? [] : source ? targetTints(source, view.snapshot) : sourceTints(sources), [commanding, source, sources, view]);
   const ghosts = useMemo(() => source ? source.options.flatMap(option => (option.previews ?? []).map(target => ({ target: { ...target, color: TARGET_TINT } as PickTarget, move: option.move }))) : [], [source]);
   const tintKey = JSON.stringify(tints), ghostKey = JSON.stringify(ghosts.map(item => item.target)), ghostMoves = useRef(ghosts);
   ghostMoves.current = ghosts;
@@ -109,7 +109,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     ready.setPickTargets(targets.length ? targets : null, (_, index) => { const found = ghostMoves.current[index]; if (found) bringMove.current(found.move); });
   }, [ready, ghostKey]);
   // A source that is gone (a pallet taken by someone else, a truck that left) falls back to choosing a source.
-  useEffect(() => { if (commanding?.source && !source) setCommanding({ actor: commanding.actor, source: null }); }, [commanding, source]);
+  useEffect(() => { if (commanding?.source && !source) setCommanding({ ...commanding, source: null }); }, [commanding, source]);
 
   const refresh = () => setView(viewOf(game.current));
   const command = (run: () => void, text: string) => {
@@ -119,9 +119,11 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const show = (node: string) => { const value = renderer.current; if (value && !value.getDiagnostics().disposed) void value.frame(node); };
   const close = () => { setCommanding(null); store.select(null); };
   /** Command one of the crew: its sources light up and its menu opens over it. */
-  const commandActor = (id: string) => { setCommanding({ actor: id, source: null }); setMessage(null); store.select(id, 'keyboard'); };
+  const commandActor = (id: string) => { setCommanding({ actor: id, picking: false, source: null }); setMessage(null); store.select(id, 'keyboard'); };
+  /** The ring's Move command: what the actor can take lights up, or goes dark again on a second press. */
+  const toggleMove = () => { if (commanding) setCommanding({ actor: commanding.actor, picking: !commanding.picking, source: null }); setMessage(null); };
   /** Take a source: its targets light up. */
-  const takeSource = (node: string) => { if (!commanding) return; setCommanding({ actor: commanding.actor, source: node }); setMessage(null); };
+  const takeSource = (node: string) => { if (!commanding) return; setCommanding({ actor: commanding.actor, picking: true, source: node }); setMessage(null); };
   /** Bring the chosen source to a lit target. */
   const bringTo = (key: string) => {
     const found = source && pickTarget(source, [key], game.current.snapshot());
@@ -131,12 +133,13 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const bring = (move: Move) => {
     if (!commanding) return;
     const actor = actorOf(commanding.actor)!;
-    if (command(() => game.current.move(actor.id, move), `${actor.label}: ${moveLabel(move)}.`)) setCommanding({ actor: actor.id, source: null });
+    if (command(() => game.current.move(actor.id, move), `${actor.label}: ${moveLabel(move)}.`)) setCommanding({ actor: actor.id, picking: false, source: null });
   };
   const bringMove = useRef(bring); bringMove.current = bring;
   // Escape goes back one step: from the targets to the sources, then out of the command.
   const back = useRef(() => {}); back.current = () => {
-    if (commanding?.source) setCommanding({ actor: commanding.actor, source: null });
+    if (commanding?.source) setCommanding({ ...commanding, source: null });
+    else if (commanding?.picking) setCommanding({ ...commanding, picking: false });
     else if (commanding) close();
     else if (store.getSnapshot().selection) store.select(null);
   };
@@ -152,7 +155,8 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     const actor = nodes.find(id => view.actors.some(item => item.id === id));
     if (actor) { event.preventSelection(); commandActor(actor); return; }
     if (!commanding) return;
-    if (!source) {
+    if (!commanding.picking) { /* a click elsewhere: the ring hides below */ }
+    else if (!source) {
       const taken = sources.find(item => nodes.includes(item.node));
       if (taken) { event.preventSelection(); takeSource(taken.node); return; }
     } else {
@@ -177,7 +181,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const overview = () => { const value = renderer.current; if (value && !value.getDiagnostics().disposed) value.overview(); close(); };
   // A choice from the panels takes it when it is a lit source of the commanded actor; otherwise it selects and centres it.
   const select = (node: string) => {
-    if (commanding && !source && sources.some(item => item.node === node)) { takeSource(node); return; }
+    if (commanding?.picking && !source && sources.some(item => item.node === node)) { takeSource(node); return; }
     store.select(node, 'keyboard'); show(node);
   };
 
@@ -207,16 +211,16 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       }]} />
     </NodeHtml>)}
     {/* Attached HTML stacks in attach order: the ring attaches again after the pills change, so it stays on top of them. */}
-    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
+    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.picking}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
       <ActionRing layout="card" density="compact" title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
-        actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), close)} />
+        actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), { picking: commanding.picking, available: sources.length > 0, toggle: toggleMove })} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
       <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
     </NodeHtml>)}
-    {commanding && <div className="co-picking" role="status" aria-label="Giving a command">
+    {commanding?.picking && <div className="co-picking" role="status" aria-label="Giving a command">
       <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `taking ${source.label} · click a ghost to bring it there` : sources.length ? 'click a tinted object to take' : 'nothing to take now'} · a click elsewhere ends · Escape goes back</span>
-      <button type="button" onClick={() => back.current()}>{source ? 'Back' : 'Done'}</button>
+      <button type="button" onClick={() => back.current()}>{source ? 'Back' : 'Cancel'}</button>
     </div>}
 
     {panelsVisible && <div className="hud-top">
@@ -237,7 +241,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       ]} />
     </div>}
 
-    {panelsVisible && <DataPanel className="hud-floating-panel co-summary" title="Shift" label="Shift summary" description="Click one of the crew, then what to take and where to bring it · Escape goes back" density="compact" slots={{ icon: <Flag size={16} /> }}>
+    {panelsVisible && <DataPanel className="hud-floating-panel co-summary" title="Shift" label="Shift summary" description="Click one of the crew, Move, then what to take and where to bring it · Escape goes back" density="compact" slots={{ icon: <Flag size={16} /> }}>
       {message && <p className="co-message" role="status" data-tone={message.tone}>{message.text}</p>}
       <section className="co-section" aria-label="Crew"><h3>Crew <span>commanding: {commanding ? actorOf(commanding.actor)?.label : 'none'}</span></h3>
         <div className="co-crew">{view.actors.map(actor => <button key={actor.id} type="button" className="co-portrait" aria-pressed={actor.id === commanding?.actor} aria-label={`${actor.label}: ${actorNow(actor)}`} data-waiting={actor.waiting ? 'true' : undefined} onClick={() => commandActor(actor.id)}>
@@ -277,7 +281,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <p>{SHIFT_LEVELS[scenario].description}</p>
       <ul className="co-rules">
         <li>Receive, put away, replenish, restock and ship: the forklift, reach truck, replenisher, shelf filler and dispatcher move material only on your commands, unless they work by themselves.</li>
-        <li>Give a command in three clicks: one of the crew (what it can take is tinted), the pallet, truck, pick face or roll cage to take (a ghost of it shows each place it can go), and the ghost. The ring over the crew member holds its commands. Tab reaches the same choices from the keyboard; Escape goes back.</li>
+        <li>Give a command from the card over one of the crew: Move tints what it can take; click the pallet, truck, pick face or roll cage to take (a ghost of it shows each place it can go), then the ghost. The card also holds Stop and the Auto switch, and a click elsewhere closes it. Tab reaches the same choices from the keyboard; Escape goes back.</li>
         <li>Each of the crew holds three commands; unloading, filling a pick face and restocking repeat until done. A pallet may go into any free rack position.</li>
         <li>Ship before each carrier&apos;s cut-off; trucks waiting on a dock and empty shop departments cost points. Events open over their object; without an answer the default applies after 45 minutes.</li>
       </ul>
@@ -292,7 +296,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
           {SPEEDS.map(value => <button key={value} type="button" aria-pressed={scene.settings.speed === value} aria-label={`Speed ${value}×`} onClick={() => store.configure({ speed: value })}>{value}×</button>)}
           <button type="button" disabled={!started || view.over} onClick={finish}><FastForward size={14} />Finish shift</button>
           <button type="button" onClick={overview}><Crosshair size={14} />Overview</button></div>
-        <div className="hud-toolbar-group hud-display-controls"><button type="button" aria-label={panelsVisible ? 'Hide information panels' : 'Show information panels'} onClick={() => setPanelsVisible(value => !value)}>{panelsVisible ? <EyeOff size={15} /> : <Eye size={15} />}</button><span>Click one of the crew, what to take, where to bring it · Escape goes back · drag to pan</span></div>
+        <div className="hud-toolbar-group hud-display-controls"><button type="button" aria-label={panelsVisible ? 'Hide information panels' : 'Show information panels'} onClick={() => setPanelsVisible(value => !value)}>{panelsVisible ? <EyeOff size={15} /> : <Eye size={15} />}</button><span>Click one of the crew, Move, what to take, where to bring it · Escape goes back · drag to pan</span></div>
       </DataPanel>
     </div>
   </section>;
@@ -302,16 +306,18 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
 const MACHINES = new Set(['forklift', 'reach-truck']);
 /**
  * The commands of the action ring over the commanded actor: stop or cancel its commands, switch its assist, send the truck
- * (the dispatcher), and finish. What it does and holds is in the detail panel; what it can take lights up in the scene.
+ * (the dispatcher), and Move, which lights what it can take in the scene. What it does and holds is in the detail panel; a click
+ * elsewhere or Escape closes the ring.
  */
-function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, done: () => void): RingAction<ReactNode>[] {
+function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, move: { picking: boolean; available: boolean; toggle: () => void }): RingAction<ReactNode>[] {
   const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined, [current, next] = actor.queue;
   return [
     ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square fill="currentColor" />, tone: 'critical' as const, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
     ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, tone: 'warning' as const, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
     { id: 'auto', label: 'Auto', switch: true, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
     ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, tone: 'info' as const, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
-    { id: 'done', label: 'Done', icon: <Check />, tone: 'success', primary: true, onSelect: done },
+    // Move lights what the actor can take; pressed while choosing, a second press puts it away.
+    { id: 'move', label: 'Move', icon: <MoveIcon />, tone: 'success', primary: true, pressed: move.picking, disabled: !move.available && !move.picking, onSelect: move.toggle },
   ];
 }
 

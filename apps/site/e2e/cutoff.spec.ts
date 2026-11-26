@@ -1,6 +1,6 @@
 import { ciScaled, expect, test } from './fixtures';
 
-test('Cut-off commands the crew with an action ring, tinted sources and Take and Bring here pills for the keyboard for every process, then reaches the report', async ({ page }) => {
+test('Cut-off commands the crew from a card with Move, tinted sources and Take and Bring here pills for the keyboard for every process, then reaches the report', async ({ page }) => {
   test.setTimeout(ciScaled(150000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
@@ -15,6 +15,8 @@ test('Cut-off commands the crew with an action ring, tinted sources and Take and
     await summary.getByRole('button', { name: new RegExp(`^${actor}:`) }).click();
     await expect(ring(actor)).toBeVisible({ timeout: ciScaled(20000) });
   };
+  // Move on the actor's card lights what it can take.
+  const startMove = async (actor: string) => ring(actor).getByRole('button', { name: 'Move', exact: true }).dispatchEvent('click');
   const take = async (source: RegExp) => page.getByRole('button', { name: source }).first().dispatchEvent('click');
   const bring = async (target: RegExp) => page.getByRole('button', { name: target }).first().dispatchEvent('click');
 
@@ -26,6 +28,9 @@ test('Cut-off commands the crew with an action ring, tinted sources and Take and
 
   // Receiving: the forklift takes the truck at D1 to the staging lane.
   await commandActor('Forklift');
+  await expect(step).toHaveCount(0);
+  await startMove('Forklift');
+  await expect(ring('Forklift').getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(step).toContainText('click a tinted object to take');
   await take(/^Take Dock D1/);
   await bring(/^Bring here: Staging lane/);
@@ -33,6 +38,7 @@ test('Cut-off commands the crew with an action ring, tinted sources and Take and
 
   // Put-away: the reach truck takes a staged pallet from the panel; Escape goes back to its sources, then a target is picked.
   await commandActor('Reach truck');
+  await startMove('Reach truck');
   await summary.getByRole('group', { name: 'Pallets in staging' }).getByRole('button').first().click();
   await expect(page.getByRole('button', { name: /^Bring here: R\d+ · level/ }).first()).toBeAttached();
   await page.keyboard.press('Escape');
@@ -42,16 +48,20 @@ test('Cut-off commands the crew with an action ring, tinted sources and Take and
   await expect(message).toContainText('Reach truck: Put pallet');
 
   // Replenishing: the reach truck brings a reserve pallet of the short SKU behind F3, and the replenisher fills F3 from it.
+  // After a queued move the card stays open, and Move lights the sources again.
+  await startMove('Reach truck');
   await take(/^Take Pallet \d+ · OUT-215 · rack/);
   await bring(/^Bring here: Behind F3/);
   await expect(message).toContainText('Reach truck: Bring pallet');
   await commandActor('Replenisher');
+  await startMove('Replenisher');
   await take(/^Take F3 lanes/);
   await bring(/^Bring here: F3 lanes/);
   await expect(message).toHaveText('Replenisher: Fill F3 from its pallet.');
 
   // Restocking: the shelf filler takes cartons from F3 to Outdoor.
   await commandActor('Shelf filler');
+  await startMove('Shelf filler');
   await take(/^Take F3 lanes/);
   await bring(/^Bring here: Outdoor/);
   await expect(message).toHaveText('Shelf filler: Restock Outdoor.');
