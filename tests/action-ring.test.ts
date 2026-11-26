@@ -61,6 +61,10 @@ describe('action ring', () => {
     // The card ignores the arc, and only the primary action is marked.
     expect(pills.map(pill => [pill.attrs['data-primary'], pill.style?.['--dp-ring-lift']])).toEqual([[undefined, '0px'], [undefined, '0px'], [true, '0px']]);
     expect(actionRing({ actions: actions(1) }).attrs['data-layout']).toBeUndefined();
+    // The card unfolds when it appears unless the host mounts it again; an arc never does.
+    expect(ring.attrs['data-unfold']).toBe(true);
+    expect(actionRing({ title: 'Replenisher', layout: 'card', unfold: false, actions: actions(1) }).attrs['data-unfold']).toBeUndefined();
+    expect(actionRing({ actions: actions(1) }).attrs['data-unfold']).toBeUndefined();
   });
 
   it('names the fix for invalid input', () => {
