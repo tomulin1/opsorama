@@ -90,6 +90,9 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const sources = useMemo(() => commanding ? actorSources(commanding.actor, view.snapshot, (subject, actor) => game.current.options(subject, actor), view.actors.flatMap(actor => actor.queue)) : [], [commanding, view, game]);
   const source = commanding?.source ? sources.find(item => item.node === commanding.source) : undefined;
   // Pills light the sources of the commanded actor, then the targets of the chosen source; the problem markers step aside.
+  // The card unfolds only in its first mount for a newly commanded actor, not when it mounts again for Move or a source.
+  const ringKey = commanding ? `${commanding.actor}:${commanding.picking}:${commanding.source ?? ''}` : '', unfoldKey = useRef<string | null>(null);
+  if (commanding && unfoldKey.current === `new:${commanding.actor}`) unfoldKey.current = ringKey;
   const marks = useMemo(() => !commanding?.picking ? [] : source ? targetMarks(source, view.snapshot) : sourceMarks(sources), [commanding, source, sources, view]);
   useEffect(() => {
     quiet.current = !!commanding?.picking; quietRevision.current++;
@@ -119,7 +122,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const show = (node: string) => { const value = renderer.current; if (value && !value.getDiagnostics().disposed) void value.frame(node); };
   const close = () => { setCommanding(null); store.select(null); };
   /** Command one of the crew: its sources light up and its menu opens over it. */
-  const commandActor = (id: string) => { setCommanding({ actor: id, picking: false, source: null }); setMessage(null); store.select(id, 'keyboard'); };
+  const commandActor = (id: string) => { if (commanding?.actor !== id) unfoldKey.current = `new:${id}`; setCommanding({ actor: id, picking: false, source: null }); setMessage(null); store.select(id, 'keyboard'); };
   /** The ring's Move command: what the actor can take lights up, or goes dark again on a second press. */
   const toggleMove = () => { if (commanding) setCommanding({ actor: commanding.actor, picking: !commanding.picking, source: null }); setMessage(null); };
   /** Take a source: its targets light up. */
@@ -211,8 +214,8 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       }]} />
     </NodeHtml>)}
     {/* Attached HTML stacks in attach order: the ring attaches again after the pills change, so it stays on top of them. */}
-    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.picking}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
-      <ActionRing layout="card" density="compact" title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
+    {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={ringKey} nodeId={commanding.actor} className="co-ring-anchor">
+      <ActionRing layout="card" density="compact" unfold={unfoldKey.current === ringKey} title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
         actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), { picking: commanding.picking, available: sources.length > 0, toggle: toggleMove })} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
