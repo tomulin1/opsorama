@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, Bot, Boxes, Check, Clock3, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
+import { Bell, Boxes, Check, Clock3, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { ActionRing, ActivityFeed, DataPanel, StatusBadge, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
@@ -144,25 +144,23 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') back.current(); };
     document.addEventListener('keydown', cancel); return () => document.removeEventListener('keydown', cancel);
   }, []);
-  // A click on one of the crew commands it; while it is commanded, a click takes a lit source, then picks a lit target.
+  // A click on one of the crew commands it; while it is commanded, a click takes a tinted source, then picks a target (a click on a
+  // ghost reaches bringTo through the renderer). A click anywhere else ends the command, so the ring hides, and selects as usual.
   const pointer = useRef<(event: ScenePointerEvent) => void>(() => {}); pointer.current = event => {
     if (event.type !== 'click' || view.over) return;
     const nodes = event.nodeId ? clickedNodes(event.nodeId, event.ancestors, game.current.snapshot()) : [];
     const actor = nodes.find(id => view.actors.some(item => item.id === id));
     if (actor) { event.preventSelection(); commandActor(actor); return; }
     if (!commanding) return;
-    event.preventSelection();
-    if (!nodes.length) { back.current(); return; }
-    const label = actorOf(commanding.actor)?.label ?? 'The actor';
     if (!source) {
       const taken = sources.find(item => nodes.includes(item.node));
-      if (taken) takeSource(taken.node); else setMessage({ text: `${label} cannot take that. Click a tinted object, or press Escape.`, tone: 'neutral' });
-      return;
+      if (taken) { event.preventSelection(); takeSource(taken.node); return; }
+    } else {
+      const found = pickTarget(source, nodes, game.current.snapshot());
+      if (found && 'option' in found) { event.preventSelection(); bring(found.option.move); return; }
+      if (found) { event.preventSelection(); setMessage({ text: `${found.refused.target}: ${found.refused.reason}`, tone: 'critical' }); return; }
     }
-    const found = pickTarget(source, nodes, game.current.snapshot());
-    if (!found) setMessage({ text: `Not a target for ${source.label}. Click a ghost or a tinted target, or press Escape.`, tone: 'neutral' });
-    else if ('refused' in found) setMessage({ text: `${found.refused.target}: ${found.refused.reason}`, tone: 'critical' });
-    else bring(found.option.move);
+    setCommanding(null); setMessage(null);
   };
   const onPointer = useCallback((event: ScenePointerEvent) => pointer.current(event), []);
 
@@ -201,7 +199,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
 
     {/* The pills are the keyboard's way to take and bring: hidden until focused, so the scene shows only the tints and ghosts. */}
     {commanding && !view.over && marks.map(mark => <NodeHtml key={`${mark.kind}:${mark.key}`} nodeId={markAnchor(mark.key)} className="co-ring-anchor co-pill-anchor">
-      <ActionRing tone={mark.kind === 'source' ? 'info' : 'success'} arc={0} label={mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`} actions={[{
+      <ActionRing density="compact" tone={mark.kind === 'source' ? 'info' : 'success'} arc={0} label={mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`} actions={[{
         // Sources are many, so they are round icons named by their tooltip; the few targets carry their names.
         id: mark.key, ...(mark.kind === 'source' ? {} : { label: mark.label }), icon: mark.kind === 'source' ? <Hand /> : <MapPin />,
         ariaLabel: mark.kind === 'source' ? `Take ${mark.label}` : `Bring here: ${mark.label}`,
@@ -210,14 +208,14 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     </NodeHtml>)}
     {/* Attached HTML stacks in attach order: the ring attaches again after the pills change, so it stays on top of them. */}
     {commanding && !view.over && actorOf(commanding.actor) && <NodeHtml key={`${commanding.actor}:${commanding.source ?? ''}:${marks.length}`} nodeId={commanding.actor} className="co-ring-anchor">
-      <ActionRing title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
+      <ActionRing density="compact" arc={12} title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
         actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), close)} />
     </NodeHtml>}
     {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
       <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
     </NodeHtml>)}
     {commanding && <div className="co-picking" role="status" aria-label="Giving a command">
-      <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `taking ${source.label} · click a ghost to bring it there` : sources.length ? 'click a tinted object to take' : 'nothing to take now'} · Escape goes back</span>
+      <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `taking ${source.label} · click a ghost to bring it there` : sources.length ? 'click a tinted object to take' : 'nothing to take now'} · a click elsewhere ends · Escape goes back</span>
       <button type="button" onClick={() => back.current()}>{source ? 'Back' : 'Done'}</button>
     </div>}
 
@@ -311,7 +309,7 @@ function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (a
   return [
     ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square />, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
     ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
-    { id: 'auto', label: 'Auto', icon: <Bot />, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
+    { id: 'auto', label: 'Auto', switch: true, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
     ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
     { id: 'done', label: 'Done', icon: <Check />, onSelect: done },
   ];
