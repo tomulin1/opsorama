@@ -12,15 +12,21 @@ import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type Lan
 import '@opsorama/ui/styles.css';
 
 /** Later slides of the intro carousel; each names one use of the toolkit, links to the page that runs it and shows that page's scene behind the panel. */
-interface UseCase { title: string; description: string; href: string; action: string; icon: LucideIcon; scene: LandingSceneId }
+interface UseCase {
+  title: string; description: string; href: string; action: string; icon: LucideIcon; scene: LandingSceneId;
+  /** One sentence the collapsed panel shows under the title. */
+  summary: string;
+}
 const USE_CASES: readonly UseCase[] = [
-  { title: 'Live operations boards', description: 'Watch docks, aisles, vehicles and loads in a distribution centre. Map your records to doors, racks and trucks; a load at risk of its departure or a rack hit by a forklift shows up as a marker you can open.', href: '/examples/warehouse', action: 'Open the distribution centre', icon: Warehouse, scene: 'warehouse' },
-  { title: 'Facility overviews', description: 'Rooms, racks, equipment and readings on a plan of the real place. Follow an inlet, uplink or power alert in a datacenter to the rack that raised it.', href: '/examples/datacenter', action: 'Open the datacenter', icon: Building2, scene: 'datacenter' },
-  { title: 'Management games', description: 'Turn the same scene and simulation into a playable shift. In Cut-off you staff the zones, move stock and race the carrier cut-off.', href: '/examples/cutoff', action: 'Play Cut-off', icon: Gamepad2, scene: 'cutoff' },
-  { title: 'Built with AI coding agents', description: 'Your agent searches the catalog, writes the scene, checks it and renders a preview image from the command line. Typed contracts and errors that name the fix keep it on track.', href: '/docs/validation', action: 'Read about validation', icon: SquareTerminal, scene: 'shop' },
+  { title: 'Live operations boards', description: 'Watch docks, aisles, vehicles and loads in a distribution centre. Map your records to doors, racks and trucks; a load at risk of its departure or a rack hit by a forklift shows up as a marker you can open.', href: '/examples/warehouse', action: 'Open the distribution centre', icon: Warehouse, scene: 'warehouse', summary: 'Docks, aisles, vehicles and loads of a distribution centre, live from your records.' },
+  { title: 'Facility overviews', description: 'Rooms, racks, equipment and readings on a plan of the real place. Follow an inlet, uplink or power alert in a datacenter to the rack that raised it.', href: '/examples/datacenter', action: 'Open the datacenter', icon: Building2, scene: 'datacenter', summary: 'Follow a datacenter alert to the rack that raised it.' },
+  { title: 'Management games', description: 'Turn the same scene and simulation into a playable shift. In Cut-off you staff the zones, move stock and race the carrier cut-off.', href: '/examples/cutoff', action: 'Play Cut-off', icon: Gamepad2, scene: 'cutoff', summary: 'Run a shift yourself: staff the zones, move stock and beat the carrier cut-off.' },
+  { title: 'Built with AI coding agents', description: 'Your agent searches the catalog, writes the scene, checks it and renders a preview image from the command line. Typed contracts and errors that name the fix keep it on track.', href: '/docs/validation', action: 'Read about validation', icon: SquareTerminal, scene: 'shop', summary: 'Your coding agent writes, checks and renders scenes from the command line.' },
 ];
 /** Slide 0 is the introduction; the carousel only moves when the visitor asks, so it never rotates on its own. */
 const SLIDE_TITLES = ['Introduction', ...USE_CASES.map(item => item.title)];
+/** The sentence under each slide's title in the collapsed panel. */
+const SLIDE_SUMMARIES = ['Open-source 3D scenes for operations in web apps, built from your own data.', ...USE_CASES.map(item => item.summary)];
 /** The scene behind each slide; the introduction shows the shop. */
 const SLIDE_SCENES: readonly LandingSceneId[] = ['shop', ...USE_CASES.map(item => item.scene)];
 
@@ -91,11 +97,12 @@ function IntroCarousel({ active, onShow }: { active: number; onShow: (index: num
     else if (event.key === 'ArrowRight') { event.preventDefault(); show(active + 1); }
   };
   return <section ref={panel} className="landing-intro" data-collapsed={collapsed || undefined} style={style} aria-roledescription="carousel" aria-label="About Opsorama" onKeyDown={onKeyDown}>
-    <div className="landing-intro-tools">
-      <button type="button" className="hud-icon-button landing-grip" aria-label="Move panel" title="Drag to move, double-click to reset" {...grip}><GripHorizontal size={16} /></button>
-      <button type="button" className="hud-icon-button" aria-label={collapsed ? 'Expand panel' : 'Collapse panel'} aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>{collapsed ? <Maximize2 size={15} /> : <Minimize2 size={15} />}</button>
-    </div>
-    {collapsed && <p className="landing-intro-compact" aria-live="polite"><span>{active + 1}/{count}</span>{SLIDE_TITLES[active]}</p>}
+    <button type="button" className="hud-icon-button landing-grip" aria-label="Move panel" title="Drag to move, double-click to reset" {...grip}><GripHorizontal size={16} /></button>
+    <button type="button" className="hud-icon-button landing-collapse" aria-label={collapsed ? 'Expand panel' : 'Collapse panel'} aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>{collapsed ? <Maximize2 size={15} /> : <Minimize2 size={15} />}</button>
+    {collapsed && <div className="landing-intro-compact" aria-live="polite">
+      <p className="landing-intro-compact-title"><span>{active + 1}/{count}</span>{SLIDE_TITLES[active]}</p>
+      <p>{SLIDE_SUMMARIES[active]}</p>
+    </div>}
     <div className="landing-slides" hidden={collapsed}>
       <div className="landing-slide" role="group" aria-roledescription="slide" aria-label={`1 of ${count}: ${SLIDE_TITLES[0]}`} aria-hidden={active !== 0} inert={active !== 0}>
         <span className="docs-eyebrow">OPSORAMA · 3D OPERATIONS TOOLKIT</span>
