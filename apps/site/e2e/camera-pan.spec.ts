@@ -14,21 +14,24 @@ async function dragCanvas(page: Page, dx: number, dy: number) {
   await page.mouse.move(x + dx, y + dy, { steps: 8 }); await page.mouse.up();
 }
 
-test('e-commerce supports dragging without changing the inspected order', async ({ page }) => {
+test('e-commerce supports dragging without changing the inspected dock', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/examples/ecommerce', { waitUntil: 'domcontentloaded' }); await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
-  const storage = page.locator('.kit-node-label[data-node-id="pin:storage"]');
-  await expect(storage).toHaveAttribute('style', /translate/); const overviewX = (await storage.boundingBox())!.x;
-  // Extra panels start closed; the metric card opens the order list.
-  await page.getByRole('button', { name: 'Open order list', exact: true }).click();
-  await page.getByRole('button', { name: 'Inspect order #50419', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Order #50419', exact: true })).toBeVisible();
-  await expect.poll(async () => Math.abs((await storage.boundingBox())!.x - overviewX)).toBeGreaterThan(5);
-  const selectedX = (await storage.boundingBox())!.x;
+  // Extra panels start closed; the metric card opens the docks. The inspected dock shows its label, which follows the scene.
+  await page.getByRole('button', { name: 'Open docks and carrier cut-offs', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspect dock D2', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Dock D2', exact: true })).toBeVisible();
+  const dock = page.locator('.kit-node-label[data-node-id="dock:D2"]');
+  await expect(dock).toHaveAttribute('style', /translate/);
+  // The camera frames the dock; wait until it stands still.
+  let last = Number.NaN;
+  await expect.poll(async () => { const x = (await dock.boundingBox())!.x, still = Math.abs(x - last) < .5; last = x; return still; }).toBe(true);
+  const selectedX = (await dock.boundingBox())!.x;
   await dragCanvas(page, 80, 40);
-  await expect.poll(async () => Math.abs((await storage.boundingBox())!.x - selectedX - 80)).toBeLessThan(2);
-  await expect(page.getByRole('heading', { name: 'Order #50419', exact: true })).toBeVisible();
+  await expect.poll(async () => Math.abs((await dock.boundingBox())!.x - selectedX - 80)).toBeLessThan(2);
+  await expect(page.getByRole('heading', { name: 'Dock D2', exact: true })).toBeVisible();
+  // Overview moves the camera back, away from the dragged view.
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
-  await expect.poll(async () => Math.abs((await storage.boundingBox())!.x - overviewX)).toBeLessThan(2);
+  await expect.poll(async () => Math.abs((await dock.boundingBox())!.x - selectedX - 80)).toBeGreaterThan(5);
 });
