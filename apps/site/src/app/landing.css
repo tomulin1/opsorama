@@ -9,15 +9,17 @@
 .landing-intro { position: absolute; z-index: 10; bottom: 24px; left: 24px; width: min(380px, calc(100% - 48px)); padding: 16px 18px; border: 1px solid var(--panel-border); border-radius: var(--panel-radius); background: var(--panel-surface); box-shadow: var(--panel-shadow); backdrop-filter: blur(12px); }
 .landing-slides { display: grid; }
 .landing-slides[hidden] { display: none; }
-/* Move and collapse buttons sit in the panel's top-right corner; the eyebrow and the compact title leave room for them. */
-.landing-intro-tools { position: absolute; z-index: 1; top: 8px; right: 8px; display: flex; gap: 2px; }
-.landing-intro-tools .hud-icon-button { min-width: 28px; min-height: 28px; }
-.landing-grip { cursor: grab; touch-action: none; }
+/* The move grip sits in the panel's top-left corner and the collapse button in its top-right; the eyebrow and the compact title leave room for both. */
+.landing-grip, .landing-collapse { position: absolute; z-index: 1; top: 9px; }
+.landing-intro .landing-grip, .landing-intro .landing-collapse { min-width: 28px; min-height: 28px; }
+.landing-grip { left: 8px; cursor: grab; touch-action: none; }
+.landing-collapse { right: 8px; }
 .landing-grip:active { cursor: grabbing; }
-.landing-slide .docs-eyebrow { padding-right: 60px; }
-.landing-intro[data-collapsed] { width: min(300px, calc(100% - 48px)); padding: 10px 12px 8px 14px; }
-.landing-intro .landing-intro-compact { min-height: 28px; padding: 4px 64px 0 0; overflow: hidden; color: var(--opsorama-text-strong); font-size: 14px; font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
-.landing-intro .landing-intro-compact span { margin-right: 8px; color: var(--panel-muted); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.landing-slide .docs-eyebrow { margin-left: 22px; padding-right: 30px; line-height: 20px; }
+.landing-intro[data-collapsed] { width: min(320px, calc(100% - 48px)); padding: 12px 14px 8px; }
+.landing-intro .landing-intro-compact-title { min-height: 24px; margin: 0 30px 2px 22px; overflow: hidden; color: var(--opsorama-text-strong); font-size: 14px; font-weight: 650; line-height: 24px; white-space: nowrap; text-overflow: ellipsis; }
+.landing-intro .landing-intro-compact p:last-child { font-size: 12px; line-height: 1.5; }
+.landing-intro .landing-intro-compact-title span { margin-right: 8px; color: var(--panel-muted); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .landing-intro[data-collapsed] .landing-carousel-controls { margin-top: 6px; padding-top: 6px; }
 /* Every slide sits in the same cell, so the panel keeps the tallest slide's height and does not jump while rotating. */
 .landing-slide { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: flex-start; transition: opacity 180ms ease; }
