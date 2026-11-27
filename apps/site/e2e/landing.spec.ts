@@ -1,36 +1,24 @@
 import { expect, test } from './fixtures';
 
-test('home shows the city and opens a district from its list', async ({ page }) => {
-  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
-  // The city (six examples in one scene) is built after hydration; with software WebGL that can take several seconds,
-  // so the default 5-second expectation timeout is too short.
-  await expect(page.locator('.landing-hero canvas')).toBeVisible({ timeout: 30_000 });
-  // Header, city and footer fill exactly one screen.
-  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
-  await page.getByRole('navigation', { name: 'City districts' }).getByRole('button', { name: 'Farm' }).click();
-  const card = page.locator('.landing-district');
-  await expect(card).toBeVisible();
-  await expect(card.getByRole('link', { name: 'Open the full example' })).toHaveAttribute('href', '/examples/farm');
-  await card.getByRole('button', { name: 'Close district' }).click();
-  await expect(card).toHaveCount(0);
-  expect(errors).toEqual([]);
-});
-
-test('home intro panel rotates through the capabilities on request', async ({ page }) => {
+test('home presents the toolkit uses in a carousel without a 3D scene', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   const carousel = page.getByRole('region', { name: 'About Opsorama' });
   await expect(carousel.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
-  await expect(page.locator('#landing-capabilities')).toHaveCount(0);
+  await expect(page.locator('canvas')).toHaveCount(0);
   await carousel.getByRole('button', { name: 'Next slide' }).click();
-  await expect(carousel.getByRole('heading', { name: 'A catalog of real objects' })).toBeVisible();
-  await expect(carousel.getByRole('link', { name: 'Browse the catalog' })).toHaveAttribute('href', '/docs/objects');
-  await carousel.getByRole('button', { name: 'Show slide 6: React, Vue and JavaScript' }).click();
-  await expect(carousel.getByRole('link', { name: 'Compare the adapters' })).toHaveAttribute('href', '/examples/adapters');
+  await expect(carousel.getByRole('heading', { name: 'Live operations boards' })).toBeVisible();
+  await expect(carousel.getByRole('link', { name: 'Open the shop and warehouse' })).toHaveAttribute('href', '/examples/ecommerce');
+  // A mosaic tile on the introduction opens its use case.
+  await carousel.getByRole('button', { name: 'Show slide 1: Introduction' }).click();
+  await carousel.locator('.landing-mosaic').getByRole('button', { name: 'Show slide 4: Management games' }).click();
+  await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
+  await carousel.getByRole('button', { name: 'Show slide 7: Built with AI coding agents' }).click();
+  await expect(carousel.getByText('npx opsorama check scene.json')).toBeVisible();
   await carousel.getByRole('button', { name: 'Next slide' }).click();
   await expect(carousel.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
-  await expect(page.locator('a[href="/examples/quantities"]')).toHaveCount(0);
+  // Below the carousel: every domain example and the building blocks.
+  await expect(page.getByRole('region', { name: 'Places you can model' }).locator('.examples-card')).toHaveCount(8);
+  await expect(page.getByRole('link', { name: /Browse the catalog/ })).toHaveAttribute('href', '/docs/objects');
   expect(errors).toEqual([]);
 });

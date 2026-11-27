@@ -3,23 +3,11 @@ import Link from 'next/link';
 import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
-import { domainExamples, toolkitExamples, type Example } from '@/features/examples/catalog';
+import { ExampleCard } from '@/components/toolkit/ExampleCard';
+import { domainExamples, toolkitExamples } from '@/features/examples/catalog';
 import { pageMetadata } from '@/features/seo/site';
 
 export const metadata = pageMetadata({ title: 'Examples', description: 'Interactive 3D dashboard examples for e-commerce, warehouses, offices, restaurants, datacenters, aquatic centres and farms, plus focused toolkit demos for React, Vue and JavaScript.', path: '/examples' });
-
-function ExampleCard({ example }: { example: Example }) {
-  return <Link className="examples-card" href={example.href} prefetch={false} aria-label={example.action}>
-    <div className="examples-card-preview">
-      <Image src={`/example-previews/${example.preview}.webp`} alt="" width={768} height={480} unoptimized />
-    </div>
-    <div className="examples-card-body">
-      <h3>{example.title}</h3>
-      <p>{example.description}</p>
-      <span className="examples-card-action">{example.action}<ArrowUpRight size={15} aria-hidden="true" /></span>
-    </div>
-  </Link>;
-}
 
 export default function ExamplesPage() {
   return <main className="examples-page">
