@@ -51,6 +51,7 @@ export type { KitchenStationVariant } from './care';
 export { PALLET_RACK, FLOW_RACK } from './warehouse';
 export { PALLET } from './parcels';
 export { TRUCK } from './vehicles';
+export type { CargoBikeVariant } from './vehicles';
 export { SHIPPING_CONTAINER } from './logistics';
 export type { ReachTruckVariant, StretchWrapperVariant, SafetyBarrierVariant } from './warehouse';
 export { DINING_TABLE, DINING_SEATS, BOOTH, BAR_COUNTER, HEATED_PASS, PICKUP_SHELF, WALK_IN_COOLER, MENU_BOARD, SERVING_PLATES } from './restaurant';
