@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Building2, ChevronLeft, ChevronRight, Gamepad2, GripHorizontal, Maximize2, Minimize2, SquareTerminal, Warehouse, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 import { DashboardProvider, SceneCanvas } from '@opsorama/react';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
@@ -13,15 +13,15 @@ import '@opsorama/ui/styles.css';
 
 /** Later slides of the intro carousel; each names one use of the toolkit, links to the page that runs it and shows that page's scene behind the panel. */
 interface UseCase {
-  title: string; description: string; href: string; action: string; icon: LucideIcon; scene: LandingSceneId;
+  title: string; description: string; href: string; action: string; scene: LandingSceneId;
   /** One sentence the collapsed panel shows under the title. */
   summary: string;
 }
 const USE_CASES: readonly UseCase[] = [
-  { title: 'Live operations boards', description: 'Watch docks, aisles, vehicles and loads in a distribution centre. Map your records to doors, racks and trucks; a load at risk of its departure or a rack hit by a forklift shows up as a marker you can open.', href: '/examples/warehouse', action: 'Open the distribution centre', icon: Warehouse, scene: 'warehouse', summary: 'Docks, aisles, vehicles and loads of a distribution centre, live from your records.' },
-  { title: 'Facility overviews', description: 'Rooms, racks, equipment and readings on a plan of the real place. Follow an inlet, uplink or power alert in a datacenter to the rack that raised it.', href: '/examples/datacenter', action: 'Open the datacenter', icon: Building2, scene: 'datacenter', summary: 'Follow a datacenter alert to the rack that raised it.' },
-  { title: 'Management games', description: 'Turn the same scene and simulation into a playable shift. In Cut-off you staff the zones, move stock and race the carrier cut-off.', href: '/examples/cutoff', action: 'Play Cut-off', icon: Gamepad2, scene: 'cutoff', summary: 'Run a shift yourself: staff the zones, move stock and beat the carrier cut-off.' },
-  { title: 'Built with AI coding agents', description: 'Your agent searches the catalog, writes the scene, checks it and renders a preview image from the command line. Typed contracts and errors that name the fix keep it on track.', href: '/docs/validation', action: 'Read about validation', icon: SquareTerminal, scene: 'shop', summary: 'Your coding agent writes, checks and renders scenes from the command line.' },
+  { title: 'Live operations boards', description: 'Watch docks, aisles, vehicles and loads in a distribution centre. Map your records to doors, racks and trucks; a load at risk of its departure or a rack hit by a forklift shows up as a marker you can open.', href: '/examples/warehouse', action: 'Open the distribution centre', scene: 'warehouse', summary: 'Docks, aisles, vehicles and loads of a distribution centre, live from your records.' },
+  { title: 'Facility overviews', description: 'Rooms, racks, equipment and readings on a plan of the real place. Follow an inlet, uplink or power alert in a datacenter to the rack that raised it.', href: '/examples/datacenter', action: 'Open the datacenter', scene: 'datacenter', summary: 'Follow a datacenter alert to the rack that raised it.' },
+  { title: 'Management games', description: 'Turn the same scene and simulation into a playable shift. In Cut-off you staff the zones, move stock and race the carrier cut-off.', href: '/examples/cutoff', action: 'Play Cut-off', scene: 'cutoff', summary: 'Run a shift yourself: staff the zones, move stock and beat the carrier cut-off.' },
+  { title: 'Built with AI coding agents', description: 'Your agent searches the catalog, writes the scene, checks it and renders a preview image from the command line. Typed contracts and errors that name the fix keep it on track.', href: '/docs/validation', action: 'Read about validation', scene: 'shop', summary: 'Your coding agent writes, checks and renders scenes from the command line.' },
 ];
 /** Slide 0 is the introduction; the carousel only moves when the visitor asks, so it never rotates on its own. */
 const SLIDE_TITLES = ['Introduction', ...USE_CASES.map(item => item.title)];
@@ -111,10 +111,10 @@ function IntroCarousel({ active, onShow }: { active: number; onShow: (index: num
         <div className="examples-hero-actions"><Link href="/docs">Start building<ArrowUpRight size={16} /></Link><Link href="/examples">All examples<ArrowUpRight size={16} /></Link></div>
       </div>
       {USE_CASES.map((item, index) => <div className="landing-slide landing-capability" key={item.href} role="group" aria-roledescription="slide" aria-label={`${index + 2} of ${count}: ${item.title}`} aria-hidden={active !== index + 1} inert={active !== index + 1}>
-        <span className="docs-eyebrow"><item.icon size={14} />WHAT YOU CAN BUILD</span>
+        <span className="docs-eyebrow">WHAT YOU CAN BUILD</span>
         <h2>{item.title}</h2>
         <p>{item.description}</p>
-        <Link href={item.href}>{item.action}<ArrowUpRight size={15} /></Link>
+        <div className="examples-hero-actions"><Link href={item.href}>{item.action}<ArrowUpRight size={16} /></Link></div>
       </div>)}
     </div>
     <div className="landing-carousel-controls">
