@@ -31,7 +31,8 @@ test('e-commerce supports dragging without changing the inspected dock', async (
   await dragCanvas(page, 80, 40);
   await expect.poll(async () => Math.abs((await dock.boundingBox())!.x - selectedX - 80)).toBeLessThan(2);
   await expect(page.getByRole('heading', { name: 'Dock D2', exact: true })).toBeVisible();
-  // Overview moves the camera back, away from the dragged view.
+  // Overview returns to the whole site and ends the inspection, so the dock's label hides with its selection.
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
-  await expect.poll(async () => Math.abs((await dock.boundingBox())!.x - selectedX - 80)).toBeGreaterThan(5);
+  await expect(page.getByRole('heading', { name: 'Dock D2', exact: true })).toHaveCount(0);
+  await expect(dock).toBeHidden();
 });
