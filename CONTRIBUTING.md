@@ -47,7 +47,7 @@ pnpm dev                              # website at http://127.0.0.1:3100
    | Website pages or examples | `pnpm build`, and the Playwright specs that cover them, which run against that production build: `pnpm --filter @opsorama/site exec playwright test <spec>` |
    | Documentation only | Links and content; `pnpm test` covers the README code examples |
 
-4. If the change affects a published package, add a changeset with `pnpm changeset` and describe the change for users. All packages share one version.
+4. If the change affects a published package, add a changeset with `pnpm changeset` and describe the change for users, once the packages have had their first release. All packages share one version.
 5. Commit with a concise English message describing the result, and open a pull request. CI runs the checks above; end-to-end tests run on every push to the pull request.
 
 ## Standards

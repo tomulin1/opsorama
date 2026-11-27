@@ -1,6 +1,0 @@
----
-"@opsorama/three": minor
-"@opsorama/cli": minor
----
-
-Add glTF and GLB models. `gltfAsset(url, options)` from the new subpath `@opsorama/three/gltf` is an asset factory for a glTF file: the file loads once per URL (and loader), every node shares its geometry, materials and textures, and repeated meshes render as instanced batches; a placeholder box shows until the file has loaded, a failed load is reported through `onError` for the node, and the file's resources are released with the last node that uses it. Options: `height` or `scale`, `rotation`, `pivot` (`base-center` by default), `shadows`, `animation` (loop a clip while scene motion is on), `placeholder`, `labelHeight` and `loader` (for Draco, meshopt or KTX2 decoders). `preloadGltf(url)` loads a file ahead of the scene. New in `@opsorama/three` for asynchronous factories: `requestAssetRebuild` asks the renderer (or a node preview) to build a node again once its content has arrived, `trackAssetLoad` and `assetLoadsSettled` wait for loads, and `shareAssetResource` marks geometry and materials that several models share, which `disposeObject` and static merging leave alone. The renderer's instancing now also batches textured meshes that share their textures. `opsorama render` waits for asynchronous models and serves `.glb`, `.gltf` and `.bin` files next to the scene.

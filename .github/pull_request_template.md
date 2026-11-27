@@ -9,7 +9,7 @@
 - [ ] Behavior is the same through JavaScript, React and Vue where it applies
 - [ ] Catalog objects: descriptor passes `checkAssetDescriptor`, object is in exactly one kit and its browser category (see `docs/CONTRIBUTING_OBJECTS.md`)
 - [ ] Package entry points, exports, kits or dependencies changed: `pnpm build:packages`, `pnpm check:packages`, `pnpm check:bundles` pass
-- [ ] Changeset added (`pnpm changeset`) if a published package changed
+- [ ] Changeset added (`pnpm changeset`) if a published package changed, from the first release on
 - [ ] No performance or compatibility claims without measurements
 
 ## Verification
