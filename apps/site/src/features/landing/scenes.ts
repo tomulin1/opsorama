@@ -4,13 +4,14 @@ import { runFeedLoop, type LoopFeed } from '../ecommerce/feed-loop';
 import { DEFAULT_ZOOM as SHOP_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import { createEcommerceSimulation, createEcommerceStore } from '../ecommerce/simulation';
 import { createShiftGame } from '../cutoff/rules';
+import { DEFAULT_ZOOM as WAREHOUSE_ZOOM, createWarehouseStore } from '../warehouse/scene';
 import { lightingAt, playNodes } from '../cutoff/scene';
 
 /**
  * The scenes behind the home page carousel. Each one is a domain example's own scene and feed, created when its slide
  * is shown and disposed when another scene takes its place, so the home page never copies example code.
  */
-export type LandingSceneId = 'shop' | 'datacenter' | 'cutoff';
+export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff';
 
 export interface LandingScene {
   store: SceneStore;
@@ -33,6 +34,12 @@ function shopScene(): LandingScene {
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, run: () => feedStore(store, simulation), dispose: () => { store.dispose(); simulation.dispose(); } };
 }
 
+/** The distribution centre example's dispatch snapshot. */
+function warehouseScene(): LandingScene {
+  const store = createWarehouseStore();
+  return { store, zoom: WAREHOUSE_ZOOM, dispose: () => store.dispose() };
+}
+
 /** The datacenter example's incident snapshot. */
 function datacenterScene(): LandingScene {
   const store = makeDatacenterStore();
@@ -51,7 +58,7 @@ function cutoffScene(): LandingScene {
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, run: () => feedStore(store, feed, light), dispose: () => { store.dispose(); game.dispose(); } };
 }
 
-const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, datacenter: datacenterScene, cutoff: cutoffScene };
+const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, warehouse: warehouseScene, datacenter: datacenterScene, cutoff: cutoffScene };
 export function createLandingScene(id: LandingSceneId): LandingScene { return FACTORIES[id](); }
 /** Gallery preview of each scene, known before the scene exists. */
-export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', datacenter: 'datacenter', cutoff: 'cutoff' };
+export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff' };
