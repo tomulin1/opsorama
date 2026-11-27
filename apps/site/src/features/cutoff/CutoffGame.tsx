@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Boxes, ChevronDown, Clock3, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, MapPin, Package, Pause, Play, RotateCcw, Square, Store, Timer, Trophy, Truck, X } from 'lucide-react';
+import { Boxes, ChevronDown, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { ActionRing, DataPanel, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
@@ -10,13 +10,14 @@ import '@opsorama/ui/styles.css';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudDockStatus, HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
 import { runFeedLoop, type LoopFeed } from '../ecommerce/feed-loop';
-import { DEPARTMENTS, GOODS_LABELS, SKUS, departmentCapacity, minutesOf, skuGoods, type EcommerceSnapshot } from '../ecommerce/model';
+import { DEPARTMENTS, GOODS_LABELS, SKUS, minutesOf, skuGoods, type EcommerceSnapshot } from '../ecommerce/model';
 import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
 import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type BikeStatus, type CarrierStatus, type ChannelStatus, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScenario, type ShiftScore } from './rules';
 import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, goodsLegend, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
+import { cutoffHudMetrics, plural, shelfState, toneOf } from './metrics';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
 interface GameView {
@@ -29,9 +30,7 @@ const viewOf = (game: ShiftGame): GameView => ({
 });
 const LEVELS = Object.values(SHIFT_LEVELS);
 const SPEEDS = [1, 2, 3] as const;
-const toneOf = (value: number): Tone => value > 0 ? 'success' : value < 0 ? 'critical' : 'neutral';
 const actorNow = (actor: ActorView) => actor.waiting ?? actor.task ?? (actor.assist ? 'Works by itself' : 'Idle');
-const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 /** The shift clock some minutes on, e.g. "12:40". */
 const clockPlus = (clock: string, minutes: number) => { const total = minutesOf(clock) + Math.ceil(minutes); return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`; };
 /** A command being given: the actor, and the source once one is taken; the scene lights its sources, then its targets. */
@@ -182,10 +181,9 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   };
   const send = (carrier: CarrierStatus) => command(() => game.current.depart(), `The ${carrier.name} truck leaves once no cage is on its way to it.`);
 
-  const { snapshot, score, report, channels, bike } = view, paused = scene.settings.paused;
+  const { snapshot, score, report, channels } = view, paused = scene.settings.paused;
   const sold = score.lines.reduce((sum, line) => sum + line.count, 0);
-  const shelves = shelfState(snapshot), truck = view.carriers.find(item => item.loading), parcelChannels = channels.filter(item => item.id !== 'checkout');
-  const waiting = parcelChannels.reduce((sum, item) => sum + item.cage, 0);
+  const truck = view.carriers.find(item => item.loading);
   // Pallets in staging, which the reach truck puts away: buttons for them help where a click in the scene is hard.
   const staged = useMemo(() => view.snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku && unit.at === 'On the floor' && game.current.options(unit.id, 'reach-truck').some(choice => [...choice.options.map(option => option.move.kind), ...choice.refused.map(item => item.kind)].includes('put-away'))), [view, game]);
   // The shift panel folds into the bottom bar: it sinks toward the bar, then the bar shows its tab with the score.
@@ -224,12 +222,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
           <button type="button" onClick={() => restart(scenario, seed)}><RotateCcw size={13} />New shift</button>
         </div>
       </DataPanel>
-      <HudMetrics label="Shift metrics" size={metricSize} metrics={[
-        { id: 'score', title: 'Score', value: score.total, tone: toneOf(score.total), comparison: `${plural(sold, 'item')} sold`, icon: <Trophy size={16} /> },
-        { id: 'shelves', title: 'Shop shelves', value: `${shelves.percent}%`, tone: shelves.empty.length ? 'critical' : shelves.percent < 30 ? 'warning' : 'success', comparison: shelves.empty.length ? `Empty: ${shelves.empty.join(', ')}` : 'Every department has goods', icon: <Store size={16} /> },
-        { id: 'parcels', title: 'Parcels in cages', value: waiting, tone: waiting > 8 ? 'warning' : 'neutral', comparison: parcelChannels.map(item => `${item.id === 'truck' ? 'trucks' : item.id} ${item.cage}`).join(' · '), icon: <Package size={16} /> },
-        { id: 'leaves', title: bike.away ? 'Bike back in' : 'Bike leaves in', value: `${Math.ceil(bike.next)} min`, tone: !bike.away && channels.find(item => item.id === 'bike')!.cage && bike.next < 15 ? 'warning' : 'neutral', comparison: truck ? `${truck.name} truck leaves ${truck.remaining !== null ? `at ${truck.cutoff}` : 'when you send it'}` : 'No truck at D3', icon: <Clock3 size={16} /> },
-      ]} />
+      <HudMetrics label="Shift metrics" size={metricSize} metrics={cutoffHudMetrics(view)} />
     </div>}
 
     {panelsVisible && panelOpen && <DataPanel id="co-shift-panel" className={`hud-floating-panel co-summary${folding ? ' co-folding' : ''}`} title="Shift" label="Shift summary" description="Every item sold scores its channel's points · keep the shelves and outlets supplied" density="compact" slots={{ icon: <Flag size={16} />, actions: <button type="button" className="co-fold" aria-label="Fold the shift panel into the bottom bar" title="Fold into the bottom bar" onClick={fold}><ChevronDown size={16} /></button> }}>
@@ -288,11 +281,6 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
 
 /** The channels' points in words, for the briefing. */
 const CHANNEL_POINTS = 'shop checkouts 1 per item, click & collect 2, parcel lockers 3, the delivery bike 3 and carrier trucks 2';
-/** How stocked the shop's shelves are, and its empty departments. */
-function shelfState(snapshot: EcommerceSnapshot) {
-  const capacity = DEPARTMENTS.reduce((sum, item) => sum + departmentCapacity(item.id), 0), facings = DEPARTMENTS.reduce((sum, item) => sum + snapshot.shop.facings[item.id], 0);
-  return { percent: Math.round(facings / capacity * 100), empty: DEPARTMENTS.filter(item => snapshot.shop.facings[item.id] === 0).map(item => item.label) };
-}
 /** What a channel holds and waits for now, in words. */
 function channelNow(channel: ChannelStatus, view: GameView): string {
   switch (channel.id) {

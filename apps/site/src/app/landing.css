@@ -53,16 +53,19 @@
 .landing-agent-log li:last-child[data-kind="add"] { color: var(--opsorama-text-on-primary); }
 @keyframes landing-agent-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .landing-agent-log header span { animation: none; } }
+/* The example's top panels sit at the top right, where the example shows them; the home page has no navigation panel beside them. */
+.landing-top { grid-template-columns: minmax(0, 1fr); }
 .landing-controls { flex-direction: row; justify-content: flex-end; align-items: center; left: auto; }
 .landing-sections { width: 100%; padding-top: 10px; padding-bottom: 10px; }
 .landing-sections footer { align-items: center; padding-top: 0; }
 @media (max-width: 760px) {
-  .landing-intro { top: 12px; bottom: auto; left: 16px; width: calc(100% - 32px); padding: 12px 14px; }
+  /* The top panels take the top of a phone, so the carousel sits above the zoom controls. */
+  .landing-intro { top: auto; bottom: 64px; left: 16px; width: calc(100% - 32px); padding: 12px 14px; }
   .landing-intro h1 { font-size: 24px; }
   .landing-intro h2 { font-size: 21px; }
   .landing-intro p { font-size: 13px; }
   .landing-carousel-controls { margin-top: 8px; padding-top: 6px; }
   .landing-sections footer { flex-direction: row; flex-wrap: wrap; gap: 2px 16px; }
-  .landing-agent-log { top: auto; bottom: 64px; left: 16px; right: 16px; width: auto; }
+  .landing-agent-log { top: 10px; left: 16px; right: 16px; width: auto; }
   .landing-agent-log ol { min-height: 0; max-height: 92px; }
 }

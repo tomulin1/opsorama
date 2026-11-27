@@ -1,14 +1,15 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 import { DashboardProvider, SceneCanvas } from '@opsorama/react';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
-import { HudZoom } from '../example-hud';
-import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId } from './scenes';
+import { HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
+import { createLandingScene, LANDING_SCENE_EXAMPLES, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneMetrics } from './scenes';
 import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
 
@@ -146,6 +147,13 @@ function AgentLogPanel({ log }: { log: AgentLog }) {
   </section>;
 }
 
+/** The example's top panels over its scene, as in the full example; each one opens that example. */
+function SceneMetricsPanel({ metrics, id }: { metrics: SceneMetrics; id: LandingSceneId }) {
+  const router = useRouter(), { metricSize } = useHudMetricSize(), example = LANDING_SCENE_EXAMPLES[id];
+  useSyncExternalStore(metrics.subscribe, metrics.version, metrics.version);
+  return <div className="hud-top landing-top"><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read({ label: `Open ${example.name}`, onActivate: () => router.push(example.href) })} /></div>;
+}
+
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
 function BackgroundScene({ id }: { id: LandingSceneId }) {
   const [scene, setScene] = useState<LandingScene | null>(null);
@@ -154,7 +162,7 @@ function BackgroundScene({ id }: { id: LandingSceneId }) {
     setScene(value);
     return () => { setScene(null); value.dispose(); };
   }, [id]);
-  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} id={id} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
 }
 
 export function LandingPage() {
