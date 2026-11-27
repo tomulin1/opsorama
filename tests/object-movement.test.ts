@@ -22,7 +22,7 @@ describe('object page movement metadata', () => {
   it('describes catalog motion profiles with their defaults filled in', () => {
     expect(movementFacts(asset('forklift'))).toEqual({ slots: [], profile: motionProfileRows(assetMotionProfiles.forklift) });
     expect(motionProfileRows(assetMotionProfiles.forklift)).toContainEqual(['Corner radius', '1.2 m arcs at corners taken while moving']);
-    expect(motionProfileRows(assetMotionProfiles.worker)).toContainEqual(['Turning in place', '7 rad/s (401°/s) at corners sharper than 45°']);
+    expect(motionProfileRows(assetMotionProfiles.worker)).toContainEqual(['Turning in place', '10 rad/s (573°/s) at corners sharper than 120°']);
     expect(motionProfileRows({ speed: 1 })).toEqual([
       ['Speed', '1 m/s'], ['Acceleration', 'Instant speed changes'], ['Turning in place', 'Never pivots; the renderer blends heading changes'],
       ['Corner speed', 'Full speed through corners'], ['Corner radius', 'Sharp corners on the graph polyline'],

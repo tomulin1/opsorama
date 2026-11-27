@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode, SceneStore } from '@opsorama/core';
 import { assetDescriptors, catalogAssets } from '@opsorama/objects';
 import { createAquaticsStore } from '../apps/site/src/features/aquatics/model';
-import { createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
+import { createEcommerceSimulation, createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
 import { createFarmStore } from '../apps/site/src/features/farm/scene';
 import { createOfficeStore } from '../apps/site/src/features/office/scene';
 import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
@@ -40,7 +40,12 @@ describe('recipe reuse (C4)', () => {
   it('a recipe that is not a dashboard, the Cut-off game, reuses the catalog, simulation and panels', () => {
     const game = createShiftGame({ scenario: 'peak', seed: 1 });
     game.advance(120);
-    const nodes = playNodes(game, 'packer:K3', []), dashboards = new Set(scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset)));
+    // The e-commerce dashboard spawns models such as shopping bags while it runs, so it is read at the same moment of its shift.
+    const shift = createEcommerceSimulation('peak', 1);
+    shift.advance(120);
+    const running = assetsOf(shift.nodes()).map(node => node.asset);
+    shift.dispose();
+    const nodes = playNodes(game, 'packer:K3', []), dashboards = new Set([...running, ...scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset))]);
     game.dispose();
     // Every model of the game is a catalog model the dashboards use too: the game brings no models of its own.
     for (const node of assetsOf(nodes)) {

@@ -90,10 +90,11 @@ describe('e-commerce mock feed', () => {
     const simulation = createEcommerceSimulation('peak');
     expect(simulation.snapshot().alerts.find(alert => alert.sku === 'OUT-215')?.onHand).toBe(0);
     const reserve = simulation.snapshot().occupancy.R04;
-    let moved = false;
-    run(simulation, 300, () => { moved ||= simulation.snapshot().occupancy.R04 < reserve; });
+    // Picking drains the refilled lane again later in the shift, so the alert is checked when it clears.
+    let moved = false, cleared = false;
+    run(simulation, 300, () => { moved ||= simulation.snapshot().occupancy.R04 < reserve; cleared ||= moved && !simulation.snapshot().alerts.some(alert => alert.sku === 'OUT-215'); });
     expect(moved).toBe(true);
-    expect(simulation.snapshot().alerts.some(alert => alert.sku === 'OUT-215')).toBe(false);
+    expect(cleared).toBe(true);
     expect(simulation.snapshot().orders.find(order => order.id === '#50419')?.issue).toBeUndefined();
     simulation.dispose();
   });

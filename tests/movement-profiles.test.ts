@@ -73,7 +73,7 @@ describe('motion profiles', () => {
     const graph = createNavGraph({ points: [{ id: 'a', position: [0, 0, 0] }, { id: 'b', position: [0, 0, 4] }], edges: [{ from: 'a', to: 'b' }], agents: { person: assetMotionProfiles.worker } });
     const plan = graph.plan({ agent: 'person', from: 'a', to: 'b' });
     if (!plan.ok) throw new Error('expected a route');
-    expect(plan.route.profile).toEqual({ acceleration: 2.5, turnRate: 7, turnInPlaceAngle: Math.PI / 4, cornerSpeed: .8 });
+    expect(plan.route.profile).toEqual({ acceleration: 2.5, turnRate: 10, turnInPlaceAngle: Math.PI * 2 / 3, cornerSpeed: .9, cornerRadius: .4 });
     const route = toNodeRoute(plan.route, { startYaw: Math.PI });
     expect(route).toMatchObject({ profile: plan.route.profile, startYaw: Math.PI });
     expect(routeDuration(route)).toBeGreaterThan(plan.route.duration);
@@ -155,7 +155,7 @@ describe('goal-based behaviors', () => {
   it('keeps the simulation in step with the profiled visual route', () => {
     const runner = createBehaviorRunner({ graph, slots, agents: [{ id: 'a', agent: 'person', start: 'left', yaw: Math.PI, steps: [{ kind: 'move', to: 'east' }] }] });
     const route = runner.getAgent('a')!.route!;
-    expect(route).toMatchObject({ profile: { turnRate: 7 }, startYaw: Math.PI });
+    expect(route).toMatchObject({ profile: { turnRate: 10 }, startYaw: Math.PI });
     runner.advance(routeDuration(route) - .01); expect(runner.getAgent('a')!.phase).toBe('moving');
     runner.advance(.02); expect(runner.getAgent('a')).toMatchObject({ phase: 'idle', at: 'east' });
   });

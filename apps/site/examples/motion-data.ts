@@ -42,7 +42,7 @@ export const motionGraph = createNavGraph({
     { from: 'walk-west', to: 'lane-n-west', lane: 'service' }, { from: 'walk-east', to: 'lane-n-east', lane: 'service' },
   ],
   lanes: { walkway: { allow: ['person'] }, vehicle: { allow: ['vehicle'], speedLimit: 2 }, service: { allow: ['vehicle'] } },
-  // Catalog profiles: people brake and turn in place at sharp corners; the pallet jack slows down for corners.
+  // Catalog profiles: people and the pallet jack round ordinary corners and turn in place only at sharp ones.
   agents: { person: assetMotionProfiles.worker, vehicle: assetMotionProfiles['pallet-jack'] },
 });
 
@@ -197,8 +197,8 @@ export const motionControllers: ControllerRegistry = { shuttle };
  */
 export function robotNodes(spot: number): AssetNode[] {
   return [
-    { id: 'delivery-robot', kind: 'asset', asset: 'mobile-robot', variant: 'tote', label: 'Delivery robot', labelMode: 'active', selectable: true, position: ROBOT_SPOTS[spot % ROBOT_SPOTS.length].position, controller: { kind: 'approach', options: { speed: 1.2, acceleration: .8, turnRate: 2.5 } } },
-    { id: 'robot-cart', kind: 'asset', asset: 'picking-cart', count: 2, label: 'Towed cart', labelMode: 'active', selectable: true, position: [-4.4, 0, -1.4], controller: { kind: 'follow', options: { target: 'delivery-robot', distance: 1.25, speed: 1.6, acceleration: 1.2, turnRate: 3 } } },
+    { id: 'delivery-robot', kind: 'asset', asset: 'mobile-robot', variant: 'tote', label: 'Delivery robot', labelMode: 'active', selectable: true, position: ROBOT_SPOTS[spot % ROBOT_SPOTS.length].position, controller: { kind: 'approach', options: { speed: 1.2, acceleration: .8, turnRate: 4 } } },
+    { id: 'robot-cart', kind: 'asset', asset: 'picking-cart', count: 2, label: 'Towed cart', labelMode: 'active', selectable: true, position: [-4.4, 0, -1.4], controller: { kind: 'follow', options: { target: 'delivery-robot', distance: 1.25, speed: 1.6, acceleration: 1.2, turnRate: 5 } } },
     { id: 'shuttle-robot', kind: 'asset', asset: 'mobile-robot', label: 'Shuttle robot', labelMode: 'active', selectable: true, position: [-4.8, 0, 1.75], controller: { kind: 'shuttle', options: { from: [-4.8, 0, 1.75], to: [-.6, 0, 1.75], speed: .7, pause: 2 } } },
   ];
 }

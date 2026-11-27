@@ -43,7 +43,7 @@ export function sendRobot(store: SceneStore, dispatch: RobotDispatch, event: Sce
   const from = dispatch.destination ?? robot.position ?? [0, 0, 0];
   // A click on the current destination changes nothing; a route needs two distinct points.
   if (Math.hypot(to[0] - from[0], to[2] - from[2]) < .3) return true;
-  store.upsert({ ...robot, route: { points: [from, to], speed: 2.4, profile: { acceleration: 1.6, turnRate: 3 } } });
+  store.upsert({ ...robot, route: { points: [from, to], speed: 2.4, profile: { acceleration: 1.6, turnRate: 4 } } });
   dispatch.destination = to; dispatch.trips++;
   return true;
 }

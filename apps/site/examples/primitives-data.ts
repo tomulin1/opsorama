@@ -104,7 +104,7 @@ export const brandImage: ImageNode = { id: 'brand-image', kind: 'image', src: '/
 /** The shuttle's loop around the chart: a closed route, so it ends where it starts. */
 export const SHUTTLE_ROUTE_POINTS: readonly Vec3[] = [[-9.5, 0, -6.2], [9.5, 0, -6.2], [9.5, 0, 6.4], [-9.5, 0, 6.4], [-9.5, 0, -6.2]];
 /** A selectable group with a route: everything inside moves with it, and a click on any part selects the shuttle. */
-export const shuttleGroup: GroupNode = { id: 'shuttle', kind: 'group', position: SHUTTLE_ROUTE_POINTS[0], label: 'Shuttle', selectable: true, route: { points: SHUTTLE_ROUTE_POINTS, speed: 2.2, loop: true, profile: { acceleration: 1.2, turnRate: 2.4, cornerRadius: 1.2 } } };
+export const shuttleGroup: GroupNode = { id: 'shuttle', kind: 'group', position: SHUTTLE_ROUTE_POINTS[0], label: 'Shuttle', selectable: true, route: { points: SHUTTLE_ROUTE_POINTS, speed: 2.2, loop: true, profile: { acceleration: 1.2, cornerRadius: 1.2 } } };
 /** The shuttle's parts in its local coordinates; +z is its heading. The four wheels are equal cylinders, so they draw as one batch. */
 export const shuttleParts: readonly ShapeNode[] = [
   { id: 'shuttle-body', kind: 'shape', parentId: shuttleGroup.id, position: [0, .2, 0], shape: { type: 'box', size: [.9, .42, 1.5] }, color: '#e9eef5' },

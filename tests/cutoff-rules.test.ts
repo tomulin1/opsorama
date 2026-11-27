@@ -222,4 +222,4 @@ describe('Cut-off shift game', () => {
 });
 
 /** Score, orders shipped, customers served and pallets put away of each scripted shift; record new ones only when the rules are meant to change. */
-const RECORDED_TOTALS = { steady: [135, 17, 28, 0], peak: [250, 31, 38, 4], night: [37, 0, 0, 11] };
+const RECORDED_TOTALS = { steady: [161, 19, 28, 0], peak: [279, 30, 46, 5], night: [40, 0, 0, 12] };
