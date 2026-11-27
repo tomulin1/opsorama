@@ -7,6 +7,8 @@ test('home runs the shop scene behind the intro panel on one screen', async ({ p
   // The shop scene is built after hydration; with software WebGL that can take several seconds,
   // so the default 5-second expectation timeout is too short.
   await expect(page.locator('.landing-hero canvas')).toBeVisible({ timeout: 30_000 });
+  // The example's top panels sit over its scene and open the full example.
+  await expect(page.getByRole('region', { name: 'Operations metrics' })).toBeVisible();
   // Header, scene and footer fill exactly one screen.
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   expect(errors).toEqual([]);
@@ -25,6 +27,7 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   // Each use brings its example's scene: the datacenter replaces the distribution centre behind the panel.
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /datacenter\.webp/);
   await expect(page.locator('.landing-hero canvas')).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByRole('region', { name: 'Facility metrics' })).toBeVisible();
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
   await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /cutoff\.webp/);

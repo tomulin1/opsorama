@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
-import { Activity, AlertTriangle, ArrowUpRight, Box, Building2, CheckCircle2, CircleAlert, Eye, EyeOff, Info, List, Maximize2, Minimize2, Network, Server, Settings2, Thermometer, X, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowUpRight, Box, Building2, CheckCircle2, CircleAlert, Eye, EyeOff, Info, List, Maximize2, Minimize2, Network, Server, Settings2, X } from 'lucide-react';
 import { DataPanel, EntityInspector, FieldList, ResourceList, StatusBadge, ValueMeter, ZoomControl } from '@opsorama/react/ui';
 import { useRendererFps } from '@opsorama/react';
 import type { SceneRenderer } from '@opsorama/three';
-import { datacenterDefinition, datacenterIncidents, datacenterInletLimit, datacenterRackLoadHistory, datacenterReading, datacenterRecords, datacenterRooms, datacenterState, type DatacenterScenario } from '../../../examples/datacenter-data';
-import { HudMetrics, HudObjectThumbnail, MetricSizeControl, useHudMetricSize, type HudMetric } from '../example-hud';
+import { datacenterDefinition, datacenterIncidents, datacenterInletLimit, datacenterReading, datacenterRecords, datacenterRooms, datacenterState, type DatacenterScenario } from '../../../examples/datacenter-data';
+import { HudMetrics, HudObjectThumbnail, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { datacenterHudMetrics, datacenterPeakRack } from './metrics';
 import '@opsorama/ui/styles.css';
 
 export interface DatacenterViewportProps {
@@ -56,18 +57,14 @@ export function DatacenterViewport(props: DatacenterViewportProps) {
   const roomDetails = datacenterRooms.find(value => value.id === room);
   const tableRecords = roomDetails?.kind === 'hall' ? datacenterRecords.filter(record => record.roomId === room) : datacenterRecords;
   const pageRecords = tableRecords.slice(rackPage * 8, rackPage * 8 + 8);
-  const peakInlet = Math.max(...datacenterRecords.map(record => datacenterReading(record, scenario).inlet));
-  const inletMargin = peakInlet - datacenterInletLimit, inletTone = inletMargin > 0 ? 'critical' : 'success';
-  const rackLoad = datacenterRecords.reduce((sum, rack) => sum + rack.power, 0);
-  const meanCpu = datacenterRecords.reduce((sum, rack) => sum + rack.load, 0) / datacenterRecords.length;
-  const peakRack = datacenterRecords.find(record => datacenterReading(record, scenario).inlet === peakInlet)!;
+  const { rack: peakRack } = datacenterPeakRack(scenario);
   const peakInspected = sidePanel === 'inspector' && selected === peakRack.id;
-  const metrics: readonly HudMetric[] = [
-    { id: 'cpu', title: 'Facility CPU', value: meanCpu, formatValue: value => Number(value).toFixed(0), unit: '%', tone: 'info', visual: { kind: 'capacity', max: 100 }, comparison: `${datacenterRecords.length} racks across four halls`, action: { label: 'Open rack overview for CPU', onActivate: () => toggleLeft('racks'), pressed: leftPanel === 'racks' }, icon: <Server size={16} /> },
-    { id: 'load', title: 'Rack load', value: rackLoad, formatValue: value => Number(value).toFixed(1), unit: 'kW', tone: 'info', visual: { kind: 'trend', points: datacenterRackLoadHistory(rackLoad), label: 'Mock rack load over the last 60 minutes' }, comparison: 'Mock readings', action: { label: 'Open rack overview for power', onActivate: () => toggleLeft('racks'), pressed: leftPanel === 'racks' }, icon: <Zap size={16} /> },
-    { id: 'inlet', title: 'Peak inlet', value: peakInlet, formatValue: value => Number(value).toFixed(1), unit: '°C', tone: inletTone, delta: { label: `${Math.abs(inletMargin).toFixed(1)} °C ${inletMargin > 0 ? 'over' : 'under'} limit`, direction: inletMargin > 0 ? 'up' : 'down', tone: inletTone }, comparison: scenario === 'incident' ? 'Inlet alert active' : 'Recovered snapshot', action: { label: 'Inspect the rack with the peak inlet', onActivate: () => { if (peakInspected) setSidePanel(null); else onSelect(peakRack.id); }, pressed: peakInspected }, icon: <Thermometer size={16} /> },
-    { id: 'alerts', title: 'Open alerts', value: incidents.length, tone: incidents.length ? 'critical' : 'success', comparison: incidents.length ? '1 critical · 2 warning' : 'All recovered', action: { label: 'Open alert queue', onActivate: () => toggleAlerts(), pressed: sidePanel === 'alerts' }, icon: incidents.length ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} /> },
-  ];
+  const metrics = datacenterHudMetrics(scenario, {
+    cpu: { label: 'Open rack overview for CPU', onActivate: () => toggleLeft('racks'), pressed: leftPanel === 'racks' },
+    load: { label: 'Open rack overview for power', onActivate: () => toggleLeft('racks'), pressed: leftPanel === 'racks' },
+    inlet: { label: 'Inspect the rack with the peak inlet', onActivate: () => { if (peakInspected) setSidePanel(null); else onSelect(peakRack.id); }, pressed: peakInspected },
+    alerts: { label: 'Open alert queue', onActivate: () => toggleAlerts(), pressed: sidePanel === 'alerts' },
+  });
   const toggleLeft = (panel: NonNullable<typeof leftPanel>) => { setPanelsVisible(true); setLeftPanel(value => value === panel ? null : panel); };
   const toggleAlerts = () => { setPanelsVisible(true); setLeftPanel(null); setSidePanel(value => value === 'alerts' ? null : 'alerts'); };
   const closeLeft = <button type="button" className="hud-icon-button" aria-label="Close information panel" onClick={() => setLeftPanel(null)}><X size={15} /></button>;
