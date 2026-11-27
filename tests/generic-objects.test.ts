@@ -285,6 +285,16 @@ describe('cargo bike', () => {
     expect(meshes(bike).filter(mesh => hex(mesh) === '123456').map(mesh => mesh.name)).toEqual(['bike-cargo']); disposeObject(bike);
     expectOwnedGroundedModel('cargo-bike');
   });
+  it('seats a rider on the saddle in the operated variant, facing the handlebar', () => {
+    const bike = build('cargo-bike', { variant: 'operated' }), rider = bike.getObjectByName('vehicle-operator')!, seat = new THREE.Box3().setFromObject(named(bike, 'bike-seat'));
+    expect(build('cargo-bike').getObjectByName('vehicle-operator')).toBeUndefined();
+    const body = new THREE.Box3().setFromObject(rider);
+    // The rider sits on the saddle, above the bike, between the rear wheel and the handlebar.
+    expect(body.min.y).toBeLessThan(seat.max.y); expect(body.max.y).toBeGreaterThan(1.7); expect(body.max.y).toBeLessThan(2.05);
+    expect(rider.position.z).toBeGreaterThan(-.75); expect(rider.position.z).toBeLessThan(-.06);
+    expect(() => build('cargo-bike', { variant: 'riding' })).toThrow('Unknown cargo bike variant: riding. Use empty or operated.');
+    disposeObject(bike);
+  });
 });
 
 describe('pallet jack', () => {
