@@ -1,6 +1,6 @@
 import { ciScaled, expect, test } from './fixtures';
 
-test('Cut-off commands the crew from a card with Move, tinted sources and Take and Bring here pills for the keyboard for every process, then reaches the report', async ({ page }) => {
+test('Cut-off commands the crew from a card with Move, tinted sources and Take and Bring here pills for the keyboard for every process, folds the shift panel into the bar, then reaches the report', async ({ page }) => {
   test.setTimeout(ciScaled(150000));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/examples/cutoff', { waitUntil: 'domcontentloaded' });
@@ -66,32 +66,37 @@ test('Cut-off commands the crew from a card with Move, tinted sources and Take a
   await bring(/^Bring here: Outdoor/);
   await expect(message).toHaveText('Shelf filler: Restock Outdoor.');
 
-  // Shipping: the dispatcher works by itself from its action ring, and the panel sends the SwiftPost truck.
+  // Dispatch: the dispatcher works by itself from its action ring, and the sales channels send the SwiftPost truck.
   await commandActor('Dispatch');
   await ring('Dispatch').getByRole('switch', { name: 'Work by yourself', exact: true }).dispatchEvent('click');
   await expect(message).toHaveText('Dispatch works by itself without a command.');
   await expect(ring('Dispatch').getByRole('switch', { name: 'Work by yourself', exact: true })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('toolbar', { name: /^Commands of/ })).toHaveCount(0);
-  await summary.getByRole('region', { name: 'Shipping', exact: true }).getByRole('button', { name: 'Send the SwiftPost truck now', exact: true }).click();
-  await expect(message).toHaveText('The SwiftPost truck leaves once no cage is on its way.');
+  const channels = summary.getByRole('region', { name: 'Sales channels', exact: true });
+  await expect(channels).toContainText('Parcel lockers');
+  await channels.getByRole('button', { name: 'Send the SwiftPost truck now', exact: true }).click();
+  await expect(message).toHaveText('The SwiftPost truck leaves once no cage is on its way to it.');
 
-  // The short pick of the peak opens over its pick face about 20 minutes into the shift.
+  // The shift panel folds into the bottom bar, whose tab with the score opens it again.
+  await summary.getByRole('button', { name: 'Fold the shift panel into the bottom bar', exact: true }).click();
+  await expect(summary).toHaveCount(0);
+  await toolbar.getByRole('button', { name: /^Open the shift panel, score \d+$/ }).click();
+  await expect(summary).toBeVisible();
+
+  // The shift runs: shoppers pay at the checkouts, which scores.
   await expect(page.getByRole('timer', { name: 'Shift clock' })).toHaveText('10:00');
   await toolbar.getByRole('button', { name: 'Resume shift', exact: true }).click();
   await toolbar.getByRole('button', { name: 'Speed 3×', exact: true }).click();
-  const event = page.getByRole('article', { name: 'Short pick', exact: true });
-  await expect(event).toBeVisible({ timeout: ciScaled(45000) });
-  await event.getByRole('button', { name: /Cancel the order/ }).click();
-  await expect(event).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Detail', exact: true }).getByRole('region', { name: 'Score', exact: true })).toContainText('Event decisions');
+  await expect(channels).not.toContainText('0 items · 0 points', { timeout: ciScaled(45000) });
 
   // Finish the shift and read the report.
   await toolbar.getByRole('button', { name: 'Finish shift', exact: true }).click();
   const report = page.getByRole('region', { name: 'End of shift report', exact: true });
   await expect(report).toBeVisible();
   await expect(report).toContainText('18:00');
-  await expect(report).toContainText('SwiftPost');
+  await expect(report).toContainText('Shop checkouts');
+  await expect(report).toContainText('Delivery bike');
   await expect(report).toContainText('pallets put away');
   await page.screenshot({ path: 'artifacts/cutoff-report.png' });
   await report.getByRole('button', { name: 'Play again', exact: true }).click();

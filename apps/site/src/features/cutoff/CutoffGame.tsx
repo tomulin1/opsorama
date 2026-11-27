@@ -1,8 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bell, Boxes, Clock3, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, Info, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
+import { Boxes, ChevronDown, Clock3, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, MapPin, Package, Pause, Play, RotateCcw, Square, Store, Timer, Trophy, Truck, X } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
-import { ActionRing, ActivityFeed, DataPanel, StatusBadge, type RingAction, type Tone } from '@opsorama/react/ui';
+import { ActionRing, DataPanel, type RingAction, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
 import type { NodeHighlight, PickTarget, ScenePointerEvent, SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
@@ -10,55 +10,53 @@ import '@opsorama/ui/styles.css';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { HudDockStatus, HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
 import { runFeedLoop, type LoopFeed } from '../ecommerce/feed-loop';
-import { DEPARTMENTS, GOODS_LABELS, SKUS, carrier as carrierOf, skuGoods, type EcommerceScenario, type EcommerceSnapshot } from '../ecommerce/model';
+import { DEPARTMENTS, GOODS_LABELS, SKUS, departmentCapacity, minutesOf, skuGoods, type EcommerceSnapshot } from '../ecommerce/model';
 import { DEFAULT_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import type { Move } from '../ecommerce/simulation';
 
-import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type CarrierStatus, type ShiftDecisions, type ShiftEvent, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScore } from './rules';
-import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, detailOf, eventNode, goodsLegend, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
+import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorView, type BikeStatus, type CarrierStatus, type ChannelStatus, type ShiftGame, type ShiftNotice, type ShiftReport, type ShiftScenario, type ShiftScore } from './rules';
+import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, goodsLegend, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
 interface GameView {
-  snapshot: EcommerceSnapshot; actors: ActorView[]; score: ShiftScore; events: readonly ShiftEvent[]; decisions: ShiftDecisions; carriers: CarrierStatus[];
-  clock: string; time: number; over: boolean; report: ShiftReport;
+  snapshot: EcommerceSnapshot; actors: ActorView[]; score: ShiftScore; channels: ChannelStatus[]; carriers: CarrierStatus[]; bike: BikeStatus;
+  clock: string; time: number; over: boolean; departing: boolean; report: ShiftReport;
 }
 const viewOf = (game: ShiftGame): GameView => ({
-  snapshot: game.snapshot(), actors: game.actors(), score: game.score(), events: game.events(), decisions: game.decisions(), carriers: game.carriers(),
-  clock: game.clock, time: game.time, over: game.over, report: game.report(),
+  snapshot: game.snapshot(), actors: game.actors(), score: game.score(), channels: game.channels(), carriers: game.carriers(), bike: game.bike(),
+  clock: game.clock, time: game.time, over: game.over, departing: game.departing, report: game.report(),
 });
 const LEVELS = Object.values(SHIFT_LEVELS);
 const SPEEDS = [1, 2, 3] as const;
-const LOG_SIZE = 14;
-const signed = (value: number) => value > 0 ? `+${value}` : String(value);
 const toneOf = (value: number): Tone => value > 0 ? 'success' : value < 0 ? 'critical' : 'neutral';
-const minutesLeft = (deadline: number, time: number) => Math.max(0, Math.ceil(deadline - time));
 const actorNow = (actor: ActorView) => actor.waiting ?? actor.task ?? (actor.assist ? 'Works by itself' : 'Idle');
-type LogEntry = { id: number; time: string; text: string; points?: number };
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+/** The shift clock some minutes on, e.g. "12:40". */
+const clockPlus = (clock: string, minutes: number) => { const total = minutesOf(clock) + Math.ceil(minutes); return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`; };
 /** A command being given: the actor, and the source once one is taken; the scene lights its sources, then its targets. */
 type Commanding = { actor: string; picking: boolean; source: string | null };
 
 function createStore(game: ShiftGame): SceneStore {
-  return createSceneStore({ schemaVersion: 1, nodes: playNodes(game, []) }, { zoom: DEFAULT_ZOOM, selectionStyle: 'glow', camera: { ...DEFAULT_CAMERA_SETTINGS, frameOnSelect: false }, paused: true, lighting: lightingAt(game.level, game.clock) });
+  return createSceneStore({ schemaVersion: 1, nodes: playNodes(game, []) }, { zoom: DEFAULT_ZOOM, selectionStyle: 'glow', camera: { ...DEFAULT_CAMERA_SETTINGS, frameOnSelect: false }, paused: true, lighting: lightingAt(game.clock) });
 }
 
 /**
  * The scene with the game's HUD. The rules run in `rules.ts`; this component only reads them and sends commands. A command
  * takes three clicks: one of the crew (its sources are tinted), what it should take (a ghost stands at each of its targets)
- * and the ghost to bring it to. An action ring over the actor holds its commands and its assist. The left panel sums up the
- * shift, the right one details the selected object.
+ * and the ghost to bring it to. An action ring over the actor holds its commands and its assist. The shift panel on the left
+ * sums up the sales channels, the crew, the stock and receiving; it folds into the bottom bar.
  */
 function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   const store = useSceneStore(), scene = useScene(), renderer = useRef<SceneRenderer | null>(null), [ready, setReady] = useState<SceneRenderer | null>(null);
   const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; setReady(value); }, []);
   const [view, setView] = useState(() => viewOf(game.current)), [generation, setGeneration] = useState(0);
-  const [scenario, setScenario] = useState<EcommerceScenario>(game.current.level.scenario), [seed, setSeed] = useState(game.current.seed);
-  const [started, setStarted] = useState(false), [panelsVisible, setPanelsVisible] = useState(true);
-  const [message, setMessage] = useState<{ text: string; tone: Tone } | null>(null), [log, setLog] = useState<LogEntry[]>([]);
+  const [scenario, setScenario] = useState<ShiftScenario>(game.current.level.scenario), [seed, setSeed] = useState(game.current.seed);
+  const [started, setStarted] = useState(false), [panelsVisible, setPanelsVisible] = useState(true), [panelOpen, setPanelOpen] = useState(true), [folding, setFolding] = useState(false);
+  const [message, setMessage] = useState<{ text: string; tone: Tone } | null>(null);
   const [commanding, setCommanding] = useState<Commanding | null>(null);
   const { metricSize } = useHudMetricSize();
-  const selection = scene.selection?.nodeId ?? null;
-  const pending = useRef<LogEntry[]>([]), nextLog = useRef(1), floats = useRef<Floating[]>([]);
+  const nextFloat = useRef(1), floats = useRef<Floating[]>([]);
   const quiet = useRef(false), quietRevision = useRef(0);
 
   // The scene clock drives the game: pause and speed apply to both.
@@ -70,20 +68,15 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       nodes: () => { const time = game.current.time; floats.current = floats.current.filter(item => time - item.start < FLOAT_SECONDS); return playNodes(game.current, floats.current, quiet.current); },
       snapshot: () => viewOf(game.current),
     };
-    return runFeedLoop({ feed: () => feed, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace(nodes), onRecords: value => { setView(value); if (pending.current.length) { const entries = pending.current.splice(0); setLog(current => [...entries.reverse(), ...current].slice(0, LOG_SIZE)); } } });
+    return runFeedLoop({ feed: () => feed, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace(nodes), onRecords: setView });
   }, [store, game]);
-  // Notices of the current game feed the shift log.
+  // Sales float their points over the scene; a command that could no longer start says why.
   useEffect(() => game.current.subscribe((notice: ShiftNotice) => {
-    const time = game.current.clock, add = (text: string, points?: number) => pending.current.push({ id: nextLog.current++, time, text, ...(points !== undefined ? { points } : {}) });
-    if (notice.type === 'scored') { add(notice.text, notice.points); if (notice.at) floats.current.push({ id: nextLog.current, points: notice.points, at: notice.at, start: notice.time }); }
-    if (notice.type === 'event-opened') add(`${notice.event.title}: ${notice.event.text}`);
-    if (notice.type === 'cutoff') add(`${carrierOf(notice.carrier).name} cut-off: ${notice.missed} ${notice.missed === 1 ? 'order' : 'orders'} missed`);
-    if (notice.type === 'move-ended' && notice.outcome === 'refused') add(`${moveLabel(notice.move)}: ${notice.reason}`);
-    if (notice.type === 'move-dropped') add(`${moveLabel(notice.move)}: dropped for an event's command`);
-    if (notice.type === 'departed') add(`${carrierOf(notice.carrier).name} truck left${notice.sent ? '' : ' at its cut-off'}`);
+    if (notice.type === 'scored') floats.current.push({ id: nextFloat.current++, points: notice.points, at: notice.at, start: notice.time });
+    if (notice.type === 'move-ended' && notice.outcome === 'refused') setMessage({ text: `${moveLabel(notice.move)}: ${notice.reason}`, tone: 'critical' });
   }), [game, generation]);
-  // Time of day: studio light by day, dusk from 16:00, night light on the night shift.
-  const lighting = lightingAt(game.current.level, view.clock);
+  // Time of day: studio light by day, dusk from 16:00.
+  const lighting = lightingAt(view.clock);
   useEffect(() => { if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting }); }, [store, lighting]);
 
   // The sources of the commanded actor and the chosen source, read when the game's records change.
@@ -171,37 +164,35 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   };
   const onPointer = useCallback((event: ScenePointerEvent) => pointer.current(event), []);
 
-  const restart = (level: EcommerceScenario, value: number) => {
+  const restart = (level: ShiftScenario, value: number) => {
     game.current.dispose();
     game.current = createShiftGame({ scenario: level, seed: value });
     floats.current = []; quiet.current = false;
     setCommanding(null);
-    store.select(null); store.replace(playNodes(game.current, [])); store.configure({ paused: true, lighting: lightingAt(game.current.level, game.current.clock) });
-    pending.current = []; setLog([]); setMessage(null); setStarted(false); setScenario(level); setSeed(value); setGeneration(current => current + 1); refresh();
+    store.select(null); store.replace(playNodes(game.current, [])); store.configure({ paused: true, lighting: lightingAt(game.current.clock) });
+    setMessage(null); setStarted(false); setScenario(level); setSeed(value); setGeneration(current => current + 1); refresh();
   };
   const start = () => { setStarted(true); store.configure({ paused: false }); };
   const finish = () => { close(); game.current.advance(SHIFT_SECONDS); refresh(); };
   const overview = () => { const value = renderer.current; if (value && !value.getDiagnostics().disposed) value.overview(); close(); };
-  // A choice from the panels takes it when it is a lit source of the commanded actor; otherwise it selects and centres it.
+  // A choice from the panel takes it when it is a lit source of the commanded actor; otherwise it selects and centres it.
   const select = (node: string) => {
     if (commanding?.picking && !source && sources.some(item => item.node === node)) { takeSource(node); return; }
     store.select(node, 'keyboard'); show(node);
   };
+  const send = (carrier: CarrierStatus) => command(() => game.current.depart(), `The ${carrier.name} truck leaves once no cage is on its way to it.`);
 
-  const { snapshot, score, decisions, report } = view, paused = scene.settings.paused;
-  const next = view.carriers.filter(item => item.remaining !== null).sort((a, b) => a.remaining! - b.remaining!)[0];
-  const present = new Set(scene.nodes.map(node => node.id));
-  const eventNodes = view.events.map(event => ({ event, node: eventNode(snapshot, event) })).map(item => ({ ...item, node: item.node && present.has(item.node) ? item.node : undefined }));
+  const { snapshot, score, report, channels, bike } = view, paused = scene.settings.paused;
+  const sold = score.lines.reduce((sum, line) => sum + line.count, 0);
+  const shelves = shelfState(snapshot), truck = view.carriers.find(item => item.loading), parcelChannels = channels.filter(item => item.id !== 'checkout');
+  const waiting = parcelChannels.reduce((sum, item) => sum + item.cage, 0);
   // Pallets in staging, which the reach truck puts away: buttons for them help where a click in the scene is hard.
   const staged = useMemo(() => view.snapshot.units.filter(unit => unit.kind === 'pallet' && unit.sku && unit.at === 'On the floor' && game.current.options(unit.id, 'reach-truck').some(choice => [...choice.options.map(option => option.move.kind), ...choice.refused.map(item => item.kind)].includes('put-away'))), [view, game]);
-  const detailNode = commanding?.source ?? selection;
-  // Options are read when the game's records change, not on every scene frame.
-  const detail = useMemo(() => detailNode ? detailOf(detailNode, {
-    snapshot: view.snapshot, actors: view.actors, carriers: view.carriers, choices: game.current.options(detailNode),
-    count: id => { const node = store.getSnapshot().nodes.find(item => item.id === id); return node && 'count' in node && typeof node.count === 'number' ? node.count : undefined; },
-  }) : null, [detailNode, view, game, store]);
+  // The shift panel folds into the bottom bar: it sinks toward the bar, then the bar shows its tab with the score.
+  const fold = () => { if (folding) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setPanelOpen(false); return; } setFolding(true); window.setTimeout(() => { setFolding(false); setPanelOpen(false); }, 180); };
+  const scoreButton = <button type="button" className="co-panel-tab" aria-expanded={panelOpen} aria-label={`Open the shift panel, score ${score.total}`} onClick={() => setPanelOpen(true)}><Flag size={14} />Shift<strong>{score.total}</strong><ChevronDown size={14} className="co-tab-chevron" /></button>;
 
-  return <section className="co-viewport hud-viewport" aria-label="Cut-off shift game" data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel="none" data-side-panel="events" data-commanding={commanding ? 'true' : undefined}>
+  return <section className="co-viewport hud-viewport" aria-label="Cut-off shift game" data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel="none" data-commanding={commanding ? 'true' : undefined}>
     <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} onPointer={onPointer} /></div>
 
     {/* The pills are the keyboard's way to take and bring: hidden until focused, so the scene shows only the tints and ghosts. */}
@@ -218,9 +209,6 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <ActionRing layout="card" density="compact" unfold={unfoldKey.current === ringKey} title={actorOf(commanding.actor)!.label} label={`Commands of ${actorOf(commanding.actor)!.label}`} tone={MACHINES.has(commanding.actor) ? 'warning' : 'success'}
         actions={actorActions(actorOf(commanding.actor)!, view, game.current, (run, text) => command(run, text), { picking: commanding.picking, available: sources.length > 0, toggle: toggleMove })} />
     </NodeHtml>}
-    {!view.over && eventNodes.filter(item => item.node).map(({ event, node }) => <NodeHtml key={event.id} nodeId={node!} align="below" className="co-event-anchor">
-      <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />
-    </NodeHtml>)}
     {commanding?.picking && <div className="co-picking" role="status" aria-label="Giving a command">
       <Crosshair size={15} /><span><strong>{actorOf(commanding.actor)?.label}:</strong> {source ? `taking ${source.label} · click a ghost to bring it there` : sources.length ? 'click a tinted object to take' : 'nothing to take now'} · a click elsewhere ends · Escape goes back</span>
       <button type="button" onClick={() => back.current()}>{source ? 'Back' : 'Cancel'}</button>
@@ -230,63 +218,55 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
       <DataPanel className="hud-navigation" label="Shift" density="compact" slots={{ header: <div className="hud-navigation-heading"><span className="hud-symbol dp-tone" data-tone="info"><Timer size={24} /></span><div className="hud-navigation-title"><span className="hud-eyebrow">GAME / SHIFT LEAD</span><h1>Cut-off</h1></div><span className="hud-clock co-clock" role="timer" aria-label="Shift clock"><strong>{view.clock}</strong></span></div> }}>
         <div className="hud-navigation-control">
           <label htmlFor="co-level">Level</label>
-          <select id="co-level" aria-label="Level" value={scenario} onChange={event => restart(event.target.value as EcommerceScenario, seed)}>{LEVELS.map(item => <option key={item.scenario} value={item.scenario}>{item.title}</option>)}</select>
+          <select id="co-level" aria-label="Level" value={scenario} onChange={event => restart(event.target.value as ShiftScenario, seed)}>{LEVELS.map(item => <option key={item.scenario} value={item.scenario}>{item.title}</option>)}</select>
           <label htmlFor="co-seed">Seed</label>
           <input id="co-seed" className="co-seed" aria-label="Seed" type="number" min={1} max={9999} value={seed} onChange={event => setSeed(Math.max(1, Math.min(9999, Math.round(Number(event.target.value) || 1))))} />
           <button type="button" onClick={() => restart(scenario, seed)}><RotateCcw size={13} />New shift</button>
         </div>
       </DataPanel>
       <HudMetrics label="Shift metrics" size={metricSize} metrics={[
-        { id: 'score', title: 'Score', value: score.total, tone: toneOf(score.total), comparison: `${report.carriers.reduce((sum, item) => sum + item.onTime, 0)} shipped on time · ${report.carriers.reduce((sum, item) => sum + item.late, 0)} late`, icon: <Trophy size={16} /> },
-        { id: 'cutoff', title: 'Next cut-off', value: next ? `${Math.ceil(next.remaining!)} min` : '—', tone: !next ? 'neutral' : next.open && next.remaining! < 45 ? 'critical' : next.open ? 'warning' : 'success', comparison: next ? `${next.name} ${next.cutoff} · ${next.open} ${next.open === 1 ? 'order' : 'orders'} in the building` : 'No cut-off on this shift', icon: <Clock3 size={16} /> },
-        { id: 'material', title: 'Pallets put away', value: report.putAway, tone: report.putAway ? 'success' : 'neutral', comparison: `${report.unloaded} unloaded · ${snapshot.staging} in staging · ${snapshot.alerts.length} pick ${snapshot.alerts.length === 1 ? 'face' : 'faces'} low`, icon: <Boxes size={16} /> },
-        { id: 'events', title: 'Open events', value: view.events.length, tone: view.events.length ? 'warning' : 'success', comparison: view.events.length ? `Answer within ${minutesLeft(Math.min(...view.events.map(item => item.deadline)), view.time)} min` : `${report.events.length} answered`, icon: <Bell size={16} /> },
+        { id: 'score', title: 'Score', value: score.total, tone: toneOf(score.total), comparison: `${plural(sold, 'item')} sold`, icon: <Trophy size={16} /> },
+        { id: 'shelves', title: 'Shop shelves', value: `${shelves.percent}%`, tone: shelves.empty.length ? 'critical' : shelves.percent < 30 ? 'warning' : 'success', comparison: shelves.empty.length ? `Empty: ${shelves.empty.join(', ')}` : 'Every department has goods', icon: <Store size={16} /> },
+        { id: 'parcels', title: 'Parcels in cages', value: waiting, tone: waiting > 8 ? 'warning' : 'neutral', comparison: parcelChannels.map(item => `${item.id === 'truck' ? 'trucks' : item.id} ${item.cage}`).join(' · '), icon: <Package size={16} /> },
+        { id: 'leaves', title: bike.away ? 'Bike back in' : 'Bike leaves in', value: `${Math.ceil(bike.next)} min`, tone: !bike.away && channels.find(item => item.id === 'bike')!.cage && bike.next < 15 ? 'warning' : 'neutral', comparison: truck ? `${truck.name} truck leaves ${truck.remaining !== null ? `at ${truck.cutoff}` : 'when you send it'}` : 'No truck at D3', icon: <Clock3 size={16} /> },
       ]} />
     </div>}
 
-    {panelsVisible && <DataPanel className="hud-floating-panel co-summary" title="Shift" label="Shift summary" description="Click one of the crew, Move, then what to take and where to bring it · Escape goes back" density="compact" slots={{ icon: <Flag size={16} /> }}>
+    {panelsVisible && panelOpen && <DataPanel id="co-shift-panel" className={`hud-floating-panel co-summary${folding ? ' co-folding' : ''}`} title="Shift" label="Shift summary" description="Every item sold scores its channel's points · keep the shelves and outlets supplied" density="compact" slots={{ icon: <Flag size={16} />, actions: <button type="button" className="co-fold" aria-label="Fold the shift panel into the bottom bar" title="Fold into the bottom bar" onClick={fold}><ChevronDown size={16} /></button> }}>
       {message && <p className="co-message" role="status" data-tone={message.tone}>{message.text}</p>}
+      <section className="co-section" aria-label="Sales channels"><h3>Sales <span>{plural(sold, 'item')} · {score.total} points</span></h3>
+        <table className="co-channels"><tbody>{channels.map(item => <tr key={item.id}>
+          <th scope="row"><button type="button" className="co-name" onClick={() => select(item.node)}>{item.label}</button><small>{item.points} {item.points === 1 ? 'point' : 'points'} per item</small></th>
+          <td>{channelNow(item, view)}{item.id === 'truck' && truck && <button type="button" className="co-send" disabled={view.departing} aria-label={`Send the ${truck.name} truck now`} onClick={() => send(truck)}>{view.departing ? 'Leaving' : 'Send'}</button>}</td>
+          <td className="co-sold"><strong>{item.sold}</strong><small>+{item.sold * item.points}</small></td>
+        </tr>)}</tbody></table>
+      </section>
       <section className="co-section" aria-label="Crew"><h3>Crew <span>commanding: {commanding ? actorOf(commanding.actor)?.label : 'none'}</span></h3>
         <div className="co-crew">{view.actors.map(actor => <button key={actor.id} type="button" className="co-portrait" aria-pressed={actor.id === commanding?.actor} aria-label={`${actor.label}: ${actorNow(actor)}`} data-waiting={actor.waiting ? 'true' : undefined} onClick={() => commandActor(actor.id)}>
           <strong>{actor.label}</strong><span>{actorNow(actor)}</span>
           <em>{actor.queue.length}/{QUEUE_LIMIT}{actor.assist ? ' · auto' : ''}</em>
         </button>)}</div>
       </section>
+      <section className="co-section" aria-label="Stock"><h3>Stock</h3><ul className="co-list">
+        {DEPARTMENTS.filter(item => snapshot.shop.facings[item.id] === 0).map(item => <li key={item.id}><button type="button" className="co-name" onClick={() => select(`gondola:${item.id}:0`)}>{item.label}</button><span>Department empty: its sales are lost</span></li>)}
+        {snapshot.alerts.length ? snapshot.alerts.map(alert => <li key={alert.sku}><button type="button" className="co-name" onClick={() => select(faceNode(SKUS[alert.sku].pick))}>{SKUS[alert.sku].pick}</button><span>{alert.sku} below minimum · {alert.onHand}/{alert.min}</span></li>) : <li><span>Every pick face at its minimum</span></li>}
+      </ul></section>
       <section className="co-section" aria-label="Receiving"><h3>Receiving <span>{snapshot.staging} of 6 in staging</span></h3><ul className="co-list">
-        {snapshot.docks.filter(dock => dock.direction === 'inbound').map(dock => {
-          const late = decisions.late[dock.id];
-          return <li key={dock.id}><button type="button" className="co-name" onClick={() => select(`dock:${dock.id}`)}>Dock {dock.id}</button><span><HudDockStatus status={dock.status} />{dock.pallets ? ` ${dock.pallets.total - dock.pallets.done} of ${dock.pallets.total} left` : ''}{late !== undefined ? ` · late${Number.isFinite(late) ? ` for ${minutesLeft(late, view.time)} min` : ''}` : ''}</span></li>;
-        })}
+        {snapshot.docks.filter(dock => dock.direction === 'inbound').map(dock => <li key={dock.id}><button type="button" className="co-name" onClick={() => select(`dock:${dock.id}`)}>Dock {dock.id}</button><span><HudDockStatus status={dock.status} />{dock.pallets ? ` ${dock.pallets.total - dock.pallets.done} of ${dock.pallets.total} left` : ''}</span></li>)}
       </ul>
         {staged.length > 0 && <div className="co-staged" role="group" aria-label="Pallets in staging">{staged.map(unit => <button key={unit.id} type="button" aria-label={`Pallet ${unit.id.slice(7)} in staging, ${GOODS_LABELS[skuGoods(unit.sku!)]}`} onClick={() => select(unit.id)}><i style={{ background: GOODS_COLORS[skuGoods(unit.sku!)] }} aria-hidden="true" />{unit.id.slice(7)}</button>)}</div>}
         <p className="co-room">Free rack positions <strong>{rackRoom(snapshot).free}/{rackRoom(snapshot).total}</strong> · any pallet, any place</p>
         <ul className="co-legend" aria-label="Pallet colors by type of goods">{goodsLegend().map(item => <li key={item.goods}><i style={{ background: item.color }} aria-hidden="true" /><span>{item.label}</span></li>)}</ul>
       </section>
-      <section className="co-section" aria-label="Stock"><h3>Stock</h3><ul className="co-list">
-        {snapshot.alerts.length ? snapshot.alerts.map(alert => <li key={alert.sku}><button type="button" className="co-name" onClick={() => select(faceNode(SKUS[alert.sku].pick))}>{SKUS[alert.sku].pick}</button><span>{alert.sku} below minimum · {alert.onHand}/{alert.min}</span></li>) : <li><span>Every pick face at its minimum</span></li>}
-        {snapshot.shopOpen && DEPARTMENTS.filter(item => snapshot.shop.facings[item.id] === 0).map(item => <li key={item.id}><button type="button" className="co-name" onClick={() => select(`gondola:${item.id}:0`)}>{item.label}</button><span>Department empty</span></li>)}
-      </ul></section>
-      <section className="co-section" aria-label="Shipping"><h3>Shipping</h3><ul className="co-list">{view.carriers.map(item => <li key={item.carrier}><strong>{item.name}</strong><span>{item.cutoff}{item.remaining !== null ? ` · ${Math.ceil(item.remaining)} min left` : ' · passed or none'} · {item.open} open</span>
-        {item.loading && <button type="button" disabled={decisions.departing} aria-label={`Send the ${item.name} truck now`} onClick={() => command(() => game.current.depart(), `The ${item.name} truck leaves once no cage is on its way.`)}>{decisions.departing ? 'Leaving' : 'Send'}</button>}</li>)}</ul></section>
-      <section className="co-section" aria-label="Open events"><h3>Events</h3>{eventNodes.length ? <ul className="co-list">{eventNodes.map(({ event, node }) => <li key={event.id}><strong>{event.title}</strong><span>{minutesLeft(event.deadline, view.time)} min to decide</span>
-        {node ? <button type="button" onClick={() => show(node)}>Show</button> : <EventCard event={event} time={view.time} onAnswer={choice => command(() => game.current.answer(event.id, choice.id), `${event.title}: ${choice.label}.`)} />}</li>)}</ul> : <p className="co-empty">No events right now.</p>}</section>
-    </DataPanel>}
-
-    {panelsVisible && <DataPanel className="hud-side-panel co-side" title={detail?.title ?? 'Detail'} label="Detail" description={detail?.eyebrow ?? 'Nothing selected'} density="compact" slots={{ icon: <Info size={16} /> }}>
-      <section className="co-detail" aria-label="Selected object">{detail
-        ? <dl>{detail.color && <div><dt>Color</dt><dd><i className="co-swatch" style={{ background: detail.color }} aria-hidden="true" />type of goods</dd></div>}{detail.lines.map(line => <div key={line.label}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
-        : <p className="co-empty">{selection ? 'Nothing to tell about this object.' : 'Click one of the crew to give a command, or any truck dock, pallet, rack, pick face, gondola or roll cage for its detail.'}</p>}</section>
-      <ScoreTable score={score} />
-      <ActivityFeed className="co-log" title="Shift log" label="Shift log" density="compact" items={log.map(entry => ({ id: String(entry.id), timeLabel: entry.time, content: entry.text, ...(entry.points !== undefined ? { meta: <StatusBadge label={signed(entry.points)} tone={toneOf(entry.points)} /> } : {}) }))} />
     </DataPanel>}
 
     {!started && !view.over && <div className="co-dialog-layer"><DataPanel className="co-dialog" title={SHIFT_LEVELS[scenario].title} label="Shift briefing" description={`${SHIFT_LEVELS[scenario].start} start · seed ${seed} · eight hours in eight minutes`} slots={{ icon: <Flag size={18} /> }}>
       <p>{SHIFT_LEVELS[scenario].description}</p>
       <ul className="co-rules">
-        <li>Receive, put away, replenish, restock and ship: the forklift, reach truck, replenisher, shelf filler and dispatcher move material only on your commands, unless they work by themselves.</li>
-        <li>Give a command from the card over one of the crew: Move tints what it can take; click the pallet, truck, pick face or roll cage to take (a ghost of it shows each place it can go), then the ghost. The card also holds Stop and the Auto switch, and a click elsewhere closes it. Tab reaches the same choices from the keyboard; Escape goes back.</li>
-        <li>Each of the crew holds three commands; unloading, filling a pick face and restocking repeat until done. A pallet may go into any free rack position.</li>
-        <li>Ship before each carrier&apos;s cut-off; trucks waiting on a dock and empty shop departments cost points. Events open over their object; without an answer the default applies after 45 minutes.</li>
+        <li>Every item sold scores the points of its channel: {CHANNEL_POINTS}. Nothing else scores.</li>
+        <li>Keep the shop&apos;s shelves stocked: unload the trucks, put pallets away, bring them behind the pick faces, fill the lanes and restock the departments. A shopper who finds a department empty leaves without its goods.</li>
+        <li>Packers put each parcel into the roll cage of its outlet. Send the dispatcher with a cage to the click &amp; collect counter, the parcel lockers or the delivery bike before customers come and before the bike leaves on its round; carriers&apos; cages go onto their truck at D3 before its cut-off.</li>
+        <li>Give a command from the card over one of the crew: Move tints what it can take; click it, then the ghost where it should go. Auto lets one work by itself, Stop ends a command, and Escape goes back. Each holds three commands.</li>
       </ul>
       <button type="button" className="co-primary" onClick={start}><Play size={14} />Start shift</button>
     </DataPanel></div>}
@@ -295,6 +275,7 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
     <div className="hud-viewport-controls">
       <HudZoom rendererRef={renderer} defaultZoom={DEFAULT_ZOOM} />
       <DataPanel className="hud-viewport-toolbar" label="Viewport controls" density="compact">
+        {panelsVisible && !panelOpen && <div className="hud-toolbar-group co-tab-group">{scoreButton}</div>}
         <div className="hud-toolbar-group hud-scene-controls"><button type="button" aria-pressed={paused} aria-label={paused ? 'Resume shift' : 'Pause shift'} disabled={!started || view.over} onClick={() => store.configure({ paused: !paused })}>{paused ? <Play size={14} /> : <Pause size={14} />}{paused ? 'Resume' : 'Pause'}</button>
           {SPEEDS.map(value => <button key={value} type="button" aria-pressed={scene.settings.speed === value} aria-label={`Speed ${value}×`} onClick={() => store.configure({ speed: value })}>{value}×</button>)}
           <button type="button" disabled={!started || view.over} onClick={finish}><FastForward size={14} />Finish shift</button>
@@ -305,12 +286,32 @@ function CutoffViewport({ game }: { game: { current: ShiftGame } }) {
   </section>;
 }
 
+/** The channels' points in words, for the briefing. */
+const CHANNEL_POINTS = 'shop checkouts 1 per item, click & collect 2, parcel lockers 3, the delivery bike 3 and carrier trucks 2';
+/** How stocked the shop's shelves are, and its empty departments. */
+function shelfState(snapshot: EcommerceSnapshot) {
+  const capacity = DEPARTMENTS.reduce((sum, item) => sum + departmentCapacity(item.id), 0), facings = DEPARTMENTS.reduce((sum, item) => sum + snapshot.shop.facings[item.id], 0);
+  return { percent: Math.round(facings / capacity * 100), empty: DEPARTMENTS.filter(item => snapshot.shop.facings[item.id] === 0).map(item => item.label) };
+}
+/** What a channel holds and waits for now, in words. */
+function channelNow(channel: ChannelStatus, view: GameView): string {
+  switch (channel.id) {
+    case 'checkout': { const shelves = shelfState(view.snapshot); return `Shelves ${shelves.percent}% full${shelves.empty.length ? ` · ${shelves.empty.length} empty` : ''}`; }
+    case 'counter': return `${channel.there} ready · ${channel.cage} in the cage`;
+    case 'lockers': return `${channel.there} of ${channel.capacity} filled · ${channel.cage} in the cage`;
+    case 'bike': return view.bike.away ? `On a round, back at ${clockPlus(view.clock, view.bike.next)} · ${channel.cage} in the cage` : `${channel.there}/${channel.capacity} loaded, leaves at ${clockPlus(view.clock, view.bike.next)} · ${channel.cage} in the cage`;
+    case 'truck': {
+      const truck = view.carriers.find(item => item.loading);
+      return truck ? `${truck.name} at D3${truck.remaining !== null ? `, leaves at ${truck.cutoff}` : ''} · ${channel.cage} in the cages` : `No truck at D3 · ${channel.cage} in the cages`;
+    }
+  }
+}
+
 /** The machines among the crew; the ring shows them in the warning tone and the people in the success tone. */
 const MACHINES = new Set(['forklift', 'reach-truck']);
 /**
  * The commands of the action ring over the commanded actor: stop or cancel its commands, switch its assist, send the truck
- * (the dispatcher), and Move, which lights what it can take in the scene. What it does and holds is in the detail panel; a click
- * elsewhere or Escape closes the ring.
+ * (the dispatcher), and Move, which lights what it can take in the scene. A click elsewhere or Escape closes the ring.
  */
 function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, move: { picking: boolean; available: boolean; toggle: () => void }): RingAction<ReactNode>[] {
   const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined, [current, next] = actor.queue;
@@ -318,36 +319,25 @@ function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (a
     ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square fill="currentColor" />, tone: 'critical' as const, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
     ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, tone: 'warning' as const, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
     { id: 'auto', label: 'Auto', switch: true, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
-    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, tone: 'info' as const, disabled: view.decisions.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way.`) }] : []),
+    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, tone: 'info' as const, disabled: view.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way to it.`) }] : []),
     // Move lights what the actor can take; pressed while choosing, a second press puts it away.
     { id: 'move', label: 'Move', icon: <MoveIcon />, tone: 'success', primary: true, pressed: move.picking, disabled: !move.available && !move.picking, onSelect: move.toggle },
   ];
 }
 
-/** An open event over the object it concerns, with its countdown and choices. */
-function EventCard({ event, time, onAnswer }: { event: ShiftEvent; time: number; onAnswer(choice: ShiftEvent['choices'][number]): void }) {
-  return <article className="co-event" aria-label={event.title}>
-    <header><strong>{event.title}</strong><span>{minutesLeft(event.deadline, time)} min to decide</span></header>
-    <p>{event.text}</p>
-    <div className="co-choices">{event.choices.map(choice => <button key={choice.id} type="button" onClick={() => onAnswer(choice)}><strong>{choice.label}</strong><span>{choice.effect}{choice.id === event.fallback ? ' (default)' : ''}</span></button>)}</div>
-  </article>;
-}
-
 function ScoreTable({ score }: { score: ShiftScore }) {
-  const lines = score.lines.filter(line => line.count || line.points);
-  return <section className="co-score" aria-label="Score"><h3>Score <span>{score.total}</span></h3>{lines.length ? <table><tbody>{lines.map(line => <tr key={line.id}><td>{line.label}</td><td>{line.count}</td><td data-tone={toneOf(line.points)}>{signed(line.points)}</td></tr>)}</tbody></table> : <p className="co-empty">Nothing scored yet.</p>}</section>;
+  return <section className="co-score" aria-label="Score"><h3>Sales <span>{score.total} points</span></h3><table><thead><tr><th>Channel</th><th>Items</th><th>Points</th></tr></thead><tbody>{score.lines.map(line => <tr key={line.id}><td>{line.label}</td><td>{line.count}</td><td data-tone={toneOf(line.points)}>{line.points ? `+${line.points}` : '0'}</td></tr>)}</tbody></table></section>;
 }
 
 function Report({ report, onAgain, onNext }: { report: ShiftReport; onAgain(): void; onNext(): void }) {
   return <DataPanel className="co-dialog co-report" title="End of shift" label="End of shift report" description={`${report.level.title} · seed ${report.seed} · ${report.clock}`} slots={{ icon: <Trophy size={18} /> }}>
     <p className="co-total">Score <strong>{report.score.total}</strong></p>
-    <ul className="co-totals">
-      <li><strong>{report.shipped}</strong> orders shipped</li><li><strong>{report.collected}</strong> click &amp; collect</li><li><strong>{report.unloaded}</strong> pallets unloaded</li>
-      <li><strong>{report.putAway}</strong> pallets put away</li><li><strong>{report.replenished}</strong> cartons into pick faces</li><li><strong>{report.restocked}</strong> cartons to the shop</li>
-    </ul>
-    <div className="hud-table"><table><thead><tr><th>Carrier</th><th>Cut-off</th><th>On time</th><th>Late</th><th>Missed</th></tr></thead><tbody>{report.carriers.map(item => <tr key={item.carrier}><td>{item.name}</td><td>{item.cutoff}</td><td>{item.onTime}</td><td>{item.late}</td><td>{item.missed}</td></tr>)}</tbody></table></div>
     <ScoreTable score={report.score} />
-    <div className="co-actions"><button type="button" className="co-primary" onClick={onAgain}><RotateCcw size={14} />Play again</button><button type="button" onClick={onNext}><Truck size={14} />Next level</button></div>
+    <ul className="co-totals">
+      <li><strong>{report.unloaded}</strong> pallets unloaded</li><li><strong>{report.putAway}</strong> pallets put away</li>
+      <li><strong>{report.replenished}</strong> cartons into pick faces</li><li><strong>{report.restocked}</strong> cartons to the shop</li>
+    </ul>
+    <div className="co-actions"><button type="button" className="co-primary" onClick={onAgain}><RotateCcw size={14} />Play again</button><button type="button" onClick={onNext}><Boxes size={14} />Next level</button></div>
   </DataPanel>;
 }
 

@@ -1,55 +1,66 @@
 import { describe, expect, it } from 'vitest';
-import type { AssetNode } from '@opsorama/core';
-import type { EcommerceScenario } from '../apps/site/src/features/ecommerce/model';
 import type { Move } from '../apps/site/src/features/ecommerce/simulation';
-import { QUEUE_LIMIT, SHIFT_SECONDS, createShiftGame, type ShiftEvent, type ShiftEventKind, type ShiftGame, type ShiftNotice } from '../apps/site/src/features/cutoff/rules';
+import { CHANNELS, POINTS, QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type SalesChannel, type ShiftGame, type ShiftNotice, type ShiftScenario } from '../apps/site/src/features/cutoff/rules';
 /** Move options without their ghost places, which the tests of previews check on their own. */
 const bare = <T extends { previews?: unknown }>(items: readonly T[]) => items.map(item => { const { previews, ...rest } = item; void previews; return rest; });
 
 type Command = readonly [number, (game: ShiftGame) => void];
-/**
- * Play a shift: commands at their times, and each event answered with the choice given for its kind (unlisted kinds run out to
- * their default).
- */
-function play(scenario: EcommerceScenario, commands: readonly Command[] = [], answers: Partial<Record<ShiftEventKind, string>> = {}, slice = 1) {
-  const game = createShiftGame({ scenario, seed: 1 }), notices: ShiftNotice[] = [], pending: ShiftEvent[] = [];
-  game.subscribe(notice => { notices.push(notice); if (notice.type === 'event-opened' && answers[notice.event.kind]) pending.push(notice.event); });
+/** Play a shift with commands at their times. */
+function play(scenario: ShiftScenario, commands: readonly Command[] = [], slice = 1) {
+  const game = createShiftGame({ scenario, seed: 1 }), notices: ShiftNotice[] = [];
+  game.subscribe(notice => notices.push(notice));
   const queue = [...commands].sort((a, b) => a[0] - b[0]);
   while (!game.over) {
     while (queue.length && queue[0][0] <= game.time + 1e-9) queue.shift()![1](game);
-    for (const event of pending.splice(0)) game.answer(event.id, answers[event.kind]!);
     game.advance(slice);
   }
   return { game, notices, report: game.report() };
 }
 /** Run until the condition holds or the shift ends. */
 function until(game: ShiftGame, done: () => boolean, limit = SHIFT_SECONDS) { while (!done() && game.time < limit && !game.over) game.advance(.5); return done(); }
-const opened = (game: ShiftGame, kind: ShiftEventKind) => { let event: ShiftEvent | undefined; const stop = game.subscribe(notice => { if (notice.type === 'event-opened' && notice.event.kind === kind) event = notice.event; }); expect(until(game, () => !!event)).toBe(true); stop(); return event!; };
-const dock = (game: ShiftGame, id: string) => game.snapshot().docks.find(item => item.id === id)!;
-const points = (game: ShiftGame, id: string) => game.score().lines.find(line => line.id === id)!;
+const line = (game: ShiftGame, id: SalesChannel) => game.score().lines.find(item => item.id === id)!;
+const channel = (game: ShiftGame, id: SalesChannel) => game.channels().find(item => item.id === id)!;
 const actor = (game: ShiftGame, id: string) => game.actors().find(item => item.id === id)!;
-const robot = (game: ShiftGame) => game.nodes().find(node => node.id === 'robot:0') as AssetNode;
 const staging = (game: ShiftGame) => game.snapshot().units.filter(unit => unit.kind === 'pallet' && unit.at === 'On the floor').map(unit => unit.id);
 /** The best put-away of a pallet in staging. */
 const putAway = (game: ShiftGame, pallet: string) => game.options(pallet, 'reach-truck')[0].options[0].move;
 const ended = (notices: readonly ShiftNotice[], actorId: string) => notices.filter((notice): notice is Extract<ShiftNotice, { type: 'move-ended' }> => notice.type === 'move-ended' && notice.actor === actorId);
+const scored = (notices: readonly ShiftNotice[]) => notices.filter((notice): notice is Extract<ShiftNotice, { type: 'scored' }> => notice.type === 'scored');
 
 describe('Cut-off shift game', () => {
   it('runs a level from its start to the end of the shift, then stops', () => {
-    for (const [scenario, start, end] of [['steady', '10:00', '18:00'], ['peak', '10:00', '18:00'], ['night', '22:00', '06:00']] as const) {
+    expect(Object.keys(SHIFT_LEVELS)).toEqual(['steady', 'peak']);
+    for (const scenario of ['steady', 'peak'] as const) {
       const game = createShiftGame({ scenario, seed: 1 }), notices: ShiftNotice[] = [];
       game.subscribe(notice => notices.push(notice));
-      expect(game.clock).toBe(start);
+      expect(game.clock).toBe('10:00');
       game.advance(90);
-      expect(game.clock).toBe(scenario === 'night' ? '23:30' : '11:30');
+      expect(game.clock).toBe('11:30');
       game.advance(SHIFT_SECONDS);
-      expect([game.over, game.time, game.clock]).toEqual([true, SHIFT_SECONDS, end]);
+      expect([game.over, game.time, game.clock]).toEqual([true, SHIFT_SECONDS, '18:00']);
       expect(notices.filter(notice => notice.type === 'shift-ended')).toHaveLength(1);
       expect(() => game.move('forklift', { kind: 'unload', dock: 'D1' })).toThrow('The shift is over.');
       game.advance(10);
       expect(game.time).toBe(SHIFT_SECONDS);
       game.dispose();
     }
+  });
+
+  it('scores only items sold, each with the points of its channel', () => {
+    expect(CHANNELS.map(item => [item.id, item.points])).toEqual([['checkout', 1], ['counter', 2], ['lockers', 3], ['bike', 3], ['truck', 2]]);
+    const { game, notices, report } = play('peak');
+    // Every point comes from a sale; nothing else scores.
+    const sales = scored(notices);
+    expect(sales.length).toBeGreaterThan(0);
+    expect(sales.every(notice => notice.points === notice.items * POINTS[notice.channel] && notice.items > 0)).toBe(true);
+    expect(report.score.total).toBe(sales.reduce((sum, notice) => sum + notice.points, 0));
+    expect(report.score.lines.map(item => item.id)).toEqual(CHANNELS.map(item => item.id));
+    for (const item of report.score.lines) expect(item.points).toBe(item.count * POINTS[item.id]);
+    // Checkout sales float over their lane, collections over the counter and the lockers.
+    expect(sales.find(notice => notice.channel === 'checkout')?.at).toMatch(/^checkout:C[123]$/);
+    expect(new Set(sales.filter(notice => notice.channel === 'counter' || notice.channel === 'lockers').map(notice => notice.at))).toEqual(new Set(['collect:counter', 'collect:lockers']));
+    // Nobody shipped the carriers' cages or took a cage to the bike.
+    expect([line(game, 'truck').count, line(game, 'bike').count]).toEqual([0, 0]);
   });
 
   it('leaves the crew idle without commands, unless their assist is on', () => {
@@ -84,12 +95,13 @@ describe('Cut-off shift game', () => {
     expect(() => game.move('reach-truck', { kind: 'put-away', pallet: d, rack: 'R04', position: 1 })).toThrow('A position in R04 needs a level and is 1 or 2.');
     expect(() => game.move('forklift', moves[0])).toThrow('The forklift does not put away; that is a move of the reach truck.');
     expect(() => game.move('dispatcher', { kind: 'ship', cage: 'parcelo-1' })).toThrow('The truck at D3 is SwiftPost\'s; parcelo-1 goes with Parcelo.');
+    expect(() => game.move('dispatcher', { kind: 'ship', cage: 'bike-1' })).toThrow('No parcels for the delivery bike are packed.');
     expect(() => game.cancelMove('reach-truck', 0)).toThrow('Reach truck works on command 0; stop it instead.');
     expect(() => game.cancelMove('reach-truck', 2)).toThrow('Reach truck has no waiting command 2; waiting commands: 1 to 1.');
     expect(() => game.stop('forklift')).toThrow('Forklift has no command to stop.');
     expect(until(game, () => actor(game, 'reach-truck').queue.length === 0)).toBe(true);
     expect(ended(notices, 'reach-truck').map(notice => notice.outcome)).toEqual(['done', 'done']);
-    expect(points(game, 'put-away').count).toBe(2);
+    expect(game.report().putAway).toBe(2);
     game.dispose();
   });
 
@@ -136,22 +148,22 @@ describe('Cut-off shift game', () => {
     expect(game.options('cage:swift-1').map(item => item.options.map(option => option.move))).toEqual([[{ kind: 'ship', cage: 'swift-1' }]]);
     expect(game.options('checkout:C1')).toEqual([]);
     expect(game.options(pallet, 'forklift')).toEqual([]);
+    // The outlet cages go to their outlet once a packer has put a parcel in; the ghost stands where the cage is unloaded.
+    expect(game.options('cage:lockers-1')[0].refused).toEqual([{ kind: 'ship', target: 'Parcel lockers', reason: 'No parcels for the parcel lockers are packed.' }]);
+    expect(until(game, () => channel(game, 'counter').cage > 0)).toBe(true);
+    expect(game.options('cage:counter-1').map(item => bare(item.options))).toEqual([[{ move: { kind: 'ship', cage: 'counter-1' }, target: 'Click & collect counter' }]]);
+    expect(game.options('cage:counter-1')[0].options[0].previews).toEqual([{ position: [-10.55, expect.any(Number), .4], yaw: -Math.PI / 2, size: [1, 2, 1], ghost: 'cage:counter-1' }]);
     game.dispose();
   });
 
-  it('charges docked trucks that nobody unloads', () => {
-    const idle = play('peak'), unloaded = play('peak', [[0, game => { game.move('forklift', { kind: 'unload', dock: 'D1' }); game.assist('reach-truck', true); }]], { 'late-truck': 'expedite' });
-    expect(dock(idle.game, 'D2')).toMatchObject({ status: 'expected', pallets: { done: 0 } });
-    expect(points(unloaded.game, 'truck-waiting').count).toBeLessThan(points(idle.game, 'truck-waiting').count);
-    expect(points(idle.game, 'truck-waiting').count).toBeGreaterThan(30);
-  });
-
-  it('sends the outbound truck at its cut-off or when the player says, and scores what it ships', () => {
+  it('sends the outbound truck at its cut-off or when the player says, and scores the items it takes', () => {
     const game = createShiftGame({ scenario: 'peak' }), notices: ShiftNotice[] = [];
     game.subscribe(notice => notices.push(notice));
+    const parcels = channel(game, 'truck').cage;
     game.move('dispatcher', { kind: 'ship', cage: 'swift-1' });
     expect(until(game, () => actor(game, 'dispatcher').queue.length === 0)).toBe(true);
-    expect(points(game, 'on-time').count).toBeGreaterThan(0);
+    expect(channel(game, 'truck').cage).toBeLessThan(parcels);
+    expect(scored(notices).filter(notice => notice.channel === 'truck')).toEqual([expect.objectContaining({ at: 'dock:D3', points: 2 * line(game, 'truck').count })]);
     // It stays until the SwiftPost cut-off at 11:30, 90 minutes into the shift.
     until(game, () => notices.some(notice => notice.type === 'departed'));
     expect(notices.find(notice => notice.type === 'departed')).toMatchObject({ carrier: 'swift', sent: false, time: expect.closeTo(90, 0) });
@@ -159,115 +171,67 @@ describe('Cut-off shift game', () => {
     // The Parcelo truck docks next; the player sends it early.
     expect(until(game, () => game.carriers()[1].loading)).toBe(true);
     game.depart();
-    expect(game.decisions().departing).toBe(true);
+    expect(game.departing).toBe(true);
     game.advance(1);
     expect(notices.filter(notice => notice.type === 'departed').at(-1)).toMatchObject({ carrier: 'parcelo', sent: true });
-    expect(game.decisions().departing).toBe(false);
+    expect(game.departing).toBe(false);
     game.dispose();
   });
 
-  it('robot breakdown: the technician brings it back sooner for points', () => {
-    for (const [choice, back] of [['repair', 30], ['wait', 150]] as const) {
-      const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'robot-breakdown');
-      expect(robot(game).state).toBe('critical');
-      game.answer(event.id, choice);
-      const at = event.opened + back;
-      until(game, () => game.time >= at - 1); expect(robot(game).state).toBe('critical');
-      until(game, () => game.time >= at + .5); expect(robot(game).state).toBeUndefined();
-      expect(points(game, 'events').points).toBe(choice === 'repair' ? -8 : 0);
+  it('takes outlet cages to the counter and the lockers, where customers collect the parcels for points', () => {
+    for (const outlet of ['counter', 'lockers'] as const) {
+      const game = createShiftGame({ scenario: 'peak' }), notices: ShiftNotice[] = [];
+      game.subscribe(notice => notices.push(notice));
+      expect(until(game, () => channel(game, outlet).cage > 0)).toBe(true);
+      const before = channel(game, outlet), sold = line(game, outlet).count;
+      game.move('dispatcher', { kind: 'ship', cage: `${outlet}-1` });
+      expect(until(game, () => notices.some(notice => notice.type === 'delivered'))).toBe(true);
+      expect(notices.find(notice => notice.type === 'delivered')).toMatchObject({ outlet, parcels: before.cage });
+      expect(channel(game, outlet).there).toBeGreaterThan(0);
+      expect(until(game, () => line(game, outlet).count > sold)).toBe(true);
+      expect(scored(notices).filter(notice => notice.channel === outlet).at(-1)).toMatchObject({ at: outlet === 'counter' ? 'collect:counter' : 'collect:lockers' });
       game.dispose();
     }
   });
 
-  it('short pick: replenishing queues the reach truck and the replenisher, cancelling removes the order', () => {
-    const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'short-pick');
-    expect(event.choices.map(choice => choice.id)).toEqual(['replenish', 'cancel', 'wait']);
-    expect(event.text).toBe('Order #50419 waits: OUT-215 is out at pick face F3.');
-    game.move('reach-truck', putAway(game, staging(game)[0]));
-    game.answer(event.id, 'replenish');
-    // The replenishment goes right after the command the reach truck works on.
-    expect(actor(game, 'reach-truck').queue.map(move => move.kind)).toEqual(['put-away', 'replenish']);
-    expect(actor(game, 'replenisher').queue).toEqual([{ kind: 'decant', face: 'F3' }]);
-    expect(until(game, () => game.report().replenished > 0)).toBe(true);
-    game.dispose();
-    for (const choice of ['cancel', 'wait']) {
-      const other = createShiftGame({ scenario: 'peak' }), short = opened(other, 'short-pick');
-      other.answer(short.id, choice);
-      expect(other.snapshot().orders.some(order => order.id === short.subject)).toBe(choice === 'wait');
-      expect(points(other, 'events').points).toBe(choice === 'cancel' ? -6 : 0);
-      other.dispose();
-    }
-  });
-
-  it('late truck: a priority slot costs points, waiting holds its unload for 90 minutes', () => {
-    for (const choice of ['expedite', 'wait']) {
-      const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'late-truck');
-      game.move('forklift', { kind: 'unload', dock: event.subject as never });
-      game.advance(.5);
-      expect(actor(game, 'forklift').waiting).toBe(`The truck at ${event.subject} is late; answer its event first.`);
-      game.answer(event.id, choice);
-      game.advance(.5);
-      if (choice === 'wait') expect(actor(game, 'forklift').waiting).toMatch(new RegExp(`^The truck at ${event.subject} is late; it may unload from \\d\\d:\\d\\d\\.$`));
-      until(game, () => game.report().unloaded > 0);
-      expect(game.time >= event.opened + 90).toBe(choice === 'wait');
-      expect(points(game, 'events').points).toBe(choice === 'expedite' ? -10 : 0);
-      game.dispose();
-    }
-  });
-
-  it('store rush: restocking puts the two emptiest departments first for the shelf filler', () => {
-    const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'store-rush');
-    expect(event.choices.map(choice => choice.id)).toEqual(['restock', 'ride']);
-    const facings = game.snapshot().shop.facings;
-    game.answer(event.id, 'restock');
-    const queue = actor(game, 'shelf-filler').queue;
-    expect(queue).toHaveLength(2);
-    expect(queue.every(move => move.kind === 'restock' && move.source === 'face')).toBe(true);
-    const [first, second] = queue.map(move => move.kind === 'restock' ? facings[move.department] : -1);
-    expect(first).toBeLessThanOrEqual(second);
-    expect(points(game, 'events').points).toBe(0);
+  it('loads the delivery bike, which leaves on its round with the parcels and comes back', () => {
+    const game = createShiftGame({ scenario: 'peak' }), notices: ShiftNotice[] = [];
+    game.subscribe(notice => notices.push(notice));
+    expect(game.bike()).toEqual({ away: false, next: 45 });
+    expect(until(game, () => channel(game, 'bike').cage > 0)).toBe(true);
+    game.move('dispatcher', { kind: 'ship', cage: 'bike-1' });
+    expect(until(game, () => channel(game, 'bike').there > 0)).toBe(true);
+    const loaded = channel(game, 'bike').there;
+    expect(until(game, () => game.bike().away)).toBe(true);
+    // It left with every parcel loaded: their items score the bike's points over the bike as it rides off.
+    expect(scored(notices).filter(notice => notice.channel === 'bike')).toEqual([expect.objectContaining({ at: 'courier-bike', points: 3 * line(game, 'bike').count, text: `Delivery bike left with ${loaded} ${loaded === 1 ? 'parcel' : 'parcels'}` })]);
+    expect(channel(game, 'bike').there).toBe(0);
+    // While it is out, a cage for it waits.
+    expect(game.bike().next).toBeCloseTo(25, 0);
+    expect(until(game, () => !game.bike().away)).toBe(true);
     game.dispose();
   });
 
-  it('key customer: a promise puts the order first and pays off only before the cut-off', () => {
-    const shipping: readonly Command[] = [[0, game => game.assist('dispatcher', true)]];
-    const promised = play('peak', shipping, { 'vip-order': 'first' }), declined = play('peak', shipping, { 'vip-order': 'decline' });
-    const result = (notices: readonly ShiftNotice[]) => notices.flatMap(notice => notice.type === 'scored' && notice.line === 'events' && /Key customer/.test(notice.text) ? [notice.points] : []);
-    expect(result(promised.notices)).toHaveLength(1);
-    expect([20, -10]).toContain(result(promised.notices)[0]);
-    expect(result(declined.notices)).toEqual([]);
-    const game = createShiftGame({ scenario: 'peak' }), event = opened(game, 'vip-order');
-    expect(() => game.answer(event.id, 'maybe')).toThrow('Key customer has no choice maybe; choices: first, decline.');
-    game.answer(event.id, 'first');
-    expect(() => game.answer(event.id, 'first')).toThrow(`No open event ${event.id}.`);
-    game.dispose();
-  });
-
-  it('reports the carriers, conditions and revisions the HUD reads', () => {
+  it('reports the channels, carriers and revisions the HUD reads', () => {
     const game = createShiftGame({ scenario: 'peak' }), records = game.recordsRevision;
+    expect(game.channels().map(item => [item.id, item.capacity])).toEqual([['checkout', 0], ['counter', 8], ['lockers', 16], ['bike', 6], ['truck', 0]]);
+    // The shelves start less than half full; six parcels wait in the lockers.
+    expect(channel(game, 'checkout').there).toBeLessThan(240);
+    expect(channel(game, 'lockers').there).toBe(6);
     expect(game.carriers()).toMatchObject([{ carrier: 'swift', cutoff: '11:30', remaining: 90, loading: true }, { carrier: 'parcelo', cutoff: '16:00', remaining: 360, loading: false }]);
     game.move('forklift', { kind: 'unload', dock: 'D1' });
     expect(game.recordsRevision).toBeGreaterThan(records);
-    expect(game.decisions()).toEqual({ late: {}, stopped: {}, departing: false });
     const scene = game.sceneRevision;
     game.advance(100);
     expect(game.sceneRevision).toBeGreaterThan(scene);
     expect(game.carriers()[0].remaining).toBeNull();
     expect(game.carriers()[1].remaining).toBeCloseTo(260);
     game.dispose();
-    const night = createShiftGame({ scenario: 'night' });
-    expect(night.carriers().map(item => item.remaining)).toEqual([null, null]);
-    night.dispose();
-  });
-
-  it('applies the default choice when an event is not answered in time', () => {
-    const { report } = play('night');
-    expect(report.events).toEqual([{ kind: 'late-truck', choice: 'wait', auto: true }]);
   });
 
   it('scores a scripted shift on every level', () => {
     const all = (game: ShiftGame) => { for (const item of game.actors()) game.assist(item.id, true); };
-    const scripts: Record<EcommerceScenario, readonly Command[]> = {
+    const scripts: Record<ShiftScenario, readonly Command[]> = {
       // Quiet Tuesday runs on assist; the player sends the Parcelo truck once its parcels are out.
       steady: [[300, game => { if (game.carriers()[1].loading) game.depart(); }]],
       peak: [
@@ -275,22 +239,17 @@ describe('Cut-off shift game', () => {
         [1, game => { for (const pallet of staging(game).slice(0, 3)) game.move('reach-truck', putAway(game, pallet)); }],
         [100, all],
       ],
-      night: [[0, all]],
     };
-    const answers = { 'robot-breakdown': 'repair', 'late-truck': 'expedite', 'store-rush': 'restock', 'vip-order': 'first', 'short-pick': 'replenish' } as const;
-    const totals = Object.fromEntries((Object.keys(scripts) as EcommerceScenario[]).map(scenario => {
-      const { game, report } = play(scenario, scripts[scenario], answers);
-      // The night bonus goes to a shift that ends with every pick face at or above its minimum.
-      expect(points(game, 'stocked').count, scenario).toBe(scenario === 'night' && !game.snapshot().alerts.length ? 1 : 0);
-      return [scenario, [report.score.total, report.shipped, report.putAway, report.replenished, report.restocked]];
+    const totals = Object.fromEntries((Object.keys(scripts) as ShiftScenario[]).map(scenario => {
+      const { report } = play(scenario, scripts[scenario]);
+      return [scenario, [report.score.total, ...report.score.lines.map(item => item.count), report.putAway, report.replenished, report.restocked]];
     }));
     expect(totals).toEqual(RECORDED_TOTALS);
   });
 
   it('gives the same result for the same seed and commands, however time is sliced', () => {
-    const commands: readonly Command[] = [[0, game => { game.move('forklift', { kind: 'unload', dock: 'D1' }); game.assist('reach-truck', true); }], [12.5, game => game.assist('replenisher', true)], [60, game => game.move('dispatcher', { kind: 'ship', cage: 'swift-1' })], [200, game => game.assist('shelf-filler', true)]];
-    const answers = { 'robot-breakdown': 'repair', 'store-rush': 'restock' } as const;
-    const a = play('peak', commands, answers, .5), b = play('peak', commands, answers, .5), c = play('peak', commands, answers, .1);
+    const commands: readonly Command[] = [[0, game => { game.move('forklift', { kind: 'unload', dock: 'D1' }); game.assist('reach-truck', true); }], [12.5, game => game.assist('replenisher', true)], [60, game => game.move('dispatcher', { kind: 'ship', cage: 'swift-1' })], [200, game => { game.assist('shelf-filler', true); game.assist('dispatcher', true); }]];
+    const a = play('peak', commands, .5), b = play('peak', commands, .5), c = play('peak', commands, .1);
     expect(b.report).toEqual(a.report);
     expect(b.notices).toEqual(a.notices);
     expect(c.report).toEqual(a.report);
@@ -301,5 +260,8 @@ describe('Cut-off shift game', () => {
   });
 });
 
-/** Score, orders shipped, pallets put away, cartons replenished and cartons restocked of each scripted shift; record new ones only when the rules are meant to change. */
-const RECORDED_TOTALS = { steady: [120, 14, 0, 1, 2], peak: [253, 33, 7, 11, 4], night: [44, 0, 11, 1, 0] };
+/**
+ * Score; items sold at the checkouts, at the counter, from the lockers, by bike and by truck; pallets put away, cartons
+ * replenished and cartons restocked of each scripted shift. Record new ones only when the rules are meant to change.
+ */
+const RECORDED_TOTALS = { steady: [145, 68, 6, 6, 3, 19, 0, 2, 5], peak: [229, 110, 11, 7, 2, 35, 6, 15, 4] };

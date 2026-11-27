@@ -1,12 +1,11 @@
 import type { LightingPreset, MarkerNode, MarkerTone, SceneNode, TextNode } from '@opsorama/core';
-import { DEPARTMENTS, GOODS_COLORS, faceGoods, minutesOf, skuGoods, type DepartmentId, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
+import { DEPARTMENTS, GOODS_COLORS, cageOutlet, faceGoods, minutesOf, skuGoods, type DepartmentId, type EcommerceSnapshot, type LocationId } from '../ecommerce/model';
 import { DOCK_WAITING_NOTE, type Move } from '../ecommerce/simulation';
-import { eventNode } from './menu';
-import type { ActorView, CarrierStatus, ShiftDecisions, ShiftEvent, ShiftGame, ShiftLevel } from './rules';
+import type { ActorView, BikeStatus, CarrierStatus, ChannelStatus, ShiftGame } from './rules';
 
 const palletNumber = (pallet: string) => pallet.split(':')[1];
 const departmentLabel = (id: string) => DEPARTMENTS.find(item => item.id === id)?.label ?? id;
-/** A command in words, for the menus and the shift log. */
+/** A command in words, for the menus and the messages. */
 export function moveLabel(move: Move): string {
   switch (move.kind) {
     case 'unload': return `Unload the truck at ${move.dock}`;
@@ -15,30 +14,28 @@ export function moveLabel(move: Move): string {
     case 'clear': return `Take the empty pallet from ${move.face} to the stack`;
     case 'decant': return `Fill ${move.face} from its pallet`;
     case 'restock': return move.source === 'transfer' ? `Take the shop transfer to ${departmentLabel(move.department)}` : `Restock ${departmentLabel(move.department)}`;
-    case 'ship': return `Load ${move.cage} onto the truck`;
+    case 'ship': { const outlet = cageOutlet(move.cage); return outlet ? `Take the parcels to the ${outlet.label.toLowerCase()}` : `Load ${move.cage} onto the truck`; }
   }
 }
 
-/** Time of day from the existing presets: studio light by day, dusk from 16:00 and night light on the night shift. */
-export function lightingAt(level: ShiftLevel, clock: string): LightingPreset {
-  if (level.scenario === 'night') return 'night';
+/** Time of day from the existing presets: studio light by day, dusk from 16:00. */
+export function lightingAt(clock: string): LightingPreset {
   return minutesOf(clock) >= DUSK ? 'dusk' : 'studio';
 }
 const DUSK = 16 * 60;
 
 /** What the markers read from the game. */
-export interface ProblemState { snapshot: EcommerceSnapshot; events: readonly ShiftEvent[]; decisions: ShiftDecisions; carriers: readonly CarrierStatus[]; actors: readonly ActorView[]; time: number; }
+export interface ProblemState { snapshot: EcommerceSnapshot; channels: readonly ChannelStatus[]; carriers: readonly CarrierStatus[]; bike: BikeStatus; actors: readonly ActorView[]; }
 /** Height above the carrying node's origin where a marker or floating text starts, in metres. */
 const MARKER_HEIGHT = 2.6, FLOAT_HEIGHT = 2, FLOAT_RISE = .9;
-/** Customers queuing at one lane when it gets a warning; the game's walk-outs start here. */
-const LONG_QUEUE = 3;
-/** Minutes before a cut-off when its open orders get a critical marker. */
-const CUTOFF_WARNING = 30;
+/** Minutes before a cut-off, or before the bike leaves, when the parcels still in their cage get a marker. */
+const CUTOFF_WARNING = 30, BIKE_WARNING = 15;
+const parcels = (count: number) => `${count} ${count === 1 ? 'parcel' : 'parcels'}`;
 
 /**
- * Scene markers for the problems of the moment, attached to the object they concern: open events, stopped machines,
- * a near cut-off, empty departments, long queues, trucks waiting to unload and actors waiting with a command. One marker per
- * object, the most urgent first.
+ * Scene markers for what is about to lose sales, attached to the object it concerns: an empty shop department, an outlet with
+ * nothing to hand over while its parcels wait in their cage, the bike or a truck about to leave without parcels still in their
+ * cages, trucks waiting to unload and actors waiting with a command. One marker per object, the most urgent first.
  */
 export function problemMarkers(state: ProblemState, present: ReadonlySet<string>): MarkerNode[] {
   const markers = new Map<string, MarkerNode>();
@@ -47,17 +44,13 @@ export function problemMarkers(state: ProblemState, present: ReadonlySet<string>
     markers.set(nodeId, { id: `marker:${nodeId}`, kind: 'marker', attachment: { nodeId }, position: [0, MARKER_HEIGHT, 0], tone, eyebrow, label, ...(detail ? { detail } : {}) });
   };
   const { snapshot } = state;
-  for (const event of state.events) {
-    const node = eventNode(snapshot, event);
-    if (node) add(node, event.kind === 'robot-breakdown' ? 'critical' : event.kind === 'vip-order' ? 'info' : 'warning', 'EVENT', event.title, `${Math.max(0, Math.ceil(event.deadline - state.time))} min to decide`);
-  }
-  for (const [machine, until] of Object.entries(state.decisions.stopped)) add(machine, 'critical', 'STOPPED', 'Machine stopped', Number.isFinite(until) ? `Back in ${Math.ceil(until - state.time)} min` : 'Waiting for your decision');
-  const cutoff = state.carriers.filter(item => item.remaining !== null && item.remaining <= CUTOFF_WARNING && item.open).sort((a, b) => a.remaining! - b.remaining!)[0];
-  if (cutoff) add('dock:D3', 'critical', 'CUT-OFF', `${cutoff.name} ${cutoff.cutoff}`, `${cutoff.open} ${cutoff.open === 1 ? 'order' : 'orders'} still in the building · ${Math.ceil(cutoff.remaining!)} min left`);
-  if (snapshot.shopOpen) {
-    for (const department of DEPARTMENTS) if (snapshot.shop.facings[department.id] === 0) add(`gondola:${department.id}:0`, 'critical', 'SHELVES', `${department.label} is empty`);
-    for (const lane of snapshot.shop.checkouts) if (lane.open && lane.queue >= LONG_QUEUE) add(`checkout:${lane.id}`, 'warning', 'QUEUE', `Checkout ${lane.id.slice(1)}: ${lane.queue} waiting`, 'Customers leave a queue this long');
-  }
+  for (const department of DEPARTMENTS) if (snapshot.shop.facings[department.id] === 0) add(`gondola:${department.id}:0`, 'critical', 'SHELVES', `${department.label} is empty`, 'Shoppers leave without its goods');
+  const truck = state.carriers.find(item => item.loading && item.remaining !== null && item.remaining <= CUTOFF_WARNING);
+  const truckCage = state.channels.find(item => item.id === 'truck')!.cage;
+  if (truck && truckCage) add('dock:D3', 'critical', 'CUT-OFF', `${truck.name} leaves at ${truck.cutoff}`, `${parcels(truckCage)} still in the cages · ${Math.ceil(truck.remaining!)} min left`);
+  const bike = state.channels.find(item => item.id === 'bike')!;
+  if (!state.bike.away && bike.cage && state.bike.next <= BIKE_WARNING) add('cage:bike-1', 'warning', 'BIKE', `Bike leaves in ${Math.ceil(state.bike.next)} min`, `${parcels(bike.cage)} still in the cage`);
+  for (const outlet of state.channels.filter(item => item.id === 'counter' || item.id === 'lockers')) if (!outlet.there && outlet.cage) add(outlet.node, 'warning', 'EMPTY', `${outlet.label}: nothing to hand over`, `${parcels(outlet.cage)} wait in the cage`);
   for (const dock of snapshot.docks) if (dock.status === 'expected' && dock.note === DOCK_WAITING_NOTE) add(`dock:${dock.id}`, 'info', 'DOCK', `${dock.reference} waits to unload`, `Command the forklift to unload dock ${dock.id}`);
   for (const actor of state.actors) if (actor.waiting) add(actor.id, 'info', 'WAITS', actor.label, actor.waiting);
   return [...markers.values()];
@@ -105,6 +98,6 @@ const MAX_FLOATS = 12;
  */
 export function playNodes(game: ShiftGame, floats: readonly Floating[], commanding = false): SceneNode[] {
   const snapshot = game.snapshot(), nodes = playable(game.nodes(), snapshot), present = new Set(nodes.map(node => node.id));
-  const markers = commanding ? [] : problemMarkers({ snapshot, events: game.events(), decisions: game.decisions(), carriers: game.carriers(), actors: game.actors(), time: game.time }, present);
+  const markers = commanding ? [] : problemMarkers({ snapshot, channels: game.channels(), carriers: game.carriers(), bike: game.bike(), actors: game.actors() }, present);
   return [...nodes, ...markers, ...floatingNodes(floats.slice(-MAX_FLOATS), present, game.time)];
 }
