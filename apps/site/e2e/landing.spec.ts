@@ -30,6 +30,10 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /cutoff\.webp/);
   await carousel.getByRole('button', { name: 'Show slide 5: Built with AI coding agents' }).click();
   await expect(carousel.getByRole('link', { name: 'Read about validation' })).toHaveAttribute('href', '/docs/validation');
+  // An agent builds the office behind the panel, and its log shows the prompt and the nodes it adds.
+  const log = page.getByRole('region', { name: 'Coding agent log (illustration)' });
+  await expect(log).toBeVisible({ timeout: 30_000 });
+  await expect(log.getByText(/^\+ wall-segment/).first()).toBeVisible({ timeout: 30_000 });
   await carousel.getByRole('button', { name: 'Next slide' }).click();
   await expect(carousel.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
   expect(errors).toEqual([]);
