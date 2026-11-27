@@ -144,7 +144,7 @@ function streetLife(): AssetNode[] {
   const north: Vec3[] = [at(NORTH_ROAD_X + LANE, MIDDLE_Z - 6), at(NORTH_ROAD_X + LANE, ROAD_END_Z), at(NORTH_ROAD_X - LANE, ROAD_END_Z), at(NORTH_ROAD_X - LANE, MIDDLE_Z - 6)];
   const vehicle = (id: string, asset: string, points: readonly Vec3[], speed: number, elapsed: number, color?: string) => fixture(`traffic:${id}`, asset, points[0], { route: loop(points, speed, elapsed), ...(color ? { color } : {}) });
   const traffic = [
-    vehicle('van-1', 'delivery-van', pool, 8, 0, '#f2c14e'), vehicle('truck-1', 'truck', pool, 7, 11), vehicle('bike-1', 'cargo-bike', pool, 4, 40),
+    vehicle('van-1', 'delivery-van', pool, 8, 0, '#f2c14e'), vehicle('truck-1', 'truck', pool, 7, 11), { ...vehicle('bike-1', 'cargo-bike', pool, 4, 40), variant: 'operated' },
     vehicle('van-2', 'delivery-van', office, 8, 5, '#d9694f'), vehicle('van-3', 'delivery-van', office, 8, 24), vehicle('van-4', 'delivery-van', north, 7, 8, '#3f8f7a'),
   ];
   const walkers = ([[-210, -186, -4], [-170, -130, -4], [-116, -72, -4], [-170, -130, -46], [-112, -70, -46], [-50, -8, -38]] as const).map(([from, to, z], i) =>
