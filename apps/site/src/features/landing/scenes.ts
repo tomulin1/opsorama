@@ -6,18 +6,21 @@ import { createEcommerceSimulation, createEcommerceStore } from '../ecommerce/si
 import { createShiftGame } from '../cutoff/rules';
 import { DEFAULT_ZOOM as WAREHOUSE_ZOOM, createWarehouseStore } from '../warehouse/scene';
 import { lightingAt, playNodes } from '../cutoff/scene';
+import { createAgentBuild, type AgentLog } from './agent-build';
 
 /**
  * The scenes behind the home page carousel. Each one is a domain example's own scene and feed, created when its slide
  * is shown and disposed when another scene takes its place, so the home page never copies example code.
  */
-export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff';
+export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff' | 'office';
 
 export interface LandingScene {
   store: SceneStore;
   /** The example's default zoom, for the zoom controls' reset. */
   zoom: number;
   controllers?: typeof ecommerceControllers;
+  /** The coding agent's log, for the scene an agent builds before the visitor's eyes. */
+  log?: AgentLog;
   /** Starts the scene's feed on its store; returns the stop function. */
   run?(): () => void;
   dispose(): void;
@@ -58,7 +61,7 @@ function cutoffScene(): LandingScene {
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, run: () => feedStore(store, feed, light), dispose: () => { store.dispose(); game.dispose(); } };
 }
 
-const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, warehouse: warehouseScene, datacenter: datacenterScene, cutoff: cutoffScene };
+const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, warehouse: warehouseScene, datacenter: datacenterScene, cutoff: cutoffScene, office: createAgentBuild };
 export function createLandingScene(id: LandingSceneId): LandingScene { return FACTORIES[id](); }
 /** Gallery preview of each scene, known before the scene exists. */
-export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff' };
+export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff', office: 'office' };
