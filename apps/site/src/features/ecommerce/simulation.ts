@@ -3,11 +3,11 @@ import type { PickTarget } from '@opsorama/three';
 import { assetHandling, handlingProfiles, finalForkPose, forkMoveSeconds, personHairColor, type ForkMotion, type ForkMove, type ForkPose } from '@opsorama/objects';
 import { createHandlingState, handlingItemPolicy, type AssetHandling, type FloorPlacement } from '@opsorama/objects/handling';
 import {
-  CARRIERS, DEPARTMENTS, departmentCapacity, LOCATIONS, SCENARIOS, SKUS, carrier as carrierOf, location, minutesOf, reserveOf, skuGoods, stagedFor,
-  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
+  BIKE_CAPACITY, CARRIERS, DEPARTMENTS, departmentCapacity, LOCATIONS, OUTLETS, SCENARIOS, SKUS, cageOutlet, carrier as carrierOf, heldAt, location, minutesOf, orderOutlet, outlet as outletOf, reserveOf, skuGoods, stagedAt, stagedFor,
+  type ActivityEvent, type CarrierId, type Checkout, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceScenario, type EcommerceSnapshot, type LocationId, type Order, type OutletId, type PackStationId, type PutWallId, type StockAlert, type UnitKind, type UnitRecord,
 } from './model';
 import {
-  APRON_Y, BELT_END_X, BELT_Y, BELT_Z, CAGE_X, CAGE_Z, CART_AT_INDUCT, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
+  APRON_Y, BELT_END_X, BELT_Y, BELT_Z, BIKE_AT, BIKE_FROM_WEST, BIKE_GONE_EAST, CAGE_X, CART_AT_INDUCT, OUTLET_CAGE_X, OUTLET_DROPS, cageAt, CHECKOUT_X, DEFAULT_ZOOM, DOCK_Z, FEMININE, FLOOR_Y, GONDOLAS, PACK_X, PALLET_STACK, PUT_WALL_X, RACK_LEVELS, ROBOT_DECK, SHOPPERS, STACKED_PALLET, STAFF, STAGING_SPOTS, TRUCK_X, YARD_X,
   ALONG_Z, CART_CORRAL, RACK_TURN, dockMouth, ecommerceNodes, ecommerceSlots, queuePoints, replenishSpot, warehouseNavigation,
 } from './scene';
 
@@ -177,7 +177,10 @@ export type Move =
   | { kind: 'decant'; face: LocationId }
   /** Shelf filler: cartons from the department's pick face to its gondolas until they are full or the face reaches its minimum, or one shop transfer. */
   | { kind: 'restock'; department: DepartmentId; source: 'face' | 'transfer' }
-  /** Dispatcher: a roll cage's parcels onto the truck of its carrier at the outbound dock. */
+  /**
+   * Dispatcher: a roll cage's parcels onto the truck of its carrier at the outbound dock, or, with the sales channels, an outlet
+   * cage's parcels to its outlet: the click & collect counter, the parcel lockers or the delivery bike, as many as it has room for.
+   */
   | { kind: 'ship'; cage: string };
 export type MoveKind = Move['kind'];
 /** Whether a move can start now: `wait` means it can once there is room, and the actor waits for it. */
@@ -213,6 +216,13 @@ export interface EcommerceSimulationOptions {
   directorDeparts?: boolean;
   /** A customer who finds this many people queuing at their lane leaves without paying. Without it, everyone queues. */
   walkOutAt?: number;
+  /**
+   * The shop sells parcels through its own outlets too (`OUTLETS`): new orders go to the click & collect counter, the parcel
+   * lockers, the delivery bike or a carrier's truck. Packers put each parcel into the roll cage of its outlet, and only the
+   * dispatcher takes a cage to its outlet. Customers collect at the counter and the lockers, and the bike leaves on its rounds with
+   * what is loaded. Orders come more often. Off for the dashboard.
+   */
+  salesChannels?: boolean;
   /** Receives every event from the start, including those of the starting dispatch; `subscribe` adds listeners later. */
   onEvent?: (event: EcommerceEvent) => void;
 }
@@ -220,8 +230,14 @@ export interface EcommerceSimulationOptions {
 export type EcommerceEvent = { time: number } & (
   | { type: 'ordered'; order: Order }
   | { type: 'shipped'; carrier: CarrierId; orders: readonly Order[] }
+  /** A customer collected an order at the click & collect counter or, with the sales channels, from the parcel lockers. */
   | { type: 'collected'; order: Order }
-  | { type: 'served'; lane: CheckoutId }
+  /** A customer paid at a checkout for the `items` in the basket. */
+  | { type: 'served'; lane: CheckoutId; items: number }
+  /** Sales channels: the dispatcher brought parcels to an outlet. */
+  | { type: 'delivered'; outlet: OutletId; orders: readonly Order[] }
+  /** Sales channels: the delivery bike left on a round with these parcels. */
+  | { type: 'bike-left'; orders: readonly Order[] }
   | { type: 'walked-out'; lane: CheckoutId }
   /** An order the pickers had to skip for lack of stock; reported once per order. */
   | { type: 'short-pick'; order: Order; sku: string }
@@ -274,7 +290,7 @@ const pad = (value: number) => String(value).padStart(2, '0');
 const clock = (minutes: number) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
 const seeded = (seed: number) => () => { seed = seed + 0x6d2b79f5 >>> 0; let t = seed; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const above = ([x, y, z]: Vec3, height: number): Vec3 => [x, y + height, z];
-const cageHome = (cage: string): Vec3 => [CAGE_X[cage], FLOOR_Y, CAGE_Z];
+const cageHome = (cage: string): Vec3 => cageAt(cage);
 const pathLength = (points: readonly Vec3[]) => points.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - points[i][0], point[1] - points[i][1], point[2] - points[i][2]), 0);
 
 /**
@@ -303,6 +319,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   const claimed = new Set<string>(), staging: (string | null)[] = STAGING_SPOTS.map(() => null), stagingBooked = new Set<number>(), replenishing = new Map<string, Replenishment>(), belt: { tote: string; place: number; arrived: boolean }[] = [];
   const truckLoads = new Map<DockId, string[]>(), trucks = new Map<DockId, Truck>(), carts: Record<string, number> = {}, shoppers = new Map<string, Shopper>(), transfers: DepartmentId[] = [], forks = new Map<string, ForkMotion>();
   let outboundTrips = 0, bookedCage: string | null = null, lastEntry = -Infinity;
+  /** The sales channels: outlet cages, lockers with real orders, and the delivery bike's rounds. */
+  const channels = !!options.salesChannels;
   /** Docked inbound trucks waiting for the director, lanes closing once served, and the lane each paying customer heads for. */
   const holding = new Set<DockId>(), closing = new Set<CheckoutId>(), heading = new Map<string, CheckoutId>();
   const listeners = new Set<(event: EcommerceEvent) => void>(options.onEvent ? [options.onEvent] : []), shortReported = new Set<string>();
@@ -397,7 +415,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     units.get(id)!.label = palletLabel(id, sku); staging[i] = id;
   }
   // Roll cages are real wheeled units too; their nodes keep showing the snapshot's parcel count.
-  for (const cage of Object.keys(CAGE_X)) { handling.register([{ id: `cage:${cage}`, asset: 'roll-cage' }]); handling.move([{ unit: `cage:${cage}`, to: { position: cageHome(cage), yaw: 0 } }]); }
+  const cageIds = [...Object.keys(CAGE_X), ...(channels ? Object.keys(OUTLET_CAGE_X) : [])];
+  for (const cage of cageIds) { handling.register([{ id: `cage:${cage}`, asset: 'roll-cage' }]); handling.move([{ unit: `cage:${cage}`, to: { position: cageHome(cage), yaw: 0 } }]); }
 
   /* ── Agents ───────────────────────────────────────────────────────────── */
 
@@ -699,14 +718,16 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     claimed.add(order.id);
     const home = PACK_X[bench], parcel = spawn('parcel', [home, FLOOR_Y + 1.2, 2.9], `Parcel · ${order.id}`, { orderId: order.id, hidden: true });
     const steps: BehaviorStep[] = [{ kind: 'interact', node: `pack:${bench}`, group: 'work', seconds: [6, 9], pickUp: [parcel], label: `Packing ${order.id}` }];
-    const deliver = order.carrier ? freeCage(order.carrier) ?? carrierOf(order.carrier).cages[0] : undefined;
-    if (deliver) steps.push({ kind: 'interact', node: `cage:${deliver}`, group: 'load', seconds: 1.5, pose: 'placing', putDown: 'all', putOn: handed(`cage:${deliver}:load`, above(cageHome(deliver), .6)), label: `Loading the ${carrierOf(order.carrier!).name} cage` });
+    // With the sales channels every parcel goes into a cage: its carrier's, or its outlet's.
+    const outlet = channels ? orderOutlet(order) : undefined;
+    const deliver = outlet ? outletOf(outlet).cage : order.carrier ? freeCage(order.carrier) ?? carrierOf(order.carrier).cages[0] : undefined;
+    if (deliver) steps.push({ kind: 'interact', node: `cage:${deliver}`, group: 'load', seconds: 1.5, pose: 'placing', putDown: 'all', putOn: handed(`cage:${deliver}:load`, above(cageHome(deliver), .6)), label: `Loading the ${outlet ? outletOf(outlet).label : carrierOf(order.carrier!).name} cage` });
     else steps.push({ kind: 'interact', node: 'collect:counter', slot: 'handover', seconds: 1.5, putDown: 'all', putOn: handed('collect:counter:handover', [-11.1, FLOOR_Y + 1.1, .8]), label: 'Handing over at click & collect' });
     return {
       what: `Packing ${order.id}`, steps,
       items: {
         0: () => { show(parcel); patchOrder(order.id, { at: undefined }); },
-        1: () => absorb(parcel, () => { claimed.delete(order.id); patchOrder(order.id, { stage: deliver ? 'staged' : 'collect' }); log(deliver ? `Order ${order.id} staged for ${carrierOf(order.carrier!).name}.` : `Order ${order.id} is ready to collect.`, 'success'); }),
+        1: () => absorb(parcel, () => { claimed.delete(order.id); patchOrder(order.id, { stage: deliver ? 'staged' : 'collect' }); log(deliver ? `Order ${order.id} staged for ${outlet ? `the ${outletOf(outlet).label.toLowerCase()}` : carrierOf(order.carrier!).name}.` : `Order ${order.id} is ready to collect.`, 'success'); }),
       },
     };
   }
@@ -715,8 +736,16 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
 
   const outbound = () => records.docks.find(dock => dock.direction === 'outbound');
   const loadingCarrier = () => { const dock = outbound(); return dock?.status === 'loading' ? CARRIERS.find(item => item.name === dock.partner) : undefined; };
-  /** The automatic dispatcher loads the carrier's first cage and sends the truck off once nothing is staged or after three trips. */
+  /** The automatic dispatcher serves the truck first, then, with the sales channels, the outlet whose cage holds most parcels. */
   function autoShip(): Move | undefined {
+    const truck = autoTruck();
+    if (truck || !channels) return truck;
+    const ready = OUTLETS.map(item => ({ cage: item.cage, parcels: stagedAt(records, item.id).length })).filter(item => item.parcels && checkMove('dispatcher', { kind: 'ship', cage: item.cage }).ok);
+    const best = ready.sort((a, b) => b.parcels - a.parcels)[0];
+    return best && { kind: 'ship', cage: best.cage };
+  }
+  /** The carrier's first cage onto its truck; without the director's departures it sends the truck off once nothing is staged or after three trips. */
+  function autoTruck(): Move | undefined {
     const value = loadingCarrier();
     if (!value || !value.cages.length) return undefined;
     const parcels = stagedFor(records, value.id).length, dock = outbound()!;
@@ -724,7 +753,33 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     if (!parcels || outboundTrips >= 3) { departOutbound(dock); return undefined; }
     return { kind: 'ship', cage: value.cages[0] };
   }
+  /** Parcels an outlet still takes: the counter and the lockers up to their capacity, the bike none while it is out on a round. */
+  function outletRoom(id: OutletId): number {
+    if (id === 'bike' && records.bike?.away) return 0;
+    return outletOf(id).capacity - heldAt(records, id).length;
+  }
+  const OUTLET_NODES: Readonly<Record<OutletId, string>> = { counter: 'collect:counter', lockers: 'collect:lockers', bike: 'courier-bike' };
+  /** An outlet cage pushed to its outlet, unloaded as far as there is room, and pushed back; what does not fit stays in it. */
+  function outletTask(cage: string, id: OutletId): Task {
+    const unit = `cage:${cage}`, name = outletOf(id).label.toLowerCase();
+    bookedCage = cage;
+    return {
+      what: `Taking parcels to the ${name}`,
+      steps: [{ kind: 'interact', node: unit, group: 'load', seconds: 1.4, pickUp: [unit], label: 'Taking the roll cage' }, { kind: 'interact', node: OUTLET_NODES[id], slot: 'drop', seconds: 3, label: `Unloading at the ${name}` }, { kind: 'interact', node: unit, group: 'load', seconds: 1.2, putDown: 'all', putOn: { position: cageHome(cage), yaw: 0 }, label: 'Returning the empty cage' }],
+      ended: { 1: () => {
+        const moved = stagedAt(records, id).slice(0, Math.max(0, outletRoom(id))), ids = new Set(moved.map(order => order.id));
+        if (!moved.length) return;
+        patch({ orders: records.orders.map(order => ids.has(order.id) ? { ...order, ...(id === 'bike' ? { at: 'bike' as const } : { stage: 'collect' as const }) } : order) });
+        if (id === 'lockers') patchShop({ lockers: records.shop.lockers + moved.length });
+        log(`${moved.length} ${moved.length === 1 ? 'parcel' : 'parcels'} brought to the ${name}.`, 'success');
+        emit({ type: 'delivered', outlet: id, orders: moved });
+      } },
+      done: () => { bookedCage = null; },
+    };
+  }
   function shipTask(cage: string): Task {
+    const target = channels ? cageOutlet(cage) : undefined;
+    if (target) return outletTask(cage, target.id);
     const value = loadingCarrier()!, dock = outbound()!, unit = `cage:${cage}`;
     bookedCage = cage; outboundTrips++;
     return {
@@ -780,7 +835,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       steps: [{ kind: 'interact', node: `checkout:${lane}`, group: 'customer', seconds: 3.5, queue: queuePoints(lane), pose: 'placing', pickUp: [bag], label: 'Paying' }, ...leaving(shopper)],
       started: { 0: () => { patchLane(lane, -1); show(bag); } },
       ...(shopper.corral !== undefined ? { ended: { 1: returnCart(id) } } : {}),
-      items: { 0: () => { heading.delete(id); patchShop({ sales: records.shop.sales + shopper.items * (12 + Math.floor(random() * 40)) }); shopper.basket = false; sceneRevision++; emit({ type: 'served', lane }); } },
+      items: { 0: () => { heading.delete(id); patchShop({ sales: records.shop.sales + shopper.items * (12 + Math.floor(random() * 40)) }); shopper.basket = false; sceneRevision++; emit({ type: 'served', lane, items: shopper.items }); } },
       done: () => finishVisit(id, bag),
     };
   }
@@ -794,7 +849,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     if (cart) ended[0] = () => { shopper.pushing = true; sceneRevision++; };
     gondolas.forEach((item, index) => { ended[cart + index] = () => {
       // The shopper reaches into the shelf: the facing leaves it and lands in the basket in the same moment.
-      if (records.shop.facings[item.department] > 0) { patchShop({ facings: { ...records.shop.facings, [item.department]: records.shop.facings[item.department] - 1 } }); shopper.items++; shopper.goods = item.department; sceneRevision++; }
+      // With the sales channels a shopper takes two or three items from each gondola, as far as it has them.
+      const taken = Math.min(records.shop.facings[item.department], channels ? 2 + index % 2 : 1);
+      if (taken > 0) { patchShop({ facings: { ...records.shop.facings, [item.department]: records.shop.facings[item.department] - taken } }); shopper.items += taken; shopper.goods = item.department; sceneRevision++; }
       if (index === gondolas.length - 1) {
         patchShop({ browsing: Math.max(0, records.shop.browsing - 1) });
         const queue = records.shop.checkouts.find(value => value.id === lane.id)!.queue;
@@ -811,7 +868,8 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     log(`A customer left the queue at checkout ${lane.slice(1)}.`, 'warning');
     emit({ type: 'walked-out', lane });
   }
-  const shelvesFor = (count: number, first?: (typeof GONDOLAS)[number]) => { const list = [...GONDOLAS].filter(item => item !== first && records.shop.facings[item.department] > 0), chosen = first ? [first] : []; while (chosen.length < count && list.length) chosen.push(list.splice(Math.floor(random() * list.length), 1)[0]); return chosen; };
+  // Shoppers pass empty departments by; with the sales channels they come for a department whatever it holds, so an empty one loses the sale.
+  const shelvesFor = (count: number, first?: (typeof GONDOLAS)[number]) => { const list = [...GONDOLAS].filter(item => item !== first && (channels || records.shop.facings[item.department] > 0)), chosen = first ? [first] : []; while (chosen.length < count && list.length) chosen.push(list.splice(Math.floor(random() * list.length), 1)[0]); return chosen; };
   function arrive() {
     const id = shopperIds.find(item => !shoppers.get(item)!.inside && !tasks.has(item));
     if (!id || !openLanes().length) return;
@@ -823,7 +881,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     give(id, browseJob(id, shelvesFor(1 + Math.floor(random() * 2))));
   }
   function collectVisit() {
-    const order = records.orders.find(value => value.stage === 'collect' && !claimed.has(value.id)), id = shopperIds.find(item => !shoppers.get(item)!.inside && !tasks.has(item));
+    const order = records.orders.find(value => value.stage === 'collect' && value.outlet !== 'lockers' && !claimed.has(value.id)), id = shopperIds.find(item => !shoppers.get(item)!.inside && !tasks.has(item));
     if (!order || !id) return;
     claimed.add(order.id);
     shoppers.set(id, { inside: true, items: 0, basket: false });
@@ -836,6 +894,48 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       items: { 0: () => { dropOrders([order.id]); claimed.delete(order.id); patch({ shippedToday: records.shippedToday + 1 }); patchShop({ collectWaiting: Math.max(0, records.shop.collectWaiting - 1) }); log(`${order.customer} collected order ${order.id}.`, 'success'); emit({ type: 'collected', order }); } },
       done: () => finishVisit(id, parcel),
     });
+  }
+  /** Sales channels: a customer opens a locker on the sidewalk and takes the parcel. */
+  function lockerVisit() {
+    const order = records.orders.find(value => value.stage === 'collect' && value.outlet === 'lockers' && !claimed.has(value.id)), id = shopperIds.find(item => !shoppers.get(item)!.inside && !tasks.has(item));
+    if (!order || !id) return;
+    claimed.add(order.id);
+    shoppers.set(id, { inside: true, items: 0, basket: false });
+    const parcel = spawn('parcel', [-19.5, .12 + 1.1, 6.75], `Parcel · ${order.id}`, { orderId: order.id, hidden: true });
+    give(id, {
+      what: `Collecting ${order.id} from the lockers`,
+      steps: [{ kind: 'interact', node: 'collect:lockers', group: 'use', seconds: 3.5, pickUp: [parcel], label: 'Opening a locker' }, LEAVE],
+      started: { 0: () => show(parcel) },
+      items: { 0: () => { dropOrders([order.id]); claimed.delete(order.id); patch({ shippedToday: records.shippedToday + 1 }); patchShop({ lockers: Math.max(0, records.shop.lockers - 1) }); log(`${order.customer} collected order ${order.id} from the lockers.`, 'success'); emit({ type: 'collected', order }); } },
+      done: () => finishVisit(id, parcel),
+    });
+  }
+  /** Sales channels: the delivery bike leaves on its round with what is loaded, or skips it when empty; it waits for a cage on its way. */
+  const BIKE_ROUND = 45, BIKE_AWAY = 25, BIKE_SPEED = 4;
+  /** When the bike last rode off, and when it last set off back from the west; its node rides between them. */
+  let bikeLeft = -Infinity, bikeBack = -Infinity;
+  function bikeDue() {
+    if (bookedCage === outletOf('bike').cage) { later(1, bikeDue); return; }
+    const load = heldAt(records, 'bike');
+    if (!load.length) { patch({ bike: { away: false, next: runner.time + BIKE_ROUND } }); later(BIKE_ROUND, bikeDue); return; }
+    dropOrders(load.map(order => order.id));
+    patch({ shippedToday: records.shippedToday + load.length, bike: { away: true, next: runner.time + BIKE_AWAY } });
+    log(`The delivery bike left with ${load.length} ${load.length === 1 ? 'parcel' : 'parcels'}.`, 'success');
+    emit({ type: 'bike-left', orders: load });
+    bikeLeft = runner.time;
+    // It sets off back early enough to reach the door when its round ends.
+    const ride = pathLength([BIKE_FROM_WEST, BIKE_AT]) / BIKE_SPEED;
+    later(BIKE_AWAY - ride, () => { bikeBack = runner.time; sceneRevision++; });
+    later(BIKE_AWAY, () => { patch({ bike: { away: false, next: runner.time + BIKE_ROUND - BIKE_AWAY } }); later(BIKE_ROUND - BIKE_AWAY, bikeDue); });
+  }
+  /** The bike: at the door between rounds, riding off east when it leaves, and back from the west at the end of its round. */
+  function bikeNode(time: number): AssetNode {
+    const base = { id: 'courier-bike', kind: 'asset' as const, asset: 'cargo-bike', rotation: [0, Math.PI / 2, 0] as Vec3 }, loaded = heldAt(records, 'bike').length;
+    if (records.bike?.away) {
+      const back = bikeBack > bikeLeft, points = back ? [BIKE_FROM_WEST, BIKE_AT] : [BIKE_AT, BIKE_GONE_EAST];
+      return { ...base, position: points[1], selectable: false, route: { points, speed: BIKE_SPEED, elapsed: time - (back ? bikeBack : bikeLeft) } };
+    }
+    return { ...base, entityId: 'bike', position: BIKE_AT, selectable: true, label: `Delivery bike · ${loaded}/${BIKE_CAPACITY} parcels`, labelMode: 'active', state: loaded ? 'busy' : 'normal' };
   }
   /** Customers set off from the same street point, so one waits for the next timer while the last is still close to it. */
   function fromStreet(visit: () => void) { if (runner.time - lastEntry < ENTRY_GAP) return; lastEntry = runner.time; visit(); }
@@ -913,7 +1013,9 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function directDocks() { for (const id of holding) if (director.unload(records.docks.find(dock => dock.id === id)!)) startUnloading(id); }
   function directOutbound() {
     const dock = outbound();
-    if (dock?.status === 'loading' && trucks.get(dock.id)?.docked && !bookedCage && director.depart(dock)) departOutbound(dock);
+    // The truck waits for a cage on its way to it, not for one on its way to a shop outlet.
+    const coming = bookedCage !== null && !(channels && cageOutlet(bookedCage));
+    if (dock?.status === 'loading' && trucks.get(dock.id)?.docked && !coming && director.depart(dock)) departOutbound(dock);
   }
   function jobOf(id: string): Task | undefined {
     if (MACHINES.has(id) && !director.running(id)) return undefined;
@@ -1004,7 +1106,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       case 'clear': return `Empty pallet from ${move.face} taken to the stack.`;
       case 'decant': return `Fill ${move.face} from its pallet.`;
       case 'restock': return `Restock ${departmentLabel(move.department)}.`;
-      case 'ship': return `${move.cage} loaded on the truck.`;
+      case 'ship': { const target = channels ? cageOutlet(move.cage) : undefined; return target ? `${move.cage} taken to the ${target.label.toLowerCase()}.` : `${move.cage} loaded on the truck.`; }
     }
   }
   const OK: MoveCheckResult = { ok: true };
@@ -1061,6 +1163,14 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
         return spares(face) ? OK : refuse(`${face} is at its minimum.`);
       }
       case 'ship': {
+        const target = channels ? cageOutlet(move.cage) : undefined;
+        if (target) {
+          const name = target.label.toLowerCase();
+          if (bookedCage === move.cage) return refuse(`${move.cage} is already on its way.`);
+          if (!stagedAt(records, target.id).length) return refuse(`No parcels for the ${name} are packed.`);
+          if (target.id === 'bike' && records.bike?.away) return waitFor('Waits for the bike to come back from its round.');
+          return outletRoom(target.id) > 0 ? OK : waitFor(`Waits for room ${target.id === 'bike' ? 'on the bike' : target.id === 'lockers' ? 'in the lockers' : 'at the counter'}.`);
+        }
         const owner = CARRIERS.find(item => item.cages.includes(move.cage)), loading = loadingCarrier(), dock = outbound();
         if (!owner) return refuse(`${move.cage} is not a roll cage.`);
         if (!loading || !dock || !trucks.get(dock.id)?.docked) return refuse(`No truck is loading at the outbound dock.`);
@@ -1094,7 +1204,10 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       case 'clear': { const job = replenishing.get(move.face); return job ? [{ position: above(PALLET_STACK, records.emptyPallets * STACKED_PALLET), yaw: ALONG_Z, size: PALLET_BOX, ghost: job.pallet }] : []; }
       case 'decant': return [{ position: [replenishSpot(move.face)[0] + .35, FLOOR_Y + 1.4, -4.35], size: CARTON_BOX, ghost: carton }];
       case 'restock': return GONDOLAS.filter(item => item.department === move.department).map(item => ({ position: [item.position[0] + .7, FLOOR_Y + 1, item.position[2] + .15] as Vec3, size: CARTON_BOX, ghost: carton }));
-      case 'ship': return [{ position: [DOCK_LOAD_X, FLOOR_Y, DOCK_Z.D3], yaw: Math.PI / 2, size: [1, 2, 1], ghost: `cage:${move.cage}` }];
+      case 'ship': {
+        const target = channels ? cageOutlet(move.cage) : undefined, drop = target ? OUTLET_DROPS[target.id] : { position: [DOCK_LOAD_X, FLOOR_Y, DOCK_Z.D3] as Vec3, yaw: Math.PI / 2 };
+        return [{ position: drop.position, yaw: drop.yaw, size: [1, 2, 1], ghost: `cage:${move.cage}` }];
+      }
     }
   }
   function choices(id: string, subject: string): MoveChoices {
@@ -1135,6 +1248,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
       }
       case 'dispatcher':
         if (prefix === 'cage' && CARRIERS.some(item => item.cages.includes(name))) offer({ kind: 'ship', cage: name }, `Truck at ${outbound()?.id ?? 'D3'}`);
+        else if (prefix === 'cage' && channels && cageOutlet(name)) offer({ kind: 'ship', cage: name }, cageOutlet(name)!.label);
         break;
     }
     return { options, refused };
@@ -1165,8 +1279,12 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   function everySoFar(seconds: number, run: () => void) { const tick = () => { run(); later(seconds * (.7 + random() * .6), tick); }; later(seconds, tick); }
   function newOrder() {
     if (records.orders.filter(order => ['released', 'picking', 'sorting', 'packing'].includes(order.stage)).length >= MAX_OPEN_WORK) return;
-    const sku = pick(Object.keys(SKUS)), collect = random() < .2, quantity = 1 + Math.floor(random() * 2), id = `#${nextOrder++}`;
-    const order: Order = { id, customer: pick(CUSTOMERS), channel: collect ? 'click-collect' : random() < .3 ? 'marketplace' : 'web', stage: 'released', placed: records.time, value: 20 + Math.floor(random() * 120), lines: [{ sku, quantity, picked: 0 }], ...(collect ? {} : { carrier: random() < .5 ? 'swift' as const : 'parcelo' as const }) };
+    const sku = pick(Object.keys(SKUS)), roll = random(), quantity = 1 + Math.floor(random() * 2), id = `#${nextOrder++}`;
+    // A fifth goes to click & collect. With the sales channels a quarter goes to the counter, a fifth each to the lockers and the
+    // bike, and the rest to a carrier's truck.
+    const outlet: OutletId | undefined = !channels ? roll < .2 ? 'counter' : undefined : roll < .25 ? 'counter' : roll < .45 ? 'lockers' : roll < .65 ? 'bike' : undefined;
+    const collect = outlet === 'counter' || outlet === 'lockers';
+    const order: Order = { id, customer: pick(CUSTOMERS), channel: collect ? 'click-collect' : random() < .3 ? 'marketplace' : 'web', stage: 'released', placed: records.time, value: 20 + Math.floor(random() * 120), lines: [{ sku, quantity, picked: 0 }], ...(outlet ? channels ? { outlet } : {} : { carrier: random() < .5 ? 'swift' as const : 'parcelo' as const }) };
     patch({ orders: [...records.orders, order], ordersToday: records.ordersToday + 1 });
     emit({ type: 'ordered', order });
   }
@@ -1179,8 +1297,17 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   }
   if (start.parceloVan) later(30, () => arriveOutbound('parcelo'));
   if (forklift && start.docks.every(dock => dock.status === 'free' || dock.direction === 'outbound')) later(30, bookInbound);
-  if (start.crew.picking) everySoFar(30, newOrder);
+  if (start.crew.picking) everySoFar(channels ? 14 : 30, newOrder);
   if (start.shopOpen) { const target = start.shop.browsing + start.shop.checkouts.reduce((sum, lane) => sum + lane.queue, 0); everySoFar(6, () => { if (insideCount() < director.shoppers(target)) fromStreet(arrive); }); everySoFar(40, () => fromStreet(collectVisit)); }
+  // The sales channels start with a few parcels in the lockers, as real orders, and the bike at the door.
+  if (channels && start.shopOpen) {
+    const skus = Object.keys(SKUS), waiting: Order[] = Array.from({ length: Math.min(start.shop.lockers, 6) }, (_, i) => ({ id: `#${nextOrder++}`, customer: CUSTOMERS[(i * 3) % CUSTOMERS.length], channel: 'click-collect', outlet: 'lockers', stage: 'collect', placed: start.time, value: 30 + i * 11, lines: [{ sku: skus[(i * 5) % skus.length], quantity: 1, picked: 1 }] }));
+    // The shelves start less than half full, so they need restocking during the shift.
+    const facings = Object.fromEntries(DEPARTMENTS.map(item => [item.id, Math.round(records.shop.facings[item.id] * .45)])) as Record<DepartmentId, number>;
+    patch({ orders: [...records.orders, ...waiting], shop: { ...records.shop, lockers: waiting.length, facings }, bike: { away: false, next: BIKE_ROUND } });
+    everySoFar(35, () => fromStreet(lockerVisit));
+    later(BIKE_ROUND, bikeDue);
+  }
   const placeShoppers = () => {
     let index = 0;
     const next = () => shopperIds[index++];
@@ -1231,12 +1358,13 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
     // The carts in the corral: every place whose cart no shopper pushes.
     const pushed = new Set([...shoppers.values()].flatMap(item => item.pushing && item.corral !== undefined ? [item.corral] : []));
     CART_CORRAL.forEach((position, i) => { if (!pushed.has(i)) nodes.push({ id: `shop-cart-${i}`, kind: 'asset', asset: 'shopping-cart', position, count: 0, selectable: false }); });
+    if (records.bike) nodes.push(bikeNode(time));
     for (const [id, truck] of trucks) nodes.push({ id: `truck:${id}`, kind: 'asset', asset: 'truck', position: [truck.docked ? TRUCK_X : YARD_X, APRON_Y, DOCK_Z[id]], rotation: [0, Math.PI / 2, 0], color: truck.color, selectable: false, controller: { kind: 'dock-shunt', options: { speed: 3 } } });
     return nodes;
   }
   function cagePlacements() {
     const items = runner.getItems();
-    return Object.fromEntries(Object.keys(CAGE_X).map(cage => { const { position, rotation, attachment } = itemNode(`cage:${cage}`, items.get(`cage:${cage}`)!, { asset: 'roll-cage' }); return [cage, { position, rotation, attachment }]; }));
+    return Object.fromEntries(cageIds.map(cage => { const { position, rotation, attachment } = itemNode(`cage:${cage}`, items.get(`cage:${cage}`)!, { asset: 'roll-cage' }); return [cage, { position, rotation, attachment }]; }));
   }
 
   /* ── Clock ────────────────────────────────────────────────────────────── */
