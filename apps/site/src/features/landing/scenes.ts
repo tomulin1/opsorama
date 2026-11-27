@@ -24,14 +24,15 @@ export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff' | 'o
 
 /**
  * The example's top panels over its scene, built by the example's own metric function from the scene's latest records.
- * Every panel opens the full example with `open`, since the home page has none of the example's detail panels.
+ * They only show values: the home page has none of the example's detail panels, and a click must not take the visitor
+ * away from it, so the panels carry no actions.
  */
 export interface SceneMetrics {
   label: string;
   subscribe(listener: () => void): () => void;
   /** Bumped whenever the records change, for `useSyncExternalStore`. */
   version(): number;
-  read(open: MetricAction): readonly HudMetric[];
+  read(): readonly HudMetric[];
 }
 
 export interface LandingScene {
@@ -60,8 +61,10 @@ function liveRecords<T>(initial: T) {
 }
 /** Panels from records that never change. */
 const fixedMetrics = (label: string, read: SceneMetrics['read']): SceneMetrics => ({ label, read, version: () => 0, subscribe: () => () => {} });
-/** The same action for every panel of an example. */
-const every = <K extends string>(ids: readonly K[], open: MetricAction) => Object.fromEntries(ids.map(id => [id, open])) as Record<K, MetricAction>;
+/** The example's metric functions take an action per panel; the home page passes none to use and drops them. */
+const NO_ACTION: MetricAction = { label: '', onActivate: () => {} };
+const noActions = <K extends string>(ids: readonly K[]) => Object.fromEntries(ids.map(id => [id, NO_ACTION])) as Record<K, MetricAction>;
+const displayOnly = (metrics: readonly HudMetric[]): readonly HudMetric[] => metrics.map(metric => ({ ...metric, action: undefined }));
 
 /** The scene's feed drives the store at the scene clock, so pause and speed apply to both. */
 function feedStore<S>(store: SceneStore, feed: LoopFeed<S>, onRecords: (records: S) => void = () => {}) {
@@ -72,21 +75,21 @@ function feedStore<S>(store: SceneStore, feed: LoopFeed<S>, onRecords: (records:
 function shopScene(): LandingScene {
   const simulation = createEcommerceSimulation('peak'), store = createEcommerceStore('peak', simulation);
   const records = liveRecords<EcommerceSnapshot>(simulation.snapshot());
-  const metrics: SceneMetrics = { label: 'Operations metrics', subscribe: records.subscribe, version: records.version, read: open => ecommerceHudMetrics(records.get(), every(['orders', 'cutoff', 'stock', 'shoppers'], open)) };
+  const metrics: SceneMetrics = { label: 'Operations metrics', subscribe: records.subscribe, version: records.version, read: () => displayOnly(ecommerceHudMetrics(records.get(), noActions(['orders', 'cutoff', 'stock', 'shoppers']))) };
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, simulation, records.set), dispose: () => { store.dispose(); simulation.dispose(); } };
 }
 
 /** The distribution centre example's dispatch snapshot. */
 function warehouseScene(): LandingScene {
   const store = createWarehouseStore('dispatch');
-  const metrics = fixedMetrics('Distribution centre metrics', open => warehouseHudMetrics(WAREHOUSE.dispatch, every(['docks', 'putaway', 'loads', 'storage'], open)));
+  const metrics = fixedMetrics('Distribution centre metrics', () => displayOnly(warehouseHudMetrics(WAREHOUSE.dispatch, noActions(['docks', 'putaway', 'loads', 'storage']))));
   return { store, zoom: WAREHOUSE_ZOOM, metrics, dispose: () => store.dispose() };
 }
 
 /** The datacenter example's incident snapshot. */
 function datacenterScene(): LandingScene {
   const store = makeDatacenterStore();
-  const metrics = fixedMetrics('Facility metrics', open => datacenterHudMetrics('incident', every(['cpu', 'load', 'inlet', 'alerts'], open)));
+  const metrics = fixedMetrics('Facility metrics', () => displayOnly(datacenterHudMetrics('incident', noActions(['cpu', 'load', 'inlet', 'alerts']))));
   return { store, zoom: store.getSnapshot().settings.zoom, metrics, dispose: () => store.dispose() };
 }
 
@@ -105,8 +108,7 @@ function cutoffScene(): LandingScene {
     const lighting = lightingAt(game.clock);
     if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting });
   };
-  // The game's panels show its state and open nothing.
-  const metrics: SceneMetrics = { label: 'Shift metrics', subscribe: records.subscribe, version: records.version, read: () => cutoffHudMetrics(records.get()) };
+  const metrics: SceneMetrics = { label: 'Shift metrics', subscribe: records.subscribe, version: records.version, read: () => displayOnly(cutoffHudMetrics(records.get())) };
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, feed, onRecords), dispose: () => { store.dispose(); game.dispose(); } };
 }
 
@@ -114,11 +116,3 @@ const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: 
 export function createLandingScene(id: LandingSceneId): LandingScene { return FACTORIES[id](); }
 /** Gallery preview of each scene, known before the scene exists. */
 export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff', office: 'office' };
-/** The example each scene comes from; its panels open it. */
-export const LANDING_SCENE_EXAMPLES: Readonly<Record<LandingSceneId, { href: string; name: string }>> = {
-  shop: { href: '/examples/ecommerce', name: 'the shop and warehouse example' },
-  warehouse: { href: '/examples/warehouse', name: 'the distribution centre example' },
-  datacenter: { href: '/examples/datacenter', name: 'the datacenter example' },
-  cutoff: { href: '/examples/cutoff', name: 'Cut-off' },
-  office: { href: '/examples/office', name: 'the office example' },
-};
