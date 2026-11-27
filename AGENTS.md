@@ -68,7 +68,7 @@ This repository contains only public material. `scripts/check-public-boundary.mj
 
 - Commit coherent, reviewable changes with concise English messages describing the result.
 - Inspect the staged diff before committing; stage explicit paths and never include dependencies, caches, builds, test reports, screenshots, local environment files or logs.
-- Changes to published packages add a changeset (`pnpm changeset`).
+- From the first release on, changes to published packages add a changeset (`pnpm changeset`). Until then only `first-public-release.md` is pending; see `.changeset/README.md`.
 - Do not push, publish or rewrite history unless a maintainer asks.
 
 ## Repository layout

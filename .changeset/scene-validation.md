@@ -1,5 +1,0 @@
----
-"@opsorama/core": minor
----
-
-Add scene validation that reports every problem in one pass. `validateScene(input, { validateAsset })` checks any input, such as parsed JSON, and returns `SceneProblem` records with a JSON Pointer `path`, a stable `rule` (`SceneRule`, described in `SCENE_RULES`), a `severity`, a `message`, an actionable `fix` and the `nodeId`. Structural mistakes (a definition that is not an object, a wrong `schemaVersion`, `nodes` that is not an array, nodes without `id` or `kind`) become problems instead of crashes, and unknown keys are reported as `unknown-key` warnings with the nearest known key. `createSceneStore`, `replace`, `upsert`, `validateNode` and the other `validate*` functions keep their signatures and now throw `SceneValidationError`, whose `message` is the first error's message and whose `problems` lists every problem. The store also rejects a non-string `entityId` or `label`, a non-boolean `selectable`, an unknown `state` and a non-string `color`. The JSON Schema of a scene definition, generated from the core types, ships as `@opsorama/core/scene-definition.schema.json`.
