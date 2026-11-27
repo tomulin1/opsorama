@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Building2, ChevronLeft, ChevronRight, Gamepad2, SquareTerminal, Warehouse, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, Building2, ChevronLeft, ChevronRight, Gamepad2, GripHorizontal, Maximize2, Minimize2, SquareTerminal, Warehouse, type LucideIcon } from 'lucide-react';
 import { DashboardProvider, SceneCanvas } from '@opsorama/react';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
@@ -24,16 +24,79 @@ const SLIDE_TITLES = ['Introduction', ...USE_CASES.map(item => item.title)];
 /** The scene behind each slide; the introduction shows the shop. */
 const SLIDE_SCENES: readonly LandingSceneId[] = ['shop', ...USE_CASES.map(item => item.scene)];
 
-/** The floating intro panel: the introduction followed by one slide per use. Every slide shares one grid cell, so the panel keeps the height of the tallest slide. */
+/** Gap the panel keeps from the scene's edges, in pixels. */
+const EDGE = 8;
+/** Distance one arrow key moves the panel, in pixels. */
+const KEY_STEP = 24;
+type Point = { x: number; y: number };
+
+/**
+ * Lets the visitor move the panel by its grip, with a pointer or the arrow keys, inside the scene. The panel keeps its CSS
+ * place until it is first moved; from then on it is placed at `position`, kept inside the scene when it or the window changes size.
+ */
+function usePanelPosition(panel: React.RefObject<HTMLElement | null>, collapsed: boolean) {
+  const [position, setPosition] = useState<Point | null>(null), drag = useRef<{ pointer: number; start: Point; from: Point } | null>(null);
+  const clamp = useCallback((point: Point): Point => {
+    const element = panel.current, scene = element?.offsetParent as HTMLElement | null | undefined;
+    if (!element || !scene) return point;
+    const maxX = Math.max(EDGE, scene.clientWidth - element.offsetWidth - EDGE), maxY = Math.max(EDGE, scene.clientHeight - element.offsetHeight - EDGE);
+    return { x: Math.min(Math.max(point.x, EDGE), maxX), y: Math.min(Math.max(point.y, EDGE), maxY) };
+  }, [panel]);
+  const current = (): Point => ({ x: panel.current?.offsetLeft ?? 0, y: panel.current?.offsetTop ?? 0 });
+  // Collapsing or expanding changes the panel's size; a window resize changes the scene's.
+  useLayoutEffect(() => { setPosition(value => value && clamp(value)); }, [collapsed, clamp]);
+  useEffect(() => {
+    const onResize = () => setPosition(value => value && clamp(value));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [clamp]);
+  const grip = {
+    onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      drag.current = { pointer: event.pointerId, start: { x: event.clientX, y: event.clientY }, from: current() };
+    },
+    onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+      const value = drag.current;
+      if (value?.pointer === event.pointerId) setPosition(clamp({ x: value.from.x + event.clientX - value.start.x, y: value.from.y + event.clientY - value.start.y }));
+    },
+    onPointerUp: () => { drag.current = null; },
+    onPointerCancel: () => { drag.current = null; },
+    // The carousel turns slides with the arrow keys; on the grip they move the panel instead.
+    onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+      const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+      if (!step) return;
+      event.preventDefault(); event.stopPropagation();
+      const from = position ?? current();
+      setPosition(clamp({ x: from.x + step[0] * KEY_STEP, y: from.y + step[1] * KEY_STEP }));
+    },
+    // A double click returns the panel to its starting place.
+    onDoubleClick: () => setPosition(null),
+  };
+  const style: React.CSSProperties | undefined = position ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' } : undefined;
+  return { grip, style };
+}
+
+/**
+ * The floating intro panel: the introduction followed by one slide per use. Every slide shares one grid cell, so the panel
+ * keeps the height of the tallest slide. The visitor can move it by its grip and collapse it to one line with the slide's
+ * title and the slide controls.
+ */
 function IntroCarousel({ active, onShow }: { active: number; onShow: (index: number) => void }) {
-  const count = SLIDE_TITLES.length;
+  const count = SLIDE_TITLES.length, panel = useRef<HTMLElement>(null), [collapsed, setCollapsed] = useState(false);
+  const { grip, style } = usePanelPosition(panel, collapsed);
   const show = (index: number) => onShow((index + count) % count);
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'ArrowLeft') { event.preventDefault(); show(active - 1); }
     else if (event.key === 'ArrowRight') { event.preventDefault(); show(active + 1); }
   };
-  return <section className="landing-intro" aria-roledescription="carousel" aria-label="About Opsorama" onKeyDown={onKeyDown}>
-    <div className="landing-slides">
+  return <section ref={panel} className="landing-intro" data-collapsed={collapsed || undefined} style={style} aria-roledescription="carousel" aria-label="About Opsorama" onKeyDown={onKeyDown}>
+    <div className="landing-intro-tools">
+      <button type="button" className="hud-icon-button landing-grip" aria-label="Move panel" title="Drag to move, double-click to reset" {...grip}><GripHorizontal size={16} /></button>
+      <button type="button" className="hud-icon-button" aria-label={collapsed ? 'Expand panel' : 'Collapse panel'} aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>{collapsed ? <Maximize2 size={15} /> : <Minimize2 size={15} />}</button>
+    </div>
+    {collapsed && <p className="landing-intro-compact" aria-live="polite"><span>{active + 1}/{count}</span>{SLIDE_TITLES[active]}</p>}
+    <div className="landing-slides" hidden={collapsed}>
       <div className="landing-slide" role="group" aria-roledescription="slide" aria-label={`1 of ${count}: ${SLIDE_TITLES[0]}`} aria-hidden={active !== 0} inert={active !== 0}>
         <span className="docs-eyebrow">OPSORAMA · 3D OPERATIONS TOOLKIT</span>
         <h1>A clear view of your operations.</h1>

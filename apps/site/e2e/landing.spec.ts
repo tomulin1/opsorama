@@ -34,3 +34,26 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await expect(carousel.getByRole('heading', { name: 'A clear view of your operations.' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('home intro panel collapses to one line and moves by its grip', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const carousel = page.getByRole('region', { name: 'About Opsorama' });
+  await carousel.getByRole('button', { name: 'Collapse panel' }).click();
+  await expect(carousel.getByRole('heading', { name: 'A clear view of your operations.' })).toBeHidden();
+  await expect(carousel.locator('.landing-intro-compact')).toHaveText('1/5Introduction');
+  // The slide controls still work in the compact form.
+  await carousel.getByRole('button', { name: 'Next slide' }).click();
+  await expect(carousel.locator('.landing-intro-compact')).toHaveText('2/5Live operations boards');
+  // Arrow keys on the grip move the panel and do not turn the slide.
+  const before = await carousel.boundingBox();
+  await carousel.getByRole('button', { name: 'Move panel' }).press('ArrowRight');
+  await carousel.getByRole('button', { name: 'Move panel' }).press('ArrowUp');
+  const after = await carousel.boundingBox();
+  expect(after!.x).toBeGreaterThan(before!.x);
+  expect(after!.y).toBeLessThan(before!.y);
+  await expect(carousel.locator('.landing-intro-compact')).toHaveText('2/5Live operations boards');
+  await carousel.getByRole('button', { name: 'Expand panel' }).click();
+  await expect(carousel.getByRole('heading', { name: 'Live operations boards' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
