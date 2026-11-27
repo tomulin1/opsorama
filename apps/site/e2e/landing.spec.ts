@@ -20,8 +20,13 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await carousel.getByRole('button', { name: 'Next slide' }).click();
   await expect(carousel.getByRole('heading', { name: 'Live operations boards' })).toBeVisible();
   await expect(carousel.getByRole('link', { name: 'Open the shop and warehouse' })).toHaveAttribute('href', '/examples/ecommerce');
+  await carousel.getByRole('button', { name: 'Show slide 3: Facility overviews' }).click();
+  // Each use brings its example's scene: the datacenter replaces the shop behind the panel.
+  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /datacenter\.webp/);
+  await expect(page.locator('.landing-hero canvas')).toHaveCount(1, { timeout: 30_000 });
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
   await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
+  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /cutoff\.webp/);
   await carousel.getByRole('button', { name: 'Show slide 5: Built with AI coding agents' }).click();
   await expect(carousel.getByRole('link', { name: 'Read about validation' })).toHaveAttribute('href', '/docs/validation');
   await carousel.getByRole('button', { name: 'Next slide' }).click();
