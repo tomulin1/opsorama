@@ -930,7 +930,7 @@ export function createEcommerceSimulation(scenario: EcommerceScenario = 'peak', 
   }
   /** The bike: at the door between rounds, riding off east when it leaves, and back from the west at the end of its round. */
   function bikeNode(time: number): AssetNode {
-    const base = { id: 'courier-bike', kind: 'asset' as const, asset: 'cargo-bike', rotation: [0, Math.PI / 2, 0] as Vec3 }, loaded = heldAt(records, 'bike').length;
+    const base = { id: 'courier-bike', kind: 'asset' as const, asset: 'cargo-bike', variant: 'operated', rotation: [0, Math.PI / 2, 0] as Vec3 }, loaded = heldAt(records, 'bike').length;
     if (records.bike?.away) {
       const back = bikeBack > bikeLeft, points = back ? [BIKE_FROM_WEST, BIKE_AT] : [BIKE_AT, BIKE_GONE_EAST];
       return { ...base, position: points[1], selectable: false, route: { points, speed: BIKE_SPEED, elapsed: time - (back ? bikeBack : bikeLeft) } };

@@ -394,7 +394,7 @@ export const restaurantBase: readonly SceneNode[] = closeWallJoints([
   decor('umbrella-2', 'patio-umbrella', v(-4.75, 6.1), { color: '#3d8a6e' }),
   decor('umbrella-3', 'patio-umbrella', v(-13.9, 6.1), { variant: 'closed', color: '#d9644a' }),
   { id: 'menu-board', kind: 'asset', asset: 'menu-board', position: v(3.6, 6.2), rotation: [0, -.35, 0], label: 'Menu board', labelMode: 'active', selectable: true, options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: "TODAY'S SPECIALS\nBurrata  9.5\nRibeye  29\nDiavola  13\nTiramisu  7", color: '#eef1f2' } } },
-  decor('cargo-bike', 'cargo-bike', v(8.5, 7.4), { rotation: [0, Math.PI / 2, 0] }),
+  decor('cargo-bike', 'cargo-bike', v(8.5, 7.4), { rotation: [0, Math.PI / 2, 0], variant: 'operated' }),
   ...([[.7, 3.4], [-14.4, 3.4], [14.4, 3.4], [14.4, -4.2], [.6, -10.6], [3.4, -1.6], [7.4, -1.6]] as const).map(([x, z], i) => decor(`plant-${i}`, 'potted-plant', v(x, z))),
   decor('lamp-1', 'lamp-post', v(1.2, 7.6)), decor('lamp-2', 'lamp-post', v(-15.6, 7.6)),
   { id: 'equipment:dish', kind: 'asset', asset: 'dish-machine', position: v(-9.9, -6), rotation: [0, Math.PI, 0], label: 'Dish machine', labelMode: 'active', selectable: true },

@@ -377,7 +377,7 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
     nodes.push(person('collect:staff', p(COLLECT[0] + .6, COLLECT[2] - .55), 0, 'working', SHOP_STAFF, 'Click & collect desk'));
     nodes.push(person('security', p(-14.2, 4.3), BACK, 'idle', '#36455f', 'Security', { asset: 'security-guard' }));
     // With the sales channels the bike is an outlet that rides its rounds, a live node of the simulation.
-    if (!snapshot.bike) nodes.push(fixture('courier-bike', 'cargo-bike', [-23.2, 0, 7.6], { rotation: yaw(HALF) }));
+    if (!snapshot.bike) nodes.push(fixture('courier-bike', 'cargo-bike', [-23.2, 0, 7.6], { rotation: yaw(HALF), variant: 'operated' }));
   }
 
   // Reserve storage and forward picking.
