@@ -58,7 +58,25 @@ export const CARRIERS: readonly Carrier[] = [
   { id: 'freight', name: 'NordFreight', service: 'Wrapped pallets', cutoff: '17:00', cages: [] },
 ];
 export const carrier = (id: CarrierId) => CARRIERS.find(item => item.id === id)!;
-export const CAGE_CAPACITY = 12, PUT_WALL_CAPACITY = 20, COLLECT_CAPACITY = 8, LOCKER_CAPACITY = 16, STAGING_CAPACITY = 6, RETURNS_TOTE_CAPACITY = 9, HOLD_CAPACITY = 8;
+export const CAGE_CAPACITY = 12, PUT_WALL_CAPACITY = 20, COLLECT_CAPACITY = 8, LOCKER_CAPACITY = 16, STAGING_CAPACITY = 6, RETURNS_TOTE_CAPACITY = 9, HOLD_CAPACITY = 8, BIKE_CAPACITY = 6;
+
+/**
+ * The shop's own outlets for packed parcels, beside the carriers' trucks: the click & collect counter, the parcel lockers on the
+ * sidewalk and the delivery bike. With the simulation's `salesChannels` option, packers put each parcel into the roll cage of its
+ * outlet, and the dispatcher pushes the cage there; without it, packers hand click & collect orders straight to the counter.
+ */
+export type OutletId = 'counter' | 'lockers' | 'bike';
+export interface Outlet { id: OutletId; label: string; cage: string; capacity: number; }
+export const OUTLETS: readonly Outlet[] = [
+  { id: 'counter', label: 'Click & collect counter', cage: 'counter-1', capacity: COLLECT_CAPACITY },
+  { id: 'lockers', label: 'Parcel lockers', cage: 'lockers-1', capacity: LOCKER_CAPACITY },
+  { id: 'bike', label: 'Delivery bike', cage: 'bike-1', capacity: BIKE_CAPACITY },
+];
+export const outlet = (id: OutletId) => OUTLETS.find(item => item.id === id)!;
+/** The outlet a roll cage serves, if it is an outlet cage. */
+export const cageOutlet = (cage: string) => OUTLETS.find(item => item.cage === cage);
+/** The outlet of an order: its own, or the counter for a click & collect order that names none. Carrier orders have none. */
+export const orderOutlet = (value: Order): OutletId | undefined => value.outlet ?? (value.channel === 'click-collect' ? 'counter' : undefined);
 /** Orders whose carrier cut-off is closer than this, and which are not yet staged, are at risk. */
 export const CUTOFF_RISK_MINUTES = 60;
 
@@ -139,8 +157,10 @@ export interface Order {
   id: string; customer: string; channel: Channel; stage: OrderStage; placed: string; value: number; lines: readonly OrderLine[];
   /** Delivery orders only; click & collect and shop transfers have none. */
   carrier?: CarrierId;
-  /** Where the order is right now when it is more precise than its area: a put wall, packing bench or roll cage. */
-  at?: PutWallId | PackStationId | 'wrapper';
+  /** The shop's outlet that hands the order over or delivers it, when it is not a carrier's; see `orderOutlet`. */
+  outlet?: OutletId;
+  /** Where the order is right now when it is more precise than its area: a put wall, packing bench, the wrapper or the delivery bike. */
+  at?: PutWallId | PackStationId | 'wrapper' | 'bike';
   issue?: string;
 }
 export interface StockAlert { sku: string; onHand: number; min: number; task: string; }
@@ -181,6 +201,11 @@ export interface EcommerceSnapshot {
   returns: { awaiting: number; held: number; inspected: number };
   shop: { browsing: number; checkouts: readonly Checkout[]; collectWaiting: number; lockers: number; sales: number; facings: Readonly<Record<DepartmentId, number>> };
   events: readonly ActivityEvent[];
+  /**
+   * The delivery bike, with the simulation's `salesChannels` option only: whether it is out on a round, and the simulated second
+   * it leaves next (or, while away, comes back). The parcels loaded on it are the orders `at` the bike.
+   */
+  bike?: { away: boolean; next: number };
 }
 
 /** Occupied positions of the back rack row, bay by bay. */
@@ -312,6 +337,12 @@ export function cutoffRisk(snapshot: EcommerceSnapshot, value: Order): number | 
 export const orderArea = (value: Order): AreaId => stage(value.stage).area;
 export const ordersIn = (snapshot: EcommerceSnapshot, id: AreaId) => snapshot.orders.filter(value => orderArea(value) === id);
 export const stagedFor = (snapshot: EcommerceSnapshot, id: CarrierId) => snapshot.orders.filter(value => value.stage === 'staged' && value.carrier === id);
+/** Packed parcels waiting in the roll cage of a shop outlet. */
+export const stagedAt = (snapshot: EcommerceSnapshot, id: OutletId) => snapshot.orders.filter(value => value.stage === 'staged' && !value.at && orderOutlet(value) === id);
+/** Parcels handed over to an outlet and waiting there: ready at the counter, in the lockers, or loaded on the bike. */
+export const heldAt = (snapshot: EcommerceSnapshot, id: OutletId) => snapshot.orders.filter(value => id === 'bike' ? value.at === 'bike' : value.stage === 'collect' && orderOutlet(value) === id);
+/** Items of an order, the unit of the game's points. */
+export const orderItems = (value: Order) => value.lines.reduce((sum, item) => sum + item.quantity, 0);
 /** Parcels shown in each roll cage: cages fill in order, `CAGE_CAPACITY` each; any overflow is disclosed in the panels. */
 export function cageCounts(snapshot: EcommerceSnapshot, id: CarrierId): number[] {
   let left = stagedFor(snapshot, id).length;
