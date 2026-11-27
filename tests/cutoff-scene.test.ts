@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateScene, type MarkerNode, type TextNode } from '@opsorama/core';
-import { SHIFT_LEVELS, createShiftGame, type ShiftEvent } from '../apps/site/src/features/cutoff/rules';
+import { createShiftGame } from '../apps/site/src/features/cutoff/rules';
 import { FLOAT_SECONDS, floatingNodes, lightingAt, moveLabel, playNodes } from '../apps/site/src/features/cutoff/scene';
 
 describe('Cut-off scene', () => {
@@ -8,27 +8,27 @@ describe('Cut-off scene', () => {
     expect([
       moveLabel({ kind: 'unload', dock: 'D1' }), moveLabel({ kind: 'put-away', pallet: 'pallet:1038', rack: 'R12' }), moveLabel({ kind: 'put-away', pallet: 'pallet:1038', rack: 'R05', level: 1 }),
       moveLabel({ kind: 'replenish', pallet: 'pallet:1015' }), moveLabel({ kind: 'clear', face: 'F3' }), moveLabel({ kind: 'decant', face: 'F3' }),
-      moveLabel({ kind: 'restock', department: 'toys', source: 'face' }), moveLabel({ kind: 'restock', department: 'home', source: 'transfer' }), moveLabel({ kind: 'ship', cage: 'swift-1' }),
+      moveLabel({ kind: 'restock', department: 'toys', source: 'face' }), moveLabel({ kind: 'restock', department: 'home', source: 'transfer' }), moveLabel({ kind: 'ship', cage: 'swift-1' }), moveLabel({ kind: 'ship', cage: 'lockers-1' }),
     ]).toEqual([
       'Unload the truck at D1', 'Put pallet 1038 away to R12', 'Put pallet 1038 away to R05 level 2',
       'Bring pallet 1015 behind its pick face', 'Take the empty pallet from F3 to the stack', 'Fill F3 from its pallet',
-      'Restock Toys', 'Take the shop transfer to Home', 'Load swift-1 onto the truck',
+      'Restock Toys', 'Take the shop transfer to Home', 'Load swift-1 onto the truck', 'Take the parcels to the parcel lockers',
     ]);
   });
 
-  it('lights the shift by the clock: studio by day, dusk from 16:00, night on the night shift', () => {
-    expect(['10:00', '15:59', '16:00', '18:00'].map(clock => lightingAt(SHIFT_LEVELS.peak, clock))).toEqual(['studio', 'studio', 'dusk', 'dusk']);
-    expect(lightingAt(SHIFT_LEVELS.night, '22:00')).toBe('night');
+  it('lights the shift by the clock: studio by day, dusk from 16:00', () => {
+    expect(['10:00', '15:59', '16:00', '18:00'].map(clock => lightingAt(clock))).toEqual(['studio', 'studio', 'dusk', 'dusk']);
   });
 
-  it('marks problems and waiting crew on the objects they concern, and the scene stays valid', () => {
-    const game = createShiftGame({ scenario: 'peak' }), opened: ShiftEvent[] = [];
-    game.subscribe(notice => { if (notice.type === 'event-opened') opened.push(notice.event); });
+  it('marks what loses sales and waiting crew on the objects they concern, and the scene stays valid', () => {
+    const game = createShiftGame({ scenario: 'peak' });
     game.move('forklift', { kind: 'unload', dock: 'D1' });
-    while (!opened.some(event => event.kind === 'robot-breakdown')) game.advance(1);
+    // Nobody restocks the shop: a department runs empty.
+    while (!Object.values(game.snapshot().shop.facings).includes(0)) game.advance(1);
     const nodes = playNodes(game, []), markers = nodes.filter((node): node is MarkerNode => node.kind === 'marker');
     const on = (id: string) => markers.find(marker => marker.attachment?.nodeId === id);
-    expect(on('robot:0')).toMatchObject({ tone: 'critical', label: 'Robot down' });
+    const empty = Object.entries(game.snapshot().shop.facings).find(([, count]) => count === 0)![0];
+    expect(on(`gondola:${empty}:0`)).toMatchObject({ tone: 'critical', eyebrow: 'SHELVES', detail: 'Shoppers leave without its goods' });
     // The D2 truck docked and nobody unloads it; the forklift waits for room in the full staging lane.
     expect(on('dock:D2')).toMatchObject({ tone: 'info', label: 'PO-7782 waits to unload', detail: 'Command the forklift to unload dock D2' });
     expect(on('forklift')).toMatchObject({ tone: 'info', eyebrow: 'WAITS', label: 'Forklift', detail: 'Waits for room in staging.' });

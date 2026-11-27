@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AssetNode, SceneNode, SceneStore } from '@opsorama/core';
 import { assetDescriptors, catalogAssets } from '@opsorama/objects';
 import { createAquaticsStore } from '../apps/site/src/features/aquatics/model';
-import { createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
+import { createEcommerceSimulation, createEcommerceStore } from '../apps/site/src/features/ecommerce/simulation';
 import { createFarmStore } from '../apps/site/src/features/farm/scene';
 import { createOfficeStore } from '../apps/site/src/features/office/scene';
 import { createRestaurantStore } from '../apps/site/src/features/restaurant/model';
@@ -40,14 +40,16 @@ describe('recipe reuse (C4)', () => {
   it('a recipe that is not a dashboard, the Cut-off game, reuses the catalog, simulation and panels', () => {
     const game = createShiftGame({ scenario: 'peak', seed: 1 });
     game.advance(120);
-    const nodes = playNodes(game, []), dashboards = new Set(scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset)));
-    game.dispose();
+    // The dashboards as they start, and the e-commerce dashboard after the same two minutes, with shoppers' bags and parcels.
+    const live = createEcommerceSimulation('peak', 1); live.advance(120);
+    const nodes = playNodes(game, []), dashboards = new Set([...scenes.flatMap(({ nodes: list }) => assetsOf(list)), ...assetsOf(live.nodes())].map(node => node.asset));
+    game.dispose(); live.dispose();
     // Every model of the game is a catalog model the dashboards use too: the game brings no models of its own.
     for (const node of assetsOf(nodes)) {
       expect(catalogAssets[node.asset], node.id).toBeDefined();
       expect(dashboards.has(node.asset), node.asset).toBe(true);
     }
-    // Its feedback is made of generic nodes: here, markers on the late truck and the robot that broke down.
+    // Its feedback is made of generic nodes: here, markers such as the one on the truck that waits to unload.
     expect(nodes.filter(node => node.kind === 'marker').length).toBeGreaterThan(0);
     // The page builds its HUD from the shared panel package and the dashboards' feed loop.
     const page = readFileSync(new URL('../apps/site/src/features/cutoff/CutoffGame.tsx', import.meta.url), 'utf8');
