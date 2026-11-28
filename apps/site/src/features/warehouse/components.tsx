@@ -239,3 +239,25 @@ export function WarehouseLibrary() {
   return <section className="wh-library" aria-label="Warehouse objects"><h3><Forklift size={15} aria-hidden="true" /> {WAREHOUSE_CATALOG.length} shared objects in this scene</h3>
     <ul>{WAREHOUSE_CATALOG.map(([asset, name]) => <li key={asset}><Link href={`/docs/objects/${asset}`}>{name}</Link></li>)}</ul></section>;
 }
+
+/** The scene node a selection shows in the inspector preview; an alert marker shows the node it points at. */
+export function warehousePreviewNode(snapshot: WarehouseSnapshot, selection: string | null): string | null {
+  return selection?.startsWith('alert:') ? warehouseAlerts(snapshot).find(value => `alert:${value.id}` === selection)?.node ?? null : selection;
+}
+
+/** The inspector for a selected node id; alert markers open the inspector of the node they point at. */
+export function warehouseInspector(snapshot: WarehouseSnapshot, selection: string | null): ReactNode {
+  if (!selection) return <EmptyInspector />;
+  const [kind, id = '', bay, side] = selection.split(':');
+  if (kind === 'alert') { const alert = warehouseAlerts(snapshot).find(value => `alert:${value.id}` === selection); return alert ? warehouseInspector(snapshot, alert.node) : <EmptyInspector />; }
+  if (kind === 'area' || kind === 'pin') return <AreaInspector snapshot={snapshot} id={id as AreaId} />;
+  if (kind === 'chilled') return <ChilledInspector snapshot={snapshot} />;
+  if (kind === 'dock') return <DockInspector snapshot={snapshot} id={id as DockId} />;
+  if (kind === 'truck') return <TruckInspector snapshot={snapshot} id={id} />;
+  if (kind === 'aisle') return <AisleInspector snapshot={snapshot} id={id as AisleId} />;
+  if (kind === 'rack') return <LocationInspector snapshot={snapshot} aisle={id as AisleId} bay={Number(bay)} side={side as Side} />;
+  if (kind === 'mhe') return <VehicleInspector snapshot={snapshot} id={id} />;
+  if (kind === 'pack') return <AreaInspector snapshot={snapshot} id="packing" />;
+  if (kind === 'returns') return <AreaInspector snapshot={snapshot} id="returns" />;
+  return <EmptyInspector />;
+}

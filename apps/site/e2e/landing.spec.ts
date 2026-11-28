@@ -25,6 +25,8 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await expect(carousel.getByRole('heading', { name: 'Live operations boards' })).toBeVisible();
   await expect(carousel.getByRole('link', { name: 'Open the distribution centre' })).toHaveAttribute('href', '/examples/warehouse');
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /warehouse\.webp/);
+  // The distribution centre opens with the inspector of one rack bay on the right.
+  await expect(page.getByRole('region', { name: 'Distribution centre inspector' })).toContainText('A05-07-L', { timeout: 30_000 });
   await carousel.getByRole('button', { name: 'Show slide 3: Facility overviews' }).click();
   // Each use brings its example's scene: the datacenter replaces the distribution centre behind the panel.
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /datacenter\.webp/);

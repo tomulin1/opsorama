@@ -13,7 +13,7 @@ import { createShiftGame, type ActorView } from '../cutoff/rules';
 import { MACHINES, actorActions } from '../cutoff/ring';
 import { lightingAt, playNodes } from '../cutoff/scene';
 import { datacenterHudMetrics } from '../datacenter/metrics';
-import { warehouseHudMetrics } from '../warehouse/components';
+import { warehouseHudMetrics, warehouseInspector, warehousePreviewNode } from '../warehouse/components';
 import { SCENARIOS as WAREHOUSE } from '../warehouse/model';
 import { DEFAULT_ZOOM as WAREHOUSE_ZOOM, createWarehouseStore } from '../warehouse/scene';
 import { createAgentBuild, type AgentLog } from './agent-build';
@@ -48,6 +48,16 @@ export interface SceneMenu {
   read(): { title: string; tone: 'warning' | 'success'; actions: RingAction<ReactNode>[] } | null;
 }
 
+/** The example's inspector panel on the right, for the selected node or, with nothing selected, the node it opens with. */
+export interface SceneInspector {
+  label: string;
+  /** The node selected when the scene starts, whose inspector shows first. */
+  initial: string;
+  render(nodeId: string): ReactNode;
+  /** The node the inspector's live 3D copy shows. */
+  preview(nodeId: string): string | null;
+}
+
 export interface LandingScene {
   store: SceneStore;
   /** The example's default zoom, for the zoom controls' reset. */
@@ -57,6 +67,7 @@ export interface LandingScene {
   log?: AgentLog;
   metrics?: SceneMetrics;
   menu?: SceneMenu;
+  inspector?: SceneInspector;
   /** Starts the scene's feed on its store; returns the stop function. */
   run?(): () => void;
   dispose(): void;
@@ -93,11 +104,18 @@ function shopScene(): LandingScene {
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, simulation, records.set), dispose: () => { store.dispose(); simulation.dispose(); } };
 }
 
-/** The distribution centre example's dispatch snapshot. */
+/** The rack bay A05-07-L, whose inspector the distribution centre opens with. */
+const WAREHOUSE_INSPECTED = 'rack:A05:6:L';
+
+/** The distribution centre example's dispatch snapshot, with the inspector of one rack bay open on the right. */
 function warehouseScene(): LandingScene {
   const store = createWarehouseStore('dispatch');
+  // The bay is selected for its highlight and inspector; the camera keeps the whole centre in view instead of framing it.
+  store.configure({ camera: { ...store.getSnapshot().settings.camera, frameOnSelect: false } });
+  store.select(WAREHOUSE_INSPECTED, 'api');
+  const inspector: SceneInspector = { label: 'Distribution centre inspector', initial: WAREHOUSE_INSPECTED, render: id => warehouseInspector(WAREHOUSE.dispatch, id), preview: id => warehousePreviewNode(WAREHOUSE.dispatch, id) };
   const metrics = fixedMetrics('Distribution centre metrics', () => displayOnly(warehouseHudMetrics(WAREHOUSE.dispatch, noActions(['docks', 'putaway', 'loads', 'storage']))));
-  return { store, zoom: WAREHOUSE_ZOOM, metrics, dispose: () => store.dispose() };
+  return { store, zoom: WAREHOUSE_ZOOM, metrics, inspector, dispose: () => store.dispose() };
 }
 
 /** The datacenter example's incident snapshot. */
@@ -143,6 +161,12 @@ function cutoffScene(): LandingScene {
 }
 
 const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, warehouse: warehouseScene, datacenter: datacenterScene, cutoff: cutoffScene, office: createAgentBuild };
-export function createLandingScene(id: LandingSceneId): LandingScene { return FACTORIES[id](); }
+/** How much closer than its example each scene starts: two zoom-button steps, so people and objects read on the first screen. */
+const ZOOM_BOOST = .4;
+export function createLandingScene(id: LandingSceneId): LandingScene {
+  const scene = FACTORIES[id](), zoom = Math.round((scene.zoom + ZOOM_BOOST) * 100) / 100;
+  scene.store.configure({ zoom });
+  return { ...scene, zoom };
+}
 /** Gallery preview of each scene, known before the scene exists. */
 export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff', office: 'office' };
