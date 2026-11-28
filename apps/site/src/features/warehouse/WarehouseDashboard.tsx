@@ -7,12 +7,12 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
 import { SCENARIOS, SITE_NAME, warehouseMetrics, type WarehouseScenario } from './model';
 import { DEFAULT_ZOOM, applyWarehouseSnapshot, createWarehouseStore } from './scene';
 import {
-  AlertList, DockTable, FleetList, LoadTable, StorageChips,
-  WarehouseLibrary, warehouseHudMetrics, warehouseInspector, warehousePreviewNode,
+  DockTable, FleetList, LoadTable, StorageChips,
+  WarehouseLibrary, WarehouseSidePanel, warehouseHudMetrics, type WarehouseSidePanelId,
 } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -26,7 +26,7 @@ const SCENARIO_NOTES: Readonly<Record<WarehouseScenario, string>> = {
 /** Below this width the floating panels share one area, so opening one closes the other. */
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'docks' | 'loads' | 'storage' | 'fleet' | 'about';
-type SidePanel = 'alerts' | 'inspector';
+type SidePanel = WarehouseSidePanelId;
 
 /** Host-owned HUD over one React scene. Shared panels own presentation; mock data stays in this example. */
 function WarehouseViewport() {
@@ -57,7 +57,6 @@ function WarehouseViewport() {
   const toggleLeft = (panel: LeftPanel) => { setPanelsVisible(true); setLeftPanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setSidePanel(null); };
   const toggleSide = (panel: SidePanel) => { setPanelsVisible(true); setSidePanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null); };
   const closeLeft = <button type="button" className="hud-icon-button" aria-label="Close information panel" onClick={() => setLeftPanel(null)}><X size={15} /></button>;
-  const sideTabs = <div className="hud-side-tabs"><button type="button" aria-pressed={sidePanel === 'alerts'} onClick={() => setSidePanel('alerts')}>Alerts</button><button type="button" aria-pressed={sidePanel === 'inspector'} onClick={() => setSidePanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => setSidePanel(null)}><X size={15} /></button></div>;
 
   return <section className="wh-viewport hud-viewport" aria-label="Distribution centre" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
@@ -76,10 +75,7 @@ function WarehouseViewport() {
       })} />
     </div>}
 
-    {panelsVisible && sidePanel === 'alerts' && <DataPanel className="hud-side-panel" label="Distribution centre alerts" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock snapshot · no live feed', state: 'unknown' }}>
-      <AlertList snapshot={snapshot} onSelect={select} />
-    </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel wh-inspector-panel" label="Distribution centre inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={warehousePreviewNode(snapshot, selection)} />{warehouseInspector(snapshot, selection)}</DataPanel>}
+    {panelsVisible && sidePanel && <WarehouseSidePanel snapshot={snapshot} panel={sidePanel} selection={selection} onPanel={setSidePanel} onSelect={select} />}
 
     {panelsVisible && leftPanel === 'docks' && <DataPanel className="hud-floating-panel wh-wide-panel" title="Docks & yard" label="Docks" description={`${metrics.occupied} of ${metrics.doors} doors in use · D01–D08 receiving, D09–D16 dispatch`} density="compact" slots={{ icon: <Truck size={16} />, actions: closeLeft }}>
       <DockTable snapshot={snapshot} onSelect={select} />

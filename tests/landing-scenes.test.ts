@@ -16,14 +16,26 @@ describe('home page scenes', () => {
     scene.dispose();
   });
 
-  it('opens the distribution centre with the inspector of rack bay A05-07-L, the bay selected and the camera kept on the overview', () => {
+  it('opens the distribution centre with rack bay A05-07-L selected, so its inspector shows, and the camera kept on the overview', () => {
     const scene = createLandingScene('warehouse'), { selection, settings } = scene.store.getSnapshot();
-    expect(scene.inspector?.initial).toBe('rack:A05:6:L');
     expect(locationCode('A05', 6, 'L')).toBe('A05-07-L');
     expect(selection?.nodeId).toBe('rack:A05:6:L');
     expect(settings.camera.frameOnSelect).toBe(false);
-    expect(scene.inspector!.preview('rack:A05:6:L')).toBe('rack:A05:6:L');
+    expect(scene.side).toBeDefined();
     scene.dispose();
+  });
+
+  it('gives the dashboards their right-hand panels and makes clickable only the top panels that open them, as in the examples', () => {
+    const opens = { shop: ['shoppers'], warehouse: ['putaway'], datacenter: ['inlet', 'alerts'] } as const;
+    for (const [id, ids] of Object.entries(opens) as [keyof typeof opens, readonly string[]][]) {
+      const scene = createLandingScene(id);
+      expect(Object.keys(scene.side!.metrics)).toEqual(ids);
+      const action = { label: 'test', onActivate: () => {} };
+      const metrics = scene.metrics!.read(Object.fromEntries(ids.map(metric => [metric, action])));
+      expect(metrics.filter(metric => metric.action).map(metric => metric.id)).toEqual(ids);
+      scene.dispose();
+    }
+    expect(createLandingScene('cutoff').side).toBeUndefined();
   });
 
   it('starts every scene two zoom steps closer than its example', () => {
@@ -37,9 +49,9 @@ describe('home page scenes', () => {
     for (const path of Object.values(LANDING_SCENE_IMAGES)) expect(existsSync(new URL(`../apps/site/public${path}`, import.meta.url)), path).toBe(true);
   });
 
-  it('gives the dashboards light panels without actions', () => {
+  it('gives the dashboards light panels, without actions unless the home page passes them', () => {
     for (const id of ['shop', 'warehouse', 'datacenter'] as const) {
-      const scene = createLandingScene(id), metrics = scene.metrics!.read();
+      const scene = createLandingScene(id), metrics = scene.metrics!.read({});
       expect(metrics).toHaveLength(4);
       expect(metrics.every(metric => metric.action === undefined)).toBe(true);
       expect(scene.metrics!.dark).toBeFalsy();

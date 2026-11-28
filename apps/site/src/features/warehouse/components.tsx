@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
-import { AlertTriangle, Boxes, Clock, Forklift, PackageCheck, Thermometer, Truck as TruckIcon, Warehouse, Wrench, Zap } from 'lucide-react';
-import { StatusBadge, type MetricAction } from '@opsorama/react/ui';
+import { AlertTriangle, Boxes, Clock, Forklift, PackageCheck, Thermometer, Truck as TruckIcon, Warehouse, Wrench, X, Zap } from 'lucide-react';
+import { DataPanel, StatusBadge, type MetricAction } from '@opsorama/react/ui';
 import type { VisualState } from '@opsorama/core';
-import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, type HudMetric } from '../example-hud';
+import { HUD_STATE_TONE, HudDockStatus, HudNodePreview, HudObjectLabel, type HudMetric } from '../example-hud';
 import type { HudThumbnailModel } from '../hud-thumbnails';
 import { VEHICLE_ASSET } from './scene';
 import {
@@ -260,4 +260,14 @@ export function warehouseInspector(snapshot: WarehouseSnapshot, selection: strin
   if (kind === 'pack') return <AreaInspector snapshot={snapshot} id="packing" />;
   if (kind === 'returns') return <AreaInspector snapshot={snapshot} id="returns" />;
   return <EmptyInspector />;
+}
+
+export type WarehouseSidePanelId = 'alerts' | 'inspector';
+
+/** The right-hand panel: the alert list or the inspector of the selection, with tabs between them and a close button. */
+export function WarehouseSidePanel({ snapshot, panel, selection, onPanel, onSelect }: { snapshot: WarehouseSnapshot; panel: WarehouseSidePanelId; selection: string | null; onPanel(panel: WarehouseSidePanelId | null): void; onSelect(nodeId: string): void }) {
+  const tabs = <div className="hud-side-tabs"><button type="button" aria-pressed={panel === 'alerts'} onClick={() => onPanel('alerts')}>Alerts</button><button type="button" aria-pressed={panel === 'inspector'} onClick={() => onPanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => onPanel(null)}><X size={15} /></button></div>;
+  return panel === 'alerts'
+    ? <DataPanel className="hud-side-panel" label="Distribution centre alerts" density="compact" slots={{ header: tabs }} freshness={{ label: 'Mock snapshot · no live feed', state: 'unknown' }}><AlertList snapshot={snapshot} onSelect={onSelect} /></DataPanel>
+    : <DataPanel className="hud-side-panel wh-inspector-panel" label="Distribution centre inspector" density="compact" slots={{ header: tabs }}><HudNodePreview nodeId={warehousePreviewNode(snapshot, selection)} />{warehouseInspector(snapshot, selection)}</DataPanel>;
 }

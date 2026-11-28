@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, PackageOpen, ShoppingBag, ShoppingCart, Store, Truck, Warehouse } from 'lucide-react';
-import { ActivityFeed, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
-import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
+import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, PackageOpen, ShoppingBag, ShoppingCart, Store, Truck, Warehouse, X } from 'lucide-react';
+import { ActivityFeed, DataPanel, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
+import { HUD_STATE_TONE, HudDockStatus, HudNodePreview, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import {
   AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, departmentCapacity, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
   alertStatus, alertsAt, area, areaStatus, cageCounts, carrier, cutoffRisk, departmentFacings, departmentLow, ecommerceMetrics, location, locationState, minutesOf, orderArea, ordersIn, shoppers, stage, stagedFor,
@@ -281,4 +281,43 @@ export const ECOMMERCE_CATALOG = [
 export function EcommerceLibrary() {
   return <section className="ec-library" aria-label="Catalog objects"><h3><Boxes size={15} aria-hidden="true" /> {ECOMMERCE_CATALOG.length} shared catalog objects</h3>
     <ul>{ECOMMERCE_CATALOG.map(([asset, name]) => <li key={asset}><Link href={`/docs/objects/${asset}`}>{name}</Link></li>)}</ul></section>;
+}
+
+/** The inspector for a selected node id, or for an open order, which stays in the inspector while it moves. */
+export function ecommerceInspector(snapshot: EcommerceSnapshot, selection: string | null, order: Order | undefined, { onInspectOrder, onLocate }: { onInspectOrder(id: string): void; onLocate(order: Order): void }): ReactNode {
+  const [kind, id = ''] = (selection ?? '').split(':') as [string, string | undefined];
+  const inspectOrder = onInspectOrder;
+  return order ? <OrderInspector order={order} snapshot={snapshot} onLocate={() => onLocate(order)} />
+    : kind === 'area' || kind === 'pin' ? <AreaInspector id={id as AreaId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'qa' ? <AreaInspector id="receiving" snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'rack' || kind === 'flow' || kind === 'shelf' ? <LocationInspector id={id as LocationId} snapshot={snapshot} />
+    : kind === 'dock' ? <DockInspector id={id as DockId} snapshot={snapshot} />
+    : kind === 'pack' ? <PackInspector id={id as PackStationId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'putwall' ? <PutWallInspector id={id as PutWallId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'cage' ? <CarrierInspector id={id.split('-')[0] as CarrierId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'wrapper' ? <CarrierInspector id="freight" snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'checkout' ? <CheckoutInspector id={id as CheckoutId} snapshot={snapshot} />
+    : kind === 'collect' ? <CollectInspector snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'returns' ? <ReturnsInspector snapshot={snapshot} />
+    : kind === 'gondola' ? <DepartmentInspector id={id as DepartmentId} snapshot={snapshot} onInspect={inspectOrder} />
+    : selection && snapshot.units.some(unit => unit.id === selection) ? <UnitInspector id={selection} snapshot={snapshot} onInspect={inspectOrder} />
+    : selection && /^(forklift|reach-truck|replenisher|dispatcher|shelf-filler|picker|sorter)/.test(selection) ? <AgentInspector id={selection} snapshot={snapshot} />
+    : <EmptyInspector />;
+}
+
+export type EcommerceSidePanelId = 'areas' | 'inspector';
+
+/** The right-hand panel: the process areas with tasks and activity, or the inspector, with tabs between them and a close button. */
+export function EcommerceSidePanel({ snapshot, panel, selection, previewNodeId, order, areaFilter, onPanel, onSelectArea, onInspectOrder, onLocate }: {
+  snapshot: EcommerceSnapshot; panel: EcommerceSidePanelId; selection: string | null; previewNodeId: string | null; order: Order | undefined; areaFilter: AreaId | null;
+  onPanel(panel: EcommerceSidePanelId | null): void; onSelectArea(id: AreaId): void; onInspectOrder(id: string): void; onLocate(order: Order): void;
+}) {
+  const tabs = <div className="hud-side-tabs"><button type="button" aria-pressed={panel === 'areas'} onClick={() => onPanel('areas')}>Areas</button><button type="button" aria-pressed={panel === 'inspector'} onClick={() => onPanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => onPanel(null)}><X size={15} /></button></div>;
+  return panel === 'areas'
+    ? <DataPanel className="hud-side-panel" label="Process areas panel" density="compact" slots={{ header: tabs }} freshness={{ label: 'Simulated feed · no live connection', state: 'unknown' }}>
+      <AreaList snapshot={snapshot} selected={areaFilter} onSelect={onSelectArea} />
+      <TaskList snapshot={snapshot} />
+      <ActivityList snapshot={snapshot} />
+    </DataPanel>
+    : <DataPanel className="hud-side-panel ec-inspector-panel" label="Shop and warehouse inspector" density="compact" slots={{ header: tabs }}><HudNodePreview nodeId={previewNodeId} />{ecommerceInspector(snapshot, selection, order, { onInspectOrder, onLocate })}</DataPanel>;
 }

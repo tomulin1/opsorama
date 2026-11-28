@@ -2,14 +2,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
-import { DashboardProvider, NodeHtml, SceneCanvas, useScene } from '@opsorama/react';
-import { ActionRing, DataPanel } from '@opsorama/react/ui';
+import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
+import { ActionRing, type MetricAction } from '@opsorama/react/ui';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
-import { HudMetrics, HudNodePreview, HudZoom, useHudMetricSize } from '../example-hud';
-import { createLandingScene, LANDING_SCENE_IMAGES, type LandingScene, type LandingSceneId, type SceneInspector, type SceneMenu, type SceneMetrics } from './scenes';
+import { HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
+import { createLandingScene, LANDING_SCENE_IMAGES, type LandingScene, type LandingSceneId, type SceneMenu, type SceneMetrics } from './scenes';
+import type { SceneSide } from './side-panels';
 import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
 
@@ -147,12 +148,29 @@ function AgentLogPanel({ log }: { log: AgentLog }) {
   </section>;
 }
 
-/** The example's top panels over its scene; the game's are dark, as in the game. They only show values, so a click keeps the visitor here. */
-function SceneMetricsPanel({ metrics }: { metrics: SceneMetrics }) {
-  const { metricSize } = useHudMetricSize();
-  useSyncExternalStore(metrics.subscribe, metrics.version, metrics.version);
-  return <div className="hud-top landing-top" data-panel-theme={metrics.dark ? 'dark' : undefined}><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read()} /></div>;
+/**
+ * The example's HUD over its scene: its top panels and its right-hand panel, which a selection in the scene opens with the
+ * selection's inspector, as in the example. Top panels that open the right-hand panel in the example do so here too; the
+ * others only show values, since the home page has none of the example's left panels.
+ */
+function SceneHud({ metrics, side }: { metrics?: SceneMetrics; side?: SceneSide }) {
+  const store = useSceneStore(), selection = useScene().selection?.nodeId ?? null, { metricSize } = useHudMetricSize();
+  const [panel, setPanel] = useState<string | null>(null);
+  useSyncExternalStore(metrics?.subscribe ?? noSubscribe, metrics?.version ?? noVersion, metrics?.version ?? noVersion);
+  // A selection from the scene or a list opens the inspector, as in the examples.
+  useEffect(() => { if (selection && side) setPanel('inspector'); }, [selection, side]);
+  const actions: Record<string, MetricAction> = {};
+  for (const [id, opens] of Object.entries(side?.metrics ?? {})) {
+    actions[id] = 'inspect' in opens
+      ? { label: opens.label, pressed: panel === 'inspector' && selection === opens.inspect, onActivate: () => { if (panel === 'inspector' && selection === opens.inspect) setPanel(null); else { store.select(opens.inspect, 'keyboard'); setPanel('inspector'); } } }
+      : { label: opens.label, pressed: panel === opens.panel, onActivate: () => setPanel(value => value === opens.panel ? null : opens.panel) };
+  }
+  return <>
+    {metrics && <div className="hud-top landing-top" data-panel-theme={metrics.dark ? 'dark' : undefined}><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read(actions)} /></div>}
+    {side && panel && <div className="landing-side">{side.render({ panel, onPanel: setPanel })}</div>}
+  </>;
 }
+const noSubscribe = () => () => {}, noVersion = () => 0;
 
 /** The example's command ring, open over its node as in the example. It only shows the commands: `inert` keeps clicks and focus off it. */
 function SceneMenuRing({ menu }: { menu: SceneMenu }) {
@@ -163,12 +181,6 @@ function SceneMenuRing({ menu }: { menu: SceneMenu }) {
   </NodeHtml>;
 }
 
-/** The example's inspector on the right, as the example shows it: for the node the visitor selects, otherwise for the scene's opening node. */
-function SceneInspectorPanel({ inspector }: { inspector: SceneInspector }) {
-  const selected = useScene().selection?.nodeId ?? inspector.initial;
-  return <DataPanel className="hud-side-panel landing-inspector" label={inspector.label} density="compact"><HudNodePreview nodeId={inspector.preview(selected)} />{inspector.render(selected)}</DataPanel>;
-}
-
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
 function BackgroundScene({ id }: { id: LandingSceneId }) {
   const [scene, setScene] = useState<LandingScene | null>(null);
@@ -177,7 +189,7 @@ function BackgroundScene({ id }: { id: LandingSceneId }) {
     setScene(value);
     return () => { setScene(null); value.dispose(); };
   }, [id]);
-  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.inspector && <SceneInspectorPanel inspector={scene.inspector} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{(scene.metrics || scene.side) && <SceneHud metrics={scene.metrics} side={scene.side} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
 }
 
 export function LandingPage() {
