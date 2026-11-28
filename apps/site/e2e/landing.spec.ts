@@ -33,6 +33,9 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
   await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /cutoff\.webp/);
+  // The game shows the forklift's command ring open over it, for show only.
+  await expect(page.locator('.landing-ring')).toContainText('Forklift', { timeout: 30_000 });
+  await expect(page.locator('.landing-ring [inert]')).toHaveCount(1);
   await carousel.getByRole('button', { name: 'Show slide 5: Built with AI coding agents' }).click();
   await expect(carousel.getByRole('link', { name: 'Read about validation' })).toHaveAttribute('href', '/docs/validation');
   // An agent builds the office behind the panel, and its log shows the prompt and the nodes it adds.
