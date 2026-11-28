@@ -55,6 +55,10 @@
 @media (prefers-reduced-motion: reduce) { .landing-agent-log header span { animation: none; } }
 /* The example's top panels sit at the top right, where the example shows them; the home page has no navigation panel beside them. */
 .landing-top { grid-template-columns: minmax(0, 1fr); }
+/* The example panels over a scene that is still being built: shown, but greyed out and inert until it is ready. */
+.landing-hud { transition: opacity 240ms ease, filter 240ms ease; }
+.landing-hud[data-loading] { opacity: .45; filter: grayscale(.8); }
+@media (prefers-reduced-motion: reduce) { .landing-hud { transition: none; } }
 .landing-controls { flex-direction: row; justify-content: flex-end; align-items: center; left: auto; }
 .landing-sections { width: 100%; padding-top: 10px; padding-bottom: 10px; }
 .landing-sections footer { align-items: center; padding-top: 0; }

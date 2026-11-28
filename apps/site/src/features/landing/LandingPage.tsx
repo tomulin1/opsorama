@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { ActionRing, type MetricAction } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/three';
+import type { SceneLoadState, SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
@@ -129,12 +129,13 @@ function IntroCarousel({ active, onShow }: { active: number; onShow: (index: num
 }
 
 /** A scene's canvas and zoom controls; its feed runs while it is shown. */
-function SceneViewport({ scene }: { scene: LandingScene }) {
+function SceneViewport({ scene, onLoaded }: { scene: LandingScene; onLoaded(): void }) {
   const renderer = useRef<SceneRenderer | null>(null);
   const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; }, []);
+  const onLoad = useCallback((state: SceneLoadState) => { if (state.phase === 'loaded') onLoaded(); }, [onLoaded]);
   useEffect(() => scene.run?.(), [scene]);
   return <>
-    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={scene.controllers} wheelZoom onReady={onReady} /></div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={scene.controllers} wheelZoom onReady={onReady} onLoad={onLoad} /></div>
     <div className="hud-viewport-controls landing-controls"><HudZoom rendererRef={renderer} defaultZoom={scene.zoom} /></div>
   </>;
 }
@@ -183,13 +184,18 @@ function SceneMenuRing({ menu }: { menu: SceneMenu }) {
 
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
 function BackgroundScene({ id }: { id: LandingSceneId }) {
-  const [scene, setScene] = useState<LandingScene | null>(null);
+  const [scene, setScene] = useState<LandingScene | null>(null), [loaded, setLoaded] = useState(false);
+  const onLoaded = useCallback(() => setLoaded(true), []);
   useEffect(() => {
     const value = createLandingScene(id);
     setScene(value);
     return () => { setScene(null); value.dispose(); };
   }, [id]);
-  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{(scene.metrics || scene.side) && <SceneHud metrics={scene.metrics} side={scene.side} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
+  // Until the scene is built its panels stand greyed out and inert over the scene's image, so nothing invites a click before it works.
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} onLoaded={onLoaded} />
+    <div className="landing-hud" data-loading={loaded ? undefined : 'true'} inert={!loaded}>{(scene.metrics || scene.side) && <SceneHud metrics={scene.metrics} side={scene.side} />}{scene.log && <AgentLogPanel log={scene.log} />}</div>
+    {loaded && scene.menu && <SceneMenuRing menu={scene.menu} />}
+  </DashboardProvider>;
 }
 
 export function LandingPage() {

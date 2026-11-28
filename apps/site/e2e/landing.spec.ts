@@ -11,6 +11,8 @@ test('home runs the shop scene behind the intro panel on one screen', async ({ p
   // and it opens that panel here too, without leaving the home page.
   const metrics = page.getByRole('region', { name: 'Operations metrics' });
   await expect(metrics).toBeVisible();
+  // The panels stay greyed out and inert until the scene is built.
+  await expect(page.locator('.landing-hud[data-loading]')).toHaveCount(0, { timeout: 30_000 });
   await expect(metrics.locator('a')).toHaveCount(0);
   await expect(metrics.getByRole('button')).toHaveCount(1);
   await metrics.getByRole('button', { name: 'Open process areas' }).click();
@@ -38,6 +40,7 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await expect(page.locator('.landing-hero canvas')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByRole('region', { name: 'Facility metrics' })).toBeVisible();
   // The peak inlet panel inspects the hottest rack, as in the example.
+  await expect(page.locator('.landing-hud[data-loading]')).toHaveCount(0, { timeout: 30_000 });
   await page.getByRole('button', { name: 'Inspect the rack with the peak inlet' }).click();
   await expect(page.getByRole('region', { name: 'Equipment inspector' })).toContainText('Rack A02');
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
