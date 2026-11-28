@@ -193,8 +193,8 @@
 /* The dark panel variant of the HUD, the default of every example: navy translucent panels, light text and a cyan accent, as in
    the action ring card. data-panel-theme="light" on the viewport keeps the light version. It sets the HUD's own variables over
    each example's light ones, and --hud-card, --hud-card-line, --hud-critical-fill and --hud-warning-fill for the examples' own
-   cards, rows and notes. */
-.hud-viewport:not([data-panel-theme="light"]) {
+   cards, rows and notes. A part of a light viewport, such as the home page's example panels, takes it with data-panel-theme="dark". */
+.hud-viewport:not([data-panel-theme="light"]), .hud-viewport [data-panel-theme="dark"] {
   color-scheme: dark;
   --panel-surface: color-mix(in srgb, #142038 88%, transparent); --panel-text: #f1f5fb; --panel-muted: #a8b6cc;
   --panel-border: #ffffff24; --panel-success: #52d69b; --panel-warning: #f1b54a; --panel-critical: #ff7088;
@@ -203,7 +203,7 @@
   --hud-tint: #ffffff12; --hud-line: #ffffff1f;
   --hud-card: #ffffff0d; --hud-card-line: #ffffff1f; --hud-critical-fill: #ff70881f; --hud-warning-fill: #f1b54a1a;
 }
-.hud-viewport:not([data-panel-theme="light"]) .dp-panel { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.hud-viewport:not([data-panel-theme="light"]) .dp-panel, .hud-viewport [data-panel-theme="dark"] .dp-panel { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-navigation .hud-symbol { color: #0d1a2e; background: var(--hud-accent); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button { color: var(--panel-text); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button[aria-pressed="true"] { color: var(--hud-accent); background: var(--hud-accent-soft); }
