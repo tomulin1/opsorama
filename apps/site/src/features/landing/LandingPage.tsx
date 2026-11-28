@@ -2,14 +2,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
-import { DashboardProvider, NodeHtml, SceneCanvas } from '@opsorama/react';
-import { ActionRing } from '@opsorama/react/ui';
+import { DashboardProvider, NodeHtml, SceneCanvas, useScene } from '@opsorama/react';
+import { ActionRing, DataPanel } from '@opsorama/react/ui';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
-import { HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
-import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneMenu, type SceneMetrics } from './scenes';
+import { HudMetrics, HudNodePreview, HudZoom, useHudMetricSize } from '../example-hud';
+import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneInspector, type SceneMenu, type SceneMetrics } from './scenes';
 import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
 
@@ -163,6 +163,12 @@ function SceneMenuRing({ menu }: { menu: SceneMenu }) {
   </NodeHtml>;
 }
 
+/** The example's inspector on the right, as the example shows it: for the node the visitor selects, otherwise for the scene's opening node. */
+function SceneInspectorPanel({ inspector }: { inspector: SceneInspector }) {
+  const selected = useScene().selection?.nodeId ?? inspector.initial;
+  return <DataPanel className="hud-side-panel landing-inspector" label={inspector.label} density="compact"><HudNodePreview nodeId={inspector.preview(selected)} />{inspector.render(selected)}</DataPanel>;
+}
+
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
 function BackgroundScene({ id }: { id: LandingSceneId }) {
   const [scene, setScene] = useState<LandingScene | null>(null);
@@ -171,7 +177,7 @@ function BackgroundScene({ id }: { id: LandingSceneId }) {
     setScene(value);
     return () => { setScene(null); value.dispose(); };
   }, [id]);
-  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.inspector && <SceneInspectorPanel inspector={scene.inspector} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
 }
 
 export function LandingPage() {
