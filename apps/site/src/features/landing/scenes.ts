@@ -168,5 +168,8 @@ export function createLandingScene(id: LandingSceneId): LandingScene {
   scene.store.configure({ zoom });
   return { ...scene, zoom };
 }
-/** Gallery preview of each scene, known before the scene exists. */
-export const LANDING_SCENE_PREVIEWS: Readonly<Record<LandingSceneId, string>> = { shop: 'ecommerce', warehouse: 'warehouse', datacenter: 'datacenter', cutoff: 'cutoff', office: 'office' };
+/**
+ * The image behind each scene while it is built: the scene as the home page frames it, without the carousel or the panels.
+ * `scripts/capture-landing-scenes.mjs` takes them again when a scene, its zoom or its example changes.
+ */
+export const LANDING_SCENE_IMAGES: Readonly<Record<LandingSceneId, string>> = { shop: '/landing-scenes/shop.webp', warehouse: '/landing-scenes/warehouse.webp', datacenter: '/landing-scenes/datacenter.webp', cutoff: '/landing-scenes/cutoff.webp', office: '/landing-scenes/office.webp' };

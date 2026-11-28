@@ -9,7 +9,7 @@ import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
 import { HudMetrics, HudNodePreview, HudZoom, useHudMetricSize } from '../example-hud';
-import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneInspector, type SceneMenu, type SceneMetrics } from './scenes';
+import { createLandingScene, LANDING_SCENE_IMAGES, type LandingScene, type LandingSceneId, type SceneInspector, type SceneMenu, type SceneMetrics } from './scenes';
 import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
 
@@ -184,7 +184,7 @@ export function LandingPage() {
   const [active, setActive] = useState(0), sceneId = SLIDE_SCENES[active];
   return <main className="landing-page">
     <SiteHeader active={null} />
-    <section className="hud-viewport landing-hero" data-left-panel="none" data-panel-theme="light" aria-label="Example scene" style={{ backgroundImage: `url('/example-previews/${LANDING_SCENE_PREVIEWS[sceneId]}.webp')` }}>
+    <section className="hud-viewport landing-hero" data-left-panel="none" data-panel-theme="light" aria-label="Example scene" style={{ backgroundImage: `url('${LANDING_SCENE_IMAGES[sceneId]}')` }}>
       <BackgroundScene key={sceneId} id={sceneId} />
       <IntroCarousel active={active} onShow={setActive} />
     </section>
