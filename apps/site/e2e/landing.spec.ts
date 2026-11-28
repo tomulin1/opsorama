@@ -24,17 +24,17 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await carousel.getByRole('button', { name: 'Next slide' }).click();
   await expect(carousel.getByRole('heading', { name: 'Live operations boards' })).toBeVisible();
   await expect(carousel.getByRole('link', { name: 'Open the distribution centre' })).toHaveAttribute('href', '/examples/warehouse');
-  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /warehouse\.webp/);
+  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /landing-scenes\/warehouse\.webp/);
   // The distribution centre opens with the inspector of one rack bay on the right.
   await expect(page.getByRole('region', { name: 'Distribution centre inspector' })).toContainText('A05-07-L', { timeout: 30_000 });
   await carousel.getByRole('button', { name: 'Show slide 3: Facility overviews' }).click();
   // Each use brings its example's scene: the datacenter replaces the distribution centre behind the panel.
-  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /datacenter\.webp/);
+  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /landing-scenes\/datacenter\.webp/);
   await expect(page.locator('.landing-hero canvas')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByRole('region', { name: 'Facility metrics' })).toBeVisible();
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
   await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
-  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /cutoff\.webp/);
+  await expect(page.locator('.landing-hero')).toHaveAttribute('style', /landing-scenes\/cutoff\.webp/);
   // The game shows the forklift's command ring open over it, for show only.
   await expect(page.locator('.landing-ring')).toContainText('Forklift', { timeout: 30_000 });
   await expect(page.locator('.landing-ring [inert]')).toHaveCount(1);

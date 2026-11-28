@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createLandingScene } from '../apps/site/src/features/landing/scenes';
+import { createLandingScene, LANDING_SCENE_IMAGES } from '../apps/site/src/features/landing/scenes';
 import { locationCode } from '../apps/site/src/features/warehouse/model';
 import { DEFAULT_ZOOM as WAREHOUSE_ZOOM } from '../apps/site/src/features/warehouse/scene';
 
@@ -30,6 +31,10 @@ describe('home page scenes', () => {
     expect(scene.zoom).toBeCloseTo(WAREHOUSE_ZOOM + .4);
     expect(scene.store.getSnapshot().settings.zoom).toBeCloseTo(WAREHOUSE_ZOOM + .4);
     scene.dispose();
+  });
+
+  it('has a captured image behind every scene', () => {
+    for (const path of Object.values(LANDING_SCENE_IMAGES)) expect(existsSync(new URL(`../apps/site/public${path}`, import.meta.url)), path).toBe(true);
   });
 
   it('gives the dashboards light panels without actions', () => {

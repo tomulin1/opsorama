@@ -1,7 +1,7 @@
 /* Home page: the shop and warehouse example runs as the hero in the shared HUD zones from hud.css; the intro panel over it is a manual carousel of the introduction and the toolkit's uses. */
 /* The first screen is exactly the header, the scene and a compact footer: the page is a column at least one screen tall, and the scene takes whatever the header and footer leave, at any window size. */
 .landing-page { display: flex; flex-direction: column; min-height: 100dvh; background: var(--opsorama-surface-raised); color: var(--opsorama-text-strong); }
-.landing-hero { --hud-accent: var(--opsorama-link); --hud-accent-strong: var(--opsorama-link); --hud-accent-soft: #e6eefb; --hud-focus: var(--opsorama-link); --hud-scene: #e3ebe2; --hud-phone-panel-bottom: 124px; flex: 1 1 auto; min-height: 560px; background: var(--hud-scene) url('/example-previews/ecommerce.webp') center / cover no-repeat; }
+.landing-hero { --hud-accent: var(--opsorama-link); --hud-accent-strong: var(--opsorama-link); --hud-accent-soft: #e6eefb; --hud-focus: var(--opsorama-link); --hud-scene: #e3ebe2; --hud-phone-panel-bottom: 124px; flex: 1 1 auto; min-height: 560px; background: var(--hud-scene) url('/landing-scenes/shop.webp') center / cover no-repeat; }
 .landing-hero .hud-scene-surface {
   --kit-scene-loading-background: color-mix(in srgb, var(--opsorama-surface-soft) 65%, transparent);
   background: transparent;
