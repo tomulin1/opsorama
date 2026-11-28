@@ -1617,6 +1617,13 @@
         "billboard": {
           "type": "boolean",
           "description": "Face the camera from every direction (a sprite) instead of lying in the node's local x-y plane. A billboard keeps its size in metres and ignores `rotation`. Default false."
+        },
+        "anisotropy": {
+          "type": "number",
+          "description": "Anisotropic filtering of the picture, an integer from 1 to 16: how many texture samples a pixel may take along a slant. Raise it, for example to 8, for an image on a plane the camera sees at a slant, such as a sign on a wall, which otherwise blurs. Higher values cost a little more graphics work for the pixels the image covers and no memory; the renderer caps them at what the graphics card supports. Default 1, plain mipmapped filtering.",
+          "minimum": 1,
+          "maximum": 16,
+          "multipleOf": 1
         }
       },
       "required": [

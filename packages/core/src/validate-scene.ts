@@ -4,7 +4,7 @@ import { MARKER_ICONS, MARKER_SHAPES, MARKER_SIZES, MARKER_TONES } from './marke
 import { NODE_VIEWS } from './containment';
 import { MAX_ROUTE_ACCELERATION, MAX_ROUTE_CORNER_RADIUS, MAX_ROUTE_POINTS, MAX_ROUTE_SPEED, MAX_ROUTE_STOP_SECONDS, MAX_ROUTE_TURN_RATE } from './route';
 import { collectProblems, pointer, type AddProblem, type SceneProblem } from './scene-problems';
-import { CONTAINER_NODE_KINDS, IMAGE_SRC_PATTERN, MAX_IMAGE_SIZE, MAX_IMAGE_SRC_LENGTH, MAX_LINE_WIDTH, MAX_TEXT_LENGTH, MOTION_NODE_KINDS, SHAPE_TYPES, TEXT_ALIGNS, TEXT_SIZE_RANGE } from './shapes';
+import { CONTAINER_NODE_KINDS, IMAGE_SRC_PATTERN, MAX_IMAGE_ANISOTROPY, MAX_IMAGE_SIZE, MAX_IMAGE_SRC_LENGTH, MAX_LINE_WIDTH, MAX_TEXT_LENGTH, MOTION_NODE_KINDS, SHAPE_TYPES, TEXT_ALIGNS, TEXT_SIZE_RANGE } from './shapes';
 
 /*
  * Problem collectors behind `validateScene` and every throwing `validate*` function of core. Each collector reports all
@@ -50,7 +50,7 @@ export const NODE_KEYS: Readonly<Record<SceneNode['kind'], readonly string[]>> =
   line: [...BASE_KEYS, 'points', 'color', 'width', 'dashed'],
   group: [...BASE_KEYS, 'route', 'controller', 'transfer'],
   text: [...BASE_KEYS, 'text', 'size', 'color', 'billboard', 'align'],
-  image: [...BASE_KEYS, 'src', 'size', 'billboard'],
+  image: [...BASE_KEYS, 'src', 'size', 'billboard', 'anisotropy'],
 });
 /** Known keys of nested objects, named after their schema definitions. */
 export const NESTED_KEYS = /* @__PURE__ */ Object.freeze({
@@ -283,6 +283,8 @@ export function imageChecks(node: Data, at: string, add: AddProblem, name: strin
   const size = node.size;
   if (!Array.isArray(size) || size.length !== 2 || !size.every(value => isFiniteNumber(value) && value > 0 && value <= MAX_IMAGE_SIZE)) add(pointer(at, 'size'), 'image-size', `Image ${name} requires a size of [width, height] in metres.`, `Set size to [width, height] in metres, each greater than 0 and at most ${MAX_IMAGE_SIZE} (received ${shown(size)}); match the picture's aspect ratio, as the image is stretched to fill it.`);
   if (node.billboard !== undefined && typeof node.billboard !== 'boolean') add(pointer(at, 'billboard'), 'field-type', `billboard of ${name} must be boolean.`, billboardFix);
+  const anisotropy = node.anisotropy;
+  if (anisotropy !== undefined && !(Number.isInteger(anisotropy) && (anisotropy as number) >= 1 && (anisotropy as number) <= MAX_IMAGE_ANISOTROPY)) add(pointer(at, 'anisotropy'), 'image-anisotropy', `Image anisotropy of ${name} must be a whole number from 1 to ${MAX_IMAGE_ANISOTROPY}; received ${JSON.stringify(anisotropy)}.`, `Set anisotropy to a whole number from 1 to ${MAX_IMAGE_ANISOTROPY}, for example 8 for an image seen at a slant, or omit it for 1.`);
 }
 
 export function interiorChecks(node: Data, at: string, add: AddProblem): void {
