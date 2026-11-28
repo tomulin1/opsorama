@@ -13,10 +13,12 @@ import { createShiftGame, type ActorView } from '../cutoff/rules';
 import { MACHINES, actorActions } from '../cutoff/ring';
 import { lightingAt, playNodes } from '../cutoff/scene';
 import { datacenterHudMetrics } from '../datacenter/metrics';
-import { warehouseHudMetrics, warehouseInspector, warehousePreviewNode } from '../warehouse/components';
+import { warehouseHudMetrics } from '../warehouse/components';
+import { datacenterPeakRack } from '../datacenter/metrics';
 import { SCENARIOS as WAREHOUSE } from '../warehouse/model';
 import { DEFAULT_ZOOM as WAREHOUSE_ZOOM, createWarehouseStore } from '../warehouse/scene';
 import { createAgentBuild, type AgentLog } from './agent-build';
+import { datacenterSide, shopSide, warehouseSide, type SceneSide } from './side-panels';
 
 /**
  * The scenes behind the home page carousel. Each one is a domain example's own scene and feed, created when its slide
@@ -26,8 +28,8 @@ export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff' | 'o
 
 /**
  * The example's top panels over its scene, built by the example's own metric function from the scene's latest records.
- * They only show values: the home page has none of the example's detail panels, and a click must not take the visitor
- * away from it, so the panels carry no actions.
+ * A panel takes an action only where the example's opens the right-hand panel, which the home page shows too; the
+ * others, which open the example's left panels, only show values, so a click never leaves the home page.
  */
 export interface SceneMetrics {
   label: string;
@@ -36,7 +38,7 @@ export interface SceneMetrics {
   subscribe(listener: () => void): () => void;
   /** Bumped whenever the records change, for `useSyncExternalStore`. */
   version(): number;
-  read(): readonly HudMetric[];
+  read(actions: Readonly<Record<string, MetricAction>>): readonly HudMetric[];
 }
 
 /** An action ring the scene shows open over one of its nodes, as its example does when that node is commanded. It only shows the commands. */
@@ -48,16 +50,6 @@ export interface SceneMenu {
   read(): { title: string; tone: 'warning' | 'success'; actions: RingAction<ReactNode>[] } | null;
 }
 
-/** The example's inspector panel on the right, for the selected node or, with nothing selected, the node it opens with. */
-export interface SceneInspector {
-  label: string;
-  /** The node selected when the scene starts, whose inspector shows first. */
-  initial: string;
-  render(nodeId: string): ReactNode;
-  /** The node the inspector's live 3D copy shows. */
-  preview(nodeId: string): string | null;
-}
-
 export interface LandingScene {
   store: SceneStore;
   /** The example's default zoom, for the zoom controls' reset. */
@@ -67,7 +59,8 @@ export interface LandingScene {
   log?: AgentLog;
   metrics?: SceneMetrics;
   menu?: SceneMenu;
-  inspector?: SceneInspector;
+  /** The example's right-hand panel, opened by a selection or by the metric panels that open it in the example. */
+  side?: SceneSide;
   /** Starts the scene's feed on its store; returns the stop function. */
   run?(): () => void;
   dispose(): void;
@@ -86,10 +79,10 @@ function liveRecords<T>(initial: T) {
 }
 /** Panels from records that never change. */
 const fixedMetrics = (label: string, read: SceneMetrics['read']): SceneMetrics => ({ label, read, version: () => 0, subscribe: () => () => {} });
-/** The example's metric functions take an action per panel; the home page passes none to use and drops them. */
+/** The example's metric functions take an action per panel; the home page gives each panel its own action or none. */
 const NO_ACTION: MetricAction = { label: '', onActivate: () => {} };
 const noActions = <K extends string>(ids: readonly K[]) => Object.fromEntries(ids.map(id => [id, NO_ACTION])) as Record<K, MetricAction>;
-const displayOnly = (metrics: readonly HudMetric[]): readonly HudMetric[] => metrics.map(metric => ({ ...metric, action: undefined }));
+const withActions = (metrics: readonly HudMetric[], actions: Readonly<Record<string, MetricAction>>): readonly HudMetric[] => metrics.map(metric => ({ ...metric, action: actions[metric.id] }));
 
 /** The scene's feed drives the store at the scene clock, so pause and speed apply to both. */
 function feedStore<S>(store: SceneStore, feed: LoopFeed<S>, onRecords: (records: S) => void = () => {}) {
@@ -100,29 +93,28 @@ function feedStore<S>(store: SceneStore, feed: LoopFeed<S>, onRecords: (records:
 function shopScene(): LandingScene {
   const simulation = createEcommerceSimulation('peak'), store = createEcommerceStore('peak', simulation);
   const records = liveRecords<EcommerceSnapshot>(simulation.snapshot());
-  const metrics: SceneMetrics = { label: 'Operations metrics', subscribe: records.subscribe, version: records.version, read: () => displayOnly(ecommerceHudMetrics(records.get(), noActions(['orders', 'cutoff', 'stock', 'shoppers']))) };
-  return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, simulation, records.set), dispose: () => { store.dispose(); simulation.dispose(); } };
+  const metrics: SceneMetrics = { label: 'Operations metrics', subscribe: records.subscribe, version: records.version, read: actions => withActions(ecommerceHudMetrics(records.get(), noActions(['orders', 'cutoff', 'stock', 'shoppers'])), actions) };
+  return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, side: shopSide(records.get), run: () => feedStore(store, simulation, records.set), dispose: () => { store.dispose(); simulation.dispose(); } };
 }
 
 /** The rack bay A05-07-L, whose inspector the distribution centre opens with. */
 const WAREHOUSE_INSPECTED = 'rack:A05:6:L';
 
-/** The distribution centre example's dispatch snapshot, with the inspector of one rack bay open on the right. */
+/** The distribution centre example's dispatch snapshot, opened with one rack bay selected, so its inspector shows on the right. */
 function warehouseScene(): LandingScene {
   const store = createWarehouseStore('dispatch');
   // The bay is selected for its highlight and inspector; the camera keeps the whole centre in view instead of framing it.
   store.configure({ camera: { ...store.getSnapshot().settings.camera, frameOnSelect: false } });
   store.select(WAREHOUSE_INSPECTED, 'api');
-  const inspector: SceneInspector = { label: 'Distribution centre inspector', initial: WAREHOUSE_INSPECTED, render: id => warehouseInspector(WAREHOUSE.dispatch, id), preview: id => warehousePreviewNode(WAREHOUSE.dispatch, id) };
-  const metrics = fixedMetrics('Distribution centre metrics', () => displayOnly(warehouseHudMetrics(WAREHOUSE.dispatch, noActions(['docks', 'putaway', 'loads', 'storage']))));
-  return { store, zoom: WAREHOUSE_ZOOM, metrics, inspector, dispose: () => store.dispose() };
+  const metrics = fixedMetrics('Distribution centre metrics', actions => withActions(warehouseHudMetrics(WAREHOUSE.dispatch, noActions(['docks', 'putaway', 'loads', 'storage'])), actions));
+  return { store, zoom: WAREHOUSE_ZOOM, metrics, side: warehouseSide(WAREHOUSE.dispatch), dispose: () => store.dispose() };
 }
 
 /** The datacenter example's incident snapshot. */
 function datacenterScene(): LandingScene {
   const store = makeDatacenterStore();
-  const metrics = fixedMetrics('Facility metrics', () => displayOnly(datacenterHudMetrics('incident', noActions(['cpu', 'load', 'inlet', 'alerts']))));
-  return { store, zoom: store.getSnapshot().settings.zoom, metrics, dispose: () => store.dispose() };
+  const metrics = fixedMetrics('Facility metrics', actions => withActions(datacenterHudMetrics('incident', noActions(['cpu', 'load', 'inlet', 'alerts'])), actions));
+  return { store, zoom: store.getSnapshot().settings.zoom, metrics, side: datacenterSide(datacenterPeakRack('incident').rack.id), dispose: () => store.dispose() };
 }
 
 /** The actor whose open menu the game scene shows. */
@@ -149,7 +141,7 @@ function cutoffScene(): LandingScene {
     const lighting = lightingAt(game.clock);
     if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting });
   };
-  const metrics: SceneMetrics = { label: 'Shift metrics', dark: true, subscribe: records.subscribe, version: records.version, read: () => displayOnly(cutoffHudMetrics(records.get())) };
+  const metrics: SceneMetrics = { label: 'Shift metrics', dark: true, subscribe: records.subscribe, version: records.version, read: actions => withActions(cutoffHudMetrics(records.get()), actions) };
   const menu: SceneMenu = {
     nodeId: MENU_ACTOR, subscribe: records.subscribe, version: records.version,
     read() {

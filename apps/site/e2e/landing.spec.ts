@@ -7,10 +7,15 @@ test('home runs the shop scene behind the intro panel on one screen', async ({ p
   // The shop scene is built after hydration; with software WebGL that can take several seconds,
   // so the default 5-second expectation timeout is too short.
   await expect(page.locator('.landing-hero canvas')).toBeVisible({ timeout: 30_000 });
-  // The example's top panels sit over its scene and only show values, so a click never leaves the home page.
+  // The example's top panels sit over its scene; only the one that opens the right-hand panel in the example is a button,
+  // and it opens that panel here too, without leaving the home page.
   const metrics = page.getByRole('region', { name: 'Operations metrics' });
   await expect(metrics).toBeVisible();
-  await expect(metrics.locator('button, a')).toHaveCount(0);
+  await expect(metrics.locator('a')).toHaveCount(0);
+  await expect(metrics.getByRole('button')).toHaveCount(1);
+  await metrics.getByRole('button', { name: 'Open process areas' }).click();
+  await expect(page.getByRole('region', { name: 'Process areas panel' })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
   // Header, scene and footer fill exactly one screen.
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   expect(errors).toEqual([]);
@@ -32,6 +37,9 @@ test('home intro panel moves through the toolkit uses on request', async ({ page
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /landing-scenes\/datacenter\.webp/);
   await expect(page.locator('.landing-hero canvas')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByRole('region', { name: 'Facility metrics' })).toBeVisible();
+  // The peak inlet panel inspects the hottest rack, as in the example.
+  await page.getByRole('button', { name: 'Inspect the rack with the peak inlet' }).click();
+  await expect(page.getByRole('region', { name: 'Equipment inspector' })).toContainText('Rack A02');
   await carousel.getByRole('button', { name: 'Show slide 4: Management games' }).click();
   await expect(carousel.getByRole('link', { name: 'Play Cut-off' })).toHaveAttribute('href', '/examples/cutoff');
   await expect(page.locator('.landing-hero')).toHaveAttribute('style', /landing-scenes\/cutoff\.webp/);

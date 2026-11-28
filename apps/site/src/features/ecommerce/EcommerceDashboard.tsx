@@ -7,14 +7,13 @@ import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
-import { AREAS, area, orderArea, type AreaId, type CarrierId, type CheckoutId, type DepartmentId, type DockId, type EcommerceScenario, type LocationId, type PackStationId, type PutWallId } from './model';
+import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { AREAS, area, orderArea, type AreaId, type EcommerceScenario, type Order } from './model';
 import { runFeedLoop } from './feed-loop';
 import { DEFAULT_ZOOM, ecommerceControllers, orderNodeId } from './scene';
 import { createEcommerceSimulation, createEcommerceStore, type EcommerceSimulation } from './simulation';
 import {
-  ActivityList, AgentInspector, AreaInspector, AreaList, CarrierInspector, CheckoutInspector, CollectInspector, DepartmentInspector, DockInspector, DockPanel, EcommerceLibrary, EmptyInspector, ecommerceHudMetrics,
-  LocationInspector, OrderInspector, OrderTable, PackInspector, PutWallInspector, ReturnsInspector, StageLegend, StockPanel, TaskList, UnitInspector,
+  DockPanel, EcommerceLibrary, EcommerceSidePanel, ecommerceHudMetrics, OrderTable, StageLegend, StockPanel, type EcommerceSidePanelId,
 } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -28,7 +27,7 @@ const SCENARIO_NOTES: Readonly<Record<EcommerceScenario, string>> = {
 /** Below this width the floating panels share one area, so opening one closes the other. */
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'orders' | 'stock' | 'docks' | 'about';
-type SidePanel = 'areas' | 'inspector';
+type SidePanel = EcommerceSidePanelId;
 
 /** Host-owned HUD over one React scene. Shared panels own presentation; the mock feed and commands stay in this example. */
 function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSimulation } }) {
@@ -42,7 +41,6 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
   const [panelTheme, setPanelTheme] = useState<'light' | 'dark'>('dark');
   const { metricSize, setMetricSize } = useHudMetricSize();
   const selection = scene.selection?.nodeId ?? null;
-  const [kind, id = ''] = (selection ?? '').split(':') as [string, string | undefined];
   const order = orderId ? snapshot.orders.find(value => value.id === orderId) : undefined;
   const orders = areaFilter ? snapshot.orders.filter(value => orderArea(value) === areaFilter) : snapshot.orders;
 
@@ -64,6 +62,7 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
   }, [expanded]);
 
   // Re-selecting the current node does not change the selection, so list clicks open the inspector directly.
+  const locateOrder = (value: Order) => { const view = renderer.current; if (view && !view.getDiagnostics().disposed) view.frame(orderNodeId(snapshot, value)); };
   const select = (nodeId: string) => { setOrderId(null); store.select(nodeId, 'keyboard'); openInspector(); };
   const inspectOrder = (value: string) => { const found = snapshot.orders.find(item => item.id === value); if (!found) return; store.select(orderNodeId(snapshot, found), 'keyboard'); setOrderId(value); openInspector(); };
   // An area filters the order table and opens its inspector; choosing it again clears the filter.
@@ -73,25 +72,8 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
   const toggleLeft = (panel: LeftPanel) => { setPanelsVisible(true); setLeftPanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setSidePanel(null); };
   const toggleSide = (panel: SidePanel) => { setPanelsVisible(true); setSidePanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null); };
   const closeLeft = <button type="button" className="hud-icon-button" aria-label="Close information panel" onClick={() => setLeftPanel(null)}><X size={15} /></button>;
-  const sideTabs = <div className="hud-side-tabs"><button type="button" aria-pressed={sidePanel === 'areas'} onClick={() => setSidePanel('areas')}>Areas</button><button type="button" aria-pressed={sidePanel === 'inspector'} onClick={() => setSidePanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => setSidePanel(null)}><X size={15} /></button></div>;
 
   // An open order stays in the inspector while it moves from one place to the next.
-  const inspector = order ? <OrderInspector order={order} snapshot={snapshot} onLocate={() => { const view = renderer.current; if (view && !view.getDiagnostics().disposed) view.frame(orderNodeId(snapshot, order)); }} />
-    : kind === 'area' || kind === 'pin' ? <AreaInspector id={id as AreaId} snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'qa' ? <AreaInspector id="receiving" snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'rack' || kind === 'flow' || kind === 'shelf' ? <LocationInspector id={id as LocationId} snapshot={snapshot} />
-    : kind === 'dock' ? <DockInspector id={id as DockId} snapshot={snapshot} />
-    : kind === 'pack' ? <PackInspector id={id as PackStationId} snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'putwall' ? <PutWallInspector id={id as PutWallId} snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'cage' ? <CarrierInspector id={id.split('-')[0] as CarrierId} snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'wrapper' ? <CarrierInspector id="freight" snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'checkout' ? <CheckoutInspector id={id as CheckoutId} snapshot={snapshot} />
-    : kind === 'collect' ? <CollectInspector snapshot={snapshot} onInspect={inspectOrder} />
-    : kind === 'returns' ? <ReturnsInspector snapshot={snapshot} />
-    : kind === 'gondola' ? <DepartmentInspector id={id as DepartmentId} snapshot={snapshot} onInspect={inspectOrder} />
-    : selection && snapshot.units.some(unit => unit.id === selection) ? <UnitInspector id={selection} snapshot={snapshot} onInspect={inspectOrder} />
-    : selection && /^(forklift|reach-truck|replenisher|dispatcher|shelf-filler|picker|sorter)/.test(selection) ? <AgentInspector id={selection} snapshot={snapshot} />
-    : <EmptyInspector />;
 
   return <section className="ec-viewport hud-viewport" aria-label="Online shop and fulfilment centre" data-panel-theme={panelTheme} data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
@@ -110,12 +92,8 @@ function EcommerceViewport({ simulation }: { simulation: { current: EcommerceSim
       })} />
     </div>}
 
-    {panelsVisible && sidePanel === 'areas' && <DataPanel className="hud-side-panel" label="Process areas panel" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Simulated feed · no live connection', state: 'unknown' }}>
-      <AreaList snapshot={snapshot} selected={areaFilter} onSelect={selectArea} />
-      <TaskList snapshot={snapshot} />
-      <ActivityList snapshot={snapshot} />
-    </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel ec-inspector-panel" label="Shop and warehouse inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={exampleSelectionNodeId(scene)} />{inspector}</DataPanel>}
+    {panelsVisible && sidePanel && <EcommerceSidePanel snapshot={snapshot} panel={sidePanel} selection={selection} previewNodeId={exampleSelectionNodeId(scene)} order={order} areaFilter={areaFilter}
+      onPanel={setSidePanel} onSelectArea={selectArea} onInspectOrder={inspectOrder} onLocate={locateOrder} />}
 
     {panelsVisible && leftPanel === 'orders' && <DataPanel className="hud-floating-panel ec-orders-panel" title="Open orders" label="Open orders" description={`${orders.length} of ${snapshot.orders.length} open${areaFilter ? ` · ${area(areaFilter).label}` : ''} · ${snapshot.ordersToday} placed today`} density="compact" slots={{ icon: <ClipboardList size={16} />, actions: closeLeft, footer: areaFilter ? <button type="button" className="hud-text-button" onClick={() => setAreaFilter(null)}>Clear area filter</button> : undefined }}>
       <OrderTable snapshot={snapshot} orders={orders} onInspect={inspectOrder} />
