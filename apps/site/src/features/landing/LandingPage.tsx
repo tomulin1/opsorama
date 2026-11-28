@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
-import { DashboardProvider, SceneCanvas } from '@opsorama/react';
+import { DashboardProvider, NodeHtml, SceneCanvas } from '@opsorama/react';
+import { ActionRing } from '@opsorama/react/ui';
 import type { SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
 import { HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
-import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneMetrics } from './scenes';
+import { createLandingScene, LANDING_SCENE_PREVIEWS, type LandingScene, type LandingSceneId, type SceneMenu, type SceneMetrics } from './scenes';
 import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
 
@@ -153,6 +154,15 @@ function SceneMetricsPanel({ metrics }: { metrics: SceneMetrics }) {
   return <div className="hud-top landing-top" data-panel-theme={metrics.dark ? 'dark' : undefined}><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read()} /></div>;
 }
 
+/** The example's command ring, open over its node as in the example. It only shows the commands: `inert` keeps clicks and focus off it. */
+function SceneMenuRing({ menu }: { menu: SceneMenu }) {
+  useSyncExternalStore(menu.subscribe, menu.version, menu.version);
+  const ring = menu.read();
+  return ring && <NodeHtml nodeId={menu.nodeId} className="co-ring-anchor landing-ring">
+    <div inert><ActionRing layout="card" density="compact" unfold title={ring.title} label={`Commands of ${ring.title}`} tone={ring.tone} actions={ring.actions} /></div>
+  </NodeHtml>;
+}
+
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
 function BackgroundScene({ id }: { id: LandingSceneId }) {
   const [scene, setScene] = useState<LandingScene | null>(null);
@@ -161,7 +171,7 @@ function BackgroundScene({ id }: { id: LandingSceneId }) {
     setScene(value);
     return () => { setScene(null); value.dispose(); };
   }, [id]);
-  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} />{scene.metrics && <SceneMetricsPanel metrics={scene.metrics} />}{scene.menu && <SceneMenuRing menu={scene.menu} />}{scene.log && <AgentLogPanel log={scene.log} />}</DashboardProvider>;
 }
 
 export function LandingPage() {

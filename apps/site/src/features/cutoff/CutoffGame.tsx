@@ -1,8 +1,8 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Boxes, ChevronDown, Move as MoveIcon, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, MapPin, Pause, Play, RotateCcw, Square, Timer, Trophy, Truck, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Boxes, ChevronDown, Crosshair, Eye, EyeOff, FastForward, Flag, Hand, MapPin, Pause, Play, RotateCcw, Timer, Trophy } from 'lucide-react';
 import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
-import { ActionRing, DataPanel, type RingAction, type Tone } from '@opsorama/react/ui';
+import { ActionRing, DataPanel, type Tone } from '@opsorama/react/ui';
 import { DEFAULT_CAMERA_SETTINGS, createSceneStore, type SceneStore } from '@opsorama/core';
 import type { NodeHighlight, PickTarget, ScenePointerEvent, SceneRenderer } from '@opsorama/three';
 import { catalogAssets } from '@opsorama/objects';
@@ -18,6 +18,7 @@ import { QUEUE_LIMIT, SHIFT_LEVELS, SHIFT_SECONDS, createShiftGame, type ActorVi
 import { GOODS_COLORS, TARGET_TINT, actorSources, clickedNodes, faceNode, goodsLegend, markAnchor, pickTarget, rackRoom, sourceMarks, sourceTints, targetMarks, targetTints } from './menu';
 import { FLOAT_SECONDS, lightingAt, moveLabel, playNodes, type Floating } from './scene';
 import { cutoffHudMetrics, plural, shelfState, toneOf } from './metrics';
+import { MACHINES, actorActions } from './ring';
 
 /** Everything the HUD shows, read from the game at most four times a second. */
 interface GameView {
@@ -296,23 +297,6 @@ function channelNow(channel: ChannelStatus, view: GameView): string {
 }
 
 /** The machines among the crew; the ring shows them in the warning tone and the people in the success tone. */
-const MACHINES = new Set(['forklift', 'reach-truck']);
-/**
- * The commands of the action ring over the commanded actor: stop or cancel its commands, switch its assist, send the truck
- * (the dispatcher), and Move, which lights what it can take in the scene. A click elsewhere or Escape closes the ring.
- */
-function actorActions(actor: ActorView, view: GameView, game: ShiftGame, run: (action: () => void, text: string) => void, move: { picking: boolean; available: boolean; toggle: () => void }): RingAction<ReactNode>[] {
-  const loading = actor.role === 'dispatcher' ? view.carriers.find(item => item.loading) : undefined, [current, next] = actor.queue;
-  return [
-    ...(current ? [{ id: 'stop', label: 'Stop', icon: <Square fill="currentColor" />, tone: 'critical' as const, ariaLabel: `Stop after this one: ${moveLabel(current)}`, onSelect: () => run(() => game.stop(actor.id), `${actor.label} stops after the current task.`) }] : []),
-    ...(next ? [{ id: 'cancel', label: 'Cancel next', icon: <X />, tone: 'warning' as const, ariaLabel: `Cancel the next command: ${moveLabel(next)}`, onSelect: () => run(() => game.cancelMove(actor.id, 1), 'Command cancelled.') }] : []),
-    { id: 'auto', label: 'Auto', switch: true, pressed: actor.assist, ariaLabel: 'Work by yourself', onSelect: () => run(() => game.assist(actor.id, !actor.assist), `${actor.label} ${actor.assist ? 'waits for your commands' : 'works by itself without a command'}.`) },
-    ...(loading ? [{ id: 'send', label: 'Send truck', icon: <Truck />, tone: 'info' as const, disabled: view.departing, ariaLabel: `Send the ${loading.name} truck now`, onSelect: () => run(() => game.depart(), `The ${loading.name} truck leaves once no cage is on its way to it.`) }] : []),
-    // Move lights what the actor can take; pressed while choosing, a second press puts it away.
-    { id: 'move', label: 'Move', icon: <MoveIcon />, tone: 'success', primary: true, pressed: move.picking, disabled: !move.available && !move.picking, onSelect: move.toggle },
-  ];
-}
-
 function ScoreTable({ score }: { score: ShiftScore }) {
   return <section className="co-score" aria-label="Score"><h3>Sales <span>{score.total} points</span></h3><table><thead><tr><th>Channel</th><th>Items</th><th>Points</th></tr></thead><tbody>{score.lines.map(line => <tr key={line.id}><td>{line.label}</td><td>{line.count}</td><td data-tone={toneOf(line.points)}>{line.points ? `+${line.points}` : '0'}</td></tr>)}</tbody></table></section>;
 }

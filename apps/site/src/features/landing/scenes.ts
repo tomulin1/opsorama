@@ -1,5 +1,6 @@
 import { createSceneStore, type SceneStore } from '@opsorama/core';
-import type { MetricAction } from '@opsorama/react/ui';
+import type { MetricAction, RingAction } from '@opsorama/react/ui';
+import type { ReactNode } from 'react';
 import { makeDatacenterStore } from '../../../examples/datacenter-data';
 import type { HudMetric } from '../example-hud';
 import { runFeedLoop, type LoopFeed } from '../ecommerce/feed-loop';
@@ -8,7 +9,8 @@ import type { EcommerceSnapshot } from '../ecommerce/model';
 import { DEFAULT_ZOOM as SHOP_ZOOM, ecommerceControllers } from '../ecommerce/scene';
 import { createEcommerceSimulation, createEcommerceStore } from '../ecommerce/simulation';
 import { cutoffHudMetrics, type ShiftMetricsView } from '../cutoff/metrics';
-import { createShiftGame } from '../cutoff/rules';
+import { createShiftGame, type ActorView } from '../cutoff/rules';
+import { MACHINES, actorActions } from '../cutoff/ring';
 import { lightingAt, playNodes } from '../cutoff/scene';
 import { datacenterHudMetrics } from '../datacenter/metrics';
 import { warehouseHudMetrics } from '../warehouse/components';
@@ -37,6 +39,15 @@ export interface SceneMetrics {
   read(): readonly HudMetric[];
 }
 
+/** An action ring the scene shows open over one of its nodes, as its example does when that node is commanded. It only shows the commands. */
+export interface SceneMenu {
+  nodeId: string;
+  subscribe(listener: () => void): () => void;
+  version(): number;
+  /** The ring's title, tone and actions now, or null while the node has no menu. */
+  read(): { title: string; tone: 'warning' | 'success'; actions: RingAction<ReactNode>[] } | null;
+}
+
 export interface LandingScene {
   store: SceneStore;
   /** The example's default zoom, for the zoom controls' reset. */
@@ -45,6 +56,7 @@ export interface LandingScene {
   /** The coding agent's log, for the scene an agent builds before the visitor's eyes. */
   log?: AgentLog;
   metrics?: SceneMetrics;
+  menu?: SceneMenu;
   /** Starts the scene's feed on its store; returns the stop function. */
   run?(): () => void;
   dispose(): void;
@@ -95,23 +107,39 @@ function datacenterScene(): LandingScene {
   return { store, zoom: store.getSnapshot().settings.zoom, metrics, dispose: () => store.dispose() };
 }
 
-/** Cut-off's Quiet Tuesday shift, whose crew works by itself, with the light following the shift clock. */
+/** The actor whose open menu the game scene shows. */
+const MENU_ACTOR = 'forklift';
+const noop = () => {};
+
+/**
+ * Cut-off's Peak shift with every actor's assist switched on, so the crew, the forklift among them, works by itself,
+ * the light follows the shift clock and the forklift's command ring stands open over it, as in the game.
+ */
 function cutoffScene(): LandingScene {
-  const game = createShiftGame({ scenario: 'steady', seed: 1 });
+  const game = createShiftGame({ scenario: 'peak', seed: 1 });
+  game.actors().forEach(actor => game.assist(actor.id, true));
   const store = createSceneStore({ schemaVersion: 1, nodes: playNodes(game, []) }, { zoom: SHOP_ZOOM, lighting: lightingAt(game.clock) });
-  const view = (): ShiftMetricsView => ({ snapshot: game.snapshot(), score: game.score(), channels: game.channels(), carriers: game.carriers(), bike: game.bike() });
+  type View = ShiftMetricsView & { actor: ActorView | undefined; departing: boolean };
+  const view = (): View => ({ snapshot: game.snapshot(), score: game.score(), channels: game.channels(), carriers: game.carriers(), bike: game.bike(), actor: game.actors().find(actor => actor.id === MENU_ACTOR), departing: game.departing });
   const records = liveRecords(view());
-  const feed: LoopFeed<ShiftMetricsView> = {
+  const feed: LoopFeed<View> = {
     get sceneRevision() { return game.sceneRevision; }, get recordsRevision() { return game.recordsRevision; },
     advance: seconds => game.advance(seconds), nodes: () => playNodes(game, []), snapshot: view,
   };
-  const onRecords = (value: ShiftMetricsView) => {
+  const onRecords = (value: View) => {
     records.set(value);
     const lighting = lightingAt(game.clock);
     if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting });
   };
   const metrics: SceneMetrics = { label: 'Shift metrics', dark: true, subscribe: records.subscribe, version: records.version, read: () => displayOnly(cutoffHudMetrics(records.get())) };
-  return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, feed, onRecords), dispose: () => { store.dispose(); game.dispose(); } };
+  const menu: SceneMenu = {
+    nodeId: MENU_ACTOR, subscribe: records.subscribe, version: records.version,
+    read() {
+      const { actor, ...ring } = records.get();
+      return actor ? { title: actor.label, tone: MACHINES.has(actor.id) ? 'warning' : 'success', actions: actorActions(actor, ring, game, noop, { picking: false, available: true, toggle: noop }) } : null;
+    },
+  };
+  return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, menu, run: () => feedStore(store, feed, onRecords), dispose: () => { store.dispose(); game.dispose(); } };
 }
 
 const FACTORIES: Readonly<Record<LandingSceneId, () => LandingScene>> = { shop: shopScene, warehouse: warehouseScene, datacenter: datacenterScene, cutoff: cutoffScene, office: createAgentBuild };
