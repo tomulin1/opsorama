@@ -144,7 +144,8 @@ export function createImageTextureCache(load: LoadImage = loadImageElement): Ima
         created.cancel = load(src, {
           load: image => {
             if (entries.get(src) !== created || created.state !== 'loading') return;
-            const texture = new CanvasTexture(image as HTMLImageElement); texture.colorSpace = SRGBColorSpace;
+            // Anisotropic filtering keeps an image sharp on a plane seen at a slant, such as a sign on a wall, as for surface labels.
+            const texture = new CanvasTexture(image as HTMLImageElement); texture.colorSpace = SRGBColorSpace; texture.anisotropy = 8;
             created.state = 'loaded'; created.texture = texture; created.cancel = null;
             for (const user of [...created.listeners]) user.load(texture);
           },
