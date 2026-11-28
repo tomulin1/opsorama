@@ -208,6 +208,9 @@
 .hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button { color: var(--panel-text); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-toolbar-group > button[aria-pressed="true"] { color: var(--hud-accent); background: var(--hud-accent-soft); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-navigation-control select { color: var(--panel-text); }
+/* A select's options open in the browser's own list, which ignores the translucent panel behind the select: give them a solid
+   navy background, or their light text stands on white. */
+.hud-viewport:not([data-panel-theme="light"]) select :is(option, optgroup), .hud-viewport [data-panel-theme="dark"] select :is(option, optgroup) { background-color: #142038; color: #f1f5fb; }
 .hud-viewport:not([data-panel-theme="light"]) .hud-node-preview { background: radial-gradient(circle at 50% 42%, #2a3a57, #142038); }
 .hud-viewport:not([data-panel-theme="light"]) .dp-badge:not(.dp-delta) { background: color-mix(in srgb, currentColor 16%, transparent); }
 .hud-viewport:not([data-panel-theme="light"]) .hud-object-thumbnail { border-color: #ffffff24; background: #ffffff14; }
