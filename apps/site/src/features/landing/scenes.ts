@@ -29,6 +29,8 @@ export type LandingSceneId = 'shop' | 'warehouse' | 'datacenter' | 'cutoff' | 'o
  */
 export interface SceneMetrics {
   label: string;
+  /** Panels in the dark variant, as the game shows them; the dashboards' panels stay light on the home page. */
+  dark?: boolean;
   subscribe(listener: () => void): () => void;
   /** Bumped whenever the records change, for `useSyncExternalStore`. */
   version(): number;
@@ -108,7 +110,7 @@ function cutoffScene(): LandingScene {
     const lighting = lightingAt(game.clock);
     if (store.getSnapshot().settings.lighting !== lighting) store.configure({ lighting });
   };
-  const metrics: SceneMetrics = { label: 'Shift metrics', subscribe: records.subscribe, version: records.version, read: () => displayOnly(cutoffHudMetrics(records.get())) };
+  const metrics: SceneMetrics = { label: 'Shift metrics', dark: true, subscribe: records.subscribe, version: records.version, read: () => displayOnly(cutoffHudMetrics(records.get())) };
   return { store, zoom: SHOP_ZOOM, controllers: ecommerceControllers, metrics, run: () => feedStore(store, feed, onRecords), dispose: () => { store.dispose(); game.dispose(); } };
 }
 
