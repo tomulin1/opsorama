@@ -55,11 +55,11 @@ export function createAgentBuild(): { store: SceneStore; zoom: number; log: Agen
     const errors = problems.filter(problem => problem.severity === 'error').length;
     push('result', errors ? `${errors} problem${errors === 1 ? '' : 's'} to fix` : `✓ ${store.getSnapshot().nodes.length} nodes, no problems`);
   };
-  const steps: Step[] = [{ type: 'log', kind: 'prompt', text: PROMPT, wait: 1200 }];
+  const steps: Step[] = [{ type: 'log', kind: 'prompt', text: PROMPT, wait: 400 }];
   PHASES.forEach((phase, index) => {
     const added = rest.filter(node => phaseOf(node) === index);
     if (!added.length) return;
-    steps.push({ type: 'log', kind: 'command', text: `npx opsorama catalog search ${phase.query}`, wait: 700 });
+    steps.push({ type: 'log', kind: 'command', text: `npx opsorama catalog search ${phase.query}`, wait: 250 });
     added.forEach(node => steps.push({ type: 'add', node, wait: phase.delay }));
   });
   steps.push({ type: 'log', kind: 'command', text: 'npx opsorama check office.json', wait: 900 }, { type: 'check', wait: HOLD });
@@ -82,7 +82,7 @@ export function createAgentBuild(): { store: SceneStore; zoom: number; log: Agen
         else check();
         timer = window.setTimeout(tick, step.wait);
       };
-      timer = window.setTimeout(tick, 400);
+      timer = window.setTimeout(tick, 0);
       return () => window.clearTimeout(timer);
     },
     dispose: () => store.dispose(),
