@@ -186,7 +186,10 @@ describe('Cut-off shift game', () => {
       const before = channel(game, outlet), sold = line(game, outlet).count;
       game.move('dispatcher', { kind: 'ship', cage: `${outlet}-1` });
       expect(until(game, () => notices.some(notice => notice.type === 'delivered'))).toBe(true);
-      expect(notices.find(notice => notice.type === 'delivered')).toMatchObject({ outlet, parcels: before.cage });
+      // Packers may add parcels to the cage while the dispatcher walks to it.
+      const delivered = notices.find(notice => notice.type === 'delivered');
+      expect(delivered).toMatchObject({ outlet });
+      expect(delivered?.type === 'delivered' && delivered.parcels).toBeGreaterThanOrEqual(before.cage);
       expect(channel(game, outlet).there).toBeGreaterThan(0);
       expect(until(game, () => line(game, outlet).count > sold)).toBe(true);
       expect(scored(notices).filter(notice => notice.channel === outlet).at(-1)).toMatchObject({ at: outlet === 'counter' ? 'collect:counter' : 'collect:lockers' });
@@ -195,7 +198,8 @@ describe('Cut-off shift game', () => {
   });
 
   it('loads the delivery bike, which leaves on its round with the parcels and comes back', () => {
-    const game = createShiftGame({ scenario: 'peak' }), notices: ShiftNotice[] = [];
+    // Outlets are drawn at random per order; in this seed's peak shift a bike parcel is packed early enough to ship it.
+    const game = createShiftGame({ scenario: 'peak', seed: 3 }), notices: ShiftNotice[] = [];
     game.subscribe(notice => notices.push(notice));
     expect(game.bike()).toEqual({ away: false, next: 45 });
     expect(until(game, () => channel(game, 'bike').cage > 0)).toBe(true);
@@ -264,4 +268,4 @@ describe('Cut-off shift game', () => {
  * Score; items sold at the checkouts, at the counter, from the lockers, by bike and by truck; pallets put away, cartons
  * replenished and cartons restocked of each scripted shift. Record new ones only when the rules are meant to change.
  */
-const RECORDED_TOTALS = { steady: [145, 68, 6, 6, 3, 19, 0, 2, 5], peak: [229, 110, 11, 7, 2, 35, 6, 15, 4] };
+const RECORDED_TOTALS = { steady: [149, 69, 6, 7, 3, 19, 0, 2, 6], peak: [263, 134, 16, 9, 0, 35, 8, 11, 5] };

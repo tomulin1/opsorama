@@ -307,7 +307,7 @@ export const warehouseNavigation = createNavGraph({
   agents: {
     picker: { ...assetMotionProfiles['picking-cart'], speed: 1 }, staff: assetMotionProfiles.worker, shopper: { ...assetMotionProfiles.visitor, speed: 1.15 }, robot: { ...assetMotionProfiles['mobile-robot'], speed: 1.2 },
     // In tight spots both trucks stop and turn on the spot at sharp corners instead of arcing through a rack.
-    'reach-truck': { ...assetMotionProfiles['reach-truck'], speed: 1.8, turnRate: 1.6, turnInPlaceAngle: Math.PI / 3 }, forklift: { ...assetMotionProfiles.forklift, speed: 2, turnRate: 1.6, turnInPlaceAngle: Math.PI / 3 },
+    'reach-truck': { ...assetMotionProfiles['reach-truck'], speed: 1.8, turnRate: 2.8, turnInPlaceAngle: Math.PI / 3 }, forklift: { ...assetMotionProfiles.forklift, speed: 2, turnRate: 2.8, turnInPlaceAngle: Math.PI / 3 },
   },
 });
 

@@ -12,7 +12,7 @@ export const camerasDefinition: SceneDefinition = { schemaVersion: 1, nodes: [
   { id: 'pallet', kind: 'asset', asset: 'pallet', count: 8, position: [4.5, 0, 2.5], label: 'Pallet', selectable: true },
   // A route-driven node for following: a loop around the storage zone, behind the open ground at the front of the yard.
   { id: 'robot', kind: 'asset', asset: 'mobile-robot', position: [0, 0, -.2], label: 'Mobile robot', labelMode: 'active', selectable: true,
-    route: { points: [[0, 0, -.2], [14.5, 0, -.2], [14.5, 0, -8.7], [0, 0, -8.7], [0, 0, -.2]], speed: 1.6, loop: true, profile: { acceleration: 1.2, turnRate: 2.4, cornerRadius: 1.2 } } },
+    route: { points: [[0, 0, -.2], [14.5, 0, -.2], [14.5, 0, -8.7], [0, 0, -8.7], [0, 0, -.2]], speed: 1.6, loop: true, profile: { acceleration: 1.2, cornerRadius: 1.2 } } },
 ] };
 
 /** The node the example follows. */

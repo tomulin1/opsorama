@@ -63,12 +63,16 @@ describe('rounded corners', () => {
     expect(steps.yaw).toBeLessThan(.01);
   });
 
-  it('validates the radius, copies it from agent rules and gives steered vehicles a radius', () => {
+  it('validates the radius, copies it from agent rules and gives every catalog model a radius', () => {
     expect(() => validateNodeRoute({ ...corner, profile: { cornerRadius: 0 } })).toThrow('corner radius');
     expect(() => validateNodeRoute({ ...corner, profile: { cornerRadius: 51 } })).toThrow('corner radius');
     expect(motionProfileOf({ cornerRadius: 2 })).toEqual({ cornerRadius: 2 });
-    for (const kind of ['pallet-jack', 'forklift', 'reach-truck', 'baggage-cart', 'cargo-bike', 'delivery-van', 'truck', 'aircraft']) expect(assetMotionProfiles[kind].cornerRadius).toBeGreaterThan(0);
-    for (const kind of ['worker', 'mobile-robot']) expect(assetMotionProfiles[kind].cornerRadius).toBeUndefined();
+    for (const [kind, rule] of Object.entries(assetMotionProfiles)) expect(rule.cornerRadius, kind).toBeGreaterThan(0);
+    // A 90° corner is rounded without stopping; only corners sharper than 120° stop for a turn in place.
+    const walk = (points: NodeRoute['points']) => { const route: NodeRoute = { points, speed: 1.3, profile: motionProfileOf(assetMotionProfiles.worker) }; return Array.from({ length: 80 }, (_, i) => sampleRoute(route, i / 20)); };
+    expect(walk([[0, 0, 0], [0, 0, 2], [2, 0, 2]]).some(sample => sample.curving)).toBe(true);
+    expect(walk([[0, 0, 0], [0, 0, 2], [2, 0, 2]]).some(sample => sample.turning)).toBe(false);
+    expect(walk([[0, 0, 0], [0, 0, 2], [.2, 0, 0]]).some(sample => sample.turning)).toBe(true);
     const graph = createNavGraph({ points: [{ id: 'a', position: [0, 0, 0] }, { id: 'b', position: [0, 0, 6] }, { id: 'c', position: [6, 0, 6] }], edges: [{ from: 'a', to: 'b' }, { from: 'b', to: 'c' }], agents: { forklift: assetMotionProfiles.forklift } });
     const plan = graph.plan({ agent: 'forklift', from: 'a', to: 'c' });
     expect(plan.ok && plan.route.profile?.cornerRadius).toBe(1.2);

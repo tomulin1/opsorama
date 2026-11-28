@@ -214,7 +214,9 @@ describe('e-commerce commanded moves', () => {
     expect(before).toBe(3);
     expect(simulation.snapshot().occupancy.F3).toBe(12);
     expect(actor(simulation, 'replenisher')).toMatchObject({ move: { kind: 'decant', face: 'F3' }, waiting: 'Waits for room in the lanes of F3.' });
-    // It goes on by itself once a lane is free, and waits again when the lanes are full.
+    // It goes on by itself once a lane is free, and waits again when the lanes are full. The shelf filler frees lanes for the
+    // outdoor gondolas, so the test does not wait for a random order that picks from F3.
+    game.command('shelf-filler', { kind: 'restock', department: 'outdoor', source: 'face' });
     game.until(() => lanes().length === 2, 900);
     expect(game.of('replenished').length).toBeGreaterThan(before);
     expect(game.queue('replenisher')).toEqual([{ kind: 'decant', face: 'F3' }]);
