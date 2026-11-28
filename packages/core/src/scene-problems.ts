@@ -42,6 +42,7 @@ export const SCENE_RULES = /* @__PURE__ */ Object.freeze({
   'text-size': 'The size of a text node (capital letter height) is a number of metres from 0.05 to 20.',
   'image-src': 'An image node has a src that is a relative, http:, https:, blob: or data:image/ URL of at most 1,000,000 characters, without control characters or surrounding spaces.',
   'image-size': 'An image node has a size of [width, height] in metres, each greater than 0 and at most 100.',
+  'image-anisotropy': 'The anisotropy of an image node is a whole number from 1 to 16; it defaults to 1.',
   'parent-id': 'A parentId is the nonempty ID of another node.',
   'parent-kind': 'A parentId names an asset or group node; only assets and groups contain children.',
   'parent-cycle': 'parentId chains do not form a cycle.',

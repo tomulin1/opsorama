@@ -181,6 +181,8 @@ export interface TextNode extends NodeBase {
 export const MAX_IMAGE_SRC_LENGTH = 1_000_000;
 /** Widest and tallest `ImageNode.size`, in metres. */
 export const MAX_IMAGE_SIZE = 100;
+/** Highest `ImageNode.anisotropy`; the renderer also caps it at what the graphics card supports. */
+export const MAX_IMAGE_ANISOTROPY = 16;
 /**
  * The URL forms `ImageNode.src` accepts: a relative URL (no scheme, for example `/images/logo.png` or `logo.png`), an
  * `http:`, `https:` or `blob:` URL, or a `data:image/…` URL; schemes in any letter case. Other schemes (`javascript:`,
@@ -219,6 +221,16 @@ export interface ImageNode extends NodeBase {
    * size in metres and ignores `rotation`. Default false.
    */
   billboard?: boolean;
+  /**
+   * Anisotropic filtering of the picture, an integer from 1 to 16: how many texture samples a pixel may take along a
+   * slant. Raise it, for example to 8, for an image on a plane the camera sees at a slant, such as a sign on a wall, which
+   * otherwise blurs. Higher values cost a little more graphics work for the pixels the image covers and no memory; the
+   * renderer caps them at what the graphics card supports. Default 1, plain mipmapped filtering.
+   * @minimum 1
+   * @maximum 16
+   * @multipleOf 1
+   */
+  anisotropy?: number;
 }
 /**
  * Metres, greater than 0 and at most 100.

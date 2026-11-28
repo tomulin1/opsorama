@@ -83,8 +83,9 @@ export const officeBase: readonly SceneNode[] = closeWallJoints([
   // Kitchen and reception.
   fixture('kitchen:waste', 'waste-bin', p(.6, -10.4), { variant: 'recycling', scale: [.8, .8, .8] }),
   fixture('reception:welcome', 'information-board', p(10.6, -10.5), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'WELCOME TO\nFERNHILL\nSTUDIO\n\nCheck in at\nthe tablet', color: '#eef4f8' } } }),
-  // The neon Opsorama sign on the reception wall, an unlit image so it glows in every light (scripts/render-neon-logo.mjs).
-  { id: 'reception:sign', kind: 'image', src: '/brand/opsorama-neon.webp', size: [3.6, .96], position: [14, 1.3, -11], selectable: false },
+  // The neon Opsorama sign on the reception wall, an unlit image so it glows in every light (scripts/render-neon-logo.mjs);
+  // the camera sees the wall at a slant, so anisotropic filtering keeps it sharp.
+  { id: 'reception:sign', kind: 'image', src: '/brand/opsorama-neon.webp', size: [3.6, .96], position: [14, 1.3, -11], anisotropy: 8, selectable: false },
   benchNode,
   ...([[-17.3, -10.3], [.5, -5.6], [8.5, -10.3], [17.3, -6], [-17.3, 6.3], [-10, 6.3], [-2, 6.3], [6, 6.3], [14, 6.3], [17.3, 6.3]] as const).map(([x, z], i) => fixture(`plant-${i}`, 'potted-plant', p(x, z))),
 ]);
