@@ -91,9 +91,10 @@ describe('common object contract', () => {
       expect(new THREE.Box3().setFromObject(box).min.y).toBeCloseTo(slot.position.y, 3);
     }
     expect([0, 4, 8].map(i => shelf.getObjectByName(`anchor-slot-${i}`)!.position.y)).toEqual([.22, 1.09, 1.96].map(y => expect.closeTo(y, 3)));
-    // Without a scene palette the shelf keeps its blue frame, tan cartons, pale totes and label strips.
+    // Without a scene palette the shelf keeps its blue frame and the tan cartons of a pallet.
     const colors = new Set<string>(); shelf.traverse(child => { if (child instanceof THREE.Mesh) colors.add(`#${(child.material as THREE.MeshStandardMaterial).color.getHexString()}`); });
-    expect([...colors]).toEqual(expect.arrayContaining(['#356dd8', '#d8b487', '#95b7df', '#eee2c8', '#273545']));
+    expect([...colors]).toEqual(expect.arrayContaining(['#356dd8', '#dab383', '#273545']));
+    expect([...colors]).not.toContain('#95b7df');
     const failingSlots = failures({ ...shelfDescriptor, interaction: { ...shelfDescriptor.interaction, slots: ['pick-0'] } }, catalogAssets.shelf);
     expect(failingSlots).toContain('interaction slots match');
   });

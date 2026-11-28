@@ -79,6 +79,8 @@
 .dp-list > li + li { border-top: 1px solid var(--dp-border); }
 .dp-item { display: flex; align-items: center; flex-wrap: wrap; gap: var(--panel-gap, 12px); padding: var(--dp-row-gap, 12px) 0; width: 100%; color: inherit; text-align: start; }
 button.dp-item { font: inherit; border: 0; background: transparent; border-radius: 6px; cursor: pointer; }
+/* Items and list rows take the panel's text color even where the host styles every button or list item, as prose does. */
+.dp-panel .dp-item, .dp-panel .dp-list > li { color: inherit; }
 button.dp-item:hover, button.dp-item[aria-pressed="true"] { background: var(--panel-selection, color-mix(in srgb, var(--panel-accent, #3768ef) 9%, transparent)); }
 button.dp-item:disabled { cursor: default; opacity: .6; }
 .dp-item-value { font-variant-numeric: tabular-nums; }
@@ -128,3 +130,101 @@ button.dp-item:disabled { cursor: default; opacity: .6; }
 :where(.zc-control[data-orientation="vertical"]) .zc-slider { width: auto; height: var(--zoom-slider-size, 120px); margin: 4px 0; writing-mode: vertical-lr; direction: rtl; }
 @media (max-width: 540px) { .dp-process[data-orientation="horizontal"] { flex-direction: column; } .dp-process[data-orientation="horizontal"] .dp-item { flex-direction: row; align-items: center; } .dp-field { flex-wrap: wrap; } }
 @media (pointer: coarse) { button.dp-item { min-height: 44px; } :where(.zc-control) .zc-button { min-width: 44px; min-height: 44px; } }
+/* Action ring: command pills in an arc over a name pill, for the selected object in a scene. Selectors carry two classes so
+   that a host's own button styles do not override the pills; the root is dp-action-ring, apart from the metric card's dp-ring. */
+.dp-action-ring {
+  --dp-ring-surface: var(--ring-surface, #1f2d45); --dp-ring-text: var(--ring-text, #fff);
+  display: inline-flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 6px;
+  font-family: var(--panel-font, inherit); font-size: var(--ring-font-size, 13px); line-height: 1.2; pointer-events: none;
+}
+.dp-action-ring *, .dp-action-ring *::before, .dp-action-ring *::after { box-sizing: border-box; }
+.dp-action-ring .dp-ring-actions { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+.dp-action-ring .dp-ring-action, .dp-action-ring .dp-ring-title {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0; white-space: nowrap; pointer-events: auto;
+  color: var(--dp-ring-text); background: var(--dp-ring-surface); border: 2px solid var(--dp-tone, var(--panel-accent, #3768ef));
+  border-radius: 999px; box-shadow: 0 4px 14px #0f1b2d33; font: inherit; font-weight: 650; text-transform: none; letter-spacing: normal;
+}
+.dp-action-ring .dp-ring-action { min-height: 36px; padding: 4px 13px 4px 4px; transform: translateY(calc(-1 * var(--dp-ring-lift, 0px))); cursor: pointer; transition: background .12s; }
+.dp-action-ring .dp-ring-action:not(:has(.dp-ring-icon)) { padding-inline-start: 13px; }
+.dp-action-ring .dp-ring-action[data-icon-only] { padding: 3px; }
+.dp-action-ring .dp-ring-action:hover:not(:disabled), .dp-action-ring .dp-ring-action[aria-pressed="true"] { background: color-mix(in srgb, var(--dp-tone, #3768ef) 38%, var(--dp-ring-surface)); }
+.dp-action-ring .dp-ring-action:focus-visible { outline: 2px solid var(--dp-ring-text); outline-offset: 2px; }
+.dp-action-ring .dp-ring-action:disabled { opacity: .55; cursor: default; }
+.dp-action-ring .dp-ring-title { padding: 6px 15px; font-size: 1.08em; cursor: default; }
+.dp-action-ring .dp-ring-label { color: inherit; }
+.dp-action-ring .dp-ring-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; background: var(--dp-tone, var(--panel-accent, #3768ef)); flex: none; }
+.dp-action-ring .dp-ring-icon svg { width: 15px; height: 15px; }
+.dp-action-ring .dp-ring-title .dp-ring-icon { width: 20px; height: 20px; margin-inline-start: -7px; }
+:is(.dp-action-ring, .dp-ring-action)[data-tone="neutral"] { --dp-tone: var(--ring-neutral, var(--panel-muted, #8090a6)); }
+:is(.dp-action-ring, .dp-ring-action)[data-tone="info"] { --dp-tone: var(--ring-info, var(--panel-accent, #3768ef)); }
+:is(.dp-action-ring, .dp-ring-action)[data-tone="success"] { --dp-tone: var(--ring-success, var(--panel-success, #1f9d63)); }
+:is(.dp-action-ring, .dp-ring-action)[data-tone="warning"] { --dp-tone: var(--ring-warning, var(--panel-warning, #e3a12f)); }
+:is(.dp-action-ring, .dp-ring-action)[data-tone="critical"] { --dp-tone: var(--ring-critical, var(--panel-critical, #d04459)); }
+.dp-action-ring .dp-ring-action[data-switch] { gap: 6px; }
+.dp-action-ring .dp-ring-action[data-switch][aria-checked="true"] { background: var(--dp-ring-surface); }
+.dp-action-ring .dp-ring-switch { position: relative; display: inline-block; width: 26px; height: 15px; border-radius: 999px; background: #ffffff38; flex: none; transition: background .15s; }
+.dp-action-ring .dp-ring-knob { position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.dp-action-ring .dp-ring-action[aria-checked="true"] .dp-ring-switch { background: var(--dp-tone, var(--panel-accent, #3768ef)); }
+.dp-action-ring .dp-ring-action[aria-checked="true"] .dp-ring-knob { transform: translateX(11px); }
+.dp-action-ring[data-density="compact"] { font-size: var(--ring-font-size, 11px); gap: 4px; padding-bottom: 3px; }
+.dp-action-ring[data-density="compact"] .dp-ring-actions { gap: 4px; }
+.dp-action-ring[data-density="compact"] :is(.dp-ring-action, .dp-ring-title) { gap: 5px; border-width: 1.5px; box-shadow: 0 2px 8px #0f1b2d33; }
+.dp-action-ring[data-density="compact"] .dp-ring-action { min-height: 24px; padding: 2px 9px 2px 2px; }
+.dp-action-ring[data-density="compact"] .dp-ring-action:not(:has(.dp-ring-icon)) { padding-inline-start: 9px; }
+.dp-action-ring[data-density="compact"] .dp-ring-action[data-icon-only] { padding: 2px; }
+.dp-action-ring[data-density="compact"] .dp-ring-title { padding: 3px 10px; font-size: 1.05em; }
+.dp-action-ring[data-density="compact"] .dp-ring-icon { width: 17px; height: 17px; }
+.dp-action-ring[data-density="compact"] .dp-ring-icon svg { width: 11px; height: 11px; }
+.dp-action-ring[data-density="compact"] .dp-ring-title .dp-ring-icon { width: 15px; height: 15px; margin-inline-start: -5px; }
+.dp-action-ring[data-density="compact"] .dp-ring-switch { width: 22px; height: 12px; }
+.dp-action-ring[data-density="compact"] .dp-ring-knob { width: 8px; height: 8px; }
+.dp-action-ring[data-density="compact"] .dp-ring-action[aria-checked="true"] .dp-ring-knob { transform: translateX(10px); }
+.dp-action-ring .dp-ring-action[data-primary] { color: #0f2a1d; background: var(--dp-tone, var(--panel-accent, #3768ef)); }
+.dp-action-ring .dp-ring-action[data-primary] .dp-ring-icon { background: none; color: inherit; }
+/* Card layout: one translucent card with the title over a row of plain actions, and a leader line down to the object. */
+.dp-action-ring[data-layout="card"] { gap: 0; padding-bottom: 0; }
+.dp-action-ring[data-layout="card"] .dp-ring-card {
+  display: flex; flex-direction: column; gap: .55em; padding: .7em .85em .75em; pointer-events: auto;
+  color: var(--dp-ring-text); background: color-mix(in srgb, var(--dp-ring-surface) var(--ring-opacity, 84%), transparent);
+  border: 1px solid color-mix(in srgb, var(--dp-ring-text) 22%, transparent); border-radius: 1.05em; box-shadow: 0 8px 24px #0f1b2d40;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.dp-action-ring[data-layout="card"] .dp-ring-title {
+  display: flex; align-items: center; gap: .6em; padding: 0 .15em .55em; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--dp-ring-text) 30%, transparent);
+  border-radius: 0; background: none; box-shadow: none; font-size: 1.15em; font-weight: 750;
+}
+.dp-action-ring[data-layout="card"] .dp-ring-dot { width: .62em; height: .62em; border-radius: 50%; background: var(--dp-tone, var(--panel-accent, #3768ef)); flex: none; }
+.dp-action-ring[data-layout="card"] .dp-ring-actions { align-items: center; justify-content: space-between; gap: .9em; }
+.dp-action-ring[data-layout="card"] .dp-ring-action { min-height: 0; padding: .3em .25em; border: 0; background: none; box-shadow: none; transform: none; gap: .45em; }
+.dp-action-ring[data-layout="card"] .dp-ring-action:hover:not(:disabled):not([data-primary]) { background: color-mix(in srgb, var(--dp-ring-text) 12%, transparent); }
+.dp-action-ring[data-layout="card"] .dp-ring-action .dp-ring-icon { width: auto; height: auto; background: none; color: var(--dp-tone, var(--panel-accent, #3768ef)); }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-primary] { padding: .35em .9em; color: #0f2a1d; background: color-mix(in srgb, var(--dp-tone, #3768ef) 55%, #ffffff); }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-primary] .dp-ring-icon { color: inherit; }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-primary]:hover:not(:disabled) { background: color-mix(in srgb, var(--dp-tone, #3768ef) 70%, #ffffff); }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-primary][aria-pressed="true"] { color: #fff; background: var(--dp-tone, #3768ef); box-shadow: inset 0 0 0 2px color-mix(in srgb, #ffffff 55%, transparent); }
+.dp-action-ring[data-layout="card"] .dp-ring-action[data-switch][aria-checked="true"] { background: none; }
+.dp-action-ring[data-layout="card"] .dp-ring-leader { position: relative; display: block; width: 2px; height: var(--ring-leader, 26px); background: color-mix(in srgb, var(--dp-tone, #3768ef) 55%, #ffffff); }
+.dp-action-ring[data-layout="card"] .dp-ring-leader::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 9px; height: 9px; border-radius: 50%; transform: translateX(-50%); background: inherit; }
+.dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-card { gap: .45em; padding: .55em .7em .6em; }
+.dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-title { font-size: 1em; font-weight: 700; padding-bottom: .45em; }
+/* The card unfolds out of a label-sized pill: it grows up from the leader line, and its actions fade in after the header. */
+.dp-action-ring[data-unfold] .dp-ring-card { transform-origin: 50% 100%; animation: dp-ring-unfold .24s cubic-bezier(.2, .8, .2, 1); }
+.dp-action-ring[data-unfold] .dp-ring-actions { animation: dp-ring-reveal .3s ease-out; }
+@keyframes dp-ring-unfold { from { transform: scale(.6, .38); opacity: .75; } }
+@keyframes dp-ring-reveal { 0%, 45% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dp-action-ring[data-unfold] :is(.dp-ring-card, .dp-ring-actions) { animation: none; } }
+.dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-action { min-height: 0; padding: .25em .2em; }
+.dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-action[data-primary] { padding: .3em .75em; }
+.dp-action-ring[data-layout="card"][data-density="compact"] .dp-ring-icon { width: auto; height: auto; }
+@media (pointer: coarse) { .dp-action-ring .dp-ring-action { min-height: 44px; min-width: 44px; } }
+
+/* Dark panel preset, the second color version: set data-panel-theme="dark" on a panel or on any element around panels. The
+   panels turn into translucent navy cards with light text and brighter tones, like the action ring card. Host variables set
+   closer to the panels still win. */
+[data-panel-theme="dark"] {
+  color-scheme: dark;
+  --panel-surface: color-mix(in srgb, #142038 88%, transparent); --panel-text: #f1f5fb; --panel-muted: #a8b6cc;
+  --panel-border: #ffffff24; --panel-accent: #3fd0ff; --panel-success: #52d69b; --panel-warning: #f1b54a; --panel-critical: #ff7088;
+  --panel-shadow: 0 10px 30px #08101f59; --ring-surface: #142038;
+}
+[data-panel-theme="dark"] .dp-panel, .dp-panel[data-panel-theme="dark"] { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }

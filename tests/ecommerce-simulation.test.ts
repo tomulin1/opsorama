@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createSceneStore, type AssetNode, type SceneNode } from '@opsorama/core';
 import { disposeObject } from '@opsorama/three';
 import { assetHandling, catalogAssets } from '@opsorama/objects';
-import { LOCATIONS, SCENARIOS, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
+import { LOCATIONS, SCENARIOS, departmentCapacity, type EcommerceScenario, type LocationId } from '../apps/site/src/features/ecommerce/model';
 import { createEcommerceSimulation, type EcommerceSimulation } from '../apps/site/src/features/ecommerce/simulation';
 
 const scenarios = Object.keys(SCENARIOS) as EcommerceScenario[];
@@ -90,9 +90,9 @@ describe('e-commerce mock feed', () => {
     const simulation = createEcommerceSimulation('peak');
     expect(simulation.snapshot().alerts.find(alert => alert.sku === 'OUT-215')?.onHand).toBe(0);
     const reserve = simulation.snapshot().occupancy.R04;
-    // Picking drains the refilled lane again later in the shift, so the alert is checked when it clears.
+    // The pallet leaves R04 and the face is filled above its minimum; picking may take it below again later in the run.
     let moved = false, cleared = false;
-    run(simulation, 300, () => { moved ||= simulation.snapshot().occupancy.R04 < reserve; cleared ||= moved && !simulation.snapshot().alerts.some(alert => alert.sku === 'OUT-215'); });
+    run(simulation, 300, () => { moved ||= simulation.snapshot().occupancy.R04 < reserve; cleared ||= !simulation.snapshot().alerts.some(alert => alert.sku === 'OUT-215'); });
     expect(moved).toBe(true);
     expect(cleared).toBe(true);
     expect(simulation.snapshot().orders.find(order => order.id === '#50419')?.issue).toBeUndefined();
@@ -104,6 +104,31 @@ describe('e-commerce mock feed', () => {
     run(simulation, 900, () => { for (const order of simulation.snapshot().orders) if (order.id === '#50421') seen.add(order.stage); });
     expect(seen.has('sorting') || seen.has('packing') || seen.has('staged')).toBe(true);
     expect(simulation.snapshot().shippedToday).toBeGreaterThan(shipped);
+    simulation.dispose();
+  });
+
+  it('lets shoppers take a cart from the corral, push it while shopping and return it', () => {
+    const simulation = createEcommerceSimulation('peak'), parked = () => simulation.nodes().filter(node => node.id.startsWith('shop-cart-'));
+    // Six carts wait in the corral inside the entrance.
+    expect(parked()).toHaveLength(6);
+    expect(parked().every(node => node.kind === 'asset' && node.asset === 'shopping-cart')).toBe(true);
+    let pushed = 0, fewest = 6, returned = false;
+    run(simulation, 600, () => {
+      const carts = simulation.nodes().filter(node => /^shopper:\d+:cart$/.test(node.id));
+      for (const cart of carts) {
+        expect(cart).toMatchObject({ asset: 'shopping-cart', attachment: { anchor: 'cart' } });
+        // The shopper behind the cart pushes it, unless reaching into a shelf or paying.
+        const shopper = simulation.nodes().find(node => node.id === (cart as { attachment: { nodeId: string } }).attachment.nodeId) as { variant?: string };
+        expect(['pushing', 'picking', 'placing']).toContain(shopper.variant);
+      }
+      pushed = Math.max(pushed, carts.length);
+      fewest = Math.min(fewest, parked().length);
+      returned ||= fewest < 6 && parked().length > fewest;
+      // A cart is either parked or pushed, never both or lost.
+      expect(parked().length + carts.length).toBe(6);
+    });
+    expect(pushed).toBeGreaterThan(0);
+    expect(returned).toBe(true);
     simulation.dispose();
   });
 
@@ -160,15 +185,26 @@ describe('e-commerce mock feed', () => {
     simulation.dispose();
   }, 60000);
 
-  it('uses the deep aisle and all ten departments', () => {
+  it('uses the deep aisle and the six departments on twenty gondolas', () => {
     const simulation = createEcommerceSimulation('peak'), nodes = assets(simulation.nodes());
     expect(nodes.filter(node => node.asset === 'pallet-rack')).toHaveLength(14);
-    expect(nodes.filter(node => node.asset === 'store-shelving')).toHaveLength(20);
+    const shelving = nodes.filter(node => node.asset === 'store-shelving');
+    expect(shelving).toHaveLength(20);
+    // Every gondola holds the goods of its department only: four gondolas for Kitchen, Home, Outdoor and Toys, two for Tech and Sport.
+    expect(shelving.every(node => node.options?.goods === node.entityId)).toBe(true);
+    // The dashboard keeps neutral colors; only the Cut-off game colors the scene by type of goods.
+    expect(nodes.filter(node => node.asset === 'pallet').some(node => node.color)).toBe(false);
+    expect(nodes.some(node => ['pallet-rack', 'carton-flow-rack', 'store-shelving'].includes(node.asset) && (node.color || node.materials))).toBe(false);
+    expect(nodes.filter(node => node.asset === 'carton-flow-rack')).toHaveLength(6);
+    expect(Object.fromEntries(['kitchen', 'home', 'outdoor', 'toys', 'tech', 'sport'].map(goods => [goods, shelving.filter(node => node.options?.goods === goods).length]))).toEqual({ kitchen: 4, home: 4, outdoor: 4, toys: 4, tech: 2, sport: 2 });
     expect(inRack(simulation, 'R08')).toBeGreaterThan(0);
     let deep = false;
     run(simulation, 900, () => { deep ||= assets(simulation.nodes()).some(node => node.id === 'reach-truck' && (node.position?.[2] ?? 0) < -15); });
     expect(deep).toBe(true);
-    expect(simulation.snapshot().shop.facings.garden).toBeLessThan(SCENARIOS.peak.shop.facings.garden + 16);
+    // Shoppers take goods from every department and the shelf filler restocks within each department's capacity.
+    const facings = simulation.snapshot().shop.facings;
+    expect(Object.entries(facings).filter(([department, value]) => value !== SCENARIOS.peak.shop.facings[department as keyof typeof facings]).map(([department]) => department).sort()).toEqual(['home', 'kitchen', 'outdoor', 'sport', 'tech', 'toys']);
+    expect(Object.entries(facings).every(([department, value]) => value <= departmentCapacity(department as keyof typeof facings))).toBe(true);
     simulation.dispose();
   });
 

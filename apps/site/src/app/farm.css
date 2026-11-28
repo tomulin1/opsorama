@@ -58,3 +58,13 @@
 @media (max-width: 760px) {
   .farm-pens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* The dark panel variant, the default: the dashboard's own light fills and text colors follow the dark panels. */
+.fm-viewport:not([data-panel-theme="light"]) { --f-ink: #f1f5fb; --f-muted: #a8b6cc; --f-line: #ffffff1f; --f-accent: #3fd0ff; --f-accent-soft: #3fd0ff1f; }
+.fm-viewport:not([data-panel-theme="light"]) :is(.farm-inspector p, .farm-host-note) { color: var(--panel-muted); }
+.fm-viewport:not([data-panel-theme="light"]) :is(.farm-host-note, .farm-alerts button, .farm-pens button, .farm-tasks li, .farm-library a) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.fm-viewport:not([data-panel-theme="light"]) .farm-library { border-color: var(--hud-card-line); }
+.fm-viewport:not([data-panel-theme="light"]) .farm-library a { color: var(--hud-accent); }
+.fm-viewport:not([data-panel-theme="light"]) :is(.farm-alerts button[data-severity=critical], .farm-tasks li[data-status=overdue]) { background: var(--hud-critical-fill); }
+.fm-viewport:not([data-panel-theme="light"]) :is(.farm-pens button[data-alert], .farm-table-wrap tr[data-ripe]) { background: var(--hud-warning-fill); }
+.fm-viewport:not([data-panel-theme="light"]) .farm-pens button[aria-pressed=true] { background: var(--hud-accent-soft); border-color: #3fd0ff66; }

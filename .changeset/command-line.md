@@ -1,5 +1,0 @@
----
-"@opsorama/cli": minor
----
-
-Add `@opsorama/cli` with the `opsorama` command. `opsorama check <scene.json ...>` checks scene files against the scene rules and the whole object catalog without a browser and prints every problem with its JSON Pointer path, rule ID, message and fix (`--strict` fails on warnings). `opsorama render <scene.json>` checks a scene and renders it to a PNG image in headless Chromium through the optional peer dependency `playwright-core` (`--channel chrome` uses an installed browser), with `--settings` (motion defaults to false), `--css` for host label styles, `--width`, `--height` and `--scale`; render errors such as a failed model or image are reported and the image is still written. Both commands take `--assets <module>` with the host's own asset factories (JavaScript or TypeScript, bundled with esbuild so they share one three.js with the renderer) and `--json` for agents and CI; they exit with 0, 1 for scene or render errors, and 2 for usage or tool errors. The same functions are exported: `checkScene`, `checkSceneFile`, `formatReport`, `reportPassed`, `loadAssetModule`, `sceneRegistry`, `renderScene` and `run`.

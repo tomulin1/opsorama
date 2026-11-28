@@ -1,5 +1,5 @@
 import { defineComponent, h, mergeProps, type PropType, type VNodeChild, type SlotsType } from 'vue';
-import { dataPanel, metricCard, statusBadge, fieldList, entityInspector, processTracker, resourceList, valueMeter, capacityCard, activityFeed, zoomControl, type PanelNode, type DataPanelProps, type MetricCardProps, type StatusBadgeProps, type FieldListProps, type EntityInspectorProps, type ProcessTrackerProps, type ResourceListProps, type ValueMeterProps, type CapacityCardProps, type ActivityFeedProps, type ZoomControlProps, type PanelSlots } from '@opsorama/ui';
+import { dataPanel, metricCard, statusBadge, fieldList, entityInspector, processTracker, resourceList, valueMeter, capacityCard, activityFeed, zoomControl, actionRing, type ActionRingProps, type PanelNode, type DataPanelProps, type MetricCardProps, type StatusBadgeProps, type FieldListProps, type EntityInspectorProps, type ProcessTrackerProps, type ResourceListProps, type ValueMeterProps, type CapacityCardProps, type ActivityFeedProps, type ZoomControlProps, type PanelSlots } from '@opsorama/ui';
 export type * from '@opsorama/ui';
 
 function render(node: PanelNode<VNodeChild>, attrs: Record<string, unknown> = {}): VNodeChild {
@@ -34,3 +34,5 @@ export const ValueMeter = component<ValueMeterProps>('ValueMeter', valueMeter);
 export const CapacityCard = component<CapacityCardProps<VNodeChild>>('CapacityCard', capacityCard);
 export const ActivityFeed = component<ActivityFeedProps<VNodeChild>>('ActivityFeed', activityFeed);
 export const ZoomControl = component<ZoomControlProps<VNodeChild>>('ZoomControl', zoomControl);
+/** Command pills in an arc over a name pill; place it over a node with `NodeHtml`. See `actionRing` in @opsorama/ui. */
+export const ActionRing = component<ActionRingProps<VNodeChild>>('ActionRing', actionRing);

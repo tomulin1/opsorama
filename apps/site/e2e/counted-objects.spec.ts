@@ -27,7 +27,7 @@ test('catalog exposes bounded visible counts without multiplier controls', async
   await page.screenshot({ path: 'artifacts/counted-parcels.png', fullPage: true });
   await page.goto('/docs/objects/shelf');
   await page.getByLabel('Object count', { exact: true }).fill('0');
-  await expect(page.getByRole('button', { name: 'Select 0 boxes', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select 0 slots', exact: true })).toBeVisible();
   await expect(page.getByLabel('Object multiplier')).toHaveCount(0);
   await page.goto('/docs/objects/parcel-base');
   await page.getByLabel('Object count', { exact: true }).fill('0');

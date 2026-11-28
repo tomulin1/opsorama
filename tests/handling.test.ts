@@ -99,7 +99,7 @@ describe('handling declarations (H0)', () => {
     expect(pallet.receptacles[0].patterns.map(pattern => pattern.units)).toEqual([6, 4]);
     expect(handlingFacts('tree-pine')).toBeNull();
     const article = docs.find(doc => doc.slug === 'handling')!;
-    expect(article.sections.map(section => section.id)).toEqual(['scope', 'families', 'profile', 'patterns', 'declarations', 'check', 'fits', 'state', 'violations', 'targets', 'sync', 'move-mode', 'limits']);
+    expect(article.sections.map(section => section.id)).toEqual(['scope', 'families', 'profile', 'patterns', 'declarations', 'check', 'fits', 'state', 'violations', 'targets', 'sync', 'move-mode', 'pick-and-move', 'limits']);
     expect(docsNavigation.flatMap(group => group.items).some(item => item.slug === 'handling')).toBe(true);
   });
 });

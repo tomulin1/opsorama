@@ -50,9 +50,24 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * of `getDiagnostics().work`; the new modules are labels.ts 1.1, pointer-frame.ts 0.7, node-signature.ts 0.5 and
  * visibility.ts 0.3 KiB minified) grew every renderer entry by 5.2 KiB (gzip 2.2): the engine from 103.3 to 108.5, the
  * catalog from 361.1 to 366.3 and the largest kit (vehicles) from 169.4 to 174.5, so the engine, catalog and kit budgets
- * were each raised by 7, the measured growth plus a margin of about 2. Raise a budget only with a note that explains the growth.
+ * were each raised by 7, the measured growth plus a margin of about 2. On November 24, 2026 HTML over nodes
+ * (`SceneRenderer.attachHtml`: node-html.ts with its option checks and actionable errors, the per-frame projection and the
+ * pointer guard in the renderer) grew every renderer entry by 3.3 KiB (gzip 1.3): the engine from 112.4 to 115.7, the
+ * catalog from 370.4 to 373.8 and the largest kit (vehicles) from 178.5 to 181.8, so the engine budget was raised from 115
+ * to 118, the catalog budget from 373 to 376 and the kit budget from 179 to 184, each about 2 above the new measurement.
+ * On November 25, 2026 the `goods` object (goods.ts: six real-size goods items, `goodsPart` and the `options.goods`
+ * validation, used by the store shelving, shopping cart, hand basket, put wall and tote) and the shared warehouse carton
+ * (`casePart` in shelves, flow racks and cages) grew the catalog to 378.0 KiB (gzip 130.3) and the largest kit entry, work
+ * items with furniture, to 183.9; the catalog budget was raised from 376 to 380 and the kit budget from 184 to 187, each
+ * about 2 above the new measurement. Later on November 25, 2026 tints and ghost targets (highlights.ts: `setHighlights`
+ * with its shells per node; pick-targets.ts: ghost copies of a node or a built model at a node anchor or a world position,
+ * with their checks and messages, and the glow halo shader) grew every renderer entry by about 6 KiB: the engine to 121.7,
+ * the catalog from 378.0 to 384.0 and the largest kit entry, work items with furniture, from 183.9 to 189.9, so the engine
+ * budget was raised from 118 to 123, the catalog budget from 380 to 385 and the kit budget from 187 to 191, each about 1 above
+ * the new measurement.
+ * Raise a budget only with a note that explains the growth.
  */
-const BUDGETS_KIB = { engine: 115, catalog: 373, kit: 179, handling: 30 };
+const BUDGETS_KIB = { engine: 123, catalog: 385, kit: 191, handling: 30 };
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) + 'Kit';
 // Kits are the subpaths whose source is in src/kits/; the root and other entries such as ./handling are not kits.
 const kits = Object.entries(JSON.parse(fs.readFileSync(path.join(root, 'packages/objects/package.json'), 'utf8')).exports).filter(([, source]) => source.startsWith('./src/kits/')).map(([key]) => key.slice(2));

@@ -210,7 +210,7 @@ function buildImage(node: ImageNode, context: NodeBuildContext): THREE.Group {
       const error = new Error(`Image node ${node.id} could not load ${shownSrc(node.src)}. Check that the URL is reachable and that it is an image the browser can decode (PNG, JPEG, WebP, or SVG with width and height); an image from another origin also needs Access-Control-Allow-Origin from its server, because images load with crossOrigin "anonymous". The node keeps its placeholder.`);
       error.name = IMAGE_LOAD_ERROR; context.onError?.(error);
     },
-  });
+  }, node.anisotropy ?? 1);
   addObjectRelease(root, release); built = true;
   root.userData.labelHeight = height + .3;
   return root;

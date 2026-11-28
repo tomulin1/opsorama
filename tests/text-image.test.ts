@@ -69,6 +69,8 @@ describe('text and image nodes in the store and validateScene', () => {
       { id: 'e', kind: 'text', text: '😀'.repeat(MAX_TEXT_LENGTH) },
       { id: 'i', kind: 'image', src: 'FILE:///C:/logo.png', size: [0, 1], controller: { kind: 'approach' } },
       { id: 'c', kind: 'image', src: 'C:\\images\\logo.png', size: [1, 1] },
+      { id: 'a', kind: 'image', src: '/a.png', size: [1, 1], anisotropy: 2.5 },
+      { id: 'b', kind: 'image', src: '/a.png', size: [1, 1], anisotropy: 8 },
     ] });
     const at = (path: string) => problems.find(problem => problem.path === path);
     expect(at('/nodes/0/text')).toMatchObject({ rule: 'text', nodeId: 't', message: expect.stringContaining('requires a text string') });
@@ -80,6 +82,8 @@ describe('text and image nodes in the store and validateScene', () => {
     expect(at('/nodes/2/size')).toMatchObject({ rule: 'image-size' });
     expect(at('/nodes/2/controller')).toMatchObject({ rule: 'motion-owner', fix: expect.stringContaining('a group moves everything inside it') });
     expect(at('/nodes/3/src')).toMatchObject({ rule: 'image-src', message: expect.stringContaining('uses the c: scheme') });
+    expect(at('/nodes/4/anisotropy')).toMatchObject({ rule: 'image-anisotropy', fix: expect.stringContaining('whole number from 1 to 16') });
+    expect(problems.filter(problem => problem.nodeId === 'b')).toEqual([]);
   });
 
   it('accepts relative, http(s), blob and data:image URLs and rejects every other form, as the schema does', () => {
@@ -129,12 +133,22 @@ describe('image textures', () => {
     const releaseB = cache.acquire('/a.png', { load: texture => seen.push(texture), error: () => undefined });
     expect(loads.started).toEqual(['/a.png']); expect(seen).toEqual([]);
     loads.finish('/a.png');
-    expect(seen).toHaveLength(2); expect(seen[0]).toBe(seen[1]); expect(seen[0].colorSpace).toBe(THREE.SRGBColorSpace);
+    expect(seen).toHaveLength(2); expect(seen[0]).toBe(seen[1]); expect(seen[0].colorSpace).toBe(THREE.SRGBColorSpace); expect(seen[0].anisotropy).toBe(1);
     // A later user gets the loaded texture at once.
     const late: THREE.Texture[] = [], releaseC = cache.acquire('/a.png', { load: texture => late.push(texture), error: () => undefined });
     expect(late).toEqual([seen[0]]);
     const disposed = watchDisposal(seen[0]);
     releaseA(); releaseB(); expect(disposed()).toBe(false); releaseC(); expect(disposed()).toBe(true); expect(cache.size).toBe(0);
+  });
+
+  it('give each anisotropy of one src its own texture', () => {
+    const loads = manualLoader(), cache = createImageTextureCache(loads.loader), seen: THREE.Texture[] = [];
+    const releasePlain = cache.acquire('/sign.webp', { load: texture => seen.push(texture), error: () => undefined });
+    const releaseSharp = cache.acquire('/sign.webp', { load: texture => seen.push(texture), error: () => undefined }, 8);
+    expect(cache.size).toBe(2);
+    loads.finish('/sign.webp');
+    expect(seen.map(texture => texture.anisotropy).sort()).toEqual([1, 8]);
+    releasePlain(); releaseSharp(); expect(cache.size).toBe(0);
   });
 
   it('cancel a load whose users all left, and never call them back', () => {

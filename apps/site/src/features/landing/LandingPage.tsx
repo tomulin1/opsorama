@@ -1,56 +1,123 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Boxes, ChevronLeft, ChevronRight, Code2, Crosshair, Layers, LayoutPanelTop, MapPin, Route, X } from 'lucide-react';
-import { createSceneStore, type SceneNode, type SceneStore } from '@opsorama/core';
-import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
-import { DataPanel, StatusBadge } from '@opsorama/react/ui';
-import type { SceneRenderer } from '@opsorama/three';
+import { ArrowUpRight, ChevronLeft, ChevronRight, GripHorizontal, Maximize2, Minimize2 } from 'lucide-react';
+import { DashboardProvider, NodeHtml, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
+import { ActionRing, type MetricAction } from '@opsorama/react/ui';
+import type { SceneLoadState, SceneRenderer } from '@opsorama/three';
+import { catalogAssets } from '@opsorama/objects';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
 import { ProjectLinks } from '@/components/toolkit/ProjectLinks';
-import { HudZoom } from '../example-hud';
-import { runFeedLoop } from '../ecommerce/feed-loop';
-import { ecommerceControllers } from '../ecommerce/scene';
-import { createEcommerceSimulation, type EcommerceSimulation } from '../ecommerce/simulation';
-import { runServiceLoop } from '../restaurant/service-loop';
-import { cityStaticNodes, DISTRICTS, districtFacts, districtFocusId, districtPinId, placeEcommerce, RESTAURANT_SERVICE, restaurantServiceNodes, type DistrictId } from './city';
+import { HudMetrics, HudZoom, useHudMetricSize } from '../example-hud';
+import { createLandingScene, LANDING_SCENE_IMAGES, type LandingScene, type LandingSceneId, type SceneMenu, type SceneMetrics } from './scenes';
+import type { SceneSide } from './side-panels';
+import type { AgentLog } from './agent-build';
 import '@opsorama/ui/styles.css';
-import { catalogAssets } from '@opsorama/objects';
 
-/** Default city zoom: four zoom-button steps (0.2 each) above the fitted 1.05, so buildings and people are readable on the first screen. */
-const CITY_ZOOM = 1.85;
-/** Later slides of the intro carousel; each names a toolkit capability and links to the page that runs it. */
-const CAPABILITIES = [
-  { title: 'A catalog of real objects', description: 'Buildings, racks, vehicles, people, animals and displays with typed options, palette roles and a static pose for reduced motion.', href: '/docs/objects', action: 'Browse the catalog', icon: Boxes },
-  { title: 'Your data, your rules', description: 'Map records to scene nodes in your own code. The host keeps business rules, permissions and commands; the scene shows confirmed state.', href: '/docs/data', action: 'Connect your data', icon: Layers },
-  { title: 'Movement with meaning', description: 'Routes, shared slots, queues, capacity and hand-overs let people and machines move work through a place instead of animating a picture.', href: '/examples/motion', action: 'Open movement example', icon: Route },
-  { title: 'Panels you can replace', description: 'Metric cards, inspectors and lists float over the scene as optional HTML. Use them, restyle them or bring your own interface.', href: '/examples/panels', action: 'Open panel samples', icon: LayoutPanelTop },
-  { title: 'React, Vue and JavaScript', description: 'One scene model and one Three.js renderer with native adapters. No hidden React runtime inside Vue.', href: '/examples/adapters', action: 'Compare the adapters', icon: Code2 },
+/** Later slides of the intro carousel; each names one use of the toolkit, links to the page that runs it and shows that page's scene behind the panel. */
+interface UseCase {
+  title: string; description: string; href: string; action: string; scene: LandingSceneId;
+  /** One sentence the collapsed panel shows under the title. */
+  summary: string;
+}
+const USE_CASES: readonly UseCase[] = [
+  { title: 'Live operations boards', description: 'Watch docks, aisles, vehicles and loads in a distribution centre. Map your records to doors, racks and trucks; a load at risk of its departure or a rack hit by a forklift shows up as a marker you can open.', href: '/examples/warehouse', action: 'Open the distribution centre', scene: 'warehouse', summary: 'Docks, aisles, vehicles and loads of a distribution centre, live from your records.' },
+  { title: 'Facility overviews', description: 'Rooms, racks, equipment and readings on a plan of the real place. Follow an inlet, uplink or power alert in a datacenter to the rack that raised it.', href: '/examples/datacenter', action: 'Open the datacenter', scene: 'datacenter', summary: 'Follow a datacenter alert to the rack that raised it.' },
+  { title: 'Management games', description: 'Turn the same scene and simulation into a playable shift. In Cut-off you staff the zones, move stock and race the carrier cut-off.', href: '/examples/cutoff', action: 'Play Cut-off', scene: 'cutoff', summary: 'Run a shift yourself: staff the zones, move stock and beat the carrier cut-off.' },
+  { title: 'Built with AI coding agents', description: 'Your agent searches the catalog, writes the scene, checks it and renders a preview image from the command line. Behind this panel, an agent builds the office example node by node.', href: '/docs/validation', action: 'Read about validation', scene: 'office', summary: 'Watch an agent build the office example from the catalog, node by node.' },
 ];
 /** Slide 0 is the introduction; the carousel only moves when the visitor asks, so it never rotates on its own. */
-const SLIDE_TITLES = ['Introduction', ...CAPABILITIES.map(item => item.title)];
+const SLIDE_TITLES = ['Introduction', ...USE_CASES.map(item => item.title)];
+/** The sentence under each slide's title in the collapsed panel. */
+const SLIDE_SUMMARIES = ['Open-source 3D scenes for operations in web apps, built from your own data.', ...USE_CASES.map(item => item.summary)];
+/** The scene behind each slide; the introduction shows the shop. */
+const SLIDE_SCENES: readonly LandingSceneId[] = ['shop', ...USE_CASES.map(item => item.scene)];
 
-/** The floating intro panel: the introduction followed by one slide per capability. Every slide shares one grid cell, so the panel keeps the height of the tallest slide. */
-function IntroCarousel() {
-  const [active, setActive] = useState(0), count = SLIDE_TITLES.length;
-  const show = (index: number) => setActive((index + count) % count);
+/** Gap the panel keeps from the scene's edges, in pixels. */
+const EDGE = 8;
+/** Distance one arrow key moves the panel, in pixels. */
+const KEY_STEP = 24;
+type Point = { x: number; y: number };
+
+/**
+ * Lets the visitor move the panel by its grip, with a pointer or the arrow keys, inside the scene. The panel keeps its CSS
+ * place until it is first moved; from then on it is placed at `position`, kept inside the scene when it or the window changes size.
+ */
+function usePanelPosition(panel: React.RefObject<HTMLElement | null>, collapsed: boolean) {
+  const [position, setPosition] = useState<Point | null>(null), drag = useRef<{ pointer: number; start: Point; from: Point } | null>(null);
+  const clamp = useCallback((point: Point): Point => {
+    const element = panel.current, scene = element?.offsetParent as HTMLElement | null | undefined;
+    if (!element || !scene) return point;
+    const maxX = Math.max(EDGE, scene.clientWidth - element.offsetWidth - EDGE), maxY = Math.max(EDGE, scene.clientHeight - element.offsetHeight - EDGE);
+    return { x: Math.min(Math.max(point.x, EDGE), maxX), y: Math.min(Math.max(point.y, EDGE), maxY) };
+  }, [panel]);
+  const current = (): Point => ({ x: panel.current?.offsetLeft ?? 0, y: panel.current?.offsetTop ?? 0 });
+  // Collapsing or expanding changes the panel's size; a window resize changes the scene's.
+  useLayoutEffect(() => { setPosition(value => value && clamp(value)); }, [collapsed, clamp]);
+  useEffect(() => {
+    const onResize = () => setPosition(value => value && clamp(value));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [clamp]);
+  const grip = {
+    onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      drag.current = { pointer: event.pointerId, start: { x: event.clientX, y: event.clientY }, from: current() };
+    },
+    onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+      const value = drag.current;
+      if (value?.pointer === event.pointerId) setPosition(clamp({ x: value.from.x + event.clientX - value.start.x, y: value.from.y + event.clientY - value.start.y }));
+    },
+    onPointerUp: () => { drag.current = null; },
+    onPointerCancel: () => { drag.current = null; },
+    // The carousel turns slides with the arrow keys; on the grip they move the panel instead.
+    onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+      const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+      if (!step) return;
+      event.preventDefault(); event.stopPropagation();
+      const from = position ?? current();
+      setPosition(clamp({ x: from.x + step[0] * KEY_STEP, y: from.y + step[1] * KEY_STEP }));
+    },
+    // A double click returns the panel to its starting place.
+    onDoubleClick: () => setPosition(null),
+  };
+  const style: React.CSSProperties | undefined = position ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' } : undefined;
+  return { grip, style };
+}
+
+/**
+ * The floating intro panel: the introduction followed by one slide per use. Every slide shares one grid cell, so the panel
+ * keeps the height of the tallest slide. The visitor can move it by its grip and collapse it to one line with the slide's
+ * title and the slide controls.
+ */
+function IntroCarousel({ active, onShow }: { active: number; onShow: (index: number) => void }) {
+  const count = SLIDE_TITLES.length, panel = useRef<HTMLElement>(null), [collapsed, setCollapsed] = useState(false);
+  const { grip, style } = usePanelPosition(panel, collapsed);
+  const show = (index: number) => onShow((index + count) % count);
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'ArrowLeft') { event.preventDefault(); show(active - 1); }
     else if (event.key === 'ArrowRight') { event.preventDefault(); show(active + 1); }
   };
-  return <section className="landing-intro" aria-roledescription="carousel" aria-label="About Opsorama" onKeyDown={onKeyDown}>
-    <div className="landing-slides">
+  return <section ref={panel} className="landing-intro" data-collapsed={collapsed || undefined} style={style} aria-roledescription="carousel" aria-label="About Opsorama" onKeyDown={onKeyDown}>
+    <button type="button" className="hud-icon-button landing-grip" aria-label="Move panel" title="Drag to move, double-click to reset" {...grip}><GripHorizontal size={16} /></button>
+    <button type="button" className="hud-icon-button landing-collapse" aria-label={collapsed ? 'Expand panel' : 'Collapse panel'} aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>{collapsed ? <Maximize2 size={15} /> : <Minimize2 size={15} />}</button>
+    {collapsed && <div className="landing-intro-compact" aria-live="polite">
+      <p className="landing-intro-compact-title"><span>{active + 1}/{count}</span>{SLIDE_TITLES[active]}</p>
+      <p>{SLIDE_SUMMARIES[active]}</p>
+    </div>}
+    <div className="landing-slides" hidden={collapsed}>
       <div className="landing-slide" role="group" aria-roledescription="slide" aria-label={`1 of ${count}: ${SLIDE_TITLES[0]}`} aria-hidden={active !== 0} inert={active !== 0}>
-        <span className="docs-eyebrow">OPSORAMA · OPERATIONS + PANORAMA</span>
+        <span className="docs-eyebrow">OPSORAMA · 3D OPERATIONS TOOLKIT</span>
         <h1>A clear view of your operations.</h1>
-        <p>Data-driven 3D scenes for web apps, led by animated boards for commerce, logistics, people and places. This city runs six of our examples in one scene, from their own code.</p>
+        <p>An open-source toolkit for 3D scenes in web apps: live operations boards, facility overviews and management games, built from your own data and a catalog of 161 ready models in React, Vue or plain JavaScript. The scene behind this panel is the example each slide describes.</p>
         <div className="examples-hero-actions"><Link href="/docs">Start building<ArrowUpRight size={16} /></Link><Link href="/examples">All examples<ArrowUpRight size={16} /></Link></div>
       </div>
-      {CAPABILITIES.map((item, index) => <div className="landing-slide landing-capability" key={item.href} role="group" aria-roledescription="slide" aria-label={`${index + 2} of ${count}: ${item.title}`} aria-hidden={active !== index + 1} inert={active !== index + 1}>
-        <span className="docs-eyebrow"><item.icon size={14} />WHAT YOU CAN BUILD WITH</span>
+      {USE_CASES.map((item, index) => <div className="landing-slide landing-capability" key={item.href} role="group" aria-roledescription="slide" aria-label={`${index + 2} of ${count}: ${item.title}`} aria-hidden={active !== index + 1} inert={active !== index + 1}>
+        <span className="docs-eyebrow">WHAT YOU CAN BUILD</span>
         <h2>{item.title}</h2>
         <p>{item.description}</p>
-        <Link href={item.href}>{item.action}<ArrowUpRight size={15} /></Link>
+        <div className="examples-hero-actions"><Link href={item.href}>{item.action}<ArrowUpRight size={16} /></Link></div>
       </div>)}
     </div>
     <div className="landing-carousel-controls">
@@ -61,62 +128,83 @@ function IntroCarousel() {
   </section>;
 }
 
-/** Keeps a selection on the district pin, so a moving object that disappears cannot close the card. */
-function useDistrict(renderer: React.RefObject<SceneRenderer | null>) {
-  const store = useSceneStore(), { selection } = useScene();
-  const id = (selection?.entityId ?? null) as DistrictId | null, district = DISTRICTS.find(item => item.id === id) ?? null;
-  useEffect(() => { if (id && selection?.nodeId !== districtPinId(id)) store.select(districtPinId(id), selection?.origin); }, [store, id, selection]);
-  // The renderer pans to a selected node; a whole district needs the fitted view instead.
-  const selected = selection?.nodeId;
-  useEffect(() => {
-    if (!district) renderer.current?.overview();
-    else if (selected === districtPinId(district.id)) renderer.current?.frame(districtFocusId(district), { fit: true });
-  }, [renderer, district, selected]);
-  return district;
-}
-
-function CityViewport({ city, simulation }: { city: readonly SceneNode[]; simulation: EcommerceSimulation }) {
-  const store = useSceneStore(), renderer = useRef<SceneRenderer | null>(null);
+/** A scene's canvas and zoom controls; its feed runs while it is shown. */
+function SceneViewport({ scene, onLoaded }: { scene: LandingScene; onLoaded(): void }) {
+  const renderer = useRef<SceneRenderer | null>(null);
   const onReady = useCallback((value: SceneRenderer) => { renderer.current = value; }, []);
-  const [records, setRecords] = useState(() => simulation.snapshot()), district = useDistrict(renderer);
-  // The restaurant's service loop moves its cooks, servers and plates; every e-commerce publish keeps its latest nodes.
-  const service = useRef<readonly SceneNode[]>(restaurantServiceNodes());
-  useEffect(() => runServiceLoop({
-    ...RESTAURANT_SERVICE, renderer: () => renderer.current, clock: () => store.getSnapshot().settings,
-    onChange: ({ nodes, changed, removed }) => { service.current = nodes; changed.forEach(node => store.upsert(node)); removed.forEach(id => store.remove(id)); },
-  }), [store]);
-  useEffect(() => runFeedLoop({ feed: () => simulation, clock: () => store.getSnapshot().settings, onScene: nodes => store.replace([...city, ...service.current, ...placeEcommerce(nodes)]), onRecords: setRecords }), [store, city, simulation]);
+  const onLoad = useCallback((state: SceneLoadState) => { if (state.phase === 'loaded') onLoaded(); }, [onLoaded]);
+  useEffect(() => scene.run?.(), [scene]);
   return <>
-    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={ecommerceControllers} wheelZoom onReady={onReady} /></div>
-    <nav className="landing-districts" aria-label="City districts">
-      {DISTRICTS.map(item => <button type="button" key={item.id} aria-pressed={district?.id === item.id} onClick={() => store.select(district?.id === item.id ? null : districtPinId(item.id), 'api')}><MapPin size={13} />{item.name}</button>)}
-    </nav>
-    {district && <DataPanel className="hud-side-panel landing-district" title={district.name} label="District details" description="Live scene · fictional data" density="compact" slots={{ actions: <button type="button" className="hud-icon-button" aria-label="Close district" onClick={() => store.select(null)}><X size={16} /></button> }}>
-      <p>{district.summary}</p>
-      <dl>{districtFacts(district.id, records).map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
-      <div className="landing-shows">{district.shows.map(item => <StatusBadge key={item} label={item} tone="info" />)}</div>
-      <Link href={district.href}>Open the full example<ArrowUpRight size={15} /></Link>
-    </DataPanel>}
-    <div className="hud-viewport-controls landing-controls">
-      <HudZoom rendererRef={renderer} defaultZoom={CITY_ZOOM} />
-      {district && <button type="button" className="landing-overview" onClick={() => store.select(null)}><Crosshair size={14} />Whole city</button>}
-    </div>
+    <div className="hud-scene-surface"><SceneCanvas assets={catalogAssets} className="hud-canvas" controllers={scene.controllers} wheelZoom onReady={onReady} onLoad={onLoad} /></div>
+    <div className="hud-viewport-controls landing-controls"><HudZoom rendererRef={renderer} defaultZoom={scene.zoom} /></div>
   </>;
 }
 
-export function LandingPage() {
-  const [session, setSession] = useState<{ store: SceneStore; city: readonly SceneNode[]; simulation: EcommerceSimulation } | null>(null);
+/** The coding agent's log over the scene it builds: the prompt, its commands and each node it adds. */
+function AgentLogPanel({ log }: { log: AgentLog }) {
+  const lines = useSyncExternalStore(log.subscribe, log.getSnapshot, log.getSnapshot);
+  return <section className="landing-agent-log" aria-label="Coding agent log (illustration)">
+    <header><span aria-hidden="true" />Coding agent<small>illustration</small></header>
+    <ol>{lines.map(line => <li key={line.id} data-kind={line.kind}>{line.kind === 'command' ? <><b aria-hidden="true">$ </b>{line.text}</> : line.text}</li>)}</ol>
+  </section>;
+}
+
+/**
+ * The example's HUD over its scene: its top panels and its right-hand panel, which a selection in the scene opens with the
+ * selection's inspector, as in the example. Top panels that open the right-hand panel in the example do so here too; the
+ * others only show values, since the home page has none of the example's left panels.
+ */
+function SceneHud({ metrics, side }: { metrics?: SceneMetrics; side?: SceneSide }) {
+  const store = useSceneStore(), selection = useScene().selection?.nodeId ?? null, { metricSize } = useHudMetricSize();
+  const [panel, setPanel] = useState<string | null>(null);
+  useSyncExternalStore(metrics?.subscribe ?? noSubscribe, metrics?.version ?? noVersion, metrics?.version ?? noVersion);
+  // A selection from the scene or a list opens the inspector, as in the examples.
+  useEffect(() => { if (selection && side) setPanel('inspector'); }, [selection, side]);
+  const actions: Record<string, MetricAction> = {};
+  for (const [id, opens] of Object.entries(side?.metrics ?? {})) {
+    actions[id] = 'inspect' in opens
+      ? { label: opens.label, pressed: panel === 'inspector' && selection === opens.inspect, onActivate: () => { if (panel === 'inspector' && selection === opens.inspect) setPanel(null); else { store.select(opens.inspect, 'keyboard'); setPanel('inspector'); } } }
+      : { label: opens.label, pressed: panel === opens.panel, onActivate: () => setPanel(value => value === opens.panel ? null : opens.panel) };
+  }
+  return <>
+    {metrics && <div className="hud-top landing-top" data-panel-theme={metrics.dark ? 'dark' : undefined}><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read(actions)} /></div>}
+    {side && panel && <div className="landing-side">{side.render({ panel, onPanel: setPanel })}</div>}
+  </>;
+}
+const noSubscribe = () => () => {}, noVersion = () => 0;
+
+/** The example's command ring, open over its node as in the example. It only shows the commands: `inert` keeps clicks and focus off it. */
+function SceneMenuRing({ menu }: { menu: SceneMenu }) {
+  useSyncExternalStore(menu.subscribe, menu.version, menu.version);
+  const ring = menu.read();
+  return ring && <NodeHtml nodeId={menu.nodeId} className="co-ring-anchor landing-ring">
+    <div inert><ActionRing layout="card" density="compact" unfold title={ring.title} label={`Commands of ${ring.title}`} tone={ring.tone} actions={ring.actions} /></div>
+  </NodeHtml>;
+}
+
+/** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
+function BackgroundScene({ id }: { id: LandingSceneId }) {
+  const [scene, setScene] = useState<LandingScene | null>(null), [loaded, setLoaded] = useState(false);
+  const onLoaded = useCallback(() => setLoaded(true), []);
   useEffect(() => {
-    const simulation = createEcommerceSimulation('peak'), city = cityStaticNodes();
-    const store = createSceneStore({ schemaVersion: 1, nodes: [...city, ...restaurantServiceNodes(), ...placeEcommerce(simulation.nodes())] }, { zoom: CITY_ZOOM, shadows: false });
-    setSession({ store, city, simulation });
-    return () => { setSession(null); store.dispose(); simulation.dispose(); };
-  }, []);
+    const value = createLandingScene(id);
+    setScene(value);
+    return () => { setScene(null); value.dispose(); };
+  }, [id]);
+  // Until the scene is built its panels stand greyed out and inert over the scene's image, so nothing invites a click before it works.
+  return scene && <DashboardProvider store={scene.store}><SceneViewport scene={scene} onLoaded={onLoaded} />
+    <div className="landing-hud" data-loading={loaded ? undefined : 'true'} inert={!loaded}>{(scene.metrics || scene.side) && <SceneHud metrics={scene.metrics} side={scene.side} />}{scene.log && <AgentLogPanel log={scene.log} />}</div>
+    {loaded && scene.menu && <SceneMenuRing menu={scene.menu} />}
+  </DashboardProvider>;
+}
+
+export function LandingPage() {
+  const [active, setActive] = useState(0), sceneId = SLIDE_SCENES[active];
   return <main className="landing-page">
     <SiteHeader active={null} />
-    <section className="hud-viewport landing-hero" data-left-panel="none" aria-label="Opsorama city">
-      {session && <DashboardProvider store={session.store}><CityViewport city={session.city} simulation={session.simulation} /></DashboardProvider>}
-      <IntroCarousel />
+    <section className="hud-viewport landing-hero" data-left-panel="none" data-panel-theme="light" aria-label="Example scene" style={{ backgroundImage: `url('${LANDING_SCENE_IMAGES[sceneId]}')` }}>
+      <BackgroundScene key={sceneId} id={sceneId} />
+      <IntroCarousel active={active} onShow={setActive} />
     </section>
     <div className="examples-container landing-sections">
       <footer><p>All scenes run locally with fictional data. Your host owns data, permissions and commands.</p><nav className="site-footer-links" aria-label="Footer"><Link href="/brand">Website colors</Link><Link href="/docs">Read the documentation →</Link><ProjectLinks /></nav></footer>

@@ -3,6 +3,7 @@ import { validateBuildingNode, type BuildingOptions } from './building';
 import { validateContents, type ContainerContents } from './contents';
 import { assetDisplayDefinitions, validateDisplay, type DisplayReading } from './displays';
 import { FORK_LIMITS, validateForkMotion, type ForkMotion } from './forks';
+import { validateGoodsKind, type GoodsKind } from './goods';
 import { assetMeasurementDefinitions, resolveMeasurement, type Measurement } from './gauges';
 import { OPERATING_OPTION_ASSETS, validateOperatingProperties } from './operating';
 import { PERSON_ASSETS, validatePersonOptions, type PersonOptions } from './people';
@@ -25,6 +26,11 @@ declare module '@opsorama/core' {
     building?: BuildingOptions;
     /** parcel and shopping-cart: host content lines shown as bounded visible proxies and summarized in the label. See `ContainerContents`. */
     contents?: ContainerContents;
+    /**
+     * store-shelving, shopping-cart, hand-basket, put-wall and tote: the type of goods their counted items show, as the iconic
+     * item of that type (see `GOODS_KINDS` and the `goods` asset). Default: neutral boxes.
+     */
+    goods?: GoodsKind;
     /** Readout assets (`assetDisplayDefinitions`): number, clock, stopwatch or countdown reading. See `DisplayReading`. */
     display?: DisplayReading;
     /** Gauge assets (`assetMeasurementDefinitions`): reading, range, unit, target and bands. See `Measurement`. */
@@ -35,7 +41,7 @@ declare module '@opsorama/core' {
 }
 
 /** Option names of the catalog's `AssetOptions`. */
-export type CatalogOption = 'forks' | 'person' | 'heatEnabled' | 'waterRunning' | 'fillLevel' | 'building' | 'contents' | 'display' | 'measurement' | 'surfaceLabel';
+export type CatalogOption = 'forks' | 'person' | 'heatEnabled' | 'waterRunning' | 'fillLevel' | 'building' | 'contents' | 'goods' | 'display' | 'measurement' | 'surfaceLabel';
 
 /** The catalog assets that accept each option in `AssetNode.options`. Any other option key on a catalog asset is an error. */
 export const CATALOG_OPTION_ASSETS: Readonly<Record<CatalogOption, readonly string[]>> = Object.freeze({
@@ -46,6 +52,7 @@ export const CATALOG_OPTION_ASSETS: Readonly<Record<CatalogOption, readonly stri
   fillLevel: OPERATING_OPTION_ASSETS.fillLevel,
   building: Object.freeze(['building']),
   contents: Object.freeze(['parcel', 'shopping-cart']),
+  goods: Object.freeze(['store-shelving', 'shopping-cart', 'hand-basket', 'put-wall', 'tote']),
   display: Object.freeze(Object.keys(assetDisplayDefinitions)),
   measurement: Object.freeze(Object.keys(assetMeasurementDefinitions)),
   surfaceLabel: Object.freeze(Object.keys(assetLabelSurfaces)),
@@ -77,6 +84,7 @@ export function validateCatalogOptions(asset: string, node: AssetNode): void {
     validateContents(options.contents);
     if (node.count !== undefined || node.multiplier !== undefined) throw new Error(`Contents of ${node.id} are independent of counted compositions; omit count and multiplier.`);
   }
+  if (options.goods !== undefined) validateGoodsKind(options.goods, `options.goods of ${node.id}`);
   if (options.display !== undefined) {
     validateDisplay(options.display);
     if (node.count !== undefined || node.multiplier !== undefined || options.measurement !== undefined || options.surfaceLabel !== undefined) throw new Error(`Display readings of ${node.id} cannot be combined with counts, measurements or surface labels.`);

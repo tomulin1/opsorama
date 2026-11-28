@@ -1,51 +1,52 @@
-/* Cut-off shift game: the shared HUD in hud.css, with the game's command panel, event cards and dialogs. */
+/* Cut-off shift game: the shared HUD in hud.css, with the game's shift panel, command cards and dialogs. */
 .cutoff-page { background: #eef2f5; color: #2a3646; }
 .co-viewport { --hud-accent: #c8553d; --hud-accent-strong: #a43f29; --hud-accent-soft: #fbe9e4; --hud-focus: #c8553d; --hud-scene: #eef1f6; }
 .co-clock strong { font-size: 22px; }
 .co-seed { width: 70px; padding: 6px 8px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--hud-tint); color: var(--panel-text); font: inherit; font-size: 12px; }
 .hud-navigation-control > button { display: inline-flex; align-items: center; gap: 5px; }
 
-/* Command panel: selection, staff, carriers, checkouts and docks. */
-.co-commands { --hud-panel-width: 430px; top: 152px; bottom: 136px; width: var(--hud-panel-width); max-height: none; }
+/* The shift panel: sales channels, crew, stock and receiving. It folds into the bottom bar and rises from it again. */
+.co-summary { --hud-panel-width: 380px; top: 152px; bottom: 86px; width: var(--hud-panel-width); max-height: none; transform-origin: 20% 100%; animation: co-panel-rise .22s cubic-bezier(.2, .8, .2, 1); }
+.co-summary.co-folding { animation: co-panel-fold .18s ease-in forwards; pointer-events: none; }
+@keyframes co-panel-rise { from { opacity: 0; transform: translateY(24px) scale(.96); } }
+@keyframes co-panel-fold { to { opacity: 0; transform: translateY(32px) scale(.94); } }
+@media (prefers-reduced-motion: reduce) { .co-summary, .co-summary.co-folding { animation: none; } }
+.co-fold { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--panel-border); border-radius: 8px; background: #fff; color: var(--panel-text); cursor: pointer; }
+.co-fold:hover { border-color: var(--hud-accent); }
+.co-panel-tab { display: inline-flex; align-items: center; gap: 6px; }
+.co-panel-tab strong { font-variant-numeric: tabular-nums; }
+.co-tab-chevron { transform: rotate(180deg); }
+.co-channels { width: 100%; border-collapse: collapse; font-size: 11px; }
+.co-channels th, .co-channels td { padding: 6px 0; border-bottom: 1px solid var(--hud-line); vertical-align: top; text-align: left; font-weight: 400; color: var(--panel-muted); }
+.co-channels th { width: 112px; padding-right: 10px; }
+.co-channels small { display: block; margin-top: 2px; font-size: 10px; color: var(--panel-muted); }
+.co-channels .co-sold { width: 44px; padding-left: 8px; text-align: right; white-space: nowrap; }
+.co-channels .co-sold strong { display: block; font-size: 13px; color: var(--panel-text); font-variant-numeric: tabular-nums; }
+.co-channels .co-sold small { color: var(--panel-success); font-weight: 650; }
+.co-channels .co-name { display: block; }
+.co-send { margin-left: 6px; padding: 2px 8px; border: 1px solid var(--panel-border); border-radius: 7px; background: #fff; color: var(--hud-accent-strong); font-size: 10px; font-weight: 650; }
 .co-message { margin: 0 0 10px; padding: 7px 9px; border-radius: 8px; font-size: 11px; background: var(--hud-tint); }
 .co-message[data-tone="critical"] { color: var(--panel-critical); background: #fdecef; }
 .co-message[data-tone="success"] { color: var(--panel-success); background: #e9f6f1; }
-.co-selected { margin: 0 0 12px; padding: 10px; border: 1px solid color-mix(in srgb, var(--hud-accent) 35%, transparent); border-radius: 10px; background: var(--hud-accent-soft); font-size: 12px; }
-.co-selected p { margin: 0; line-height: 1.5; }
-.co-selected p > button, .co-zones > button, .co-list button {
+.co-list button {
   padding: 5px 9px; border: 1px solid var(--panel-border); border-radius: 7px; background: #fff; color: var(--hud-accent-strong); font-size: 11px; font-weight: 650;
 }
-.co-zones { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.co-zones > button[aria-pressed="true"], .co-list button[aria-pressed="true"] { background: var(--hud-accent); border-color: var(--hud-accent); color: #fff; }
 .co-section h3, .co-score h3 { display: flex; justify-content: space-between; margin: 12px 0 6px; font-size: 11px; font-weight: 650; color: var(--panel-muted); }
+.co-section h3 span { font-weight: 500; }
 .co-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.co-list li { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--hud-line); font-size: 11px; }
-.co-list li[data-selected] { background: var(--hud-accent-soft); }
+.co-list li { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--hud-line); font-size: 11px; }
 .co-list li > span { color: var(--panel-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.co-list .co-name { padding: 0; border: 0; background: none; text-align: left; font-weight: 650; color: var(--hud-accent-strong); text-decoration: underline; text-underline-offset: 3px; }
-.co-list .co-hint { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
-.co-section .hud-text-button { margin-top: 6px; }
+:is(.co-list, .co-channels) .co-name { padding: 0; border: 0; background: none; text-align: left; font-weight: 650; color: var(--hud-accent-strong); text-decoration: underline; text-underline-offset: 3px; }
 
-/* Events, score and the shift log share the side panel. */
-.co-side { width: 360px; }
-.co-events { display: flex; flex-direction: column; gap: 8px; }
-.co-event { padding: 10px; border: 1px solid #f0c9a8; border-radius: 10px; background: #fff7ef; }
-.co-event header { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
-.co-event header span { color: #9c650d; font-size: 11px; font-weight: 650; white-space: nowrap; }
-.co-event p { margin: 6px 0 8px; font-size: 11px; line-height: 1.5; color: var(--panel-text); }
-.co-choices { display: grid; gap: 6px; }
-.co-choices button { display: grid; gap: 2px; padding: 7px 9px; text-align: left; border: 1px solid var(--panel-border); border-radius: 8px; background: #fff; font-size: 11px; }
-.co-choices button:hover { border-color: var(--hud-accent); }
-.co-choices button span { color: var(--panel-muted); }
+.co-swatch, .co-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgb(0 0 0 / .15); flex: none; }
 .co-empty { margin: 0; color: var(--panel-muted); font-size: 11px; }
 .co-score table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.co-score td { padding: 4px 0; border-bottom: 1px solid var(--hud-line); font-variant-numeric: tabular-nums; }
-.co-score td:not(:first-child) { text-align: right; padding-left: 8px; }
+.co-score :is(td, th) { padding: 4px 0; border-bottom: 1px solid var(--hud-line); font-variant-numeric: tabular-nums; }
+.co-score th { font-weight: 650; color: var(--panel-muted); text-align: left; }
+.co-score :is(td, th):not(:first-child) { text-align: right; padding-left: 8px; }
 .co-score td[data-tone="success"] { color: var(--panel-success); font-weight: 650; }
 .co-score td[data-tone="critical"] { color: var(--panel-critical); font-weight: 650; }
 .co-score h3 span { color: var(--panel-text); font-size: 13px; }
-.hud-side-panel .co-log { --panel-padding: 0; margin-top: 12px; padding-top: 10px; border: 0; border-top: 1px solid var(--hud-line); border-radius: 0; box-shadow: none; background: none; backdrop-filter: none; }
-.co-log .dp-title { font-size: 11px; }
 
 /* Briefing and end-of-shift report float over the scene. */
 .co-dialog-layer { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgb(32 48 64 / .18); }
@@ -58,17 +59,59 @@
 .co-actions { display: flex; gap: 8px; margin-top: 14px; }
 .co-total { font-size: 14px !important; }
 .co-total strong { font-size: 28px; margin-left: 8px; }
-.co-totals { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--panel-muted); }
+.co-totals { list-style: none; margin: 12px 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--panel-muted); }
 .co-totals strong { display: block; font-size: 16px; color: var(--panel-text); }
 
+/* Crew portraits and the legend of goods types. */
+.co-crew { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; }
+.co-portrait { display: grid; gap: 2px; padding: 6px 8px; text-align: left; border: 1px solid var(--panel-border); border-radius: 9px; background: #fff; font-size: 10px; color: var(--panel-muted); min-width: 0; }
+.co-portrait strong { font-size: 11px; color: var(--hud-accent-strong); }
+.co-portrait span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-portrait em { font-style: normal; font-weight: 650; color: var(--panel-text); }
+.co-portrait[aria-pressed="true"] { border-color: var(--hud-accent); background: var(--hud-accent-soft); box-shadow: 0 0 0 1px var(--hud-accent); }
+.co-portrait[data-waiting] span { color: #9c650d; }
+.co-staged { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.co-staged button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid var(--panel-border); border-radius: 7px; background: #fff; font-size: 10px; font-weight: 650; color: var(--panel-text); }
+.co-staged i { width: 9px; height: 9px; border-radius: 2px; }
+.co-legend { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 10px; font-size: 11px; }
+.co-legend li { display: flex; align-items: center; gap: 5px; }
+.co-room { margin: 8px 0 0; font-size: 11px; color: var(--panel-muted, inherit); }
+.co-room strong { font-variant-numeric: tabular-nums; color: var(--panel-text); }
+
+/* The action ring over the commanded actor, and the Take and Bring here pills. */
+.co-ring-anchor { z-index: 3; --ring-info: #2f7fc4; --ring-success: #1f9d63; --ring-warning: #e3a12f; }
+/* Take and Bring here pills are for the keyboard: the scene shows tints and ghosts, and a pill appears only while it has focus. */
+.co-pill-anchor { z-index: 2; }
+.co-pill-anchor:not(:focus-within) { opacity: 0; pointer-events: none; }
+
+/* The step of the command being given, above the toolbar. */
+.co-picking { position: absolute; z-index: 30; bottom: 92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 8px 10px 8px 12px; border: 1px solid #1f8a5b; border-radius: 10px; background: #e9f6f1; color: #17573c; font-size: 12px; box-shadow: 0 6px 18px rgb(32 48 64 / .16); }
+.co-picking button { padding: 4px 9px; border: 1px solid #1f8a5b; border-radius: 7px; background: #fff; color: #17573c; font-size: 11px; font-weight: 650; }
+
 @media (max-width: 1150px) {
-  .co-commands { --hud-panel-width: 380px; }
-  .co-side { width: 300px; }
+  .co-summary { --hud-panel-width: 330px; }
 }
 @media (max-width: 760px) {
-  .co-commands { top: auto; bottom: var(--hud-phone-panel-bottom); width: auto; max-height: min(300px, 38%); }
-  /* Phones show one panel: the events while one is open, the commands otherwise. */
-  .co-viewport:not([data-events="true"]) .co-side, .co-viewport[data-events="true"] .co-commands, .co-side .co-score, .co-side .co-log { display: none; }
-  .co-list li { grid-template-columns: 90px minmax(0, 1fr) auto; }
+  .co-summary { top: auto; bottom: var(--hud-phone-panel-bottom); width: auto; max-height: min(300px, 38%); }
+  .co-list li { grid-template-columns: 76px minmax(0, 1fr) auto; }
   .co-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .co-picking { bottom: auto; top: 12px; }
 }
+
+/* Cut-off's labels keep the shared card look with the game's cyan status dot, the color of what can be taken. */
+.cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::before { background: #3fc8ff; }
+.cutoff-page .kit-scene-labels .kit-node-label:not(.kit-node-warning)::after { background: color-mix(in srgb, #3fc8ff 60%, #fff); }
+/* While the command card is open over the chosen actor, its own label would repeat the card's title: only the card shows. */
+.co-viewport[data-commanding="true"] .kit-scene-labels .kit-node-label.kit-node-selected { display: none; }
+
+/* The dark panel variant, the default: the game's own light fills follow the dark panels. */
+.co-viewport:not([data-panel-theme="light"]) .co-message[data-tone="critical"] { background: var(--hud-critical-fill); }
+.co-viewport:not([data-panel-theme="light"]) .co-message[data-tone="success"] { background: #52d69b1f; }
+.co-viewport:not([data-panel-theme="light"]) :is(.co-portrait, .co-staged button, .co-actions > button, .co-name, .co-fold, .co-send) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait { color: var(--panel-muted); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait strong { color: var(--panel-text); }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait[aria-pressed="true"] { background: var(--hud-accent-soft); border-color: #3fd0ff66; }
+.co-viewport:not([data-panel-theme="light"]) .co-portrait[data-waiting] span { color: var(--panel-warning); }
+.co-viewport:not([data-panel-theme="light"]) .co-primary { color: #0d1a2e; }
+.co-viewport:not([data-panel-theme="light"]) .co-picking { color: var(--panel-text); background: var(--panel-surface); border-color: #52d69b66; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.co-viewport:not([data-panel-theme="light"]) .co-picking button { color: var(--panel-success); background: var(--hud-card); border-color: #52d69b66; }

@@ -31,3 +31,12 @@
   .panel-hud-top { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .panel-hud-top { order: 0; }.panel-hud-side { order: 2; }.panel-hud-bottom { order: 3; }
 }
+/* Action ring examples: rings over a neutral stage, as they would stand over nodes in a scene. */
+.action-ring-demo { margin: 8px 0 16px; }
+.action-ring-stage { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-around; gap: 28px; padding: 36px 16px 20px; border: 1px solid var(--opsorama-border); border-radius: 16px; background: var(--opsorama-surface-soft); }
+.action-ring-stage figure { display: grid; justify-items: center; gap: 10px; margin: 0; }
+.action-ring-stage figcaption { font-size: 12px; color: var(--opsorama-text); }
+.action-ring-stage .action-ring-pills { grid-template-columns: repeat(3, auto); column-gap: 14px; }
+.action-ring-pills figcaption { grid-column: 1 / -1; }
+.action-ring-last { margin: 10px 0 0; font-size: 13px; }
+

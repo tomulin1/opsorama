@@ -40,19 +40,16 @@ describe('recipe reuse (C4)', () => {
   it('a recipe that is not a dashboard, the Cut-off game, reuses the catalog, simulation and panels', () => {
     const game = createShiftGame({ scenario: 'peak', seed: 1 });
     game.advance(120);
-    // The e-commerce dashboard spawns models such as shopping bags while it runs, so it is read at the same moment of its shift.
-    const shift = createEcommerceSimulation('peak', 1);
-    shift.advance(120);
-    const running = assetsOf(shift.nodes()).map(node => node.asset);
-    shift.dispose();
-    const nodes = playNodes(game, 'packer:K3', []), dashboards = new Set([...running, ...scenes.flatMap(({ nodes: list }) => assetsOf(list).map(node => node.asset))]);
-    game.dispose();
+    // The dashboards as they start, and the e-commerce dashboard after the same two minutes, with shoppers' bags and parcels.
+    const live = createEcommerceSimulation('peak', 1); live.advance(120);
+    const nodes = playNodes(game, []), dashboards = new Set([...scenes.flatMap(({ nodes: list }) => assetsOf(list)), ...assetsOf(live.nodes())].map(node => node.asset));
+    game.dispose(); live.dispose();
     // Every model of the game is a catalog model the dashboards use too: the game brings no models of its own.
     for (const node of assetsOf(nodes)) {
       expect(catalogAssets[node.asset], node.id).toBeDefined();
       expect(dashboards.has(node.asset), node.asset).toBe(true);
     }
-    // Its feedback is made of generic nodes: here, markers on the late truck and the robot that broke down.
+    // Its feedback is made of generic nodes: here, markers such as the one on the truck that waits to unload.
     expect(nodes.filter(node => node.kind === 'marker').length).toBeGreaterThan(0);
     // The page builds its HUD from the shared panel package and the dashboards' feed loop.
     const page = readFileSync(new URL('../apps/site/src/features/cutoff/CutoffGame.tsx', import.meta.url), 'utf8');

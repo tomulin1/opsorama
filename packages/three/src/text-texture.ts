@@ -120,8 +120,11 @@ export const loadImageElement: LoadImage = (src, callbacks) => {
 export interface ImageTextureListener { load(texture: Texture): void; error(): void }
 /** Image textures of one renderer, shared by equal `src` and disposed (or their load cancelled) when their last user releases them. */
 export interface ImageTextureCache {
-  /** Starts or joins the load of `src`. Returns the release function, safe to call more than once; after it no callback runs. */
-  acquire(src: string, listener: ImageTextureListener): () => void;
+  /**
+   * Starts or joins the load of `src` with `anisotropy` (default 1). Images of one `src` and one anisotropy share a texture.
+   * Returns the release function, safe to call more than once; after it no callback runs.
+   */
+  acquire(src: string, listener: ImageTextureListener, anisotropy?: number): () => void;
   /** Images loading, loaded or failed and still in use. */
   readonly size: number;
   /** Cancels every load and disposes every texture; releases afterwards have no effect. */
@@ -136,20 +139,22 @@ export function createImageTextureCache(load: LoadImage = loadImageElement): Ima
   type Entry = { users: number; state: 'loading' | 'loaded' | 'failed'; texture: Texture | null; listeners: Set<ImageTextureListener>; cancel: (() => void) | null };
   const entries = new Map<string, Entry>();
   return {
-    acquire(src, listener) {
-      let entry = entries.get(src);
+    acquire(src, listener, anisotropy = 1) {
+      const key = `${anisotropy} ${src}`;
+      let entry = entries.get(key);
       if (!entry) {
         const created: Entry = { users: 0, state: 'loading', texture: null, listeners: new Set(), cancel: null };
-        entry = created; entries.set(src, created);
+        entry = created; entries.set(key, created);
         created.cancel = load(src, {
           load: image => {
-            if (entries.get(src) !== created || created.state !== 'loading') return;
-            const texture = new CanvasTexture(image as HTMLImageElement); texture.colorSpace = SRGBColorSpace;
+            if (entries.get(key) !== created || created.state !== 'loading') return;
+            // The node's anisotropy keeps an image sharp on a plane seen at a slant; Three.js caps it at the graphics card's maximum.
+            const texture = new CanvasTexture(image as HTMLImageElement); texture.colorSpace = SRGBColorSpace; texture.anisotropy = anisotropy;
             created.state = 'loaded'; created.texture = texture; created.cancel = null;
             for (const user of [...created.listeners]) user.load(texture);
           },
           error: () => {
-            if (entries.get(src) !== created || created.state !== 'loading') return;
+            if (entries.get(key) !== created || created.state !== 'loading') return;
             created.state = 'failed'; created.cancel = null;
             for (const user of [...created.listeners]) user.error();
           },
@@ -160,8 +165,8 @@ export function createImageTextureCache(load: LoadImage = loadImageElement): Ima
       let released = false;
       return () => {
         if (released) return; released = true; current.listeners.delete(listener);
-        if (--current.users > 0 || entries.get(src) !== current) return;
-        entries.delete(src); current.cancel?.(); current.texture?.dispose();
+        if (--current.users > 0 || entries.get(key) !== current) return;
+        entries.delete(key); current.cancel?.(); current.texture?.dispose();
       };
     },
     get size() { return entries.size; },

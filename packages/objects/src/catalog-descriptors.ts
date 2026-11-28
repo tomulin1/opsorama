@@ -1,6 +1,8 @@
 import type { AnchorDescriptor, Bounds, MaterialRole, NodeSample, ObjectDescriptor, OptionDescriptor, PaletteRoleUse, VisualState } from '@opsorama/core';
 import type { BuildingType } from './building';
 import { assetCountDefinitions } from './asset-counts';
+import { GOODS_KINDS } from './goods';
+import { CATALOG_OPTION_ASSETS } from './options';
 import { assetCountLayoutDefaults } from './count-layout';
 import { assetDisplayDefinitions } from './displays';
 import { assetMeasurementDefinitions } from './gauges';
@@ -57,6 +59,7 @@ function options(entry: CatalogEntry): OptionDescriptor[] {
     { field: 'view', type: "'closed' | 'peek' | 'open'", default: 'closed', update: 'rebuild', description: 'Generic container view: peek and open show the children (parentId) and cut the shell away (roof removed, walls lowered). Set it with setNodeView.', samples: [{ view: 'open' }, { view: 'peek' }] },
     { field: 'peekOnHover', type: 'boolean', default: 'false', update: 'rebuild', description: 'Opt-in mouse peek inside the stable shell bounds (userData.containerBounds). Hosts still provide an explicit open/close control.', samples: [{ peekOnHover: true }] },
   );
+  if (CATALOG_OPTION_ASSETS.goods.includes(asset)) result.push({ field: 'options.goods', type: GOODS_KINDS.map(kind => `'${kind}'`).join(' | '), default: 'none (neutral boxes)', update: 'rebuild', description: 'Type of goods of the counted items: each shows the iconic item of that type (see the goods asset), scaled to its slot, so the container holds one type of goods.', samples: GOODS_KINDS.map(goods => ({ options: { goods } })) });
   if (asset === 'shopping-cart') result.push({ field: 'options.contents', type: 'ContainerContents', default: 'none', update: 'rebuild', description: 'Source-backed content lines; bounded proxies do not invent unit identities.', samples: [{ options: { contents: { lines: [{ id: 'item', title: 'Item', quantity: 2 }] } } }] });
   if (['heated-pass', 'espresso-machine', 'pizza-oven'].includes(asset)) result.push({ field: 'options.heatEnabled', type: 'boolean', default: 'true', update: 'rebuild', description: 'Visible heat glow, steam or fire independently of host State. Scene motion gates still control animation.', samples: [{ options: { heatEnabled: false } }, { options: { heatEnabled: true } }] });
   if (assetVisualStates[asset]) result.push({ field: 'state', type: 'VisualState', default: 'normal', update: 'rebuild', description: 'Native host status with the visual mapping declared below; unsupported values use the normal appearance.', samples: STATES.map(state => ({ state })) });
@@ -917,6 +920,26 @@ const entries: readonly CatalogEntry[] = [
     notes: "A lighter alternative to the shopping cart for small orders. Count places 0–4 items in a fixed 2 × 2 layout; items share the basket node identity. Color changes the basket; handles are fixed. Static model, base-center pivot, 0.45 × 0.38 × 0.3 m.",
   },
   {
+    asset: "goods",
+    name: "Goods",
+    category: "Work items",
+    purpose: "One item of a type of goods a shop sells: a mug, a table lamp, a camping lantern, a teddy bear, headphones or a basketball.",
+    bounds: {"min":[-0.0443,0,-0.045],"max":[0.077,0.101,0.045]},
+    pivot: "base-center",
+    placement: "Local origin is the ground centre of the item's body; the mug's handle extends toward +x. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
+    largest: {"node":{"variant":"home"},"bounds":{"min":[-0.0788,0,-0.08],"max":[0.0788,0.26,0.08]}},
+    colorRole: "surface",
+    roles: [{"role":"surface","parts":"The main body: the mug, the lamp shade, the lantern body, the bear's fur, the headphones, the ball. Each type has its own default tone; containers filled through options.goods always keep those tones."}],
+    fixed: "Default body tones per type (GOODS_TONES), which also serve as the color code of each type: a red mug, a purple lamp shade, a green lantern, a brown teddy bear, blue headphones and an orange basketball. The lamp foot, the lantern glass and handle, the bear's muzzle and belly, the headphone cushions and the ball's seams are fixed.",
+    variants: ["kitchen","home","outdoor","toys","tech","sport"],
+    anchors: [
+    ],
+    slots: [],
+    animation: "none",
+    example: "/examples/ecommerce",
+    notes: "The variant is the type of goods: kitchen (mug, 0.12 × 0.1 m), home (table lamp, 0.26 m high), outdoor (camping lantern, 0.2 m), toys (seated teddy bear, 0.2 m), tech (over-ear headphones, 0.15 m) and sport (basketball, 0.13 m). The same items fill store-shelving facings, shopping-cart, hand-basket, put-wall and tote slots through options.goods, scaled to each slot, so a shelf or container shows one type of goods. Static, real-size items; quantities and SKUs stay in host data.",
+  },
+  {
     asset: "picking-cart",
     name: "Picking cart",
     category: "Fulfillment",
@@ -1043,14 +1066,14 @@ const entries: readonly CatalogEntry[] = [
     largest: {"node":{"count":0},"bounds":{"min":[-1.025,0,-0.825],"max":[1.025,2.025,0.88]}},
     colorRole: "accent",
     roles: [{"role":"accent","parts":"hold frame, hold sign"}],
-    fixed: "Fixed definition tones: hold floor, hold mesh, hold door, hold wire, hold hinge, hold hasp, hold padlock, hold sign panel, count part 0, count part 1, count part 2.",
+    fixed: "Fixed definition tones: hold floor, hold mesh, hold door, hold wire, hold hinge, hold hasp, hold padlock, hold sign panel. Held items are the warehouse cartons of a pallet with their fixed tan, tape, sticker and barcode tones.",
     anchors: [
       {"name":"door","purpose":"Door approach point; movement and reservations stay with the host."},
     ],
     slots: ["access"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "A 2 × 1.6 m cage with a closed door at the front right (+z), a door anchor and an access slot. Count fills 0–8 fixed item slots in two layers; items are decorative and hold reasons, owners and resolution stay in host data. Optional options.surfaceLabel adds text or SVG to the door sign. Color changes the frame and sign. Static model, preserved model origin, 2 m tall.",
+    notes: "A 2 × 1.6 m cage with a closed door at the front right (+z), a door anchor and an access slot. Count fills 0–8 fixed item slots in two layers with the warehouse carton of a pallet; items are decorative and hold reasons, owners and resolution stay in host data. Optional options.surfaceLabel adds text or SVG to the door sign. Color changes the frame and sign. Static model, preserved model origin, 2 m tall.",
   },
   {
     asset: "put-wall",
@@ -1077,21 +1100,21 @@ const entries: readonly CatalogEntry[] = [
     asset: "roll-cage",
     name: "Roll cage",
     category: "Fulfillment",
-    purpose: "A wire trolley holding zero to twelve outbound parcels.",
+    purpose: "A wire trolley holding zero to sixteen outbound parcels.",
     bounds: {"min":[-0.4025,0,-0.3525],"max":[0.4025,1.67,0.3525]},
     pivot: "base-center",
     placement: "Local origin is the ground centre of the default footprint. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
     largest: {"node":{"count":0},"bounds":{"min":[-0.4025,0,-0.3525],"max":[0.4025,1.67,0.3525]}},
     colorRole: "structure",
     roles: [{"role":"structure","parts":"cage frame, cage wire"}],
-    fixed: "Fixed definition tones: cage base, caster, cage mesh, count part 0, count part 3, count part 6, count part 1, count part 4, count part 7, count part 2, count part 5.",
+    fixed: "Fixed definition tones: cage base, caster, cage mesh. The parcels are the warehouse cartons of a pallet with their fixed tan, tape, sticker and barcode tones.",
     anchors: [
       {"name":"front","purpose":"Front-facing approach or attachment point."},
     ],
     slots: ["load"],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Count fills 0–12 fixed parcel slots, four per layer from the bottom. Parcels share the cage node identity; carrier, route and real parcel counts stay in host data. Open at the front (+z) with a front anchor and a load interaction slot. Color changes the wire frame; the translucent mesh panels and base are fixed. Static model, base-center pivot, 0.8 × 1.67 × 0.7 m.",
+    notes: "Count fills 0–16 fixed parcel slots with the warehouse carton of a pallet (0.343 × 0.33 × 0.30 m), two across and two deep per layer, four layers from the base, as many as fit inside the frame. Parcels share the cage node identity; carrier, route and real parcel counts stay in host data. Open at the front (+z) with a front anchor and a load interaction slot. Color changes the wire frame; the translucent mesh panels and base are fixed. Static model, base-center pivot, 0.8 × 1.67 × 0.7 m.",
   },
   {
     asset: "gate",
@@ -1219,20 +1242,22 @@ const entries: readonly CatalogEntry[] = [
     asset: "cargo-bike",
     name: "Cargo bike",
     category: "Vehicles",
-    purpose: "A front-loader bike for courier and last-mile routes.",
+    purpose: "A front-loader bike for courier and last-mile routes, parked or with a rider.",
     bounds: {"min":[-0.31,0,-1.085],"max":[0.31,1.095,1.3068]},
     pivot: "model-origin",
     placement: "The original local origin is preserved; model-local bounds below specify its offset from the footprint. Asymmetric attachments and reserved count slots can extend to one side; position attaches this origin, not the bounding-box centre. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
+    largest: {"node":{"variant":"operated"},"bounds":{"min":[-0.3675,0,-1.085],"max":[0.3675,1.9714,1.3068]}},
     colorRole: "accent",
-    roles: [{"role":"accent","parts":"bike cargo"}],
+    roles: [{"role":"accent","parts":"bike cargo"},{"role":"text","parts":"(unnamed)","when":{"variant":"operated"}},{"role":"skin","parts":"(unnamed)","when":{"variant":"operated"}},{"role":"hair","parts":"(unnamed)","when":{"variant":"operated"}},{"role":"warning","parts":"(unnamed)","when":{"variant":"operated"}}],
     fixed: "Fixed definition tones: bike tire, bike grip, bike seat, bike pedal, bike hub, bike rim, bike spoke, bike mudguard, bike frame, bike handlebar, bike platform, bike cargo handle, bike crank, bike chainring, bike cargo lid.",
+    variants: ["empty","operated"],
     anchors: [
       {"name":"cargo","purpose":"Local cargo composition point; the host owns connected records and actions."},
     ],
     slots: [],
     animation: "none",
     example: "/examples/ecommerce",
-    notes: "Faces +z with the cargo box between rider and front wheel. Color changes the cargo box; frame and wheels are fixed. A cargo anchor sits on the box lid. No rider is included; compose a worker when needed. Static model, preserved model origin, about 2.4 × 1.1 × 0.6 m.",
+    notes: "Faces +z with the cargo box between rider and front wheel. Variants: empty (default), a parked bike, or operated, which seats a static rider on the saddle who wears the scene warning role as a high-visibility vest, ignores the cargo color and is part of the one selectable bike; use operated for a bike that rides. Color changes the cargo box; frame and wheels are fixed. A cargo anchor sits on the box lid. Static model, preserved model origin, about 2.4 × 1.1 × 0.6 m without the rider.",
   },
   {
     asset: "pallet-jack",
@@ -2018,13 +2043,13 @@ const entries: readonly CatalogEntry[] = [
     name: "Carton flow rack",
     category: "Furniture",
     purpose: "An inclined carton flow rack with roller lanes and pick-to-light modules.",
-    bounds: {"min":[-1.03,0,-0.63],"max":[1.03,2.21,0.66]},
+    bounds: {"min":[-1.03,0,-0.655],"max":[1.03,2.21,0.685]},
     pivot: "base-center",
     placement: "Local origin is the ground centre of the default footprint. Other supported configurations are sampled in customization; the largest snapshot is one concrete configuration, not a union of all variants.",
-    largest: {"node":{"count":0},"bounds":{"min":[-1.03,0,-0.63],"max":[1.03,2.21,0.66]}},
+    largest: {"node":{"count":0},"bounds":{"min":[-1.03,0,-0.655],"max":[1.03,2.21,0.685]}},
     colorRole: "accent",
-    roles: [{"role":"structure","parts":"flow divider, flow rollers"},{"role":"trim","parts":"flow bed"},{"role":"accent","parts":"flow upright, flow beam, flow header"},{"role":"screen","parts":"flow pick light"},{"role":"normal","parts":"flow pick led"},{"role":"inactive","parts":"flow pick led"}],
-    fixed: "Fixed definition tones: flow carton.",
+    roles: [{"role":"surface","parts":"flow cartons (materials.surface or the scene palette; color stays the frame)"},{"role":"structure","parts":"flow divider, flow rollers"},{"role":"trim","parts":"flow bed"},{"role":"accent","parts":"flow upright, flow beam, flow header"},{"role":"screen","parts":"flow pick light"},{"role":"normal","parts":"flow pick led"},{"role":"inactive","parts":"flow pick led"}],
+    fixed: "Flow cartons are the warehouse cartons of a pallet; their tape, sticker and barcode keep fixed tones.",
     anchors: [
       {"name":"front","purpose":"Front-facing approach or attachment point."},
       {"name":"back","purpose":"Back approach or attachment point."},
@@ -2032,7 +2057,7 @@ const entries: readonly CatalogEntry[] = [
     slots: ["pick","replenish"],
     animation: "none",
     example: "/examples/warehouse-objects",
-    notes: "2 × 1.2 m, three levels of four lanes sloping toward the pick face at +z. Count fills 0–12 lanes with two cartons each, bottom level first; a lane LED lights while it is filled. pick (front) and replenish (back) slots; the header is a surface-label area. Lights do not encode orders.",
+    notes: "2 × 1.25 m, three levels of four lanes sloping toward the pick face at +z. Count fills 0–12 lanes with four warehouse cartons each (0.343 × 0.33 × 0.30 m, the carton of a pallet, touching end to end along the lane), bottom level first; a lane LED lights while it is filled. pick (front) and replenish (back) slots; the header is a surface-label area. Lights do not encode orders.",
   },
   {
     asset: "safety-barrier",

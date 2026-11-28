@@ -50,3 +50,14 @@
 @media (max-width: 760px) {
   .aquatics-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* The dark panel variant, the default: the dashboard's own light fills and text colors follow the dark panels. */
+.aq-viewport:not([data-panel-theme="light"]) { --a-ink: #f1f5fb; --a-muted: #a8b6cc; --a-line: #ffffff1f; --a-accent: #3fd0ff; --a-accent-soft: #3fd0ff1f; }
+.aq-viewport:not([data-panel-theme="light"]) :is(.aquatics-inspector p, .aquatics-host-note) { color: var(--panel-muted); }
+.aq-viewport:not([data-panel-theme="light"]) :is(.aquatics-host-note, .aquatics-posts button, .aquatics-lanes button, .aquatics-library a) { background: var(--hud-card); border-color: var(--hud-card-line); }
+.aq-viewport:not([data-panel-theme="light"]) .aquatics-library { border-color: var(--hud-card-line); }
+.aq-viewport:not([data-panel-theme="light"]) .aquatics-library a { color: var(--hud-accent); }
+.aq-viewport:not([data-panel-theme="light"]) :is(.aquatics-alert, .aquatics-posts button[data-alert], .aquatics-lanes button[data-alert], .aquatics-table-wrap tr[data-status=warning], .aquatics-table-wrap tr[data-status=critical]) { background: var(--hud-critical-fill); }
+.aq-viewport:not([data-panel-theme="light"]) .aquatics-alert { border-color: #ff708866; color: var(--panel-critical) !important; }
+.aq-viewport:not([data-panel-theme="light"]) .aquatics-table-wrap td.over { color: var(--panel-critical); }
+.aq-viewport:not([data-panel-theme="light"]) :is(.aquatics-posts button[aria-pressed=true], .aquatics-lanes button[aria-pressed=true]) { background: var(--hud-accent-soft); border-color: #3fd0ff66; color: var(--hud-accent); }

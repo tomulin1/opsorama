@@ -1,0 +1,9 @@
+/* HTML over nodes example: the scene host and the context menu every adapter attaches to the clicked node. */
+.node-html-canvas { position: relative; height: 420px; }
+.node-menu { padding-bottom: 10px; }
+.node-menu [role="group"] { display: flex; flex-direction: column; gap: 4px; min-width: 180px; padding: 10px; border: 1px solid var(--opsorama-border); border-radius: 8px; background: var(--opsorama-surface-raised); color: var(--opsorama-text); box-shadow: 0 8px 22px rgba(15, 31, 51, .22); font: 500 12px/1.4 "Segoe UI", Arial, sans-serif; }
+.node-menu strong { color: var(--opsorama-text-strong); font-size: 13px; }
+.node-menu span { color: var(--opsorama-text); opacity: .8; font-size: 11px; margin-bottom: 4px; }
+.node-menu button { padding: 6px 10px; border: 1px solid var(--opsorama-border); border-radius: 6px; background: var(--opsorama-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.node-menu button:hover, .node-menu button:focus-visible { border-color: var(--opsorama-focus); outline: none; }
+.node-html-example .node-html-hint { padding: 8px 16px; font-size: 12px; color: var(--opsorama-text); }

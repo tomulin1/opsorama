@@ -2,7 +2,7 @@
  * Renders the static images that search engines and link previews read:
  *   public/social/opsorama.png        1200 × 630 Open Graph / X card (SOCIAL_IMAGE in src/features/seo/site.ts)
  *   public/brand/apple-touch-icon.png 180 × 180 home-screen icon (square; iOS rounds the corners)
- * The card combines the Flow mark, the headline and the landing city preview (public/example-previews/city.webp).
+ * The card combines the Flow mark, the headline and the city preview (public/example-previews/city.webp).
  * It needs no running website. From the workspace root: node apps/site/scripts/capture-social-image.mjs
  * Requires Playwright Chromium; the Inter font is used when installed, otherwise the site's fallback fonts.
  */

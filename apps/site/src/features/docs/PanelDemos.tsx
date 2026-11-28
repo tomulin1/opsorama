@@ -57,12 +57,13 @@ export function PanelStates() {
 }
 
 /** Both families in their zones over a placeholder scene. The layout is host CSS, not a library feature. */
-export function HudComposition() {
+/** The composed HUD; `dark` shows the second color version (data-panel-theme="dark"). */
+export function HudComposition({ dark = false }: { dark?: boolean }) {
   const [size, setSize] = useState<MetricSize>('m'), [selected, setSelected] = useState<string>(sampleRecords[1].id);
   const record = sampleRecords.find(item => item.id === selected)!;
   return <div className="panel-demo" role="group" aria-label="Composed HUD sample">
     <div className="panel-sample-controls" role="group" aria-label="Metric size">{metricSizes.map(value => <button type="button" key={value} aria-pressed={size === value} onClick={() => setSize(value)}>Size {value}</button>)}</div>
-    <div className="panel-hud" data-metric-size={size}>
+    <div className="panel-hud" data-metric-size={size} data-panel-theme={dark ? 'dark' : undefined}>
       <span className="panel-hud-scene">Your scene</span>
       <div className="panel-hud-top">{sampleMetrics.map(({ id, ...metric }) => <MetricCard key={id} size={size} {...metric} action={id === 'alerts' ? { label: 'Show the line with the fault', onActivate: () => setSelected('line-c'), pressed: selected === 'line-c' } : undefined} slots={{ icon: ICONS[id] }} />)}</div>
       <EntityInspector className="panel-hud-side" title={record.label} description={record.description} density="compact" slots={{ icon: <Workflow size={16} />, actions: <StatusBadge label={record.status} tone={record.tone} /> }} fields={[{ id: 'rate', label: 'Rate', value: record.value }]} />
@@ -70,3 +71,6 @@ export function HudComposition() {
     </div>
   </div>;
 }
+
+/** The same HUD in the dark panel variant. */
+export function HudCompositionDark() { return <HudComposition dark />; }

@@ -1,18 +1,18 @@
 'use client';
 import { exampleSelectionNodeId } from '../example-selection';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Boxes, Crosshair, Eye, EyeOff, Forklift, Info, Maximize2, Minimize2, PackageCheck, Palette, Truck, Warehouse, X } from 'lucide-react';
 import { DashboardProvider, SceneCanvas, useScene, useSceneStore } from '@opsorama/react';
 import { DataPanel } from '@opsorama/react/ui';
 import type { SceneStore } from '@opsorama/core';
 import type { SceneRenderer } from '@opsorama/three';
 import { SiteHeader } from '@/components/toolkit/SiteHeader';
-import { HudMetrics, HudNodePreview, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
-import { SCENARIOS, SITE_NAME, warehouseAlerts, warehouseMetrics, type AisleId, type AreaId, type DockId, type Side, type WarehouseScenario, type WarehouseSnapshot } from './model';
+import { HudMetrics, HudZoom, MetricSizeControl, useHudMetricSize } from '../example-hud';
+import { SCENARIOS, SITE_NAME, warehouseMetrics, type WarehouseScenario } from './model';
 import { DEFAULT_ZOOM, applyWarehouseSnapshot, createWarehouseStore } from './scene';
 import {
-  AisleInspector, AlertList, AreaInspector, ChilledInspector, DockInspector, DockTable, EmptyInspector, FleetList, LoadTable, LocationInspector, StorageChips, TruckInspector, VehicleInspector,
-  WarehouseLibrary, warehouseHudMetrics,
+  DockTable, FleetList, LoadTable, StorageChips,
+  WarehouseLibrary, WarehouseSidePanel, warehouseHudMetrics, type WarehouseSidePanelId,
 } from './components';
 import '@opsorama/ui/styles.css';
 import { catalogAssets } from '@opsorama/objects';
@@ -26,29 +26,7 @@ const SCENARIO_NOTES: Readonly<Record<WarehouseScenario, string>> = {
 /** Below this width the floating panels share one area, so opening one closes the other. */
 const NARROW_QUERY = '(max-width: 760px)';
 type LeftPanel = 'docks' | 'loads' | 'storage' | 'fleet' | 'about';
-type SidePanel = 'alerts' | 'inspector';
-
-/** The scene node a selection shows in the inspector preview; an alert marker shows the node it points at. */
-function previewNodeFor(snapshot: WarehouseSnapshot, selection: string | null): string | null {
-  return selection?.startsWith('alert:') ? warehouseAlerts(snapshot).find(value => `alert:${value.id}` === selection)?.node ?? null : selection;
-}
-
-/** The inspector for a selected node id; alert markers open the inspector of the node they point at. */
-function inspectorFor(snapshot: WarehouseSnapshot, selection: string | null): ReactNode {
-  if (!selection) return <EmptyInspector />;
-  const [kind, id = '', bay, side] = selection.split(':');
-  if (kind === 'alert') { const alert = warehouseAlerts(snapshot).find(value => `alert:${value.id}` === selection); return alert ? inspectorFor(snapshot, alert.node) : <EmptyInspector />; }
-  if (kind === 'area' || kind === 'pin') return <AreaInspector snapshot={snapshot} id={id as AreaId} />;
-  if (kind === 'chilled') return <ChilledInspector snapshot={snapshot} />;
-  if (kind === 'dock') return <DockInspector snapshot={snapshot} id={id as DockId} />;
-  if (kind === 'truck') return <TruckInspector snapshot={snapshot} id={id} />;
-  if (kind === 'aisle') return <AisleInspector snapshot={snapshot} id={id as AisleId} />;
-  if (kind === 'rack') return <LocationInspector snapshot={snapshot} aisle={id as AisleId} bay={Number(bay)} side={side as Side} />;
-  if (kind === 'mhe') return <VehicleInspector snapshot={snapshot} id={id} />;
-  if (kind === 'pack') return <AreaInspector snapshot={snapshot} id="packing" />;
-  if (kind === 'returns') return <AreaInspector snapshot={snapshot} id="returns" />;
-  return <EmptyInspector />;
-}
+type SidePanel = WarehouseSidePanelId;
 
 /** Host-owned HUD over one React scene. Shared panels own presentation; mock data stays in this example. */
 function WarehouseViewport() {
@@ -79,7 +57,6 @@ function WarehouseViewport() {
   const toggleLeft = (panel: LeftPanel) => { setPanelsVisible(true); setLeftPanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setSidePanel(null); };
   const toggleSide = (panel: SidePanel) => { setPanelsVisible(true); setSidePanel(value => value === panel ? null : panel); if (window.matchMedia(NARROW_QUERY).matches) setLeftPanel(null); };
   const closeLeft = <button type="button" className="hud-icon-button" aria-label="Close information panel" onClick={() => setLeftPanel(null)}><X size={15} /></button>;
-  const sideTabs = <div className="hud-side-tabs"><button type="button" aria-pressed={sidePanel === 'alerts'} onClick={() => setSidePanel('alerts')}>Alerts</button><button type="button" aria-pressed={sidePanel === 'inspector'} onClick={() => setSidePanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => setSidePanel(null)}><X size={15} /></button></div>;
 
   return <section className="wh-viewport hud-viewport" aria-label="Distribution centre" data-expanded={expanded} data-metric-size={metricSize} data-panels-visible={panelsVisible} data-left-panel={leftPanel ?? 'none'} data-side-panel={sidePanel ?? 'none'}>
     {/* The scene stays mounted, so toggling or expanding panels never remounts the canvas. */}
@@ -98,10 +75,7 @@ function WarehouseViewport() {
       })} />
     </div>}
 
-    {panelsVisible && sidePanel === 'alerts' && <DataPanel className="hud-side-panel" label="Distribution centre alerts" density="compact" slots={{ header: sideTabs }} freshness={{ label: 'Mock snapshot · no live feed', state: 'unknown' }}>
-      <AlertList snapshot={snapshot} onSelect={select} />
-    </DataPanel>}
-    {panelsVisible && sidePanel === 'inspector' && <DataPanel className="hud-side-panel wh-inspector-panel" label="Distribution centre inspector" density="compact" slots={{ header: sideTabs }}><HudNodePreview nodeId={previewNodeFor(snapshot, selection)} />{inspectorFor(snapshot, selection)}</DataPanel>}
+    {panelsVisible && sidePanel && <WarehouseSidePanel snapshot={snapshot} panel={sidePanel} selection={selection} onPanel={setSidePanel} onSelect={select} />}
 
     {panelsVisible && leftPanel === 'docks' && <DataPanel className="hud-floating-panel wh-wide-panel" title="Docks & yard" label="Docks" description={`${metrics.occupied} of ${metrics.doors} doors in use · D01–D08 receiving, D09–D16 dispatch`} density="compact" slots={{ icon: <Truck size={16} />, actions: closeLeft }}>
       <DockTable snapshot={snapshot} onSelect={select} />

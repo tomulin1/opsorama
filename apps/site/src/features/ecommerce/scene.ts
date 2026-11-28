@@ -1,9 +1,9 @@
 import { createNavGraph, resolveInteractionSlots, type AssetNode, type ControllerFactory, type ControllerRegistry, type NavEdge, type NavPoint, type ResolvedSlot, type SceneNode, type Vec3 } from '@opsorama/core';
 import { PALLET, TRUCK, assetInteractionSlots, assetMotionProfiles, personHairColor } from '@opsorama/objects';
 import {
-  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
-  areaStatus, cageCounts, departmentFacings, departmentLow, locationState, orderArea, ordersIn, stagedFor,
-  type AreaId, type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
+  AREAS, CAGE_CAPACITY, CARRIERS, COLLECT_CAPACITY, DEPARTMENTS, HOLD_CAPACITY, LOCATIONS, OUTLETS, PUT_WALL_CAPACITY, RETURNS_TOTE_CAPACITY,
+  cageCounts, departmentFacings, departmentLow, heldAt, locationState, orderArea, orderOutlet, stagedAt, stagedFor,
+  type CheckoutId, type DepartmentId, type DockId, type EcommerceSnapshot, type LocationId, type Order, type PackStationId, type PutWallId,
 } from './model';
 import { closeWallJoints } from '../example-walls';
 
@@ -32,11 +32,9 @@ export const FEMININE = { options: { person: { figure: 'feminine' } } } as const
 /** Two rack rows of seven bays, both facing the front: R01–R07 served from `AISLE_Z`, and R08–R14 against the back wall served from `DEEP_AISLE_Z`. */
 export const RACK_PLACES: Readonly<Record<string, { position: Vec3; aisle: number }>> = Object.fromEntries(LOCATIONS.filter(item => item.kind === 'rack').map((item, i) => [item.id, i < 7 ? { position: p(-6.3 + i * 2.95, -12.25), aisle: -9.6 } : { position: p(-6.3 + (i - 7) * 2.95, -19.65), aisle: -17 }]));
 const AISLE_Z = -9.6, DEEP_AISLE_Z = -17, BACK_WALL_Z = -21;
-const PICK_Z = -3.7, AISLE_RETURN_Z = -8.2, PICK_LINE_Z = -2.25, PICK_RETURN_Z = -1.3, INDUCT_X = 8.9, INDUCT_Z = -2.85;
-const PICK_FACES: Readonly<Record<string, { asset: 'carton-flow-rack' | 'shelf'; x: number }>> = {
-  F1: { asset: 'carton-flow-rack', x: -6.4 }, F2: { asset: 'carton-flow-rack', x: -4.2 }, F3: { asset: 'carton-flow-rack', x: -2 }, F4: { asset: 'carton-flow-rack', x: .2 },
-  S1: { asset: 'shelf', x: 3 }, S2: { asset: 'shelf', x: 6.2 },
-};
+const PICK_Z = -3.7, AISLE_RETURN_Z = -9, PICK_LINE_Z = -2.25, PICK_RETURN_Z = -1.3, INDUCT_X = 8.9, INDUCT_Z = -2.85;
+/** Six carton flow racks in one row 2.2 m apart, one pick face per type of goods; the free floor is east of S2. */
+const PICK_FACES: Readonly<Record<string, { x: number }>> = { F1: { x: -6.4 }, F2: { x: -4.2 }, F3: { x: -2 }, F4: { x: .2 }, S1: { x: 2.4 }, S2: { x: 4.6 } };
 export const DOCK_Z: Readonly<Record<DockId, number>> = { D1: -11.2, D2: -7.4, D3: 2.6 };
 const DOCK_X = 22.6;
 /** The building's edge at the docks, where the dock base ends and the apron drops away. */
@@ -52,19 +50,44 @@ const PUT_WALL_Z = -1.3;
 export const CAGE_X: Readonly<Record<string, number>> = { 'swift-1': 15, 'swift-2': 16, 'parcelo-1': 17.3, 'parcelo-2': 18.3 };
 /** Roll cages stand along this line with their open front toward the dispatch aisle. */
 export const CAGE_Z = .9;
+/**
+ * The roll cages of the shop's outlets (counter, lockers, bike), with the `salesChannels` option only: west of the packing benches,
+ * fronts toward the walkway to the shop, so packers load them in a few steps and the dispatcher pushes them to the shop.
+ */
+export const OUTLET_CAGE_X: Readonly<Record<string, number>> = { 'counter-1': -3.3, 'lockers-1': -2.2, 'bike-1': -1.1 };
+const OUTLET_CAGE_Z = 1.5;
+/** Where a roll cage stands at home. */
+export const cageAt = (cage: string): Vec3 => cage in OUTLET_CAGE_X ? p(OUTLET_CAGE_X[cage], OUTLET_CAGE_Z) : p(CAGE_X[cage], CAGE_Z);
+/**
+ * Where an outlet's cage stands while the dispatcher unloads it, and its heading: at the counter's staff side, on the kerb in
+ * front of the lockers, and beside the delivery bike, which waits at the kerb by the shop door with the `salesChannels` option.
+ */
+export const OUTLET_DROPS: Readonly<Record<'counter' | 'lockers' | 'bike', { position: Vec3; yaw: number }>> = {
+  counter: { position: p(-10.55, .4), yaw: -Math.PI / 2 },
+  lockers: { position: [-18.4, .12, 7.15], yaw: -Math.PI / 2 },
+  bike: { position: [-13.25, .12, 6.85], yaw: Math.PI / 2 },
+};
+/**
+ * The delivery bike's place with the sales channels, at the kerb east of the shop door, and where its round starts and ends: it
+ * rides off east along the road and comes back from the west, so it always rides forward.
+ */
+export const BIKE_AT: Vec3 = [-12.3, 0, 7.75], BIKE_GONE_EAST: Vec3 = [44, 0, 7.75], BIKE_FROM_WEST: Vec3 = [-36, 0, 7.75];
+const LOCKERS_AT: Vec3 = [-19.5, .12, 6.25];
 export const CHECKOUT_X: Readonly<Record<CheckoutId, number>> = { C1: -23.4, C2: -20.4, C3: -17.4 };
 const CHECKOUT_Z = .6, COLLECT: Vec3 = p(-12, 1);
-/** Gondola rows along the shop floor, back to front; each department owns two neighbouring gondolas. */
+/**
+ * The cart corral inside the entrance, west of the door: six shopping carts side by side, 0.82 m apart so a small gap stays
+ * between the 0.66 m wide carts, handles toward the door row, where a shopper takes one on the way in and returns it on the way
+ * out. The simulation draws the carts that stand here.
+ */
+export const CART_CORRAL: readonly Vec3[] = Array.from({ length: 6 }, (_, i) => p(-16.8 - i * .82, 4.3));
+/** Gondola rows along the shop floor, back to front; the departments take them in order (see `DEPARTMENTS`). */
 const GONDOLA_X = [-23.6, -21.4, -19.2, -17] as const, GONDOLA_Z = [-19.9, -16.2, -12.5, -8.8, -5.1] as const, FRONT_GONDOLA_ROW = GONDOLA_Z.length - 1;
-export const GONDOLAS: readonly { id: string; department: DepartmentId; index: 0 | 1; position: Vec3 }[] = GONDOLA_Z.flatMap((z, row) => GONDOLA_X.map((x, column) => {
-  const department = DEPARTMENTS[row * 2 + (column >> 1)].id, index = (column % 2) as 0 | 1;
+const GONDOLA_DEPARTMENTS = DEPARTMENTS.flatMap(item => Array.from({ length: item.gondolas }, (_, index) => ({ department: item.id, index })));
+export const GONDOLAS: readonly { id: string; department: DepartmentId; index: number; position: Vec3 }[] = GONDOLA_Z.flatMap((z, row) => GONDOLA_X.map((x, column) => {
+  const { department, index } = GONDOLA_DEPARTMENTS[row * GONDOLA_X.length + column];
   return { id: `gondola:${department}:${index}`, department, index, position: p(x, z) };
 }));
-/** Free floor spots where each area's status pin stands. */
-const AREA_PINS: Readonly<Record<AreaId, Vec3>> = {
-  shop: p(-12.6, -7.4), checkout: p(-15.7, 3.9), collect: p(-9.8, 3.6), receiving: p(19.6, -12.4), storage: p(4.6, -6.4),
-  picking: p(-7.5, -.5), sorting: p(10.6, -.5), packing: p(6.5, .6), dispatch: p(21.1, .8), returns: p(-1.9, 1),
-};
 /** The staging lane: one column of pallets the forklift fills from the east and the reach truck empties from the west. */
 export const STAGING_X = 16.2;
 export const STAGING_SPOTS: readonly Vec3[] = [-12.4, -11.34, -10.28, -9.22, -8.16, -7.1].map(z => p(STAGING_X, z));
@@ -80,7 +103,14 @@ export const STACKED_PALLET = PALLET.deckTop;
  */
 export const ALONG_Z = HALF, RACK_TURN = 90;
 /** Where a pallet stands behind a pick face while its cartons are decanted. */
-export const replenishSpot = (face: string): Vec3 => p(PICK_FACES[face].x, -5.75);
+/**
+ * Depth of the replenishment spots, far enough behind the 2 m flow racks that the default camera (pitch about 33°) sees the
+ * pallet over them, and short of the reach truck's return aisle.
+ */
+export const REPLENISH_Z = -7.45;
+export const replenishSpot = (face: string): Vec3 => p(PICK_FACES[face].x, REPLENISH_Z);
+/** Where the replenisher stands to take a carton off the pallet behind a pick face, before walking it to the lanes. */
+export const TAKE_Z = REPLENISH_Z + 1;
 /** Height of the conveyor belt, and the stretch where totes ride. */
 export const BELT_Y = FLOOR_Y + .83;
 export const BELT_Z = -3.9, BELT_END_X = 20.3;
@@ -93,7 +123,7 @@ export const dockMouth = (dock: DockId): Vec3 => p(DOCK_X - .2, DOCK_Z[dock], .1
 
 /** Fixtures that people and vehicles visit. */
 export const pickFaceNodes: readonly AssetNode[] = Object.entries(PICK_FACES).map(([id, face]) =>
-  selectable(`${face.asset === 'shelf' ? 'shelf' : 'flow'}:${id}`, id, face.asset, p(face.x, face.asset === 'shelf' ? PICK_Z + .05 : PICK_Z), `${id} · ${LOCATIONS.find(item => item.id === id)!.family}`));
+  selectable(`flow:${id}`, id, 'carton-flow-rack', p(face.x, PICK_Z), `${id} · ${LOCATIONS.find(item => item.id === id)!.family}`));
 const fixtureSlots = (nodes: readonly AssetNode[]) => nodes.flatMap(node => resolveInteractionSlots(node, assetInteractionSlots[node.asset]));
 /** Catalog slots of the pick faces; pickers stop on their approaches with the cart ahead of them. */
 export const pickSlots = fixtureSlots(pickFaceNodes);
@@ -145,11 +175,8 @@ export const ecommerceBase: readonly SceneNode[] = closeWallJoints([
   fixture('shop-board', 'information-board', p(-12.4, -20), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'ORDER ONLINE\nCOLLECT IN 2 H\n\nCounter by\nthe entrance', color: '#eef4f8' } } }),
   fixture('shop-sign', 'sign', [-14.4, WALK_Y, 5.4], { options: { surfaceLabel: { kind: 'text', text: 'HEARTH & FIELD', color: '#ffffff', background: '#2f6f8f' } } }),
   ...[[-10.3, -2.6], [-10.3, -9.6], [-25.2, 4.2], [-14.3, -20], [-10.3, -16.5]].map(([x, z], i) => fixture(`shop-plant-${i}`, 'potted-plant', p(x, z))),
-  ...[0, 1].map(i => fixture(`shop-cart-${i}`, 'shopping-cart', p(-10.4, -5.8 + i * .55), { count: 0, rotation: yaw(-HALF) })),
-  // Warehouse decoration: bollards at the aisle ends, overflow pallets and a parked pallet jack.
+  // Warehouse decoration: bollards at the aisle ends and a parked pallet jack. Every pallet in the scene is a unit someone moves.
   ...[[-7.6, -9.6], [-7.6, -17], [13.1, -12.7], [13.7, -5.2]].map(([x, z], i) => fixture(`bollard-${i}`, 'safety-barrier', p(x, z), { variant: 'bollard' })),
-  fixture('overflow-0', 'pallet', p(-7.4, -6.6), { count: 9 }),
-  ...[[16.4, -19.4], [18, -19.4], [19.6, -19.4], [16.4, -17.9], [18, -17.9]].map(([x, z], i) => fixture(`overflow-${i + 1}`, 'pallet', p(x, z), { count: 9 + i * 3 })),
   fixture('pallet-jack', 'pallet-jack', p(-7, 3.6), { rotation: yaw(HALF) }),
   ...[0, 1, 2].map(i => fixture(`conveyor-${i}`, 'conveyor', p(10.4 + i * 4.05, BELT_Z), { rotation: yaw(HALF) })),
   // Street furniture.
@@ -182,11 +209,11 @@ const rackSlots = rackIds.flatMap(id => {
 const stagingForkSlots = STAGING_SPOTS.map((spot, i) => slot(`staging:${i}`, 'fork', p(FORK_AISLE_X, spot[2]), p(STAGING_X + FORK_REACH, spot[2]), -HALF, 'operated', ['forklift']));
 const stagingReachSlots = STAGING_SPOTS.map((spot, i) => slot(`staging:${i}`, 'reach', p(REACH_AISLE_X, spot[2]), p(STAGING_X - REACH_REACH, spot[2]), HALF, 'operated', ['reach-truck']));
 const dockSlots = (['D1', 'D2'] as const).map(id => slot(`dock:${id}`, 'unload', p(20.3, DOCK_Z[id]), p(dockMouth(id)[0] - FORK_REACH, DOCK_Z[id]), HALF, 'operated', ['forklift']));
-const replenishDrops = FACES.map(id => slot(`replen:${id}`, 'drop', p(PICK_FACES[id].x, -7.9), p(PICK_FACES[id].x, replenishSpot(id)[2] - REACH_REACH), 0, 'operated', ['reach-truck']));
+const replenishDrops = FACES.map(id => slot(`replen:${id}`, 'drop', p(PICK_FACES[id].x, AISLE_RETURN_Z), p(PICK_FACES[id].x, replenishSpot(id)[2] - REACH_REACH), 0, 'operated', ['reach-truck']));
 const stackSlot = slot('pallet-stack', 'drop', p(PALLET_STACK[0], -8.1), p(PALLET_STACK[0], PALLET_STACK[2] - REACH_REACH), 0, 'operated', ['reach-truck']);
-/** Staff work the back of each pick face: take a carton from the pallet, fill the lane, or take one for the shop. */
+/** Staff work the back of each pick face: take a carton from the pallet a step behind it, fill the lane, or take one for the shop. */
 const backSpots = FACES.flatMap(id => { const x = PICK_FACES[id].x; return [[id, 'take', x - .35, BACK], [id, 'fill', x + .35, 0], [id, 'shop', x + .75, 0]] as const; });
-const backSlots = backSpots.map(([id, name, x, heading]) => { const at = p(x, BACK_Z); return slot(`replen:${id}`, name, at, at, heading, name === 'take' ? 'picking' : 'placing', ['staff']); });
+const backSlots = backSpots.map(([id, name, x, heading]) => { const at = p(x, name === 'take' ? TAKE_Z : BACK_Z); return slot(`replen:${id}`, name, at, at, heading, name === 'take' ? 'picking' : 'placing', ['staff']); });
 const pickStops = [...pickSlots.filter(value => value.group === 'pick')].sort((a, b) => a.approach[0] - b.approach[0]).map(value => ({ ...value, position: value.approach, yaw: HALF, pose: 'picking', agents: ['picker'] }));
 /** The picker stops with the cart right beside the belt and slides the tote across. */
 const inductSlot: ResolvedSlot = { id: 'induct', nodeId: 'induct', name: 'drop', group: 'drop', pose: 'placing', agents: ['picker'], approach: p(INDUCT_X, INDUCT_Z), position: p(INDUCT_X, INDUCT_Z), yaw: HALF };
@@ -201,13 +228,21 @@ const benchSlots = (Object.entries(PACK_X) as [PackStationId, number][]).flatMap
 const cageSlots = Object.entries(CAGE_X).flatMap(([id, x]) => catalogSlots({ id: `cage:${id}`, asset: 'roll-cage', position: p(x, CAGE_Z) }, ['staff']));
 const loadSlot = slot('dock:D3', 'load', p(20.8, DOCK_Z.D3), p(21.2, DOCK_Z.D3), HALF, 'pushing', ['staff']);
 const handoverSlot = slot('collect:counter', 'handover', p(GAP_WEST_X - .3, STAFF_ROW_Z), p(COLLECT[0] + 1.6, .45), -HALF, 'placing', ['staff']);
+/** The outlets' cages, and where the dispatcher stands to unload one at its outlet: a step behind the cage, pushing it. */
+const outletCageSlots = Object.entries(OUTLET_CAGE_X).flatMap(([id, x]) => catalogSlots({ id: `cage:${id}`, asset: 'roll-cage', position: p(x, OUTLET_CAGE_Z) }, ['staff']));
+const pushedFrom = ({ position: [x, y, z], yaw: heading }: { position: Vec3; yaw: number }): Vec3 => [x - Math.sin(heading) * .75, y, z - Math.cos(heading) * .75];
+const OUTLET_NODES = { counter: 'collect:counter', lockers: 'collect:lockers', bike: 'courier-bike' } as const;
+const outletDropSlots = (Object.keys(OUTLET_DROPS) as (keyof typeof OUTLET_DROPS)[]).map(id => slot(OUTLET_NODES[id], 'drop', pushedFrom(OUTLET_DROPS[id]), pushedFrom(OUTLET_DROPS[id]), OUTLET_DROPS[id].yaw, 'pushing', ['staff']));
+const lockerSlots = catalogSlots({ id: 'collect:lockers', asset: 'parcel-locker', position: LOCKERS_AT }, ['shopper']);
 const browseSlots = GONDOLAS.flatMap(item => catalogSlots({ id: item.id, asset: 'store-shelving', position: item.position }, ['shopper'], 'picking'));
 const fillSlots = GONDOLAS.map(item => slot(item.id, 'fill', p(item.position[0] + .7, item.position[2] + 1.25), p(item.position[0] + .7, item.position[2] + .75), BACK, 'placing', ['staff']));
+/** Shoppers take a cart from the corral and return it there, standing at its handles. */
+const corralSlot = slot('carts', 'corral', p(-18.85, 3.55), p(-18.85, 3.55), 0, 'placing', ['shopper']);
 const checkoutSlots = (Object.entries(CHECKOUT_X) as [CheckoutId, number][]).flatMap(([id, x]) => catalogSlots({ id: `checkout:${id}`, asset: 'checkout-counter', position: p(x, CHECKOUT_Z), rotation: yaw(BACK) }, ['shopper']).filter(value => value.group === 'customer'));
 const collectSlot = catalogSlots({ id: 'collect:counter', asset: 'click-collect-counter', position: COLLECT }, ['shopper']).filter(value => value.group === 'customer');
 
 /** Every interaction slot of the live site. */
-export const ecommerceSlots: readonly ResolvedSlot[] = [...rackSlots, ...stagingForkSlots, ...stagingReachSlots, ...dockSlots, ...replenishDrops, stackSlot, ...backSlots, ...pickStops, inductSlot, dischargeSlot, ...robotWallSlots, ...sorterSlots, ...packerWallSlots, ...benchSlots, ...cageSlots, loadSlot, handoverSlot, ...browseSlots, ...fillSlots, ...checkoutSlots, ...collectSlot];
+export const ecommerceSlots: readonly ResolvedSlot[] = [...rackSlots, ...stagingForkSlots, ...stagingReachSlots, ...dockSlots, ...replenishDrops, stackSlot, ...backSlots, ...pickStops, inductSlot, dischargeSlot, ...robotWallSlots, ...sorterSlots, ...packerWallSlots, ...benchSlots, ...cageSlots, loadSlot, handoverSlot, ...outletCageSlots, ...outletDropSlots, ...lockerSlots, ...browseSlots, ...fillSlots, ...checkoutSlots, ...collectSlot, corralSlot];
 const stops = (slots: readonly ResolvedSlot[]): NavPoint[] => slots.map(value => ({ id: value.id, position: value.approach }));
 const byX = (ids: readonly (readonly [string, number])[]) => [...ids].sort((a, b) => a[1] - b[1]).map(([id]) => id);
 
@@ -239,7 +274,7 @@ export const warehouseNavigation = createNavGraph({
     { id: 'pack-row-east', position: p(14.4, BENCH_ROW_Z) }, { id: 'wall-row-east', position: p(14.4, WALL_ROW_Z) }, { id: 'cage-row-west', position: p(14.4, CAGE_ROW_Z) }, { id: 'cage-row-east', position: p(19.2, CAGE_ROW_Z) },
     { id: 'pack-row-west', position: p(3.4, BENCH_ROW_Z) }, { id: 'staff-west', position: p(3.4, STAFF_ROW_Z) }, { id: 'gap-east', position: p(GAP_EAST_X, STAFF_ROW_Z) }, { id: 'back-west', position: p(GAP_EAST_X, BACK_Z) }, { id: 'shop-south-east', position: p(GAP_WEST_X, SHOP_SOUTH_Z) },
     // Shoppers: street, door, the cross aisle, checkout queues and the way out in front of the lanes.
-    { id: 'street', position: [8, WALK_Y, STREET_Z] }, { id: 'door-out', position: [CROSS_X, WALK_Y, STREET_Z] }, { id: 'door-in', position: p(CROSS_X, DOOR_Z) }, { id: 'collect-front', position: p(-13.6, DOOR_Z) }, { id: 'cross-south', position: p(CROSS_X, SHOP_SOUTH_Z) },
+    { id: 'street', position: [8, WALK_Y, STREET_Z] }, { id: 'door-out', position: [CROSS_X, WALK_Y, STREET_Z] }, { id: 'kerb-west', position: [CROSS_X - .3, WALK_Y, 7.15] }, { id: 'door-in', position: p(CROSS_X, DOOR_Z) }, { id: 'collect-front', position: p(-13.6, DOOR_Z) }, { id: 'cross-south', position: p(CROSS_X, SHOP_SOUTH_Z) },
     ...GONDOLA_Z.map((z, row) => ({ id: `cross:${row}`, position: p(CROSS_X, z + 1.25) })),
     ...(Object.entries(CHECKOUT_X) as [CheckoutId, number][]).flatMap(([id, x]) => [
       { id: `row:${id}`, position: p(x, GONDOLA_Z[FRONT_GONDOLA_ROW] + 1.25) }, ...[0, 1, 2].map(k => ({ id: `queue:${id}:${k}`, position: p(x, -1.65 - k * .85) })),
@@ -260,7 +295,11 @@ export const warehouseNavigation = createNavGraph({
     ...link(['pack-row-east', 'cage-row-west', 'cage:swift-1:load', 'cage:swift-2:load', 'cage:parcelo-1:load', 'cage:parcelo-2:load', 'cage-row-east', 'dock:D3:load'], 'staff-walk'),
     ...link(['pack-row-west', 'staff-west', 'gap-east', 'collect:counter:handover', 'shop-south-east', 'cross-south'], 'staff-walk'), ...link(['gap-east', 'back-west', ...backRow], 'staff-walk'),
     ...link(['street', 'door-out', 'door-in', 'cross-south', ...GONDOLA_Z.map((_, row) => `cross:${FRONT_GONDOLA_ROW - row}`)], 'shop-floor'), ...GONDOLA_Z.flatMap((_, row) => link(shopRow(row), 'shop-floor')),
-    ...link(['door-in', 'collect-front', 'collect:counter:customer'], 'shop-floor'),
+    ...link(['door-in', 'collect-front', 'collect:counter:customer'], 'shop-floor'), ...link(['door-in', 'carts:corral'], 'shop-floor'),
+    // The outlets' cages branch off the walkway to the shop, and the lockers and the bike off the street. The detour through the
+    // cages is longer than the walkway and the rest are dead ends, so no route of the dashboard changes.
+    ...link(['staff-west', 'cage:bike-1:load', 'cage:lockers-1:load', 'cage:counter-1:load', 'gap-east'], 'staff-walk'), { from: 'gap-east', to: 'collect:counter:drop', lane: 'staff-walk' },
+    ...link(['door-out', 'kerb-west', 'collect:lockers:drop'], 'shop-floor'), { from: 'kerb-west', to: 'collect:lockers:use', lane: 'shop-floor' }, { from: 'door-out', to: 'courier-bike:drop', lane: 'shop-floor' },
     ...(Object.keys(CHECKOUT_X) as CheckoutId[]).flatMap(id => [...link([`row:${id}`, `queue:${id}:2`, `queue:${id}:1`, `queue:${id}:0`, `checkout:${id}:customer`], 'shop-floor'), ...chain([`checkout:${id}:customer`, `lane-exit:${id}`, `lane-front:${id}`], 'shop-floor')]),
     ...link(['lane-front:C1', 'lane-front:C2', 'lane-front:C3', 'door-in'], 'shop-floor'),
   ],
@@ -300,24 +339,24 @@ export interface LiveLayer {
   /** Attachment and transform of each roll cage, by cage ID: a dispatcher can push one away. */
   cages: Readonly<Record<string, Pick<AssetNode, 'position' | 'rotation' | 'attachment'>>>;
 }
-const split = (total: number) => [Math.ceil(total / 2), Math.floor(total / 2)] as const;
+/** A total spread evenly over `parts`, the first ones taking the remainder. */
+const split = (total: number, parts: number) => Array.from({ length: parts }, (_, i) => Math.floor(total / parts) + (i < total % parts ? 1 : 0));
 
 /** One scene from a snapshot and the live layer. Racks stay at count 0: their pallets are real units among `movers`. */
 export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): SceneNode[] {
   const nodes: SceneNode[] = [...ecommerceBase, ...live.movers];
 
-  // Zone labels sit behind a zone's back edge, which lands inside the neighbouring area for most zones,
-  // so each area is named by a status pin standing in a free spot inside it instead.
+  // Each process area is a zone on the floor; the scene shows no area signs, and the HTML panels name the areas. A click on the
+  // floor selects nothing: the Areas panel selects an area and shows its detail.
   for (const value of AREAS) {
-    const [x0, x1, z0, z1] = value.rect, status = areaStatus(snapshot, value.id), state = status.state === 'busy' ? undefined : status.state;
-    nodes.push({ id: `area:${value.id}`, entityId: value.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, 0, (z0 + z1) / 2], color: value.color, selectable: true, interior: true });
-    nodes.push({ id: `pin:${value.id}`, entityId: value.id, kind: 'asset', asset: 'map-pin', position: AREA_PINS[value.id], color: value.site === 'Shop' ? '#2f6f8f' : '#3f8a6d', state, label: value.label, labelMode: 'always', selectable: true });
+    const [x0, x1, z0, z1] = value.rect;
+    nodes.push({ id: `area:${value.id}`, entityId: value.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, 0, (z0 + z1) / 2], color: value.color, selectable: false, interior: true });
   }
 
   // Shop floor: gondolas show stocked facings; shoppers are live agents.
   for (const gondola of GONDOLAS) {
     const label = DEPARTMENTS.find(item => item.id === gondola.department)!.label;
-    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department))[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
+    nodes.push(selectable(gondola.id, gondola.department, 'store-shelving', gondola.position, `${label} · gondola ${gondola.index + 1}`, { count: split(departmentFacings(snapshot, gondola.department), DEPARTMENTS.find(item => item.id === gondola.department)!.gondolas)[gondola.index], state: departmentLow(snapshot, gondola.department) ? 'warning' : undefined, options: { goods: gondola.department, surfaceLabel: { kind: 'text', text: label.toUpperCase(), color: '#ffffff', background: '#2f6f8f' } } }));
   }
 
   // Checkouts face the shop floor; the queue forms toward it.
@@ -328,16 +367,17 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
   }
 
   // Click & collect: one parcel per ready order on the counter, lockers and the returns box on the sidewalk.
-  const ready = ordersIn(snapshot, 'collect').length;
+  const ready = heldAt(snapshot, 'counter').length;
   nodes.push(
     selectable('collect:counter', 'collect', 'click-collect-counter', COLLECT, `Click & collect · ${ready} ready`, { count: Math.min(COLLECT_CAPACITY, ready), state: snapshot.shopOpen ? ready ? 'busy' : 'normal' : 'inactive', options: { surfaceLabel: { kind: 'text', text: 'CLICK & COLLECT', color: '#ffffff', background: '#b0603a' } } }),
-    selectable('collect:lockers', 'lockers', 'parcel-locker', [-19.5, WALK_Y, 6.25], `Parcel lockers · ${snapshot.shop.lockers} occupied`, { count: snapshot.shop.lockers, options: { surfaceLabel: { kind: 'text', text: 'PARCEL LOCKERS', color: '#ffffff', background: '#b0603a' } } }),
+    selectable('collect:lockers', 'lockers', 'parcel-locker', LOCKERS_AT, `Parcel lockers · ${snapshot.shop.lockers} occupied`, { count: snapshot.shop.lockers, options: { surfaceLabel: { kind: 'text', text: 'PARCEL LOCKERS', color: '#ffffff', background: '#b0603a' } } }),
     selectable('returns:dropbox', 'dropbox', 'returns-drop-box', [-16.6, WALK_Y, 6.2], 'Returns drop box', { options: { surfaceLabel: { kind: 'text', text: 'RETURNS', color: '#ffffff', background: '#9b4d5c' } } }),
   );
   if (snapshot.shopOpen) {
     nodes.push(person('collect:staff', p(COLLECT[0] + .6, COLLECT[2] - .55), 0, 'working', SHOP_STAFF, 'Click & collect desk'));
     nodes.push(person('security', p(-14.2, 4.3), BACK, 'idle', '#36455f', 'Security', { asset: 'security-guard' }));
-    nodes.push(fixture('courier-bike', 'cargo-bike', [-23.2, 0, 7.6], { rotation: yaw(HALF) }));
+    // With the sales channels the bike is an outlet that rides its rounds, a live node of the simulation.
+    if (!snapshot.bike) nodes.push(fixture('courier-bike', 'cargo-bike', [-23.2, 0, 7.6], { rotation: yaw(HALF), variant: 'operated' }));
   }
 
   // Reserve storage and forward picking.
@@ -371,6 +411,11 @@ export function ecommerceNodes(snapshot: EcommerceSnapshot, live: LiveLayer): Sc
     const id = value.cages[i];
     nodes.push(selectable(`cage:${id}`, value.id, 'roll-cage', p(CAGE_X[id], CAGE_Z), `${value.name} cage ${i + 1} · ${count} parcels`, { count, state: count ? undefined : 'inactive', ...live.cages[id], transfer: { seconds: .35, arc: 0 } }));
   });
+  // The outlets' cages exist only with the sales channels, when the live layer places them.
+  for (const value of OUTLETS) if (live.cages[value.cage]) {
+    const count = stagedAt(snapshot, value.id).length;
+    nodes.push(selectable(`cage:${value.cage}`, value.id, 'roll-cage', cageAt(value.cage), `${value.label} cage · ${count} parcels`, { count: Math.min(CAGE_CAPACITY, count), state: count ? undefined : 'inactive', ...live.cages[value.cage], transfer: { seconds: .35, arc: 0 } }));
+  }
   const freight = stagedFor(snapshot, 'freight').length > 0, wrapping = freight && snapshot.crew.dispatch > 0;
   nodes.push(selectable('wrapper', 'freight', 'stretch-wrapper', p(19.6, 3.4), freight ? 'Stretch wrapper · NordFreight pallet' : 'Stretch wrapper', { variant: wrapping ? 'wrapping' : 'empty', state: freight ? undefined : 'inactive' }));
   // The wrapping variant brings its own load; only an unstaffed wrapper shows the pallet waiting on its table.
@@ -402,8 +447,12 @@ export const DEFAULT_ZOOM = .95;
 /** Scene node that shows where an order is: its put wall, bench, roll cage or counter, else its area. */
 export function orderNodeId(snapshot: EcommerceSnapshot, order: Order): string {
   if (order.at === 'wrapper') return 'wrapper';
+  if (order.at === 'bike') return 'courier-bike';
   if (order.at) return `${order.at.startsWith('P') ? 'putwall' : 'pack'}:${order.at}`;
-  if (order.stage === 'collect') return 'collect:counter';
+  const outlet = orderOutlet(order);
+  if (order.stage === 'collect') return outlet === 'lockers' ? 'collect:lockers' : 'collect:counter';
+  // An order that names its outlet was packed into that outlet's cage (the sales channels).
+  if (order.stage === 'staged' && order.outlet) return `cage:${OUTLETS.find(item => item.id === order.outlet)!.cage}`;
   if (order.stage === 'staged' && order.carrier) {
     const cages = CARRIERS.find(item => item.id === order.carrier)!.cages, index = stagedFor(snapshot, order.carrier).indexOf(order);
     if (cages.length) return `cage:${cages[Math.min(cages.length - 1, Math.floor(index / CAGE_CAPACITY))]}`;

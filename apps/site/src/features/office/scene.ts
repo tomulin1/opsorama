@@ -68,7 +68,8 @@ export const officeBase: readonly SceneNode[] = closeWallJoints([
   floor('floor:kitchen', [0, 9, -11, -5], 'tiles'),
   floor('floor:reception', [9, 18, -11, -5], 'wood'),
   // Back and side walls frame the cutaway; the camera side stays open.
-  ...[-16, -12, -8, -4, 0, 4, 8, 12, 16].map((x, i) => wall(`wall-back-${i}`, x, -11.1, x === 4 ? 'solid' : 'window')),
+  // Behind reception (x 12 and 16) the back wall is solid for the neon sign.
+  ...[-16, -12, -8, -4, 0, 4, 8, 12, 16].map((x, i) => wall(`wall-back-${i}`, x, -11.1, x === 4 || x === 12 || x === 16 ? 'solid' : 'window')),
   ...[-9, -5, -1, 3].map((z, i) => wall(`wall-west-${i}`, -18.1, z, 'window', { rotation: yaw(HALF) })),
   wall('wall-west-4', -18.1, 6, 'solid', { rotation: yaw(HALF), scale: [.5, 1, 1] }),
   wall('wall-east-0', 18.1, -9, 'door', { rotation: yaw(HALF) }),
@@ -82,6 +83,9 @@ export const officeBase: readonly SceneNode[] = closeWallJoints([
   // Kitchen and reception.
   fixture('kitchen:waste', 'waste-bin', p(.6, -10.4), { variant: 'recycling', scale: [.8, .8, .8] }),
   fixture('reception:welcome', 'information-board', p(10.6, -10.5), { options: { surfaceLabel: { kind: 'text', layout: 'multiline', text: 'WELCOME TO\nFERNHILL\nSTUDIO\n\nCheck in at\nthe tablet', color: '#eef4f8' } } }),
+  // The neon Opsorama sign on the reception wall, an unlit image so it glows in every light (scripts/render-neon-logo.mjs);
+  // the camera sees the wall at a slant, so anisotropic filtering keeps it sharp.
+  { id: 'reception:sign', kind: 'image', src: '/brand/opsorama-neon.webp', size: [3.6, .96], position: [14, 1.3, -11], anisotropy: 8, selectable: false },
   benchNode,
   ...([[-17.3, -10.3], [.5, -5.6], [8.5, -10.3], [17.3, -6], [-17.3, 6.3], [-10, 6.3], [-2, 6.3], [6, 6.3], [14, 6.3], [17.3, 6.3]] as const).map(([x, z], i) => fixture(`plant-${i}`, 'potted-plant', p(x, z))),
 ]);

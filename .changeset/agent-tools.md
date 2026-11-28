@@ -1,6 +1,0 @@
----
-"@opsorama/cli": minor
-"@opsorama/objects": minor
----
-
-Add agent tools to the `opsorama` command, so a coding agent in a project that installs the packages has the catalog, the documentation and the skill of the installed version without the repository or network access. `opsorama catalog search <words>` finds models by asset name, display name, kit, category or purpose, best match first, with their kit import (`--kit`, `--limit`). `opsorama catalog show <asset>` prints one model's size, node fields and options, anchors, interaction slots, palette roles, states, motion, limits and a minimal node that passes `opsorama check`, and an unknown name gets the closest catalog name. `opsorama docs` lists the documentation pages and `opsorama docs <topic>` prints one as Markdown; the pages ship in the package. `opsorama skill` installs the agent skill into `.claude/skills/opsorama/SKILL.md` (`--dir`, `--print`), and a later run replaces a copy nobody edited and asks for `--force` before replacing local edits. Every command takes `--json`. New exports: `searchCatalog`, `describeAsset`, `catalogEntries`, `formatEntries`, `formatAsset`, `docTopics`, `findDocTopic`, `formatTopics`, `installSkill` and `skillText`. `@opsorama/objects` exports `catalogKitAssets`, the asset names of each kit, for tools that look models up without loading their kits.

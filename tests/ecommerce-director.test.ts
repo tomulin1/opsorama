@@ -5,15 +5,16 @@ import { automaticDirector, createEcommerceSimulation, type EcommerceDirector, t
 
 const CHECKPOINTS = [0, 120, 600, 1200, 3000];
 /**
- * Digests of the records and scene nodes at each checkpoint of a seed-7 shift,
- * recorded from the scheduler before it became the automatic director. They
- * change only when the simulation is meant to behave differently; record new
- * ones then.
+ * Digests of the records and scene nodes at each checkpoint of a seed-7 shift. They were recorded from the scheduler before
+ * it became the automatic director, again when the shop changed to six departments of goods, again when every pick
+ * face became a carton flow rack, again when the area signs left the scene,
+ * again when S1 and S2 moved up beside F4, and again when the courier's cargo bike got its rider. They change only when the simulation is meant to
+ * behave differently; record new ones then.
  */
 const RECORDED: Readonly<Record<EcommerceScenario, readonly string[]>> = {
-  peak: ['13bde8c37e76883d', '1331e13cef224edc', 'bf6d7db026d9cdc8', 'f28c9d4342300b3c', '8b3cfb6dae8fe2c3'],
-  steady: ['98ca0d7035ab6c25', '4a7df0ae7272a39b', '2fd097f3094c8750', 'aae7c5077a55ff46', '77d99106765ae4b7'],
-  night: ['51a342b0d9172dd2', 'a7aaf18678a76064', '15d4e29a38eb38d8', 'eef3d42f40f44d27', 'f69f9918bfe859b9'],
+  peak: ['af1484aa44b448ed', '70abf14984e7e63f', '91dda90fc6bf9515', '0eed0f41bcc2c0bd', '6cd4c2bf352c87a1'],
+  steady: ['b89a1cc257fb3a95', 'e0e076803a8e4c9e', 'd2656c8daaa81337', '3d1b2831245bb90d', '34ce4c7b6552562f'],
+  night: ['d9bc6172bcb2aa12', '13bc23b874ebec7a', 'b9d88580306af582', '5aa2725296beb31b', '96654e103ba47f9d'],
 };
 function digests(simulation: EcommerceSimulation): string[] {
   return CHECKPOINTS.map(at => {
@@ -33,7 +34,7 @@ describe('e-commerce director', () => {
   it('reproduces the recorded shift with the automatic director in every scenario', () => {
     for (const scenario of Object.keys(RECORDED) as EcommerceScenario[]) {
       // A director that answers like the automatic one through its own functions takes the same decisions.
-      const echo: EcommerceDirector = { zone: person => automaticDirector.zone(person), priority: order => automaticDirector.priority(order), checkoutOpen: lane => automaticDirector.checkoutOpen(lane), unload: dock => automaticDirector.unload(dock), running: machine => automaticDirector.running(machine), shoppers: usual => automaticDirector.shoppers(usual) };
+      const echo: EcommerceDirector = { zone: person => automaticDirector.zone(person), priority: order => automaticDirector.priority(order), checkoutOpen: lane => automaticDirector.checkoutOpen(lane), unload: dock => automaticDirector.unload(dock), running: machine => automaticDirector.running(machine), shoppers: usual => automaticDirector.shoppers(usual), job: (actor, auto) => automaticDirector.job(actor, auto), depart: dock => automaticDirector.depart(dock) };
       for (const simulation of [createEcommerceSimulation(scenario), createEcommerceSimulation(scenario, 7, { director: echo })]) {
         expect(digests(simulation), scenario).toEqual(RECORDED[scenario]);
         simulation.dispose();

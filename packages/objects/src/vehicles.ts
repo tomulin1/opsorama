@@ -3,6 +3,7 @@ import type { MaterialContext } from '@opsorama/three';
 import { resolveObjectColor } from './object-palette';
 import type { AssetNode } from '@opsorama/core';
 import { anchor, block, cylinder, part, wheel } from './parts';
+import { createVehicleOperator, WORKER_SEAT_HEIGHT } from './worker';
 
 /** Rigid delivery truck in metres: length nose to tail, width of the cargo box, and the cargo interior above `floorTop`, the dock height. */
 export const TRUCK = Object.freeze({ length: 9.6, width: 2.55, height: 3.85, floorTop: 1.2, cargo: Object.freeze({ length: 7.2, width: 2.45, height: 2.6, centerZ: -1.15 }) });
@@ -97,8 +98,15 @@ function bikeWheel(group: THREE.Object3D, z: number) {
   const guard = part(group, new THREE.TorusGeometry(.34, .025, 4, 18, Math.PI * .7), '#3a4656', 'bike-mudguard'); guard.rotation.set(0, Math.PI / 2, Math.PI * .15); guard.position.set(0, .335, z);
 }
 
+/** `empty` (default) is a parked bike; `operated` seats a static rider in a high-visibility vest (scene warning role) on the saddle. */
+export type CargoBikeVariant = 'empty' | 'operated';
+/** Top of the cargo bike's saddle, where the rider's hips rest, and the saddle's position along the bike. */
+const BIKE_SEAT_TOP = 1.005, BIKE_SEAT_Z = -.42;
+
 /** Front-loader cargo bike facing +z with the cargo box between rider and front wheel. Color changes the cargo box. */
 export function createCargoBike(node: AssetNode, context?: MaterialContext): THREE.Object3D {
+  const variant = node.variant ?? 'empty';
+  if (variant !== 'empty' && variant !== 'operated') throw new Error(`Unknown cargo bike variant: ${variant}. Use empty or operated.`);
   const bike = new THREE.Group(); bike.name = 'cargo-bike';
   const frame = '#3a4656', cargo = resolveObjectColor(node, context, 'accent', '#3fa37f');
   bikeWheel(bike, -.75); bikeWheel(bike, .95);
@@ -119,6 +127,8 @@ export function createCargoBike(node: AssetNode, context?: MaterialContext): THR
   block(bike, [.56, .02, .64], [0, .79, .4], '#eaf0f8', 'bike-cargo-lid', { bevel: .008 });
   block(bike, [.16, .025, .03], [0, .805, .68], '#3a4656', 'bike-cargo-handle');
   anchor(bike, 'cargo', [0, .8, .4]);
+  // The rider sits on the saddle facing the handlebar, hips just behind the saddle's middle.
+  if (variant === 'operated') { const rider = createVehicleOperator(node.id, 'seated', { theme: context?.theme ?? 'light', palette: { ...context?.palette, ...node.materials } }); rider.position.set(0, BIKE_SEAT_TOP - WORKER_SEAT_HEIGHT, BIKE_SEAT_Z - .06); bike.add(rider); }
   return bike;
 }
 

@@ -5,7 +5,7 @@ import { renderToString as renderReact } from 'react-dom/server';
 import { createSSRApp, h } from 'vue';
 import { renderToString as renderVue } from 'vue/server-renderer';
 import { createControllerSlot, createSceneStore, isContained, isMotionNode, isNodeVisible, nodeView, setNodeView, validateParents, validateScene, type AssetNode, type GroupNode, type LineNode, type SceneNode, type SceneStore, type ShapeNode } from '@opsorama/core';
-import { applyShadowPolicy, createGlowHighlight, createInstanceBatcher, disposeObject, INSTANCING_MIN_COUNT, mergeStaticParts, previewNodes, selectionTarget } from '@opsorama/three';
+import { applyShadowPolicy, createGlowHighlight, createInstanceBatcher, disposeObject, INSTANCING_MIN_COUNT, mergeStaticParts, previewNodes, isSelectableNode, selectionTarget } from '@opsorama/three';
 import * as ReactAdapter from '@opsorama/react';
 import * as VueAdapter from '@opsorama/vue';
 import { buildNodeObject, contentBounds, LINE_DASH, lineColor, PRIMITIVE_COLORS, shapeColor, unitShapeGeometry } from '../packages/three/src/nodes';
@@ -118,6 +118,13 @@ describe('groups as containers', () => {
     expect(selectionTarget('inside', getNode)).toBeUndefined();
     expect(selectionTarget('free', getNode)).toBeUndefined();
     expect(selectionTarget('unknown', getNode)).toBeUndefined();
+  });
+
+  it('keeps a node with an entityId out of pointer selection with selectable: false', () => {
+    expect([isSelectableNode({ entityId: 'shop' }), isSelectableNode({ selectable: true }), isSelectableNode({}), isSelectableNode({ entityId: 'shop', selectable: false })]).toEqual([true, true, false, false]);
+    // A floor area with records inside a selectable group: a click passes it by and selects the group.
+    const nodes = index([{ ...group, id: 'site', entityId: 'site' }, box('floor', [4, .1, 4], { parentId: 'site', entityId: 'area:shop', selectable: false })]);
+    expect(selectionTarget('floor', id => nodes.get(id))).toBe('site');
   });
 
   it('measure their contents for the selection marker in their own coordinates', () => {

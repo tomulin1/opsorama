@@ -4,6 +4,8 @@ import { resolveObjectColor } from './object-palette';
 import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
 import { assetCountDefinitions } from './asset-counts';
 import { anchor, block, cylinder, gridWires, ITEM_TONES, part, wires } from './parts';
+import { CASE, casePart } from './parcels';
+import { goodsPart } from './goods';
 
 const FRAME = '#7f8fa6', DARK = '#273545', PAPER = '#fbfcfe';
 
@@ -59,7 +61,8 @@ export function createPickingCart(node: AssetNode, context?: MaterialContext): T
 const WALL = { columns: 4, rows: 5, width: .45, height: .36, depth: .45, base: .3 } as const;
 /**
  * Put wall for order consolidation: a 4 × 5 grid of open cubbies, put from the back (−z) and picked from the front (+z).
- * `count` fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall's identity. Color changes the frame.
+ * `count` fills 0–20 cubbies from the bottom-left; contents are decorative and share the wall's identity, two of the iconic
+ * item of `options.goods` per cubby when set. Color changes the frame.
  */
 export function createPutWall(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const wall = new THREE.Group(); wall.name = 'put-wall';
@@ -78,6 +81,7 @@ export function createPutWall(node: AssetNode, context?: MaterialContext): THREE
   for (let i = 0; i < count; i++) {
     const x = -totalWidth / 2 + (i % columns + .5) * width, y = base + Math.floor(i / columns) * height + .0125;
     const bundle = new THREE.Group(); bundle.name = `count-part-${i}`; bundle.position.set(x, y, 0); wall.add(bundle);
+    if (node.options?.goods) { for (const dx of [-.085, .085]) { const item = goodsPart(node.options.goods, [.15, .17, .22], 'putwall-item'); item.position.x = dx; bundle.add(item); } continue; }
     block(bundle, [.26, .16, .24], [-.04, .08, 0], ITEM_TONES[i % 3], 'putwall-item', { bevel: .012 });
     if (i % 2 === 0) block(bundle, [.12, .1, .18], [.11, .05, .02], ITEM_TONES[(i + 1) % 3], 'putwall-item', { bevel: .01 });
   }
@@ -85,7 +89,18 @@ export function createPutWall(node: AssetNode, context?: MaterialContext): THREE
   return wall;
 }
 
-/** Roll cage for outbound parcels, open at the front (+z); `count` fills 0–12 fixed slots, two by two per layer. Color changes the wire frame. */
+/** A count part holding one warehouse carton (the carton of a pallet) at `position`, turned by `yaw`. */
+function cartonSlot(group: THREE.Object3D, index: number, position: readonly [number, number, number], yaw = 0): void {
+  const slot = new THREE.Group(); slot.name = `count-part-${index}`; slot.position.set(...position); slot.rotation.y = yaw; group.add(slot);
+  slot.add(casePart(CASE.color, 'cage-carton'));
+}
+/** Cartons a roll cage holds: two across and two deep, four layers between its base and its top rail. */
+const ROLL_CAGE_LAYER = 4;
+
+/**
+ * Roll cage for outbound parcels, open at the front (+z). `count` fills 0–16 fixed slots with the warehouse carton of a pallet,
+ * two across and two deep per layer, four layers, as many as fit inside the frame. Color changes the wire frame.
+ */
 export function createRollCage(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const cage = new THREE.Group(); cage.name = 'roll-cage';
   const wire = resolveObjectColor(node, context, 'structure', '#8fa0b5'), mesh = { opacity: .14 };
@@ -101,10 +116,8 @@ export function createRollCage(node: AssetNode, context?: MaterialContext): THRE
   for (const x of [-.39, .39]) block(cage, [.01, 1.48, .66], [x, .92, 0], '#c3d0e0', 'cage-mesh', mesh);
   const grid: number[] = []; gridWires(grid, [0, .92, -.34], [.76, 1.48], .1, 'z'); for (const x of [-.39, .39]) gridWires(grid, [x, .92, 0], [.66, 1.48], .1, 'x');
   wires(cage, grid, wire, 'cage-wire');
-  for (let i = 0; i < count; i++) {
-    const parcel = block(cage, [.32, .28, .27], [(i % 2 - .5) * .36, .31 + Math.floor(i / 4) * .3, (Math.floor(i / 2) % 2 - .5) * .31], ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .015 });
-    parcel.rotation.y = (i % 3 - 1) * .04;
-  }
+  // The cartons stand on the base (top at 0.17 m), slightly turned as loaded by hand.
+  for (let i = 0; i < count; i++) cartonSlot(cage, i, [(i % 2 - .5) * (CASE.width + .01), .17 + Math.floor(i / ROLL_CAGE_LAYER) * (CASE.height + .005), (Math.floor(i / 2) % 2 - .5) * (CASE.depth + .02)], (i % 3 - 1) * .04);
   anchor(cage, 'front', [0, 0, .55]);
   return cage;
 }
@@ -229,7 +242,7 @@ export function createCarrierPickupPoint(node: AssetNode, context?: MaterialCont
   return point;
 }
 
-/** Wire hold cage for blocked work, 2 × 1.6 m with a door at the front right (+z); `count` fills 0–8 fixed item slots. Color changes the frame. */
+/** Wire hold cage for blocked work, 2 × 1.6 m with a door at the front right (+z); `count` fills 0–8 fixed slots with the warehouse carton of a pallet. Color changes the frame. */
 export function createHoldCage(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const cage = new THREE.Group(); cage.name = 'hold-cage';
   const frame = resolveObjectColor(node, context, 'accent', '#e0a33a'), mesh = { opacity: .12 };
@@ -252,7 +265,8 @@ export function createHoldCage(node: AssetNode, context?: MaterialContext): THRE
   block(cage, [.07, .07, .03], [.9, .98, .865], '#d6b25a', 'hold-padlock', { bevel: .01, metalness: .4, roughness: .35 });
   block(cage, [.4, .25, .02], [.5, 1.5, .84], frame, 'hold-sign');
   block(cage, [.34, .19, .01], [.5, 1.5, .852], PAPER, 'hold-sign-panel');
-  for (let i = 0; i < count; i++) block(cage, [.5, .4, .45], [(i % 2 - .5) * .6, .22 + Math.floor(i / 4) * .42, (Math.floor(i / 2) % 2 - .5) * .6], ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .02 });
+  // Held cartons stand on the floor (top at 0.02 m) in two stacks of two layers.
+  for (let i = 0; i < count; i++) cartonSlot(cage, i, [(i % 2 - .5) * .6, .02 + Math.floor(i / 4) * (CASE.height + .005), (Math.floor(i / 2) % 2 - .5) * .6]);
   anchor(cage, 'door', [.5, 0, .85]);
   return cage;
 }

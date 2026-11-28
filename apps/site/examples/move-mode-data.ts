@@ -88,7 +88,14 @@ export function createMoveModeSession(): MoveModeSession {
     store, handling, mode,
     getLog: () => log,
     subscribeLog(listener) { logListeners.add(listener); return () => { logListeners.delete(listener); }; },
-    connect(renderer) { disconnect?.(); disconnect = bindMoveMode(renderer, mode); },
+    connect(renderer) {
+      disconnect?.();
+      // Units that can move are tinted until one is chosen; then a ghost of it stands at each place it fits.
+      const unbind = bindMoveMode(renderer, mode), tint = () => renderer.setHighlights(mode.getSnapshot().unit === null ? moveModeUnits.map(entry => ({ node: entry.id })) : null);
+      tint();
+      const stopTint = mode.subscribe(tint);
+      disconnect = () => { stopTint(); unbind(); renderer.setHighlights(null); };
+    },
     dispose() { disconnect?.(); stopSelection(); mode.dispose(); store.dispose(); },
   };
 }

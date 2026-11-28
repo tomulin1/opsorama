@@ -1,6 +1,6 @@
 'use client';
 import { createElement, type ReactNode } from 'react';
-import { dataPanel, metricCard, statusBadge, fieldList, entityInspector, processTracker, resourceList, valueMeter, capacityCard, activityFeed, zoomControl, type PanelNode, type DataPanelProps, type MetricCardProps, type StatusBadgeProps, type FieldListProps, type EntityInspectorProps, type ProcessTrackerProps, type ResourceListProps, type ValueMeterProps, type CapacityCardProps, type ActivityFeedProps, type ZoomControlProps } from '@opsorama/ui';
+import { dataPanel, metricCard, statusBadge, fieldList, entityInspector, processTracker, resourceList, valueMeter, capacityCard, activityFeed, zoomControl, actionRing, type ActionRingProps, type PanelNode, type DataPanelProps, type MetricCardProps, type StatusBadgeProps, type FieldListProps, type EntityInspectorProps, type ProcessTrackerProps, type ResourceListProps, type ValueMeterProps, type CapacityCardProps, type ActivityFeedProps, type ZoomControlProps } from '@opsorama/ui';
 export type * from '@opsorama/ui';
 
 function render(node: PanelNode<ReactNode>): ReactNode {
@@ -19,3 +19,5 @@ export function ValueMeter(props: ValueMeterProps) { return render(valueMeter<Re
 export function CapacityCard(props: CapacityCardProps<ReactNode>) { return render(capacityCard(props)); }
 export function ActivityFeed(props: ActivityFeedProps<ReactNode>) { return render(activityFeed(props)); }
 export function ZoomControl(props: ZoomControlProps<ReactNode>) { return render(zoomControl(props)); }
+/** Command pills in an arc over a name pill; place it over a node with `NodeHtml`. See `actionRing` in @opsorama/ui. */
+export function ActionRing(props: ActionRingProps<ReactNode>) { return render(actionRing(props)); }

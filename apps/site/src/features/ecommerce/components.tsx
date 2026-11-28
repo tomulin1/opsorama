@@ -1,11 +1,11 @@
 'use client';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, PackageOpen, ShoppingBag, ShoppingCart, Store, Truck, Warehouse } from 'lucide-react';
-import { ActivityFeed, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
-import { HUD_STATE_TONE, HudDockStatus, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
+import { AlertTriangle, Boxes, ClipboardList, Clock3, Layers3, PackageCheck, PackageOpen, ShoppingBag, ShoppingCart, Store, Truck, Warehouse, X } from 'lucide-react';
+import { ActivityFeed, DataPanel, FieldList, ProcessTracker, ResourceList, StatusBadge, ValueMeter, type MetricAction } from '@opsorama/react/ui';
+import { HUD_STATE_TONE, HudDockStatus, HudNodePreview, HudObjectLabel, HudObjectThumbnail, type HudMetric } from '../example-hud';
 import {
-  AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, FACINGS_PER_GONDOLA, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
+  AREAS, CAGE_CAPACITY, CARRIERS, CHANNEL_LABELS, COLLECT_CAPACITY, DEPARTMENTS, departmentCapacity, HOLD_CAPACITY, LOCATIONS, LOCATION_UNITS, LOCKER_CAPACITY, ORDER_STAGES, PUT_WALL_CAPACITY, SKUS, STAGING_CAPACITY,
   alertStatus, alertsAt, area, areaStatus, cageCounts, carrier, cutoffRisk, departmentFacings, departmentLow, ecommerceMetrics, location, locationState, minutesOf, orderArea, ordersIn, shoppers, stage, stagedFor,
   type AreaId, type CarrierId, type CheckoutId, type DepartmentId, type Dock, type DockId, type EcommerceSnapshot, type LocationId, type Order, type OrderStage, type PackStationId, type PutWallId, type UnitRecord,
 } from './model';
@@ -158,7 +158,7 @@ function StockMini({ snapshot, kinds }: { snapshot: EcommerceSnapshot; kinds: re
   return <ul className="ec-mini">{LOCATIONS.filter(item => kinds.includes(item.kind)).map(item => <li key={item.id}><strong>{item.id}</strong><span>{item.family}</span><span>{snapshot.occupancy[item.id]} / {item.capacity}</span></li>)}</ul>;
 }
 function DepartmentList({ snapshot }: { snapshot: EcommerceSnapshot }) {
-  return <ul className="ec-mini">{DEPARTMENTS.map(item => <li key={item.id} data-low={departmentLow(snapshot, item.id) || undefined}><strong>{item.label}</strong><span>{departmentLow(snapshot, item.id) ? 'Shelf gaps' : 'Stocked'}</span><span>{departmentFacings(snapshot, item.id)} / {FACINGS_PER_GONDOLA * 2}</span></li>)}</ul>;
+  return <ul className="ec-mini">{DEPARTMENTS.map(item => <li key={item.id} data-low={departmentLow(snapshot, item.id) || undefined}><strong>{item.label}</strong><span>{departmentLow(snapshot, item.id) ? 'Shelf gaps' : 'Stocked'}</span><span>{departmentFacings(snapshot, item.id)} / {departmentCapacity(item.id)}</span></li>)}</ul>;
 }
 
 export function LocationInspector({ id, snapshot }: { id: LocationId; snapshot: EcommerceSnapshot }) {
@@ -250,20 +250,20 @@ export function AgentInspector({ id, snapshot }: { id: string; snapshot: Ecommer
   </Inspector>;
 }
 
-const DEPARTMENT_SKUS: Readonly<Record<DepartmentId, string>> = { garden: 'OUT', bath: 'HOM', party: 'GFT', audio: 'TEC', kitchen: 'KIT', home: 'HOM', outdoor: 'OUT', toys: 'TOY', tech: 'TEC', gifts: 'GFT' };
+const DEPARTMENT_SKUS: Readonly<Record<DepartmentId, string>> = { kitchen: 'KIT', home: 'HOM', outdoor: 'OUT', toys: 'TOY', tech: 'TEC', sport: 'SPO' };
 export function DepartmentInspector({ id, snapshot, onInspect }: { id: DepartmentId; snapshot: EcommerceSnapshot; onInspect: Inspect }) {
   const value = DEPARTMENTS.find(item => item.id === id)!, facings = departmentFacings(snapshot, id), low = departmentLow(snapshot, id);
   const prefix = DEPARTMENT_SKUS[id], transfers = snapshot.orders.filter(order => order.channel === 'store' && order.lines.some(item => item.sku.startsWith(prefix)));
   const alerts = snapshot.alerts.filter(alert => alert.sku.startsWith(prefix));
   return <Inspector label="Department inspector" eyebrow="SHOP FLOOR / DEPARTMENT" title={value.label} icon={<Store size={19} aria-hidden="true" />} badge={<StatusBadge label={low ? 'Shelf gaps' : 'Stocked'} tone={low ? 'warning' : 'success'} />} note="Facings are stocked product fronts on the two gondolas, from the shop's shelf scan.">
-    <ValueMeter label="Stocked facings" value={facings} max={FACINGS_PER_GONDOLA * 2} tone={low ? 'warning' : 'info'} />
+    <ValueMeter label="Stocked facings" value={facings} max={departmentCapacity(id)} tone={low ? 'warning' : 'info'} />
     {alerts.length > 0 && <p className="ec-alert-text">The warehouse is also short: {alerts.map(alert => `${alert.sku} (${alert.onHand} on hand)`).join(', ')}.</p>}
     <h3>Transfers from the warehouse</h3><OrderButtons orders={transfers} onInspect={onInspect} empty="No shop transfer in progress." />
   </Inspector>;
 }
 
 export function EmptyInspector() {
-  return <div className="ec-inspector"><div className="ec-eyebrow">INSPECTOR</div><h2>Select something</h2><p>Choose an area, rack, pallet, pick face, dock, put wall, packing bench, roll cage, vehicle, checkout or gondola in the scene, or open an order from the Orders panel.</p><StageLegend /></div>;
+  return <div className="ec-inspector"><div className="ec-eyebrow">INSPECTOR</div><h2>Select something</h2><p>Choose a rack, pallet, pick face, dock, put wall, packing bench, roll cage, vehicle, checkout or gondola in the scene, an area from the Areas panel, or open an order from the Orders panel.</p><StageLegend /></div>;
 }
 export function StageLegend() {
   return <div className="ec-legend" aria-label="Order stage legend">{ORDER_STAGES.map(item => <StageBadge key={item.id} value={item.id} />)}</div>;
@@ -272,7 +272,7 @@ export function StageLegend() {
 export const ECOMMERCE_CATALOG = [
   ['store-shelving', 'Store shelving'], ['checkout-counter', 'Checkout counter'], ['click-collect-counter', 'Click & collect counter'], ['parcel-locker', 'Parcel locker'], ['returns-drop-box', 'Returns drop box'],
   ['shopping-cart', 'Shopping cart'], ['hand-basket', 'Hand basket'], ['worker', 'Worker'], ['information-board', 'Information board'], ['sign', 'Sign'],
-  ['pallet-rack', 'Pallet rack'], ['reach-truck', 'Reach truck'], ['carton-flow-rack', 'Carton flow rack'], ['shelf', 'Storage shelf'], ['picking-cart', 'Picking cart'],
+  ['pallet-rack', 'Pallet rack'], ['reach-truck', 'Reach truck'], ['carton-flow-rack', 'Carton flow rack'], ['picking-cart', 'Picking cart'],
   ['conveyor', 'Conveyor'], ['tote', 'Tote'], ['mobile-robot', 'Mobile robot'], ['put-wall', 'Put wall'], ['station', 'Workstation'], ['packaging-supply', 'Packaging supply'],
   ['parcel', 'Parcel'], ['roll-cage', 'Roll cage'], ['stretch-wrapper', 'Stretch wrapper'], ['pallet', 'Pallet'], ['pallet-stack', 'Pallet stack'], ['pallet-jack', 'Pallet jack'],
   ['forklift', 'Forklift'], ['loading-dock', 'Loading dock'], ['truck', 'Delivery truck'], ['delivery-van', 'Delivery van'], ['hold-cage', 'Hold cage'], ['safety-barrier', 'Safety barrier'],
@@ -281,4 +281,43 @@ export const ECOMMERCE_CATALOG = [
 export function EcommerceLibrary() {
   return <section className="ec-library" aria-label="Catalog objects"><h3><Boxes size={15} aria-hidden="true" /> {ECOMMERCE_CATALOG.length} shared catalog objects</h3>
     <ul>{ECOMMERCE_CATALOG.map(([asset, name]) => <li key={asset}><Link href={`/docs/objects/${asset}`}>{name}</Link></li>)}</ul></section>;
+}
+
+/** The inspector for a selected node id, or for an open order, which stays in the inspector while it moves. */
+export function ecommerceInspector(snapshot: EcommerceSnapshot, selection: string | null, order: Order | undefined, { onInspectOrder, onLocate }: { onInspectOrder(id: string): void; onLocate(order: Order): void }): ReactNode {
+  const [kind, id = ''] = (selection ?? '').split(':') as [string, string | undefined];
+  const inspectOrder = onInspectOrder;
+  return order ? <OrderInspector order={order} snapshot={snapshot} onLocate={() => onLocate(order)} />
+    : kind === 'area' || kind === 'pin' ? <AreaInspector id={id as AreaId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'qa' ? <AreaInspector id="receiving" snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'rack' || kind === 'flow' || kind === 'shelf' ? <LocationInspector id={id as LocationId} snapshot={snapshot} />
+    : kind === 'dock' ? <DockInspector id={id as DockId} snapshot={snapshot} />
+    : kind === 'pack' ? <PackInspector id={id as PackStationId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'putwall' ? <PutWallInspector id={id as PutWallId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'cage' ? <CarrierInspector id={id.split('-')[0] as CarrierId} snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'wrapper' ? <CarrierInspector id="freight" snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'checkout' ? <CheckoutInspector id={id as CheckoutId} snapshot={snapshot} />
+    : kind === 'collect' ? <CollectInspector snapshot={snapshot} onInspect={inspectOrder} />
+    : kind === 'returns' ? <ReturnsInspector snapshot={snapshot} />
+    : kind === 'gondola' ? <DepartmentInspector id={id as DepartmentId} snapshot={snapshot} onInspect={inspectOrder} />
+    : selection && snapshot.units.some(unit => unit.id === selection) ? <UnitInspector id={selection} snapshot={snapshot} onInspect={inspectOrder} />
+    : selection && /^(forklift|reach-truck|replenisher|dispatcher|shelf-filler|picker|sorter)/.test(selection) ? <AgentInspector id={selection} snapshot={snapshot} />
+    : <EmptyInspector />;
+}
+
+export type EcommerceSidePanelId = 'areas' | 'inspector';
+
+/** The right-hand panel: the process areas with tasks and activity, or the inspector, with tabs between them and a close button. */
+export function EcommerceSidePanel({ snapshot, panel, selection, previewNodeId, order, areaFilter, onPanel, onSelectArea, onInspectOrder, onLocate }: {
+  snapshot: EcommerceSnapshot; panel: EcommerceSidePanelId; selection: string | null; previewNodeId: string | null; order: Order | undefined; areaFilter: AreaId | null;
+  onPanel(panel: EcommerceSidePanelId | null): void; onSelectArea(id: AreaId): void; onInspectOrder(id: string): void; onLocate(order: Order): void;
+}) {
+  const tabs = <div className="hud-side-tabs"><button type="button" aria-pressed={panel === 'areas'} onClick={() => onPanel('areas')}>Areas</button><button type="button" aria-pressed={panel === 'inspector'} onClick={() => onPanel('inspector')}>Inspector</button><button type="button" className="hud-icon-button" aria-label="Hide side panel" onClick={() => onPanel(null)}><X size={15} /></button></div>;
+  return panel === 'areas'
+    ? <DataPanel className="hud-side-panel" label="Process areas panel" density="compact" slots={{ header: tabs }} freshness={{ label: 'Simulated feed · no live connection', state: 'unknown' }}>
+      <AreaList snapshot={snapshot} selected={areaFilter} onSelect={onSelectArea} />
+      <TaskList snapshot={snapshot} />
+      <ActivityList snapshot={snapshot} />
+    </DataPanel>
+    : <DataPanel className="hud-side-panel ec-inspector-panel" label="Shop and warehouse inspector" density="compact" slots={{ header: tabs }}><HudNodePreview nodeId={previewNodeId} />{ecommerceInspector(snapshot, selection, order, { onInspectOrder, onLocate })}</DataPanel>;
 }

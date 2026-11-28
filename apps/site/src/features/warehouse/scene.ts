@@ -154,7 +154,7 @@ export const warehouseBase: readonly SceneNode[] = closeWallJoints([
   ...[0, 1, 2, 3].map(i => fixture(`waste-${i}`, 'waste-bin', g(52.2 + i * 1.3, -6), { variant: i < 2 ? 'recycling' : 'general' })),
   ...[0, 1].map(i => fixture(`waste-bales-${i}`, 'bulk-bag', g(52.6 + i * 1.3, -3.8))),
   ...[0, 1].map(i => fixture(`staff-charger-${i}`, 'ev-charger', g(-50.6, 10 + i * 2.4), { rotation: yaw(-HALF) })),
-  fixture('bike', 'cargo-bike', g(-51, 3.4), { rotation: yaw(HALF) }),
+  fixture('bike', 'cargo-bike', g(-51, 3.4), { rotation: yaw(HALF), variant: 'operated' }),
   ...[-45, -25, -5, 15, 25, 47].map((x, i) => fixture(`lamp-${i}`, 'lamp-post', g(x, 45.6), { rotation: yaw(BACK) })),
   ...[-30, -10, 10, 30].map((z, i) => fixture(`lamp-east-${i}`, 'lamp-post', g(49.6, z), { rotation: yaw(HALF) })),
   fixture('camera-yard-west', 'security-camera', g(-49, 44.8), { variant: 'pole', rotation: yaw(BACK + .6) }), fixture('camera-yard-east', 'security-camera', g(48.8, 44.8), { variant: 'pole', rotation: yaw(BACK - .6) }),
@@ -269,7 +269,7 @@ export function warehouseNodes(snapshot: WarehouseSnapshot): SceneNode[] {
   // Areas: a zone per area inside the hall and a status pin named after it.
   for (const area of AREAS) {
     const state = areaState(snapshot, area.id);
-    if (area.rect) { const [x0, x1, z0, z1] = area.rect; nodes.push({ id: `area:${area.id}`, entityId: area.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, SLAB, (z0 + z1) / 2], color: area.color, selectable: true, interior: true }); }
+    if (area.rect) { const [x0, x1, z0, z1] = area.rect; nodes.push({ id: `area:${area.id}`, entityId: area.id, kind: 'zone', size: [x1 - x0, z1 - z0], position: [(x0 + x1) / 2, SLAB, (z0 + z1) / 2], color: area.color, selectable: false, interior: true }); }
     nodes.push({ id: `pin:${area.id}`, entityId: area.id, kind: 'asset', asset: 'map-pin', position: AREA_PINS[area.id], color: '#2f6f8f', ...(state === 'normal' ? {} : { state }), label: area.short, labelMode: 'always', selectable: true });
   }
 

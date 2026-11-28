@@ -4,13 +4,14 @@ import { catalogEntries } from '../catalog-entry';
 import '../options';
 import { createOrderTicket, createPolyMailer } from '../fulfillment';
 import { createBag } from '../generic-models';
+import { createGoods } from '../goods';
 import { createTote } from '../material-handling';
 import { createPallet, createParcel, createParcelBase, validateParcelNode } from '../parcels';
 import { createHandBasket, createShoppingCart } from '../retail';
 import { createBulkBag, createDrumPallet, createIbcTank, createPalletStack } from '../warehouse';
 
 /**
- * Work items kit of the object catalog: `parcel`, `parcel-base`, `pallet`, `tote`, `bag`, `shopping-cart`, `order-ticket`, `poly-mailer`, `hand-basket`, `pallet-stack`, `ibc-tank`, `drum-pallet`, `bulk-bag`.
+ * Work items kit of the object catalog: `parcel`, `parcel-base`, `pallet`, `tote`, `bag`, `shopping-cart`, `order-ticket`, `poly-mailer`, `hand-basket`, `goods`, `pallet-stack`, `ibc-tank`, `drum-pallet`, `bulk-bag`.
  * Import it from `@opsorama/objects/work-items` and pass it to the renderer alone or merged with other kits and custom factories through `createAssetRegistry`.
  */
 export const workItemsKit: AssetRegistry = catalogEntries({
@@ -23,6 +24,7 @@ export const workItemsKit: AssetRegistry = catalogEntries({
   'order-ticket': createOrderTicket,
   'poly-mailer': createPolyMailer,
   'hand-basket': createHandBasket,
+  goods: createGoods,
   'pallet-stack': createPalletStack,
   'ibc-tank': createIbcTank,
   'drum-pallet': createDrumPallet,

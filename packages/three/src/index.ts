@@ -20,19 +20,23 @@ import { canvasPixelRatio, watchPixelRatio } from './pixel-ratio';
 import { applyLights, fogRange, lightingLook, QUALITY_PROFILES, setShadowMapSize, skyTexture } from './lighting';
 import { createInstanceBatcher } from './instancing';
 import { advanceCornerMarker, createCornerMarker, createGlowHighlight, refitCornerMarker, selectionColor, showCornerMarker, type CornerMarker } from './selection-marker';
-import { createPickTargetObject, highlightPickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
+import { createPickTargetObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget, type PickTarget, type PickTargetMarker } from './pick-targets';
+import { createNodeHighlights, type NodeHighlight } from './highlights';
 import { createMarkerElement, MARKER_STYLES } from './markers';
 import { createBuildSlice, createLoadingIndicator, DEFAULT_BUILD_BUDGET, isProgramLinking, type LoadingIndicator, type SceneLoadState } from './loading';
 import { buildNodeObject, contentBounds, createNodeTextures } from './nodes';
 import { createFrameClock, validateFrameListener, type FrameListenerOptions, type SceneFrame } from './frame-clock';
-import { createScenePointerEvent, hoverTransitions, labelClickOrigin, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
+import { createScenePointerEvent, hoverTransitions, isSelectableNode, labelClickOrigin, resolvePointerTarget, selectionTarget, type PointerInput, type ScenePointerEvent, type ScenePointerEventType } from './pointer';
 import { setupRendererPlugins, validateRendererPlugins, type PluginHost, type RendererPlugin } from './plugins';
+import { createNodeHtmlLayer, NODE_HTML_ATTRIBUTE, validateNodeHtmlOptions, type NodeHtmlHandle, type NodeHtmlOptions } from './node-html';
 export { createFrameClock, validateFrameListener, DEFAULT_MAX_FRAME_STEPS, FRAME_STEP_RANGE, MAX_FRAME_STEPS } from './frame-clock';
 export type { FrameClock, FrameClockState, FrameListenerOptions, SceneFrame } from './frame-clock';
-export { createScenePointerEvent, hoverTransitions, nearestNodeHit, nodeAncestors, resolvePointerTarget, selectionTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
+export { createScenePointerEvent, hoverTransitions, isSelectableNode, nearestNodeHit, nodeAncestors, resolvePointerTarget, selectionTarget, SCENE_POINTER_EVENT_TYPES } from './pointer';
 export type { PointerInput, ScenePointerEvent, ScenePointerEventType, ScenePointerType } from './pointer';
 export { setupRendererPlugins, validateRendererPlugins } from './plugins';
 export type { PluginHost, RendererPlugin, RendererPluginContext } from './plugins';
+export { createNodeHtmlLayer, validateNodeHtmlOptions, NODE_HTML_ALIGNS, NODE_HTML_ATTRIBUTE, NODE_HTML_TRANSLATE, NODE_HTML_Z_INDEX } from './node-html';
+export type { NodeHtmlAlign, NodeHtmlHandle, NodeHtmlLayer, NodeHtmlOptions, NodeHtmlProjector, NodeHtmlState } from './node-html';
 export { createNodePreview, previewNodes, NODE_PREVIEW_MAX_NODES, NODE_PREVIEW_SPIN } from './preview';
 export { createRendererSlot } from './renderer-slot';
 export { IMAGE_LOAD_ERROR, IMAGE_PLACEHOLDER_COLORS, TEXT_COLORS } from './nodes';
@@ -47,8 +51,10 @@ export { createInstanceBatcher, INSTANCING_MIN_COUNT, INSTANCED_BATCH_NAME } fro
 export type { InstanceBatcher, InstancingStats } from './instancing';
 export { advanceCornerMarker, createCornerMarker, createGlowHighlight, selectionColor, showCornerMarker } from './selection-marker';
 export type { CornerMarker, GlowHighlight, SelectionEmphasis } from './selection-marker';
-export { createPickTargetObject, highlightPickTarget } from './pick-targets';
-export type { PickTarget, PickTargetMarker } from './pick-targets';
+export { createPickTargetObject, disposePickTargets, highlightPickTarget, pickTargetBoxes, validatePickTarget } from './pick-targets';
+export type { GhostModel, PickGhostSource, PickTarget, PickTargetMarker } from './pick-targets';
+export { createNodeHighlights, HALO_WIDTH } from './highlights';
+export type { NodeHighlight, NodeHighlights } from './highlights';
 export { createOverlayObject } from './overlay';
 export { addObjectRelease, assetLoadsSettled, assetValidator, createAssetRegistry, disposeObject, requestAssetRebuild, shareAssetResource, trackAssetLoad } from './assets';
 export type { AssetFactory, AssetRegistry, MaterialContext } from './assets';
@@ -191,7 +197,22 @@ export interface SceneRenderer {
    * Throws an actionable error for an invalid listener or options. See `SceneFrame`.
    */
   onFrame(listener: (frame: SceneFrame) => void, options?: FrameListenerOptions): () => void;
-  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Show pickable boxes drawn over the scene, positioned once from the current anchor poses (a target whose node or anchor is missing gets no box); a click on one calls `onPick` with the target and its index instead of selecting, and the box under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. three.js also keeps a shared lookup texture for lit (standard and physical) materials, so a scene without texture nodes can report one; compare counts against a baseline. */ textures: number; /** Completed scene render calls since mount: every frame while the document is visible; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
+  /**
+   * Show a host HTML element over a node, such as a context menu, a tooltip or quick actions: the element is placed in the
+   * renderer's label layer and every drawn frame its point (the node's origin, or a named model anchor, plus `offset` in
+   * the node's local space) is projected to the screen, after node motion and the camera move, so it follows routes,
+   * controllers, carriers and the camera. `align` sets which side of the element sits on the point (default `above`). The
+   * element is hidden while the node is unknown, hidden or not built, its anchor is missing, or the point is behind the
+   * camera, and shows again when that changes, so it may be attached before its node exists. It is drawn above labels and
+   * markers, takes no part in their collision avoidance, and takes pointer input: clicks, hover and the wheel over it do
+   * not reach the scene (no selection, `onPointer` event, hover or wheel zoom). Style its content as you like; the renderer
+   * sets only `position`, `top`, `left`, `transform`, `visibility`, `pointer-events` and `z-index` inline and restores
+   * them on `remove()`. One element can be attached once at a time; attaching it again throws. `dispose()` removes every
+   * attachment. After `dispose()` it returns a handle that does nothing. Throws an actionable error for an invalid node
+   * ID, element or options.
+   */
+  attachHtml(nodeId: string, element: HTMLElement, options?: NodeHtmlOptions): NodeHtmlHandle;
+  dispose(): void; /** Current world pose, including instance/parent/rig transforms. Missing or hidden anchors return null, as do nodes not built yet during the initial load. */ getAnchor(id: string, name: string): { position: readonly [number, number, number]; rotation: readonly [number, number, number] } | null; /** Replace the debug overlay (e.g. from `navGraphOverlay`); null removes it. */ setOverlay(overlay: SceneOverlay | null): void; /** Tint nodes, e.g. everything a viewer can pick up now, with a steady shell over each model that pulses gently while motion runs; clicks on them reach the nodes as usual. Replaces the earlier list; an empty list or null clears it. */ setHighlights(highlights: readonly NodeHighlight[] | null): void; /** Show pickable targets drawn over the scene, positioned once from the current anchor poses or at world positions (a target whose node or anchor is missing is skipped): boxes, or with `ghost` translucent copies of a scene node or a model. A click on one calls `onPick` with the target and its index instead of selecting, and the target under the pointer is highlighted. Null removes them. Move mode uses it through `bindMoveMode` from `@opsorama/objects/handling`. */ setPickTargets(targets: readonly PickTarget[] | null, onPick?: (target: PickTarget, index: number) => void): void; getDiagnostics(): { objects: number; disposed: boolean; /** The initial load finished and the first frame was drawn. */ loaded: boolean; drawCalls: number; geometries: number; /** Textures on the GPU (`WebGLRenderer.info.memory.textures`). Equal text nodes and image nodes with the same `src` share one texture, released with the last of them, so the count returns to its earlier value when they are removed. three.js also keeps a shared lookup texture for lit (standard and physical) materials, so a scene without texture nodes can report one; compare counts against a baseline. */ textures: number; /** Completed scene render calls since mount: every frame while the document is visible; excludes hidden-document callbacks. */ renderedFrames: number; /** Batches of repeated meshes drawn as one `InstancedMesh` each, and the meshes they draw. */ instanceBatches: number; instances: number; /** Work counters since mount; see `RendererWork`. */ work: RendererWork }; }
 /**
  * Compile every program the scene needs before its first frame. With KHR_parallel_shader_compile the
  * driver links in the background and this resolves when every program is ready; without it, linking
@@ -252,6 +273,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   // Marker styles travel with the label layer, so a host needs no stylesheet and disposal removes them.
   const markerStyles = document.createElement('style'); markerStyles.textContent = MARKER_STYLES; labelLayer.append(markerStyles);
   container.append(renderer.domElement, labelLayer);
+  // Host HTML attached to nodes lives in the label layer and is placed after the labels each frame.
+  const nodeHtml = createNodeHtmlLayer(labelLayer);
   // Initial load: build in slices, compile shaders, then draw the first frame. Canvas and labels stay transparent (still hit-testable) until then.
   const buildBudget = options.buildBudget ?? DEFAULT_BUILD_BUDGET;
   let loadState: SceneLoadState = { phase: 'building', built: 0, total: 0 }, compileStarted = false, compiled = false, sliceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -286,7 +309,9 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     /** Label transform and visibility as last written (null: not written yet). */
     placedX: number; placedY: number; shown: boolean | null };
   const glow = createGlowHighlight(scene, mesh => mesh.visible || Boolean(instancing?.isProxy(mesh)));
-  let pickTargets: { object: THREE.Group; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
+  const isDrawnMesh = (mesh: THREE.Mesh) => mesh.visible || Boolean(instancing?.isProxy(mesh));
+  const highlights = createNodeHighlights(scene, id => entries.get(id)?.object, isDrawnMesh);
+  let pickTargets: { object: THREE.Group; owned: THREE.Object3D[]; targets: readonly PickTarget[]; onPick?: (target: PickTarget, index: number) => void } | null = null;
   const entries = new Map<string, Entry>(); let width = 1, height = 1, disposed = false, raf = 0, lastTime = 0, animationTime = 0; let hovered: string | null = null; let previousSelection: string | null = store.getSnapshot().selection?.nodeId ?? null;
   const work: Omit<RendererWork, 'nodeSignatures'> = { syncs: 0, nodeSyncs: 0, nodeUpdates: 0, nodeBuilds: 0, sceneRaycasts: 0, labelMeasures: 0, labelLayouts: 0 };
   /**
@@ -360,7 +385,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
   }
   /** Whether a click or hover can mark the node: it is selectable, and it has geometry or is a group of other nodes. */
-  const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && (entry.node.entityId || entry.node.selectable)));
+  const markable = (entry: Entry | undefined) => Boolean(entry && (entry.bounds || entry.node.kind === 'group' && isSelectableNode(entry.node)));
   /** Writes a label's `hidden` attribute and selected class when they change; a new class may change its width. */
   function setLabelState(entry: Entry, hidden: boolean, selected: boolean) {
     const label = entry.label; if (!label) return;
@@ -485,7 +510,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         // Measure before instance transforms; projected anchors below are in object-local coordinates.
         const labelHeight = node.kind === 'marker' ? 0 : typeof object.userData.labelHeight === 'number' ? object.userData.labelHeight : 1.65;
         // A group has no geometry of its own: its marker bounds are measured from its children when it is marked.
-        const measured = !error && node.kind !== 'marker' && node.kind !== 'group' && (node.entityId || node.selectable);
+        const measured = !error && node.kind !== 'marker' && node.kind !== 'group' && isSelectableNode(node);
         const bounds = measured ? new THREE.Box3().setFromObject(object) : null;
         const sameParent = JSON.stringify(entry?.node.attachment) === JSON.stringify(node.attachment) && entry?.node.parentId === node.parentId;
         const oldPosition = sameParent ? entry?.object.position.clone() : undefined, oldYaw = entry?.follower.route || entry?.controller.active ? entry.object.rotation.y : undefined;
@@ -497,8 +522,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
         object.traverse(child => { child.userData.nodeId = node.id; });
         let label: HTMLButtonElement | null = null;
         const text = typeof object.userData.labelText === 'string' ? object.userData.labelText : node.label;
-        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = Boolean(node.entityId || node.selectable); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
-        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!node.entityId && !node.selectable) { label.disabled = true; label.style.pointerEvents = 'none'; } }
+        if (node.kind === 'marker') { label = createMarkerElement(node, snapshot.settings.palette); label.dataset.nodeId = node.id; const selectable = isSelectableNode(node); label.addEventListener('click', event => labelClick(event, node.id, selectable)); labelLayer.append(label); }
+        else if (text) { label = document.createElement('button'); label.className = `kit-node-label${node.kind === 'zone' ? ' kit-zone-label' : ''}${node.state === 'warning' ? ' kit-node-warning' : ''}`; if (object.userData.labelWrap === true) label.style.cssText = 'max-width:220px;white-space:normal;overflow-wrap:anywhere;'; const content = document.createElement('span'); content.className = 'kit-node-label-text'; content.textContent = text; label.append(content); label.setAttribute('aria-label', `Select ${text}`); label.dataset.nodeId = node.id; label.addEventListener('click', event => labelClick(event, node.id, true)); labelLayer.append(label); if (!isSelectableNode(node)) { label.disabled = true; label.style.pointerEvents = 'none'; } }
         // Keep quantity/record markers above models that have their own surface artwork.
         entry = { node, object, target: new THREE.Vector3(...(node.position || [0, 0, 0])), bounds, corners: null, label, labelHeight, signature, follower: entry?.follower ?? createRouteFollower(), controller: entry?.controller ?? createControllerSlot(), moving: false, contained, indoor: contained, failed: error !== null, anchorReported: null, context: null,
           labelHidden: false, labelSelected: false, labelWidth: null, projectedX: Number.NaN, projectedY: Number.NaN, behind: false, placedX: Number.NaN, placedY: Number.NaN, shown: null, ...(transfer ? { transfer } : {}) };
@@ -570,7 +595,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
    */
   function teardown() {
     clearTimeout(sliceTimer); unsubscribe(); indicator?.dispose(); indicator = null;
-    entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); instancing?.dispose();
+    entries.forEach(cleanEntry); entries.clear(); textures.dispose(); glow.dispose(); highlights.dispose(); instancing?.dispose();
     disposeObject(grid); sun.shadow.dispose(); sky?.dispose();
     renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); labelLayer.remove();
   }
@@ -739,7 +764,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   /** Index of the pick target under the aimed ray, nearest first, or null. */
   function aimedPickTarget(): number | null {
     if (!pickTargets) return null;
-    const hit = raycaster.intersectObjects(pickTargets.object.children, false)[0];
+    const hit = raycaster.intersectObjects(pickTargetBoxes(pickTargets.object), false)[0];
     return hit ? hit.object.userData.pickTarget as number : null;
   }
   /** Index of the pick target under the pointer, nearest first, or null. */
@@ -788,6 +813,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   /** The label of a node under a DOM event target, if any. */
   const labelOf = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId : undefined;
+  /** Whether a DOM event target lies in host HTML attached with `attachHtml`; its input stays away from the scene. */
+  const inNodeHtml = (target: EventTarget | null) => target instanceof Element && target.closest(`[${NODE_HTML_ATTRIBUTE}]`) !== null;
   /** Reports a pointer event; returns false when a `click` handler called `preventSelection()`. */
   function emitPointer(type: ScenePointerEventType, target: PointerTarget, input: PointerInput): boolean {
     const handler = options.onPointer;
@@ -846,7 +873,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
     }
   }
   const onPointerButton = (type: 'down' | 'up', source: 'canvas' | 'label') => (event: PointerEvent) => {
-    if (!options.onPointer || loadState.phase !== 'loaded') return;
+    if (!options.onPointer || loadState.phase !== 'loaded' || source === 'label' && inNodeHtml(event.target)) return;
     const label = source === 'label' ? labelOf(event.target) : undefined;
     if (source === 'label' && !label) return;
     const target = pointerTargetOf(event, label);
@@ -854,6 +881,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   };
   const onPointerMove = (source: 'canvas' | 'label') => (event: PointerEvent) => {
     if (!options.onPointer || loadState.phase !== 'loaded') return;
+    // Over attached HTML the pointer has left the scene.
+    if (source === 'label' && inNodeHtml(event.target)) { onPointerLeave(event); return; }
     const label = source === 'label' ? labelOf(event.target) : undefined;
     if (source === 'label' && !label) return;
     pointerQueue.push(event, label, { report: true });
@@ -919,6 +948,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   /** A hover move over the canvas (from the gestures, only while no drag is active) or a label, resolved in the next frame. */
   const onMove = (event: PointerEvent) => {
     if (loadState.phase !== 'loaded') return;
+    if (inNodeHtml(event.target)) { leave(); return; }
     pointerQueue.push(event, labelOf(event.target), { hover: true });
   };
   const leave = () => { pointerQueue.clear(); restingPointer = null; changePeek(null); setHovered(null); };
@@ -995,6 +1025,17 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (visible !== entry.shown) { entry.shown = visible; label.style.visibility = visible ? 'visible' : 'hidden'; }
     }
   }
+  const htmlPoint = new THREE.Vector3();
+  /** Screen point of an attached element: its node or anchor, plus the offset in that local space; null while it cannot show. */
+  function projectHtml(id: string, anchor: string | undefined, offset: Vec3 | undefined): { x: number; y: number } | null {
+    const entry = entries.get(id), base = anchor ? entry?.object.getObjectByName(`anchor-${anchor}`) : entry?.object;
+    if (!entry || !base) return null;
+    if (offset) htmlPoint.set(offset[0], offset[1], offset[2]); else htmlPoint.set(0, anchor ? 0 : entry.labelHeight, 0);
+    base.localToWorld(htmlPoint); htmlPoint.project(camera);
+    // Behind the camera or outside its depth range: hidden, like a label.
+    if (Math.abs(htmlPoint.z) > 1) return null;
+    return { x: (htmlPoint.x + 1) * width / 2, y: (1 - htmlPoint.y) * height / 2 };
+  }
   function animate(time: number) {
     if (disposed) return; const dt = Math.min(.05, lastTime ? (time - lastTime) / 1000 : .016); lastTime = time; const settings = store.getSnapshot().settings;
     // Until the build finishes nothing is drawn; then shaders compile (in parallel where the browser supports it) before the first frame.
@@ -1044,8 +1085,8 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (settings.selectionStyle === 'corners') refitMarkedGroups();
       scene.updateMatrixWorld(); if (areas.length) updatePlacements();
       if (scene.fog instanceof THREE.Fog) { const range = fogRange(camera.position.distanceTo(currentTarget), shadowExtent); scene.fog.near = range.near; scene.fog.far = range.far; }
-      layoutLabels();
-      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
+      layoutLabels(); if (nodeHtml.size) nodeHtml.layout(projectHtml);
+      instancing?.update(); glow.update(time / 1000, animated && !settings.paused); if (highlights.size) highlights.update(time / 1000, animated && !settings.paused); renderer.render(scene, camera); renderedFrames++; emitCameraChange();
       if (loadState.phase !== 'loaded') {
         renderer.domElement.style.opacity = ''; labelLayer.style.opacity = ''; indicator?.dispose(); indicator = null;
         reportLoad({ ...loadState, phase: 'loaded' }); resolveLoaded();
@@ -1054,7 +1095,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
   }
   raf = requestAnimationFrame(animate);
   let overlayObject: THREE.Object3D | null = null;
-  const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposeObject(pickTargets.object); pickTargets = null; } };
+  const clearPickTargets = () => { if (pickTargets) { scene.remove(pickTargets.object); disposePickTargets(pickTargets.object); pickTargets.owned.forEach(disposeObject); pickTargets = null; } };
   const clearOverlay = () => { if (overlayObject) { scene.remove(overlayObject); disposeObject(overlayObject); overlayObject = null; } };
   // `disposing` keeps a plugin cleanup that disposes the renderer again from running the disposal twice.
   let plugins: PluginHost | null = null, disposing = false;
@@ -1091,6 +1132,11 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (!player.result) transition = move;
       return { stop: () => { if (transition === move) interruptTransition(); else player.finish('interrupted'); }, finished: player.finished };
     },
+    attachHtml: (id, element, htmlOptions) => {
+      if (!disposed) return nodeHtml.attach(id, element, htmlOptions);
+      validateNodeHtmlOptions(htmlOptions);
+      return { nodeId: id, element, update: next => validateNodeHtmlOptions(next), getState: () => ({ visible: false, x: Number.NaN, y: Number.NaN }), remove: () => undefined };
+    },
     getAnchor: (id, name) => {
       if (disposed) return null; const anchor = entries.get(id)?.object.getObjectByName(`anchor-${name}`); if (!anchor) return null;
       // Only the anchor and its ancestors need current world matrices, not the whole scene.
@@ -1103,15 +1149,33 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       if (disposed) return;
       clearPickTargets();
       if (!targets) return;
+      targets.forEach(validatePickTarget);
       scene.updateMatrixWorld(true);
+      const owned: THREE.Object3D[] = [];
+      // A ghost copies a built node's model with the nodes inside it, or a model built for it alone and released with the targets.
+      const ghostOf = (target: PickTarget, index: number): PickTargetMarker['ghost'] => {
+        if (target.ghost === undefined) return undefined;
+        if (typeof target.ghost === 'string') { const source = entries.get(target.ghost)?.object; return source ? { object: source, scale: source.getWorldScale(new THREE.Vector3()), isDrawn: isDrawnMesh } : undefined; }
+        const { scale, ...model } = target.ghost, object = build({ ...model, kind: 'asset', id: `pick-target-ghost:${index}`, position: [0, 0, 0] });
+        object.updateMatrixWorld(true); owned.push(object);
+        return { object, scale: new THREE.Vector3(...scale ?? [1, 1, 1]) };
+      };
       const markers = targets.flatMap((target, index): PickTargetMarker[] => {
+        const look = { ...(target.yaw !== undefined ? { yaw: target.yaw } : {}), ...(target.color !== undefined ? { color: target.color } : {}) };
+        if (target.node === undefined) {
+          const ghost = ghostOf(target, index);
+          return [{ index, position: new THREE.Vector3(...target.position!), quaternion: new THREE.Quaternion(), size: target.size, ...(ghost ? { ghost } : {}), ...look }];
+        }
         const entry = entries.get(target.node), anchor = target.anchor ? entry?.object.getObjectByName(`anchor-${target.anchor}`) : entry?.object;
-        return anchor ? [{ index, position: anchor.localToWorld(new THREE.Vector3(...target.offset ?? [0, 0, 0])), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size }] : [];
+        if (!anchor) return [];
+        const ghost = ghostOf(target, index);
+        return [{ index, position: anchor.localToWorld(new THREE.Vector3(...target.offset ?? [0, 0, 0])), quaternion: anchor.getWorldQuaternion(new THREE.Quaternion()), size: target.size, ...(ghost ? { ghost } : {}), ...look }];
       });
       const object = createPickTargetObject(markers);
-      pickTargets = { object, targets, ...(onPick ? { onPick } : {}) };
+      pickTargets = { object, owned, targets, ...(onPick ? { onPick } : {}) };
       scene.add(object);
     },
+    setHighlights: list => { if (!disposed) highlights.set(list ?? [], selectionColor(undefined, store.getSnapshot().settings.palette)); },
     setOverlay: overlay => { if (disposed) return; const next = overlay ? createOverlayObject(overlay) : null; clearOverlay(); if (next) { overlayObject = next; scene.add(next); } },
     loaded,
     getLoadState: () => loadState,
@@ -1141,7 +1205,7 @@ export function createSceneRenderer(container: HTMLElement, store: SceneStore, o
       container.removeEventListener('pointerleave', leave); labelLayer.removeEventListener('pointermove', onMove);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       if (peekId) { const node = store.getSnapshot().nodes.find(node => node.id === peekId); if (node?.kind === 'asset' && node.view === 'peek') setNodeView(store, peekId, 'closed'); }
-      clearOverlay(); teardown();
+      nodeHtml.clear(); clearOverlay(); teardown();
     },
   };
   if (options.plugins?.length) {

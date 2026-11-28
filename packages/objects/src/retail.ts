@@ -5,10 +5,11 @@ import type { MaterialContext } from '@opsorama/three';
 import { resolveCountRepresentation, type AssetNode } from '@opsorama/core';
 import { assetCountDefinitions } from './asset-counts';
 import { anchor, block, cylinder, gridWires, ITEM_TONES, part, wires } from './parts';
+import { goodsPart } from './goods';
 
 const MESH = { color: '#c3d0e0', opacity: .22 } as const;
 
-/** Shopping cart pushed toward +z; `count` places 0–6 decorative items in the basket. Color changes rails and frame. */
+/** Shopping cart pushed toward +z; `count` places 0–6 decorative items in the basket, the iconic item of `options.goods` when set. Color changes rails and frame. */
 export function createShoppingCart(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const cart = new THREE.Group(); cart.name = 'shopping-cart';
   const palette = objectPalette(node, context, 'structure'), frame = palette.structure;
@@ -35,7 +36,12 @@ export function createShoppingCart(node: AssetNode, context?: MaterialContext): 
   for (const x of [-.28, .28]) block(cart, [.03, .1, .03], [x, 1, -.5], frame, 'cart-rail');
   block(cart, [.66, .06, .06], [0, 1.06, -.52], palette.accent, 'cart-handle', { bevel: .02, roughness: .45 });
   block(cart, [.56, .05, .04], [0, .13, .45], '#56657a', 'cart-bumper', { bevel: .015 });
-  for (let i = 0; i < count; i++) block(cart, [.15, .22, .2], [(i % 3 - 1) * .18, .675, (Math.floor(i / 3) - .5) * .36], items?.[i]?.color ?? ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .015 });
+  const goods = node.options?.goods;
+  for (let i = 0; i < count; i++) {
+    const position = [(i % 3 - 1) * .18, .675, (Math.floor(i / 3) - .5) * .36] as const;
+    if (goods) { const item = goodsPart(goods, [.15, .22, .2], `count-part-${i}`); item.position.set(position[0], .565, position[2]); cart.add(item); }
+    else block(cart, [.15, .22, .2], position, items?.[i]?.color ?? ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .015 });
+  }
   anchor(cart, 'handle', [0, 1.06, -.52]);
   anchor(cart, 'contents', [0, .56, 0]);
   return cart;
@@ -118,7 +124,7 @@ export function createStorefront(node: AssetNode, context?: MaterialContext): TH
 
 const COUNTER = '#eef2f7', TOP = '#f2f6fb', DARK = '#273545', SCREEN = '#182f46', PAPER = '#fbfcfe';
 
-/** Hand basket with two handles; `count` places 0–4 decorative items in a fixed 2 × 2 layout. Color changes the basket. */
+/** Hand basket with two handles; `count` places 0–4 decorative items in a fixed 2 × 2 layout, the iconic item of `options.goods` when set. Color changes the basket. */
 export function createHandBasket(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const basket = new THREE.Group(); basket.name = 'hand-basket';
   const color = resolveObjectColor(node, context, 'accent', '#d65b5b');
@@ -130,7 +136,12 @@ export function createHandBasket(node: AssetNode, context?: MaterialContext): TH
   // Ventilation slots: a row of darker recesses on the long sides.
   for (const z of [-.158, .158]) for (let i = 0; i < 6; i++) block(basket, [.045, .1, .004], [-.17 + i * .068, .12, z], '#000000', 'basket-slot', { opacity: .18 });
   for (const z of [-.07, .07]) { const handle = part(basket, new THREE.TorusGeometry(.16, .014, 8, 20, Math.PI), DARK, 'basket-handle', { roughness: .45 }); handle.position.set(0, .22, z); }
-  for (let i = 0; i < count; i++) block(basket, [.16, .12, .11], [(i % 2 - .5) * .2, .08, (Math.floor(i / 2) - .5) * .13], ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .01 });
+  const goods = node.options?.goods;
+  for (let i = 0; i < count; i++) {
+    const position = [(i % 2 - .5) * .2, .08, (Math.floor(i / 2) - .5) * .13] as const;
+    if (goods) { const item = goodsPart(goods, [.16, .17, .12], `count-part-${i}`); item.position.set(position[0], .02, position[2]); basket.add(item); }
+    else block(basket, [.16, .12, .11], position, ITEM_TONES[i % 3], `count-part-${i}`, { bevel: .01 });
+  }
   return basket;
 }
 
@@ -181,7 +192,11 @@ export function createCheckoutCounter(node: AssetNode, context?: MaterialContext
 }
 
 const SHELF_LEVELS = [.15, .55, .95, 1.35] as const;
-/** Single-sided store shelf facing +z; `count` fills 0–24 product facings, six per shelf from the bottom-left. Color changes the back panel and header. */
+/**
+ * Single-sided store shelf facing +z; `count` fills 0–24 product facings, six per shelf from the bottom-left. With
+ * `options.goods`, every facing shows four of that type's iconic item, so a shelf holds one type of goods; otherwise mixed
+ * boxes and bottles. Color changes the back panel and header.
+ */
 export function createStoreShelving(node: AssetNode, context?: MaterialContext): THREE.Object3D {
   const shelf = new THREE.Group(); shelf.name = 'store-shelving';
   const accent = resolveObjectColor(node, context, 'accent', '#5a7fd6');
@@ -191,8 +206,10 @@ export function createStoreShelving(node: AssetNode, context?: MaterialContext):
   for (const x of [-1, 1]) block(shelf, [.03, 1.8, .45], [x, 1, 0], '#d6dee9', 'shelving-side');
   for (const y of SHELF_LEVELS) { block(shelf, [1.97, .025, .42], [0, y, 0], '#e4eaf2', 'shelving-shelf'); block(shelf, [1.97, .04, .01], [0, y - .01, .215], '#fbfcfe', 'shelving-price-strip'); }
   block(shelf, [2, .2, .03], [0, 1.95, .1], accent, 'shelving-header');
+  const goods = node.options?.goods;
   for (let i = 0; i < count; i++) {
     const facing = new THREE.Group(); facing.name = `count-part-${i}`; facing.position.set(-.8 + (i % 6) * .32, SHELF_LEVELS[Math.floor(i / 6)] + .0125, 0); shelf.add(facing);
+    if (goods) { for (const z of [-.1, .1]) for (const x of [-.072, .072]) { const item = goodsPart(goods, [.14, .3, .17], 'shelving-product'); item.position.set(x, 0, z); facing.add(item); } continue; }
     const tone = ITEM_TONES[(i + Math.floor(i / 6)) % 3];
     // Alternate boxed goods with pairs of bottles so facings do not read as identical crates.
     if (i % 3 === 1) for (const z of [-.1, .1]) for (const x of [-.065, .065]) { const bottle = cylinder(facing, .055, .24, .12, tone, 'shelving-product', { segments: 12, roughness: .35 }); bottle.position.set(x, .12, z); cylinder(facing, .025, .05, .265, '#56657a', 'shelving-cap', { segments: 8 }).position.set(x, .265, z); }
