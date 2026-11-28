@@ -25,7 +25,7 @@ const HOLD = 7000;
 const PHASES: readonly { query: string; delay: number; assets: readonly string[] | null }[] = [
   { query: 'floor wall', delay: 55, assets: ['floor', 'wall-segment'] },
   { query: 'desk meeting table focus pod counter', delay: 150, assets: ['desk-pod', 'meeting-table', 'focus-pod', 'dining-table', 'bar-counter', 'espresso-machine', 'host-stand', 'bench', 'whiteboard'] },
-  { query: 'plant board bin', delay: 90, assets: ['potted-plant', 'information-board', 'waste-bin'] },
+  { query: 'plant board bin', delay: 90, assets: ['potted-plant', 'information-board', 'waste-bin', 'image'] },
   { query: 'worker robot', delay: 90, assets: ['worker', 'mobile-robot'] },
   { query: 'map pin', delay: 120, assets: null },
 ];
