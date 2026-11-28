@@ -12,7 +12,7 @@ import { chromium } from '@playwright/test';
 
 const output = join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'public/brand/opsorama-neon.webp');
 /** The sign's design size in SVG units and the pixels per unit of the image. */
-const WIDTH = 360, HEIGHT = 96, SCALE = 4;
+const WIDTH = 360, HEIGHT = 96, SCALE = 6;
 const TUBE = '#7fe2ff', CORE = '#effcff', PLATE = '#142038';
 
 // The mark's three shapes from opsorama-mark.svg, drawn as tubes: a wide blurred glow under a thin bright core.
@@ -25,19 +25,19 @@ const tubes = content => `<g filter="url(#glow)">${content}</g>`;
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH * SCALE}" height="${HEIGHT * SCALE}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
   <defs>
     <filter id="glow" x="-20%" y="-40%" width="140%" height="180%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="wide" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.1" result="near" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="wide" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation=".7" result="near" />
       <feMerge><feMergeNode in="wide" /><feMergeNode in="wide" /><feMergeNode in="near" /><feMergeNode in="SourceGraphic" /></feMerge>
     </filter>
   </defs>
   <rect x="2" y="2" width="${WIDTH - 4}" height="${HEIGHT - 4}" rx="16" fill="${PLATE}" fill-opacity=".94" stroke="#2b3d5c" stroke-width="2" />
   <g transform="translate(14 4) scale(.92)" fill="none" stroke-linejoin="round" stroke-linecap="round">
-    ${tubes(MARK.map(d => `<path d="${d}" stroke="${TUBE}" stroke-width="3.4" />`).join(''))}
-    ${MARK.map(d => `<path d="${d}" stroke="${CORE}" stroke-width="1.1" />`).join('')}
+    ${tubes(MARK.map(d => `<path d="${d}" stroke="${TUBE}" stroke-width="4.6" />`).join(''))}
+    ${MARK.map(d => `<path d="${d}" stroke="${CORE}" stroke-width="2" />`).join('')}
   </g>
   <g font-family="Segoe UI, Arial, sans-serif" font-size="46" font-weight="600" letter-spacing="1" fill="none" stroke-linejoin="round">
-    ${tubes(`<text x="100" y="63" stroke="${TUBE}" stroke-width="3">Opsorama</text>`)}
-    <text x="100" y="63" stroke="${CORE}" stroke-width="1">Opsorama</text>
+    ${tubes(`<text x="100" y="63" stroke="${TUBE}" stroke-width="4.2">Opsorama</text>`)}
+    <text x="100" y="63" stroke="${CORE}" stroke-width="1.8">Opsorama</text>
   </g>
 </svg>`;
 

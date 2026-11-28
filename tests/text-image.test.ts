@@ -129,7 +129,7 @@ describe('image textures', () => {
     const releaseB = cache.acquire('/a.png', { load: texture => seen.push(texture), error: () => undefined });
     expect(loads.started).toEqual(['/a.png']); expect(seen).toEqual([]);
     loads.finish('/a.png');
-    expect(seen).toHaveLength(2); expect(seen[0]).toBe(seen[1]); expect(seen[0].colorSpace).toBe(THREE.SRGBColorSpace);
+    expect(seen).toHaveLength(2); expect(seen[0]).toBe(seen[1]); expect(seen[0].colorSpace).toBe(THREE.SRGBColorSpace); expect(seen[0].anisotropy).toBe(8);
     // A later user gets the loaded texture at once.
     const late: THREE.Texture[] = [], releaseC = cache.acquire('/a.png', { load: texture => late.push(texture), error: () => undefined });
     expect(late).toEqual([seen[0]]);
