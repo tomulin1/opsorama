@@ -146,11 +146,11 @@ function AgentLogPanel({ log }: { log: AgentLog }) {
   </section>;
 }
 
-/** The example's top panels over its scene, in the dark variant every example uses. They only show values, so a click keeps the visitor here. */
+/** The example's top panels over its scene; the game's are dark, as in the game. They only show values, so a click keeps the visitor here. */
 function SceneMetricsPanel({ metrics }: { metrics: SceneMetrics }) {
   const { metricSize } = useHudMetricSize();
   useSyncExternalStore(metrics.subscribe, metrics.version, metrics.version);
-  return <div className="hud-top landing-top" data-panel-theme="dark"><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read()} /></div>;
+  return <div className="hud-top landing-top" data-panel-theme={metrics.dark ? 'dark' : undefined}><HudMetrics label={metrics.label} size={metricSize} metrics={metrics.read()} /></div>;
 }
 
 /** Creates the scene for `id` and disposes it when another scene replaces it or the page closes. */
